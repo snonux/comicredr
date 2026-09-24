@@ -37,7 +37,9 @@ import numpy as np
 import detect_cv
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
-PANEL_CONF = 0.5
+PANEL_CONF = 0.3
+# Wider than this (width over height) and a page is a two-page spread.
+SPREAD_ASPECT = 1.2
 BALLOON_CONF = 0.4
 
 
@@ -66,8 +68,12 @@ def match(pred, gt, thr=0.5):
     return out
 
 
-def reading_order(boxes, tol=0.01):
+def reading_order(boxes, tol=0.01, aspect=1.0):
     """Western reading order by recursive XY-cut over normalised [x, y, w, h].
+
+    [aspect] is the page's width over its height. A landscape page is a
+    two-page spread: when no box crosses the spine, the left page reads
+    before the right one.
 
     Cut the set by a horizontal gutter no box crosses (rows, top to bottom);
     failing that, peel off the leftmost column by a vertical one; recurse. A
@@ -118,7 +124,13 @@ def reading_order(boxes, tol=0.01):
         out.sort(key=lambda r: min(b[1] for b in r))
         return [b for row in out for b in sorted(row, key=lambda b: b[0])]
 
-    return rec([list(b) for b in boxes])
+    boxes = [list(b) for b in boxes]
+    if aspect > SPREAD_ASPECT and boxes:
+        left = [b for b in boxes if b[0] + b[2] <= 0.5 + tol]
+        right = [b for b in boxes if b[0] >= 0.5 - tol]
+        if left and right and len(left) + len(right) == len(boxes):
+            return rec(left) + rec(right)
+    return rec(boxes)
 
 
 def gate(panels):
@@ -211,7 +223,7 @@ class Onnx:
             if kind in found and conf >= (PANEL_CONF if kind == "frame" else BALLOON_CONF):
                 found[kind][0].append([float(v) for v in (x0 / s / w, y0 / s / h, (x1 - x0) / s / w, (y1 - y0) / s / h)])
                 found[kind][1].append(float(conf))
-        return dedupe(*found["frame"]), dedupe(*found["balloon"])
+        return drop_containers(dedupe(*found["frame"])), dedupe(*found["balloon"])
 
 
 def dedupe(boxes, scores, thr=0.7):
@@ -221,6 +233,35 @@ def dedupe(boxes, scores, thr=0.7):
         if all(iou(boxes[i], boxes[k]) <= thr for k in kept):
             kept.append(i)
     return [boxes[i] for i in kept]
+
+
+def drop_containers(boxes, inside=0.85, cover=0.6):
+    """Drop a frame that wraps two or more smaller ones, as dropContainers() does.
+
+    Mirrors packages/comic_analysis: each smaller frame at least [inside]
+    within it, together filling at least [cover] of it (a 50 x 50 grid).
+    """
+    def inter(a, b):
+        ix = max(0.0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+        iy = max(0.0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+        return ix * iy
+
+    out = []
+    for i, a in enumerate(boxes):
+        kids = [b for j, b in enumerate(boxes)
+                if j != i and b[2] * b[3] < a[2] * a[3] and inter(a, b) >= inside * b[2] * b[3]]
+        if len(kids) >= 2:
+            g = 50
+            gx = a[0] + (np.arange(g) + 0.5) / g * a[2]
+            gy = a[1] + (np.arange(g) + 0.5) / g * a[3]
+            xs, ys = np.meshgrid(gx, gy)
+            hit = np.zeros((g, g), bool)
+            for x, y, w, h in kids:
+                hit |= (xs >= x) & (xs < x + w) & (ys >= y) & (ys < y + h)
+            if hit.sum() >= cover * g * g:
+                continue
+        out.append(a)
+    return out
 
 
 def load_trained(path):
@@ -239,8 +280,8 @@ def clip(boxes):
     return out
 
 
-def score_page(panels, balloons, gt_panels, gt_balloons):
-    panels = reading_order(clip(panels))
+def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0):
+    panels = reading_order(clip(panels), aspect=aspect)
     pm = match(panels, gt_panels)
     bm = match(clip(balloons), gt_balloons)
     passed, reasons = gate(panels)
@@ -354,7 +395,7 @@ def main():
             t0 = time.perf_counter()
             panels, balloons = d(img)
             ms = (time.perf_counter() - t0) * 1000
-            res = score_page(panels, balloons, gt["panels"], gt["balloons"])
+            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H)
             res["ms"] = ms
             row["det"][d.name] = res
             if a.overlays:

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:comic_analysis/comic_analysis.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
@@ -356,8 +357,9 @@ void writeSidecar(String path, SidecarData data, {required String device, String
 /// Combines two sidecars for the same book. The rules (design plan
 /// section 7), the same whichever side is [a]:
 ///
-/// * Newer detection wins: per page and detector, the higher model version
-///   keeps its rows, and the later run breaks a tie.
+/// * Newer detection wins: per page and detector, the later code generation
+///   ([detectorGeneration]) keeps its rows, and the later run breaks a tie,
+///   so two model files of one generation go by which ran last.
 /// * Bookmarks are a union by id, and a removal wins over the bookmark. A
 ///   vi mark a–z points at one place: the latest one set.
 /// * Each device's position is its own; the later one wins per device.
@@ -368,9 +370,8 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
   for (final r in [...a.analysed, ...b.analysed]) {
     final k = (r.page, r.source);
     final have = analysed[k];
-    if (have == null ||
-        r.modelVer > have.modelVer ||
-        (r.modelVer == have.modelVer && r.analysedAt.isAfter(have.analysedAt))) {
+    final gr = detectorGeneration(r.modelVer), gh = have == null ? 0 : detectorGeneration(have.modelVer);
+    if (have == null || gr > gh || (gr == gh && r.analysedAt.isAfter(have.analysedAt))) {
       analysed[k] = r;
     }
   }

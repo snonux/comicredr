@@ -222,7 +222,7 @@ final markStoreProvider = Provider<MarkStore>((ref) => MarkStore(ref.watch(datab
 final panelDetectorProvider = FutureProvider<PanelDetector>((ref) async {
   final path = await findModel();
   debugPrint(path == null ? 'Panel detector: classic CV (no model installed)' : 'Panel detector: model $path');
-  return PanelDetector(model: path == null ? null : ModelDetector(path));
+  return PanelDetector(model: path == null ? null : await ModelDetector.open(path));
 });
 
 class ReaderNotifier extends Notifier<ReaderState> {

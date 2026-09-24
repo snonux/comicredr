@@ -37,7 +37,7 @@ class PanelDetector {
 
   /// Which detector's cached results this detector would reproduce.
   PanelSource get source => model != null ? PanelSource.model : PanelSource.classicCv;
-  int get version => model != null ? modelDetectorVersion : classicCvVersion;
+  int get version => model?.version ?? classicCvVersion;
 
   /// Releases the trained model before the app exits; see [ModelDetector.close].
   Future<void> close() async => model?.close();
@@ -53,7 +53,7 @@ class PanelDetector {
           found.frames,
           found.balloons,
           source: PanelSource.model,
-          version: modelDetectorVersion,
+          version: model.version,
           millis: sw.elapsedMilliseconds,
         );
       } catch (e) {

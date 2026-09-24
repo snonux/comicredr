@@ -104,7 +104,7 @@ Detection detectPanels(GrayImage image, {bool rightToLeft = false}) {
       .toList();
   final frames = readingOrder([
     for (final b in kept) Panel(b.x0 / w, b.y0 / h, (b.x1 - b.x0) / w, (b.y1 - b.y0) / h),
-  ], rightToLeft: rightToLeft);
+  ], rightToLeft: rightToLeft, aspect: w / h);
   return Detection(frames, confidenceGate(frames));
 }
 

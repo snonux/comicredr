@@ -26,9 +26,9 @@ class PanelStore {
     final best = <int, (PanelSource, AnalysedPage)>{};
     for (final a in runs) {
       final s = PanelSource.values.asNameMap()[a.source];
-      if (s == null || !(s == source ? a.modelVer >= version : s.index > source.index)) continue;
+      if (s == null || !(s == source ? _atLeast(a.modelVer, version) : s.index > source.index)) continue;
       final have = best[a.page];
-      if (have == null || s.index > have.$1.index || (s == have.$1 && a.modelVer > have.$2.modelVer)) {
+      if (have == null || s.index > have.$1.index || (s == have.$1 && _better(a, have.$2, version))) {
         best[a.page] = (s, a);
       }
     }
@@ -52,6 +52,20 @@ class PanelStore {
       for (final MapEntry(key: page, value: (s, a)) in best.entries)
         page: DetectedPage(frames[page]!, balloons[page]!, source: s, version: a.modelVer, millis: a.millis),
     };
+  }
+
+  /// A run stored at [stored] is as good as what the detector at [current]
+  /// would find: the same model file, or a later generation of the code.
+  /// Another file of the same generation (a hash in the low digits) is not.
+  static bool _atLeast(int stored, int current) =>
+      stored == current || detectorGeneration(stored) > detectorGeneration(current);
+
+  /// Between two usable runs of one detector: this install's own file
+  /// first, then the later generation, then the later run.
+  static bool _better(AnalysedPage a, AnalysedPage b, int current) {
+    if ((a.modelVer == current) != (b.modelVer == current)) return a.modelVer == current;
+    final ga = detectorGeneration(a.modelVer), gb = detectorGeneration(b.modelVer);
+    return ga != gb ? ga > gb : a.analysedAt.isAfter(b.analysedAt);
   }
 
   /// Replaces what this detector had stored for [page] with [found].

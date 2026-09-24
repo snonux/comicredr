@@ -30,9 +30,9 @@ const lastBalloon = 1 << 20;
 /// the confidence gate's verdict. Guided view only moves the camera on
 /// pages that pass; the rest are shown whole.
 class PagePanels {
-  PagePanels(List<Panel> frames, [this.balloons = const []])
-    : frames = readingOrder(frames),
-      gate = confidenceGate(frames);
+  /// [frames] come in reading order, as the detector sorted them: it saw
+  /// the page, so it knew a two-page spread from a single page.
+  PagePanels(this.frames, [this.balloons = const []]) : gate = confidenceGate(frames);
 
   final List<Panel> frames;
 
@@ -50,7 +50,11 @@ class PagePanels {
 
   /// The balloons inside stop [stop], in reading order.
   List<Panel> balloonsIn(int stop, {required bool rightToLeft}) {
-    final groups = _byFrame[rightToLeft] ??= balloonsByFrame(stops(rightToLeft: rightToLeft), balloons, rightToLeft: rightToLeft);
+    final groups = _byFrame[rightToLeft] ??= balloonsByFrame(
+      stops(rightToLeft: rightToLeft),
+      balloons,
+      rightToLeft: rightToLeft,
+    );
     return stop >= 0 && stop < groups.length ? groups[stop] : const [];
   }
 }
