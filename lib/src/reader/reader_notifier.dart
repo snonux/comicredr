@@ -215,6 +215,7 @@ final sidecarSyncProvider = Provider<SidecarSync>((ref) {
     progress: ref.watch(progressStoreProvider),
     coverDir: ref.watch(coverDirProvider),
     writeAllowed: () async => await settings.loadBool(SettingsStore.writeSidecars).catchError((_) => null) ?? true,
+    storeDir: () => settings.loadString(SettingsStore.sidecarDir),
   );
   ref.onDispose(sync.flush);
   return sync;
@@ -241,11 +242,11 @@ final settingsStoreProvider = Provider<SettingsStore>((ref) => SettingsStore(ref
 
 final markStoreProvider = Provider<MarkStore>((ref) => MarkStore(ref.watch(databaseProvider)));
 
-/// The trained model when one is installed (see [findModel]), classic CV
-/// otherwise.
+/// The trained model, built in or installed by the user (see [findModel]),
+/// classic CV when there is none.
 final panelDetectorProvider = FutureProvider<PanelDetector>((ref) async {
   final path = await findModel();
-  debugPrint(path == null ? 'Panel detector: classic CV (no model installed)' : 'Panel detector: model $path');
+  debugPrint(path == null ? 'Panel detector: classic CV (no model)' : 'Panel detector: model $path');
   return PanelDetector(model: path == null ? null : await ModelDetector.open(path));
 });
 

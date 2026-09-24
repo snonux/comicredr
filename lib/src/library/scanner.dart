@@ -178,9 +178,11 @@ class LibraryScanner {
     // A copy of a big CBZ fires many events; scan once it goes quiet.
     return events.stream.listen((_) {
       debounce?.cancel();
+      // Watch new folders before scanning, so a comic copied into one
+      // while the scan runs still fires an event.
       debounce = Timer(const Duration(seconds: 2), () async {
-        await scan();
         if (!closed) await rewatch();
+        await scan();
       });
     });
   }

@@ -9,12 +9,18 @@ the `?` overlay.
 
 - **Clean-up for old scans (`c`, or Settings → Pages):** yellowed paper
   turns white and faded ink dark again, with levels measured on each
-  page's own paper colour, so the inks lose the yellow cast too. A page
-  with fewer pixels than the screen is also enlarged, at most twice over,
-  and sharpened: about a quarter of a second for a 1000 px golden-age scan,
-  in the background, and cached. Pages without paper, like painted art,
+  page's own paper colour, so the inks lose the yellow cast too. Zoomed in,
+  or in guided view, a scan with fewer pixels than the screen shows is
+  enlarged, at most twice over, and sharpened, in the background, and
+  cached. Pages without paper, like painted art,
   only get a gentle contrast stretch. Panel detection still sees the page
   as scanned. Off by default, and kept once turned on.
+
+- **Detector built in:** the trained panel and balloon model is packed
+  into the Linux build and the APK, so guided view uses it without
+  `make install-model` or `make push-model`. The build takes it from
+  `assets/models/` (`make model MODEL=...` puts it there); a model
+  installed the old way still wins, for trying another one.
 
 - **Wide scanned margins:** guided view no longer shows a page whole just
   because it was scanned with a wide blank margin. The trained detector

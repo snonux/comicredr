@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end check of scan clean-up (`c`) in the Linux release build under a
 # virtual X display, on two golden-age scans from the corpus: a low-res one
-# (about 1000 px wide, so it is also enlarged and sharpened) and a big one
-# (levels only). Screenshots before and after each toggle, zoomed in and in
+# (about 1000 px wide, so zoomed in it is enlarged and sharpened) and a big
+# one (levels only at fit-page). Screenshots before and after each toggle, zoomed in and in
 # guided view, and after a restart, which must keep clean-up on.
 #
 #   tool/e2e_cleanup.sh [low-res.cbz] [big.cbz]
@@ -47,8 +47,8 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 launch "$small"
 key 6 shift+g;                     shot 01_lowres_as_scanned
 key c; sleep 3;                    shot 02_lowres_cleaned
-grep -q 'Clean-up: page 1035x' "$out/app.log" || fail "the low-res page was not enlarged"
-key plus plus plus;                shot 03_lowres_zoomed_cleaned
+key plus plus plus plus plus; sleep 3; shot 03_lowres_zoomed_cleaned
+grep -q 'Clean-up: .* enlarged' "$out/app.log" || fail "the zoomed-in low-res page was not enlarged"
 key c; sleep 2;                    shot 04_lowres_zoomed_as_scanned
 key c; sleep 2
 key equal
@@ -58,7 +58,8 @@ key c; sleep 2
 key Escape
 quit
 
-# A restart keeps clean-up on; the big scan is not enlarged.
+# A restart keeps clean-up on; the big scan is not enlarged at fit-page.
+before=$(grep -c 'Clean-up: .* enlarged' "$out/app.log")
 launch "$big"
 key 1 4 shift+g; sleep 2;          shot 07_bigscan_cleaned_after_restart
 key c; sleep 2;                    shot 08_bigscan_as_scanned
@@ -67,9 +68,9 @@ quit
 db=$(find "$home" -name '*.sqlite' | head -1)
 [[ $(sqlite3 "$db" "select value from settings where key = 'reader.cleanUp'") == true ]] ||
   fail "clean-up was not kept on"
-if grep -q 'Clean-up: page 2610x' "$out/app.log"; then fail "the big scan was enlarged"; fi
+[[ $(grep -c 'Clean-up: .* enlarged' "$out/app.log") == "$before" ]] || fail "the big scan was enlarged"
 
 montage "$out"/shot_*.png -tile 2x -geometry 640x450+4+4 -title 'scan clean-up (c)' "$out/contact.png"
 echo "Clean-up times:"
-grep 'Clean-up: page' "$out/app.log" | sort | uniq -c | sort -rn | head -20
+grep 'Clean-up: .* enlarged' "$out/app.log" | head -20
 echo "OK: screenshots in $out"
