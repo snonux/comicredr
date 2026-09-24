@@ -3,6 +3,12 @@ import 'dart:typed_data';
 import 'panel.dart';
 import 'reading_order.dart';
 
+/// The code generation a stored detector version belongs to: the leading
+/// [modelDetectorVersion] of a [modelVersion], or a small version (classic
+/// CV, the first model) as it is. Versions compare by generation; within a
+/// generation the hash only says whether two runs used the same file.
+int detectorGeneration(int version) => version >= 100000000 ? version ~/ 100000000 : version;
+
 /// Bumped whenever the decoding, input size or thresholds change, so pages
 /// cached by older code are detected again. The model file itself is
 /// folded in by [modelVersion].

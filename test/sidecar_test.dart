@@ -210,6 +210,40 @@ void main() {
     }
   });
 
+  test('merging: two model files of one generation go by the later run, a newer generation wins', () {
+    AnalysedPage run(int page, int ver, DateTime at) =>
+        AnalysedPage(contentKey: 'k', page: page, source: 'model', modelVer: ver, millis: 1, analysedAt: at);
+    PanelRow frame(int page, int ver) => PanelRow(
+      contentKey: 'k',
+      page: page,
+      idx: 0,
+      x: 0,
+      y: 0,
+      w: 0.5,
+      h: 0.5,
+      kind: 'frame',
+      source: 'model',
+      modelVer: ver,
+      confidence: 1,
+    );
+    // Same generation, the smaller hash ran later; a generation-3 run beats
+    // a later generation-2 one.
+    const big = 299999999, small = 200000001, next = 300000005;
+    final a = SidecarData(
+      contentKey: 'k',
+      analysed: [run(0, big, DateTime(2026, 1, 1)), run(1, next, DateTime(2026, 1, 1))],
+      panels: [frame(0, big), frame(1, next)],
+    );
+    final b = SidecarData(
+      contentKey: 'k',
+      analysed: [run(0, small, DateTime(2026, 1, 2)), run(1, big, DateTime(2026, 1, 3))],
+      panels: [frame(0, small), frame(1, big)],
+    );
+    for (final m in [mergeSidecars(a, b), mergeSidecars(b, a)]) {
+      expect({for (final r in m.panels) r.page: r.modelVer}, {0: small, 1: next});
+    }
+  });
+
   test('scanning reads sidecars in, never lists them as books, and export mirrors the library', () async {
     final root = dir('Comics');
     final cbz = writeBook(dir('Comics/Indie'), 'Barefoot Bride.cbz', 3);
