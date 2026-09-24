@@ -10,7 +10,13 @@ import 'model_detector.dart';
 
 /// What one detector found on one page.
 class DetectedPage {
-  const DetectedPage(this.frames, this.balloons, {required this.source, required this.version, required this.millis});
+  const DetectedPage(
+    this.frames,
+    this.balloons, {
+    required this.source,
+    required this.version,
+    required this.millis,
+  });
 
   /// Frames in left-to-right reading order.
   final List<Panel> frames;
@@ -38,9 +44,6 @@ class PanelDetector {
   /// Which detector's cached results this detector would reproduce.
   PanelSource get source => model != null ? PanelSource.model : PanelSource.classicCv;
   int get version => model?.version ?? classicCvVersion;
-
-  /// Releases the trained model before the app exits; see [ModelDetector.close].
-  Future<void> close() async => model?.close();
 
   Future<DetectedPage> detect(ComicDocument doc, int page) async {
     final model = this.model;

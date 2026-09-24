@@ -80,9 +80,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
       onExitRequested: () async {
         await ref.read(readerProvider.notifier).flush();
-        // Stop the model's worker before the native libraries go away.
-        final detector = ref.read(panelDetectorProvider);
-        if (detector.hasValue) await detector.requireValue.close();
         return ui.AppExitResponse.exit;
       },
     );
