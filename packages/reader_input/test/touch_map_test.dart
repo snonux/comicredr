@@ -22,7 +22,8 @@ void main() {
     expect(m.action(TouchGesture.swipeLeft), next);
     expect(m.action(TouchGesture.swipeRight), back);
     expect(m.action(TouchGesture.swipeUp), isNull);
-    expect(m.action(TouchGesture.longPress, TouchZone.middle), isNull);
+    expect(m.action(TouchGesture.longPress, TouchZone.middle), ReaderIntent.showTime);
+    expect(m.action(TouchGesture.longPress, TouchZone.topLeft), isNull);
     expect(m.action(TouchGesture.twoFingerTap), isNull);
   });
 

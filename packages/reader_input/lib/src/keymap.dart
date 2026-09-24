@@ -110,6 +110,7 @@ class Keymap {
       Binding(['S-Delete'], ReaderIntent.deleteBook, layer: s),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
       Binding(['g', 't'], ReaderIntent.showTouchZones),
+      Binding(['T'], ReaderIntent.showTime),
     ]);
   }
 

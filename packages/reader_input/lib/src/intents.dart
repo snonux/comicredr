@@ -67,7 +67,8 @@ enum ReaderIntent {
   deleteBook('Delete this comic and its sidecar, after asking; the selected book in the library'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),
   showKeymap('Show the keymap'),
-  showTouchZones('Show the touch zones for a moment');
+  showTouchZones('Show the touch zones for a moment'),
+  showTime('The time, large, for two seconds, then it fades');
 
   const ReaderIntent(this.description);
 

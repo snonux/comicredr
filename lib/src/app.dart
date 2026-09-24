@@ -25,6 +25,7 @@ import 'reader/comic_details.dart';
 import 'reader/guided.dart';
 import 'reader/layout.dart';
 import 'reader/bookmark_list.dart';
+import 'reader/clock_flash.dart';
 import 'reader/open_book.dart';
 import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
@@ -112,6 +113,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// The touch zones drawn over the reader for a moment.
   bool _showZones = false;
+  final _clock = GlobalKey<ClockFlashState>();
   Timer? _zonesTimer;
 
   @override
@@ -544,6 +546,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onCommand(ReaderCommand c) {
+    // The time, anywhere: the library, the reader, fullscreen.
+    if (c.intent == ReaderIntent.showTime) {
+      _clock.currentState?.flash();
+      return;
+    }
     if (c.intent == ReaderIntent.showTouchZones) {
       if (ref.read(readerProvider).book == null) {
         _library.currentState?.handle(c);
@@ -720,6 +727,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 if (s.book != null) s.fullscreen ? _fullscreenReader(s) : _windowedReader(s),
+                Positioned.fill(child: ClockFlash(key: _clock)),
                 if (_showKeymap)
                   KeymapOverlay(
                     key: _overlay,

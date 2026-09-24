@@ -233,6 +233,12 @@ build internals, test scripts, detector work and conventions here.
   fullscreen. Esc keeps its meanings (guided view, the book, the search, a
   folder up) and leaves fullscreen only when the library has nothing left
   to back out of (`LibraryScreenState.handle` returns false).
+- The time (`T`, and a long press in the middle zone of every touch
+  preset): `ReaderIntent.showTime`, handled in `HomeScreen._onCommand`
+  before the library or reader see it, flashes `ClockFlash`
+  (`lib/src/reader/clock_flash.dart`) over everything for 2 s, then a
+  0.6 s fade (none with reduced motion). It sits in an `IgnorePointer`
+  and formats with `MediaQuery.alwaysUse24HourFormat`. No setting.
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
   settings page. The APK was tested on an Android 14 emulator only; a real
   phone, pinch zoom and real speed and memory are untested.
@@ -292,6 +298,7 @@ tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, t
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
+tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars

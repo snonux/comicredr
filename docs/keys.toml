@@ -133,6 +133,8 @@ editBook = ["e"]
 showKeymap = ["?"]
 # Show the touch zones for a moment
 showTouchZones = ["gt"]
+# The time, large, for two seconds, then it fades
+showTime = ["T"]
 
 [touch]
 # Touch gestures, on top of the preset picked in Settings (Standard,
@@ -156,7 +158,11 @@ showTouchZones = ["gt"]
 #   "", "zoomToggle", "",
 # ]
 #
-# longPress = ""
+# longPress = [
+#   "", "", "",
+#   "", "showTime", "",
+#   "", "", "",
+# ]
 #
 # swipeLeft = "nextStep"
 #

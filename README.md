@@ -46,6 +46,8 @@ Potion Contest*, by David Revoy, licensed
 - **Fullscreen** (`f` or F11), for the library and the comic: no title
   bar or border, and in the reader only the comic; move the mouse to the
   bottom edge to see where you are.
+- **The time at a glance** (`T`, or a long press in the middle): the
+  time, large, for two seconds, then it fades. Handy in fullscreen.
 - **See before you jump**: `p` opens a grid of page thumbnails, and
   dragging along the progress bar previews the page under your finger.
 - **Bookmarks** on a page, or on a panel in guided view, with a short
