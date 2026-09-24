@@ -43,8 +43,9 @@ Potion Contest*, by David Revoy, licensed
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins. A scanned double-page
   spread stays whole, and the pages after it keep their sides.
-- **Fullscreen** (`f` or F11): only the comic, with no title bar or
-  status line; move the mouse to the bottom edge to see where you are.
+- **Fullscreen** (`f` or F11), for the library and the comic: no title
+  bar or border, and in the reader only the comic; move the mouse to the
+  bottom edge to see where you are.
 - **See before you jump**: `p` opens a grid of page thumbnails, and
   dragging along the progress bar previews the page under your finger.
 - **Bookmarks** on a page, or on a panel in guided view, with a short
@@ -60,6 +61,8 @@ Potion Contest*, by David Revoy, licensed
 - **A library** of your comics folders: covers, series, search,
   collections, a folder view and a reading history. Fix a
   book's title, series or issue in the app; the comic file stays as it is.
+  Shuffle in the folder view shows a random page of each comic instead
+  of its cover, for rediscovering what you have.
 - **Done with a comic?** Shift+Delete (or `gd`) deletes it and its `.crdb`
   file for good after asking; they don't go to the trash.
 - **Picks up where you left off**, on the same page, panel and zoom, even

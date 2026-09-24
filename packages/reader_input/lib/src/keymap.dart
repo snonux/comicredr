@@ -102,6 +102,8 @@ class Keymap {
       Binding(['Backspace'], ReaderIntent.up, layer: s),
       Binding(['A'], ReaderIntent.addRoot),
       Binding(['R'], ReaderIntent.rescan),
+      Binding(['S'], ReaderIntent.toggleShuffle),
+      Binding(['g', 's'], ReaderIntent.reshuffle),
       Binding(['X'], ReaderIntent.resetBook),
       Binding(['e'], ReaderIntent.editBook),
       Binding(['g', 'd'], ReaderIntent.deleteBook),
