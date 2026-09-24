@@ -434,7 +434,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// passes everything else here.
   Future<void> handle(ReaderCommand c) async {
     if (state.book == null) {
-      if (c.intent != ReaderIntent.showKeymap && c.intent != ReaderIntent.openFile) {
+      if (c.intent != ReaderIntent.showKeymap &&
+          c.intent != ReaderIntent.openFile &&
+          c.intent != ReaderIntent.openFolder) {
         _notice('Open a comic first: press o, or drop a .cbz on the window');
       }
       return;
@@ -540,7 +542,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.search:
       case ReaderIntent.searchNext:
       case ReaderIntent.searchPrev:
-        _notice('Search needs a text layer, which arrives with PDF in M6');
+        _notice('In-book search is not built yet');
       case ReaderIntent.autoTrim:
         _notice('Auto-trim arrives in M9');
       case ReaderIntent.panDown:
@@ -552,6 +554,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.zoomOut:
       case ReaderIntent.zoomReset:
       case ReaderIntent.openFile:
+      case ReaderIntent.openFolder:
       case ReaderIntent.showKeymap:
         break; // Handled by the screen.
     }

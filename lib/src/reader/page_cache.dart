@@ -8,7 +8,8 @@ import 'package:comic_formats/comic_formats.dart';
 /// the phone).
 ///
 /// Pages decode at [targetWidth] or their own width, whichever is smaller,
-/// using Flutter's native decoder, which runs off the UI thread. [get]
+/// using Flutter's native decoder, which runs off the UI thread; PDF pages
+/// arrive already rendered at that width. [get]
 /// returns a clone the caller owns and must dispose; the cache disposes its
 /// own copy on eviction, which never invalidates a clone still on screen.
 class PageCache {
@@ -53,9 +54,13 @@ class PageCache {
   }
 
   Future<ui.Image> _decode(int index, int width) async {
-    final bytes = (await doc.rawPage(index))!;
-    final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-    final descriptor = await ui.ImageDescriptor.encoded(buffer);
+    // Rendering sources (PDF) draw the page at this width; stored images
+    // come back as they are and the codec scales them down.
+    final page = await doc.page(index, targetWidth: width, targetHeight: 1 << 16);
+    final buffer = await ui.ImmutableBuffer.fromUint8List(page.bytes);
+    final descriptor = page.bgra
+        ? ui.ImageDescriptor.raw(buffer, width: page.width!, height: page.height!, pixelFormat: ui.PixelFormat.bgra8888)
+        : await ui.ImageDescriptor.encoded(buffer);
     final codec = await descriptor.instantiateCodec(targetWidth: descriptor.width > width ? width : null);
     final image = (await codec.getNextFrame()).image;
     codec.dispose();

@@ -119,7 +119,7 @@ void main() {
 
   test('the background document serves pages from its own isolate', () async {
     final path = writeZip('book.cbz', {'b.png': pageBytes(2), 'a.png': pageBytes(1)});
-    final doc = await BackgroundDocument.openCbz(path);
+    final doc = await BackgroundDocument.open(path);
     expect(doc.pageCount, 2);
     expect((await doc.rawPage(1))!.last, 2);
     expect(await doc.embeddedMetadata(), isNull);
@@ -127,7 +127,7 @@ void main() {
   });
 
   test('opening a missing file in the background fails cleanly', () {
-    expect(BackgroundDocument.openCbz('${tmp.path}/nope.cbz'), throwsFormatException);
+    expect(BackgroundDocument.open('${tmp.path}/nope.cbz'), throwsFormatException);
   });
 
   test('content key follows content, not name', () async {
