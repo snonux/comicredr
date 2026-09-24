@@ -91,6 +91,10 @@ class Bookmarks extends Table {
   TextColumn get note => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
+  /// Set when the bookmark is removed. The row stays, so a sidecar copied
+  /// from another device that still has it cannot bring it back (M8).
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -140,6 +144,17 @@ class Overrides extends Table {
   Set<Column> get primaryKey => {contentKey, field};
 }
 
+/// Small app settings, as key and value: this install's device id and name
+/// for sidecar positions (M8), more to come.
+@DataClassName('Setting')
+class Settings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
 class ReadLog extends Table {
   TextColumn get contentKey => text()();
   DateTimeColumn get startedAt => dateTime()();
@@ -147,7 +162,9 @@ class ReadLog extends Table {
   IntColumn get pages => integer()();
 }
 
-@DriftDatabase(tables: [Books, Roots, Files, SeriesTable, Progress, Bookmarks, Panels, AnalysedPages, Overrides, ReadLog])
+@DriftDatabase(
+  tables: [Books, Roots, Files, SeriesTable, Progress, Bookmarks, Panels, AnalysedPages, Overrides, ReadLog, Settings],
+)
 class AppDatabase extends _$AppDatabase {
   /// Lives in the app support directory (`~/.local/share/org.snonux.comicredr`
   /// on Linux), not in Documents, which may not exist.
@@ -161,7 +178,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -173,6 +190,11 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(roots);
         await m.deleteTable('books');
         await m.createTable(books);
+      }
+      if (from < 5) {
+        // M8: sidecars.
+        await m.addColumn(bookmarks, bookmarks.deletedAt);
+        await m.createTable(settings);
       }
     },
   );

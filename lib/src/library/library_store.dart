@@ -308,7 +308,7 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
     {db.bookmarks},
     () =>
         (db.select(db.bookmarks)
-              ..where((b) => b.contentKey.equals(contentKey))
+              ..where((b) => b.contentKey.equals(contentKey) & b.deletedAt.isNull())
               ..orderBy([(b) => OrderingTerm(expression: b.page), (b) => OrderingTerm(expression: b.panel)]))
             .get()
             .then(
@@ -319,5 +319,9 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
             ),
   );
 
-  Future<void> deleteBookmark(String id) => (db.delete(db.bookmarks)..where((b) => b.id.equals(id))).go();
+  /// Removes a bookmark. The row stays with a removal time, so the sidecar
+  /// can tell other copies it is gone.
+  Future<void> deleteBookmark(String id) => (db.update(
+    db.bookmarks,
+  )..where((b) => b.id.equals(id))).write(BookmarksCompanion(deletedAt: Value(DateTime.now())));
 }

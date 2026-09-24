@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
+import '../reader/reader_notifier.dart';
 import 'library_store.dart';
 import 'scanner.dart';
 
@@ -13,7 +14,12 @@ final coverDirProvider = Provider<String>((ref) => '${Directory.systemTemp.path}
 final libraryStoreProvider = Provider<LibraryStore>((ref) => LibraryStore(ref.watch(databaseProvider)));
 
 final scannerProvider = Provider<LibraryScanner>((ref) {
-  final scanner = LibraryScanner(ref.watch(libraryStoreProvider), coverDir: ref.watch(coverDirProvider));
+  final sidecars = ref.watch(sidecarSyncProvider);
+  final scanner = LibraryScanner(
+    ref.watch(libraryStoreProvider),
+    coverDir: ref.watch(coverDirProvider),
+    onBookRead: (path, key, {required folder}) => sidecars.attach(path, key, folder: folder),
+  );
   ref.onDispose(scanner.dispose);
   return scanner;
 });

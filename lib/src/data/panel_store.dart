@@ -8,41 +8,49 @@ import 'app_database.dart';
 
 /// Detected frames and balloons per page, cached in the index by content
 /// key, page, detector and detector version (design plan section 6). The
-/// per-comic sidecar takes the same rows in M8, so detection travels with
-/// the file.
+/// per-comic sidecar carries the same rows (SidecarSync), so detection
+/// travels with the file.
 class PanelStore {
   PanelStore(this._db);
 
   final AppDatabase _db;
 
-  /// Every page of the book [source] at [version] has analysed, mapped to
-  /// what it found. A page analysed with nothing found maps to empty lists;
-  /// a missing page is unknown.
+  /// Every page with a stored run at least as good as what the detector
+  /// [source] at [version] would find now, mapped to that run: its own
+  /// results, a newer model's, or the model's when this install only has
+  /// classic CV (a sidecar written on the laptop, read on the phone). A page
+  /// analysed with nothing found maps to empty lists; a missing page is
+  /// unknown.
   Future<Map<int, DetectedPage>> load(String contentKey, {required PanelSource source, required int version}) async {
-    final pages =
-        await (_db.select(_db.analysedPages)..where(
-              (a) => a.contentKey.equals(contentKey) & a.source.equals(source.name) & a.modelVer.equals(version),
-            ))
-            .get();
-    if (pages.isEmpty) return {};
+    final runs = await (_db.select(_db.analysedPages)..where((a) => a.contentKey.equals(contentKey))).get();
+    final best = <int, (PanelSource, AnalysedPage)>{};
+    for (final a in runs) {
+      final s = PanelSource.values.asNameMap()[a.source];
+      if (s == null || !(s == source ? a.modelVer >= version : s.index > source.index)) continue;
+      final have = best[a.page];
+      if (have == null || s.index > have.$1.index || (s == have.$1 && a.modelVer > have.$2.modelVer)) {
+        best[a.page] = (s, a);
+      }
+    }
+    if (best.isEmpty) return {};
     final rows =
         await (_db.select(_db.panels)
-              ..where(
-                (p) => p.contentKey.equals(contentKey) & p.source.equals(source.name) & p.modelVer.equals(version),
-              )
+              ..where((p) => p.contentKey.equals(contentKey))
               ..orderBy([(p) => OrderingTerm(expression: p.page), (p) => OrderingTerm(expression: p.idx)]))
             .get();
-    final frames = {for (final a in pages) a.page: <Panel>[]};
-    final balloons = {for (final a in pages) a.page: <Panel>[]};
+    final frames = {for (final page in best.keys) page: <Panel>[]};
+    final balloons = {for (final page in best.keys) page: <Panel>[]};
     for (final r in rows) {
+      final run = best[r.page]?.$2;
+      if (run == null || r.source != run.source) continue;
       final kind = PanelKind.values.asNameMap()[r.kind] ?? PanelKind.frame;
-      (kind == PanelKind.frame ? frames : balloons)[r.page]?.add(
+      (kind == PanelKind.frame ? frames : balloons)[r.page]!.add(
         Panel(r.x, r.y, r.w, r.h, kind: kind, confidence: r.confidence),
       );
     }
     return {
-      for (final a in pages)
-        a.page: DetectedPage(frames[a.page]!, balloons[a.page]!, source: source, version: version, millis: a.millis),
+      for (final MapEntry(key: page, value: (s, a)) in best.entries)
+        page: DetectedPage(frames[page]!, balloons[page]!, source: s, version: a.modelVer, millis: a.millis),
     };
   }
 
@@ -86,7 +94,7 @@ class PanelStore {
 }
 
 /// vi marks a–z, panel-precise, kept in the bookmarks table so they
-/// survive a restart. The sidecar carries them from M8.
+/// survive a restart. The sidecar carries them to other devices.
 class MarkStore {
   MarkStore(this._db);
 
@@ -96,7 +104,7 @@ class MarkStore {
   Future<Map<String, ({int page, int panel})>> load(String contentKey) async {
     final rows = await (_db.select(
       _db.bookmarks,
-    )..where((b) => b.contentKey.equals(contentKey) & b.mark.isNotNull())).get();
+    )..where((b) => b.contentKey.equals(contentKey) & b.mark.isNotNull() & b.deletedAt.isNull())).get();
     return {for (final r in rows) r.mark!: (page: r.page, panel: r.panel ?? 0)};
   }
 
