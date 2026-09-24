@@ -19,6 +19,10 @@ class SettingsStore {
   /// sidecars that are there already never stops.
   static const writeSidecars = 'sidecars.write';
 
+  /// Find the panels of the whole library in the background
+  /// (LibraryDetection). On by default on the laptop, off on the phone.
+  static const detectLibrary = 'detect.library';
+
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
     final v = row == null ? null : jsonDecode(row.value);

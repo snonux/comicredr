@@ -344,9 +344,22 @@ MODEL=path/to/comicredr-panels.onnx` puts it there (see
 [Android phone](#android-phone)). Restart the app.
 `COMICREDR_MODEL=/path/to/file.onnx` points at a model anywhere else.
 Pages analysed by classic CV, or by a different model file, are analysed
-again the next time you read them, so installing a retrained model needs
-nothing else. To build the file yourself, see
+again, so installing a retrained model needs nothing else. To build the
+file yourself, see
 [Train the detector](#m5-train-the-detector).
+
+Panels are found for the whole library in the background, so guided view
+is ready in any book the moment you open it. The pass starts after each
+library scan and shows on the library's status line (`Finding panels:
+120 / 800 pages`), with a button to pause it. It skips pages already done
+(and those a sidecar brought along), so after a restart it goes on where
+it stopped, and it redoes the library once when the detector changes. It
+is low priority: it waits while the reader opens a book, finds that book's
+panels or turns pages, and rests between pages as long as each page took.
+With the trained model it does about one page a second on a four-core
+cloud VM. Settings turns it off; on Android it is off by default, to
+spare the battery, and the reader finds the panels of the pages around you
+as you read.
 
 ### 8. Touch
 
