@@ -55,6 +55,11 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
   Object? _cacheBook;
   List<ui.Image> _images = const [];
   List<int> _shownUnit = const [];
+  int _shownWidth = 0;
+
+  /// Runs once a resize or rotation has settled; until then the pages on
+  /// screen are stretched to the new size rather than decoded every frame.
+  Timer? _resizeTimer;
 
   /// Auto-trim's cut for each page measured so far in this book.
   final _trims = <int, Trim>{};
@@ -74,6 +79,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
 
   @override
   void dispose() {
+    _resizeTimer?.cancel();
     _disposeImages(_images);
     _cache?.dispose();
     _camera.dispose();
@@ -114,10 +120,13 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
       if (_restore case final r?) _fit = Fit.values.asNameMap()[r.fit] ?? _fit;
     }
     final unit = s.unit;
-    if (_listEquals(unit, _shownUnit) || _viewport == Size.zero) return;
+    if (_viewport == Size.zero) return;
+    final width = _targetWidth(s.guided);
+    final sameUnit = _listEquals(unit, _shownUnit);
+    // A new size alone waits for the resize to settle.
+    if (sameUnit && (width == _shownWidth || (_resizeTimer?.isActive ?? false))) return;
     final request = ++_request;
     final cache = _cache!;
-    final width = _targetWidth(s.guided);
     Future.wait([for (final p in unit) cache.get(p, width)]).then(
       (images) async {
         // Measured before the swap, so a trimmed page never shows whole first.
@@ -127,13 +136,18 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
           return;
         }
         final old = _images;
+        // The same pages sharper or smaller after a resize keep the view.
+        final samePages = _listEquals(unit, _shownUnit);
         setState(() {
           _images = images;
           _shownUnit = unit;
-          _camera.stop();
-          _cameraKey = null; // A new page: the camera jumps rather than glides.
-          _focus = null;
-          _transform.value = Matrix4.identity();
+          _shownWidth = width;
+          if (!samePages) {
+            _camera.stop();
+            _cameraKey = null; // A new page: the camera jumps rather than glides.
+            _focus = null;
+            _transform.value = Matrix4.identity();
+          }
         });
         _disposeImages(old);
         // Warm the next two units and the previous one.
@@ -253,15 +267,42 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     if (!mounted || _restore != null || _images.isEmpty || _viewport == Size.zero) return;
     final s = ref.read(readerProvider);
     if (s.book == null || s.guided) return;
+    ref.read(readerProvider.notifier).viewChanged(_spot());
+  }
+
+  /// Where zoom and scroll are now, for tests.
+  @visibleForTesting
+  ViewSpot get spot => _spot();
+
+  /// Zoom and the point in the middle of the screen, as fractions of the
+  /// laid-out page, which stay true when the window changes size.
+  ViewSpot _spot() {
     final zoom = _scale;
     final t = _transform.value.getTranslation();
     final child = _childSize;
-    ref.read(readerProvider.notifier).viewChanged((
+    return (
       fit: _fit.name,
       zoom: zoom,
       cx: (_viewport.width / 2 - t.x) / (child.width * zoom),
       cy: (_viewport.height / 2 - t.y) / (child.height * zoom),
-    ));
+    );
+  }
+
+  /// The window was resized or the phone rotated from [old]. The page is
+  /// fitted to the new size at once, keeping the zoom and the point in the
+  /// middle of the screen; guided view's camera re-frames its panel by
+  /// itself. The pages decode again at the new size once it settles.
+  void _resized(Size old, ReaderState s) {
+    if (old != Size.zero && _images.isNotEmpty && _restore == null && !s.guided && !_transform.value.isIdentity()) {
+      final keep = _spot();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !ref.read(readerProvider).guided) _applyRestore(keep);
+      });
+    }
+    _resizeTimer?.cancel();
+    _resizeTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) _sync(ref.read(readerProvider));
+    });
   }
 
   /// Puts the saved zoom and scroll back: the saved point in the middle of
@@ -298,6 +339,12 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     final key = (guided: s.guided, page: s.page, focus: focus, viewport: _viewport, content: _content, trim: trim);
     final last = _cameraKey;
     if (key == last) return;
+    // Outside guided view the camera has nothing to frame: a resize keeps
+    // the reader's own zoom and scroll (_resized).
+    if (last != null && !key.guided && !last.guided && last.page == key.page && last.trim == key.trim) {
+      _cameraKey = key;
+      return;
+    }
     final glide =
         last != null &&
         last.page == key.page &&
@@ -420,8 +467,9 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
       builder: (context, constraints) {
         final viewport = constraints.biggest;
         if (viewport != _viewport) {
+          // Measured against the old size and layout, before they change.
+          _resized(_viewport, s);
           _viewport = viewport;
-          _shownUnit = const []; // Re-decode at the new size.
         }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _sync(ref.read(readerProvider));
