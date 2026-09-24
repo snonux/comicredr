@@ -15,6 +15,10 @@ class SettingsStore {
   static const night = 'reader.night';
   static const autoTrim = 'reader.autoTrim';
 
+  /// Fullscreen (`f`, F11): the reader opens the next book, and the next
+  /// launch, the way it was left.
+  static const fullscreen = 'reader.fullscreen';
+
   /// Scan clean-up (`c`): levels on the paper colour, and small pages
   /// enlarged and sharpened. Off by default.
   static const cleanUp = 'reader.cleanUp';
