@@ -116,6 +116,19 @@ class MarkStore {
         );
   });
 
+  /// An anonymous bookmark (`mm`), panel-precise in guided view.
+  Future<void> addBookmark(String contentKey, int page, int? panel) => _db
+      .into(_db.bookmarks)
+      .insert(
+        BookmarksCompanion.insert(
+          id: _uuid(),
+          contentKey: contentKey,
+          page: page,
+          panel: Value(panel),
+          createdAt: DateTime.now(),
+        ),
+      );
+
   /// A random (version 4) UUID, so two devices never collide (section 6).
   String _uuid() {
     final b = List<int>.generate(16, (_) => _random.nextInt(256));

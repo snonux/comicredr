@@ -8,6 +8,7 @@ import 'package:reader_input/reader_input.dart';
 import '../data/panel_store.dart';
 import '../data/progress_store.dart';
 import '../data/settings_store.dart';
+import '../library/providers.dart';
 import '../providers.dart';
 import 'guided.dart';
 import 'layout.dart';
@@ -206,8 +207,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
   final _wanted = <int>{};
   bool _detecting = false;
 
-  /// Opens [path], closing any open book, and resumes where it was left.
-  Future<void> open(String path) async {
+  /// Opens [path], closing any open book, and resumes where it was left, or
+  /// goes to [at] when given (a bookmark picked in the library).
+  Future<void> open(String path, {Place? at}) async {
     state = state.copyWith(loading: true);
     final OpenBook book;
     try {
@@ -233,17 +235,18 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final whole =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.wholePageSteps)) ??
         state.wholePageSteps;
-    final page = (saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
+    final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
     final guided = saved?.guided ?? state.guided;
-    final panel = saved?.panel ?? (whole ? pageStart : 0);
-    _view = _restoreView = saved?.view;
+    final panel = at?.panel ?? saved?.panel ?? (whole ? pageStart : 0);
+    final onPanel = guided && isPanel(panel);
+    _view = _restoreView = at == null ? saved?.view : null;
     state = ReaderState(
       book: book,
       page: page,
       panel: panel,
-      balloon: saved?.balloon ?? -1,
+      balloon: at == null ? saved?.balloon ?? -1 : -1,
       mode: switch (saved?.spread) {
         true => PageMode.spread,
         false => PageMode.single,
@@ -258,10 +261,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
       night: state.night,
       panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons)},
       marks: marks,
-      message: saved == null || (page == 0 && !guided)
+      message: at != null
+          ? 'Bookmark: page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'
+          : saved == null || (page == 0 && !guided)
           ? null
-          : 'Resumed at page ${page + 1}${guided && panel >= 0 && panel < pageEnd ? ', panel ${panel + 1}' : ''}',
+          : 'Resumed at page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}',
     );
+    // Opening a book counts as reading it: the library's Reading tab lists
+    // it from now on, even if it is closed on the cover.
+    _saveProgress(book);
     _ensurePanels();
   }
 
@@ -511,14 +519,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         _goTo(c.count != null ? c.count! - 1 : state.pageCount - 1, jump: true);
       case ReaderIntent.nextBook:
       case ReaderIntent.prevBook:
-        final next = await siblingBook(state.book!.path, next: c.intent == ReaderIntent.nextBook);
-        if (next == null) {
-          _notice(
-            c.intent == ReaderIntent.nextBook ? 'No next book in this folder' : 'No previous book in this folder',
-          );
-        } else {
-          await open(next);
-        }
+        await _neighbour(next: c.intent == ReaderIntent.nextBook);
       case ReaderIntent.toggleGuided:
         _setGuided(!state.guided);
       case ReaderIntent.toggleBalloons:
@@ -601,7 +602,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.halfPageUp:
         _notice('Continuous scroll arrives in a later milestone');
       case ReaderIntent.bookmark:
-        _notice('A bookmark list arrives with the library in M7; ma sets a mark meanwhile');
+        final i = state.panelIndex;
+        final panel = state.guided && i >= 0 ? i : null;
+        _notice('Bookmarked page ${state.page + 1}${panel != null ? ', panel ${panel + 1}' : ''}');
+        unawaited(
+          ref
+              .read(markStoreProvider)
+              .addBookmark(state.book!.key, state.page, panel)
+              .catchError((Object e) => debugPrint('Could not save bookmark: $e')),
+        );
       case ReaderIntent.search:
       case ReaderIntent.searchNext:
       case ReaderIntent.searchPrev:
@@ -619,11 +628,37 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:
       case ReaderIntent.showKeymap:
-        break; // Handled by the screen.
+      case ReaderIntent.addRoot:
+      case ReaderIntent.rescan:
+      case ReaderIntent.activate:
+        break; // Handled by the screen, or only mean something in the library.
     }
     // Mode switches (guided, balloons, spread, direction) are part of the
     // spot too. Saves are debounced, so this costs nothing per key.
     if (state.book case final book?) _saveProgress(book);
+  }
+
+  /// `]` and `[`: the next or previous book in the series when the book is
+  /// in the library with others in its series, the next or previous book in
+  /// its folder otherwise.
+  Future<void> _neighbour({required bool next}) async {
+    final book = state.book!;
+    final inSeries = await _orNull(() => ref.read(libraryStoreProvider).seriesNeighbour(book.key, next: next));
+    if (inSeries != null) {
+      final path = inSeries.path;
+      if (path == null) {
+        _notice(next ? 'This is the last book in the series' : 'This is the first book in the series');
+      } else {
+        await open(path);
+      }
+      return;
+    }
+    final path = await siblingBook(book.path, next: next);
+    if (path == null) {
+      _notice(next ? 'No next book in this folder' : 'No previous book in this folder');
+    } else {
+      await open(path);
+    }
   }
 
   Future<void> flush() => _progress.flush();

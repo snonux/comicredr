@@ -5,6 +5,7 @@ import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -183,6 +184,29 @@ void main() {
     final upgraded = AppDatabase(NativeDatabase(file));
     final at = await ProgressStore(upgraded).load('k');
     expect((at?.page, at?.panel, at?.guided, at?.view), (4, 2, null, null));
+    await upgraded.close();
+  });
+
+  test('an M6 index keeps its positions and gains the library', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await old.customStatement('DROP TABLE roots');
+    await old.customStatement('DROP TABLE books');
+    await old.customStatement(
+      'CREATE TABLE books (content_key TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, series_id INTEGER, '
+      'number TEXT, page_count INTEGER NOT NULL, format TEXT NOT NULL, added_at INTEGER NOT NULL)',
+    );
+    await old.customStatement(
+      "INSERT INTO progress (content_key, page, panel, percent, finished, updated_at) VALUES ('k', 4, 2, 0.5, 0, 0)",
+    );
+    await old.customStatement('PRAGMA user_version = 3');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    expect(await upgraded.select(upgraded.roots).get(), isEmpty);
+    expect((await ProgressStore(upgraded).load('k'))?.page, 4);
+    await upgraded
+        .into(upgraded.books)
+        .insert(BooksCompanion.insert(contentKey: 'k', title: 'X', pageCount: 3, format: 'cbz', year: const Value(1982)));
     await upgraded.close();
   });
 }

@@ -19,6 +19,9 @@ const pageStart = -1;
 /// panel.
 const pageEnd = 1 << 21;
 
+/// Whether a saved [panel] names a panel rather than the whole page.
+bool isPanel(int? panel) => panel != null && panel >= 0 && panel < pageEnd;
+
 /// Stands for "the last balloon" in a panel whose balloons are not known
 /// yet, like [lastPanel].
 const lastBalloon = 1 << 20;

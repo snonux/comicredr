@@ -376,6 +376,68 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _issueTitleMeta = const VerificationMeta(
+    'issueTitle',
+  );
+  @override
+  late final GeneratedColumn<String> issueTitle = GeneratedColumn<String>(
+    'issue_title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _volumeMeta = const VerificationMeta('volume');
+  @override
+  late final GeneratedColumn<int> volume = GeneratedColumn<int>(
+    'volume',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _yearMeta = const VerificationMeta('year');
+  @override
+  late final GeneratedColumn<int> year = GeneratedColumn<int>(
+    'year',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _writersMeta = const VerificationMeta(
+    'writers',
+  );
+  @override
+  late final GeneratedColumn<String> writers = GeneratedColumn<String>(
+    'writers',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _artistsMeta = const VerificationMeta(
+    'artists',
+  );
+  @override
+  late final GeneratedColumn<String> artists = GeneratedColumn<String>(
+    'artists',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _summaryMeta = const VerificationMeta(
+    'summary',
+  );
+  @override
+  late final GeneratedColumn<String> summary = GeneratedColumn<String>(
+    'summary',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -385,6 +447,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     pageCount,
     format,
     addedAt,
+    issueTitle,
+    volume,
+    year,
+    writers,
+    artists,
+    summary,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -448,6 +516,42 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
       );
     }
+    if (data.containsKey('issue_title')) {
+      context.handle(
+        _issueTitleMeta,
+        issueTitle.isAcceptableOrUnknown(data['issue_title']!, _issueTitleMeta),
+      );
+    }
+    if (data.containsKey('volume')) {
+      context.handle(
+        _volumeMeta,
+        volume.isAcceptableOrUnknown(data['volume']!, _volumeMeta),
+      );
+    }
+    if (data.containsKey('year')) {
+      context.handle(
+        _yearMeta,
+        year.isAcceptableOrUnknown(data['year']!, _yearMeta),
+      );
+    }
+    if (data.containsKey('writers')) {
+      context.handle(
+        _writersMeta,
+        writers.isAcceptableOrUnknown(data['writers']!, _writersMeta),
+      );
+    }
+    if (data.containsKey('artists')) {
+      context.handle(
+        _artistsMeta,
+        artists.isAcceptableOrUnknown(data['artists']!, _artistsMeta),
+      );
+    }
+    if (data.containsKey('summary')) {
+      context.handle(
+        _summaryMeta,
+        summary.isAcceptableOrUnknown(data['summary']!, _summaryMeta),
+      );
+    }
     return context;
   }
 
@@ -485,6 +589,30 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}added_at'],
       )!,
+      issueTitle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}issue_title'],
+      ),
+      volume: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}volume'],
+      ),
+      year: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}year'],
+      ),
+      writers: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}writers'],
+      ),
+      artists: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}artists'],
+      ),
+      summary: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}summary'],
+      ),
     );
   }
 
@@ -502,6 +630,12 @@ class Book extends DataClass implements Insertable<Book> {
   final int pageCount;
   final String format;
   final DateTime addedAt;
+  final String? issueTitle;
+  final int? volume;
+  final int? year;
+  final String? writers;
+  final String? artists;
+  final String? summary;
   const Book({
     required this.contentKey,
     required this.title,
@@ -510,6 +644,12 @@ class Book extends DataClass implements Insertable<Book> {
     required this.pageCount,
     required this.format,
     required this.addedAt,
+    this.issueTitle,
+    this.volume,
+    this.year,
+    this.writers,
+    this.artists,
+    this.summary,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -525,6 +665,24 @@ class Book extends DataClass implements Insertable<Book> {
     map['page_count'] = Variable<int>(pageCount);
     map['format'] = Variable<String>(format);
     map['added_at'] = Variable<DateTime>(addedAt);
+    if (!nullToAbsent || issueTitle != null) {
+      map['issue_title'] = Variable<String>(issueTitle);
+    }
+    if (!nullToAbsent || volume != null) {
+      map['volume'] = Variable<int>(volume);
+    }
+    if (!nullToAbsent || year != null) {
+      map['year'] = Variable<int>(year);
+    }
+    if (!nullToAbsent || writers != null) {
+      map['writers'] = Variable<String>(writers);
+    }
+    if (!nullToAbsent || artists != null) {
+      map['artists'] = Variable<String>(artists);
+    }
+    if (!nullToAbsent || summary != null) {
+      map['summary'] = Variable<String>(summary);
+    }
     return map;
   }
 
@@ -541,6 +699,22 @@ class Book extends DataClass implements Insertable<Book> {
       pageCount: Value(pageCount),
       format: Value(format),
       addedAt: Value(addedAt),
+      issueTitle: issueTitle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(issueTitle),
+      volume: volume == null && nullToAbsent
+          ? const Value.absent()
+          : Value(volume),
+      year: year == null && nullToAbsent ? const Value.absent() : Value(year),
+      writers: writers == null && nullToAbsent
+          ? const Value.absent()
+          : Value(writers),
+      artists: artists == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artists),
+      summary: summary == null && nullToAbsent
+          ? const Value.absent()
+          : Value(summary),
     );
   }
 
@@ -557,6 +731,12 @@ class Book extends DataClass implements Insertable<Book> {
       pageCount: serializer.fromJson<int>(json['pageCount']),
       format: serializer.fromJson<String>(json['format']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      issueTitle: serializer.fromJson<String?>(json['issueTitle']),
+      volume: serializer.fromJson<int?>(json['volume']),
+      year: serializer.fromJson<int?>(json['year']),
+      writers: serializer.fromJson<String?>(json['writers']),
+      artists: serializer.fromJson<String?>(json['artists']),
+      summary: serializer.fromJson<String?>(json['summary']),
     );
   }
   @override
@@ -570,6 +750,12 @@ class Book extends DataClass implements Insertable<Book> {
       'pageCount': serializer.toJson<int>(pageCount),
       'format': serializer.toJson<String>(format),
       'addedAt': serializer.toJson<DateTime>(addedAt),
+      'issueTitle': serializer.toJson<String?>(issueTitle),
+      'volume': serializer.toJson<int?>(volume),
+      'year': serializer.toJson<int?>(year),
+      'writers': serializer.toJson<String?>(writers),
+      'artists': serializer.toJson<String?>(artists),
+      'summary': serializer.toJson<String?>(summary),
     };
   }
 
@@ -581,6 +767,12 @@ class Book extends DataClass implements Insertable<Book> {
     int? pageCount,
     String? format,
     DateTime? addedAt,
+    Value<String?> issueTitle = const Value.absent(),
+    Value<int?> volume = const Value.absent(),
+    Value<int?> year = const Value.absent(),
+    Value<String?> writers = const Value.absent(),
+    Value<String?> artists = const Value.absent(),
+    Value<String?> summary = const Value.absent(),
   }) => Book(
     contentKey: contentKey ?? this.contentKey,
     title: title ?? this.title,
@@ -589,6 +781,12 @@ class Book extends DataClass implements Insertable<Book> {
     pageCount: pageCount ?? this.pageCount,
     format: format ?? this.format,
     addedAt: addedAt ?? this.addedAt,
+    issueTitle: issueTitle.present ? issueTitle.value : this.issueTitle,
+    volume: volume.present ? volume.value : this.volume,
+    year: year.present ? year.value : this.year,
+    writers: writers.present ? writers.value : this.writers,
+    artists: artists.present ? artists.value : this.artists,
+    summary: summary.present ? summary.value : this.summary,
   );
   Book copyWithCompanion(BooksCompanion data) {
     return Book(
@@ -601,6 +799,14 @@ class Book extends DataClass implements Insertable<Book> {
       pageCount: data.pageCount.present ? data.pageCount.value : this.pageCount,
       format: data.format.present ? data.format.value : this.format,
       addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      issueTitle: data.issueTitle.present
+          ? data.issueTitle.value
+          : this.issueTitle,
+      volume: data.volume.present ? data.volume.value : this.volume,
+      year: data.year.present ? data.year.value : this.year,
+      writers: data.writers.present ? data.writers.value : this.writers,
+      artists: data.artists.present ? data.artists.value : this.artists,
+      summary: data.summary.present ? data.summary.value : this.summary,
     );
   }
 
@@ -613,7 +819,13 @@ class Book extends DataClass implements Insertable<Book> {
           ..write('number: $number, ')
           ..write('pageCount: $pageCount, ')
           ..write('format: $format, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('issueTitle: $issueTitle, ')
+          ..write('volume: $volume, ')
+          ..write('year: $year, ')
+          ..write('writers: $writers, ')
+          ..write('artists: $artists, ')
+          ..write('summary: $summary')
           ..write(')'))
         .toString();
   }
@@ -627,6 +839,12 @@ class Book extends DataClass implements Insertable<Book> {
     pageCount,
     format,
     addedAt,
+    issueTitle,
+    volume,
+    year,
+    writers,
+    artists,
+    summary,
   );
   @override
   bool operator ==(Object other) =>
@@ -638,7 +856,13 @@ class Book extends DataClass implements Insertable<Book> {
           other.number == this.number &&
           other.pageCount == this.pageCount &&
           other.format == this.format &&
-          other.addedAt == this.addedAt);
+          other.addedAt == this.addedAt &&
+          other.issueTitle == this.issueTitle &&
+          other.volume == this.volume &&
+          other.year == this.year &&
+          other.writers == this.writers &&
+          other.artists == this.artists &&
+          other.summary == this.summary);
 }
 
 class BooksCompanion extends UpdateCompanion<Book> {
@@ -649,6 +873,12 @@ class BooksCompanion extends UpdateCompanion<Book> {
   final Value<int> pageCount;
   final Value<String> format;
   final Value<DateTime> addedAt;
+  final Value<String?> issueTitle;
+  final Value<int?> volume;
+  final Value<int?> year;
+  final Value<String?> writers;
+  final Value<String?> artists;
+  final Value<String?> summary;
   final Value<int> rowid;
   const BooksCompanion({
     this.contentKey = const Value.absent(),
@@ -658,6 +888,12 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.pageCount = const Value.absent(),
     this.format = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.issueTitle = const Value.absent(),
+    this.volume = const Value.absent(),
+    this.year = const Value.absent(),
+    this.writers = const Value.absent(),
+    this.artists = const Value.absent(),
+    this.summary = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BooksCompanion.insert({
@@ -668,6 +904,12 @@ class BooksCompanion extends UpdateCompanion<Book> {
     required int pageCount,
     required String format,
     this.addedAt = const Value.absent(),
+    this.issueTitle = const Value.absent(),
+    this.volume = const Value.absent(),
+    this.year = const Value.absent(),
+    this.writers = const Value.absent(),
+    this.artists = const Value.absent(),
+    this.summary = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        title = Value(title),
@@ -681,6 +923,12 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Expression<int>? pageCount,
     Expression<String>? format,
     Expression<DateTime>? addedAt,
+    Expression<String>? issueTitle,
+    Expression<int>? volume,
+    Expression<int>? year,
+    Expression<String>? writers,
+    Expression<String>? artists,
+    Expression<String>? summary,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -691,6 +939,12 @@ class BooksCompanion extends UpdateCompanion<Book> {
       if (pageCount != null) 'page_count': pageCount,
       if (format != null) 'format': format,
       if (addedAt != null) 'added_at': addedAt,
+      if (issueTitle != null) 'issue_title': issueTitle,
+      if (volume != null) 'volume': volume,
+      if (year != null) 'year': year,
+      if (writers != null) 'writers': writers,
+      if (artists != null) 'artists': artists,
+      if (summary != null) 'summary': summary,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -703,6 +957,12 @@ class BooksCompanion extends UpdateCompanion<Book> {
     Value<int>? pageCount,
     Value<String>? format,
     Value<DateTime>? addedAt,
+    Value<String?>? issueTitle,
+    Value<int?>? volume,
+    Value<int?>? year,
+    Value<String?>? writers,
+    Value<String?>? artists,
+    Value<String?>? summary,
     Value<int>? rowid,
   }) {
     return BooksCompanion(
@@ -713,6 +973,12 @@ class BooksCompanion extends UpdateCompanion<Book> {
       pageCount: pageCount ?? this.pageCount,
       format: format ?? this.format,
       addedAt: addedAt ?? this.addedAt,
+      issueTitle: issueTitle ?? this.issueTitle,
+      volume: volume ?? this.volume,
+      year: year ?? this.year,
+      writers: writers ?? this.writers,
+      artists: artists ?? this.artists,
+      summary: summary ?? this.summary,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -741,6 +1007,24 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (addedAt.present) {
       map['added_at'] = Variable<DateTime>(addedAt.value);
     }
+    if (issueTitle.present) {
+      map['issue_title'] = Variable<String>(issueTitle.value);
+    }
+    if (volume.present) {
+      map['volume'] = Variable<int>(volume.value);
+    }
+    if (year.present) {
+      map['year'] = Variable<int>(year.value);
+    }
+    if (writers.present) {
+      map['writers'] = Variable<String>(writers.value);
+    }
+    if (artists.present) {
+      map['artists'] = Variable<String>(artists.value);
+    }
+    if (summary.present) {
+      map['summary'] = Variable<String>(summary.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -757,7 +1041,260 @@ class BooksCompanion extends UpdateCompanion<Book> {
           ..write('pageCount: $pageCount, ')
           ..write('format: $format, ')
           ..write('addedAt: $addedAt, ')
+          ..write('issueTitle: $issueTitle, ')
+          ..write('volume: $volume, ')
+          ..write('year: $year, ')
+          ..write('writers: $writers, ')
+          ..write('artists: $artists, ')
+          ..write('summary: $summary, ')
           ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RootsTable extends Roots with TableInfo<$RootsTable, LibraryRoot> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RootsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _pathMeta = const VerificationMeta('path');
+  @override
+  late final GeneratedColumn<String> path = GeneratedColumn<String>(
+    'path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, path, addedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'roots';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<LibraryRoot> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('path')) {
+      context.handle(
+        _pathMeta,
+        path.isAcceptableOrUnknown(data['path']!, _pathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_pathMeta);
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LibraryRoot map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LibraryRoot(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      path: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}path'],
+      )!,
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}added_at'],
+      )!,
+    );
+  }
+
+  @override
+  $RootsTable createAlias(String alias) {
+    return $RootsTable(attachedDatabase, alias);
+  }
+}
+
+class LibraryRoot extends DataClass implements Insertable<LibraryRoot> {
+  final int id;
+  final String path;
+  final DateTime addedAt;
+  const LibraryRoot({
+    required this.id,
+    required this.path,
+    required this.addedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['path'] = Variable<String>(path);
+    map['added_at'] = Variable<DateTime>(addedAt);
+    return map;
+  }
+
+  RootsCompanion toCompanion(bool nullToAbsent) {
+    return RootsCompanion(
+      id: Value(id),
+      path: Value(path),
+      addedAt: Value(addedAt),
+    );
+  }
+
+  factory LibraryRoot.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LibraryRoot(
+      id: serializer.fromJson<int>(json['id']),
+      path: serializer.fromJson<String>(json['path']),
+      addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'path': serializer.toJson<String>(path),
+      'addedAt': serializer.toJson<DateTime>(addedAt),
+    };
+  }
+
+  LibraryRoot copyWith({int? id, String? path, DateTime? addedAt}) =>
+      LibraryRoot(
+        id: id ?? this.id,
+        path: path ?? this.path,
+        addedAt: addedAt ?? this.addedAt,
+      );
+  LibraryRoot copyWithCompanion(RootsCompanion data) {
+    return LibraryRoot(
+      id: data.id.present ? data.id.value : this.id,
+      path: data.path.present ? data.path.value : this.path,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LibraryRoot(')
+          ..write('id: $id, ')
+          ..write('path: $path, ')
+          ..write('addedAt: $addedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, path, addedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LibraryRoot &&
+          other.id == this.id &&
+          other.path == this.path &&
+          other.addedAt == this.addedAt);
+}
+
+class RootsCompanion extends UpdateCompanion<LibraryRoot> {
+  final Value<int> id;
+  final Value<String> path;
+  final Value<DateTime> addedAt;
+  const RootsCompanion({
+    this.id = const Value.absent(),
+    this.path = const Value.absent(),
+    this.addedAt = const Value.absent(),
+  });
+  RootsCompanion.insert({
+    this.id = const Value.absent(),
+    required String path,
+    this.addedAt = const Value.absent(),
+  }) : path = Value(path);
+  static Insertable<LibraryRoot> custom({
+    Expression<int>? id,
+    Expression<String>? path,
+    Expression<DateTime>? addedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (path != null) 'path': path,
+      if (addedAt != null) 'added_at': addedAt,
+    });
+  }
+
+  RootsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? path,
+    Value<DateTime>? addedAt,
+  }) {
+    return RootsCompanion(
+      id: id ?? this.id,
+      path: path ?? this.path,
+      addedAt: addedAt ?? this.addedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (path.present) {
+      map['path'] = Variable<String>(path.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RootsCompanion(')
+          ..write('id: $id, ')
+          ..write('path: $path, ')
+          ..write('addedAt: $addedAt')
           ..write(')'))
         .toString();
   }
@@ -3891,6 +4428,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $SeriesTableTable seriesTable = $SeriesTableTable(this);
   late final $BooksTable books = $BooksTable(this);
+  late final $RootsTable roots = $RootsTable(this);
   late final $FilesTable files = $FilesTable(this);
   late final $ProgressTable progress = $ProgressTable(this);
   late final $BookmarksTable bookmarks = $BookmarksTable(this);
@@ -3906,6 +4444,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     seriesTable,
     books,
+    roots,
     files,
     progress,
     bookmarks,
@@ -4194,6 +4733,12 @@ typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
   required int pageCount,
   required String format,
   Value<DateTime> addedAt,
+  Value<String?> issueTitle,
+  Value<int?> volume,
+  Value<int?> year,
+  Value<String?> writers,
+  Value<String?> artists,
+  Value<String?> summary,
   Value<int> rowid,
 });
 typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
@@ -4204,6 +4749,12 @@ typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
   Value<int> pageCount,
   Value<String> format,
   Value<DateTime> addedAt,
+  Value<String?> issueTitle,
+  Value<int?> volume,
+  Value<int?> year,
+  Value<String?> writers,
+  Value<String?> artists,
+  Value<String?> summary,
   Value<int> rowid,
 });
 
@@ -4284,6 +4835,36 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<DateTime> get addedAt => $composableBuilder(
     column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get issueTitle => $composableBuilder(
+    column: $table.issueTitle,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get volume => $composableBuilder(
+    column: $table.volume,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get writers => $composableBuilder(
+    column: $table.writers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artists => $composableBuilder(
+    column: $table.artists,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get summary => $composableBuilder(
+    column: $table.summary,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4375,6 +4956,36 @@ class $$BooksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get issueTitle => $composableBuilder(
+    column: $table.issueTitle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get volume => $composableBuilder(
+    column: $table.volume,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get writers => $composableBuilder(
+    column: $table.writers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get artists => $composableBuilder(
+    column: $table.artists,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get summary => $composableBuilder(
+    column: $table.summary,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$SeriesTableTableOrderingComposer get seriesId {
     final $$SeriesTableTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4427,6 +5038,26 @@ class $$BooksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get addedAt =>
       $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get issueTitle => $composableBuilder(
+    column: $table.issueTitle,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get volume =>
+      $composableBuilder(column: $table.volume, builder: (column) => column);
+
+  GeneratedColumn<int> get year =>
+      $composableBuilder(column: $table.year, builder: (column) => column);
+
+  GeneratedColumn<String> get writers =>
+      $composableBuilder(column: $table.writers, builder: (column) => column);
+
+  GeneratedColumn<String> get artists =>
+      $composableBuilder(column: $table.artists, builder: (column) => column);
+
+  GeneratedColumn<String> get summary =>
+      $composableBuilder(column: $table.summary, builder: (column) => column);
 
   $$SeriesTableTableAnnotationComposer get seriesId {
     final $$SeriesTableTableAnnotationComposer composer = $composerBuilder(
@@ -4512,6 +5143,12 @@ class $$BooksTableTableManager
                 Value<int> pageCount = const Value.absent(),
                 Value<String> format = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
+                Value<String?> issueTitle = const Value.absent(),
+                Value<int?> volume = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<String?> writers = const Value.absent(),
+                Value<String?> artists = const Value.absent(),
+                Value<String?> summary = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BooksCompanion(
                 contentKey: contentKey,
@@ -4521,6 +5158,12 @@ class $$BooksTableTableManager
                 pageCount: pageCount,
                 format: format,
                 addedAt: addedAt,
+                issueTitle: issueTitle,
+                volume: volume,
+                year: year,
+                writers: writers,
+                artists: artists,
+                summary: summary,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4532,6 +5175,12 @@ class $$BooksTableTableManager
                 required int pageCount,
                 required String format,
                 Value<DateTime> addedAt = const Value.absent(),
+                Value<String?> issueTitle = const Value.absent(),
+                Value<int?> volume = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<String?> writers = const Value.absent(),
+                Value<String?> artists = const Value.absent(),
+                Value<String?> summary = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BooksCompanion.insert(
                 contentKey: contentKey,
@@ -4541,6 +5190,12 @@ class $$BooksTableTableManager
                 pageCount: pageCount,
                 format: format,
                 addedAt: addedAt,
+                issueTitle: issueTitle,
+                volume: volume,
+                year: year,
+                writers: writers,
+                artists: artists,
+                summary: summary,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4623,6 +5278,155 @@ typedef $$BooksTableProcessedTableManager =
       (Book, $$BooksTableReferences),
       Book,
       PrefetchHooks Function({bool seriesId, bool filesRefs})
+    >;
+typedef $$RootsTableCreateCompanionBuilder = RootsCompanion Function({
+  Value<int> id,
+  required String path,
+  Value<DateTime> addedAt,
+});
+typedef $$RootsTableUpdateCompanionBuilder = RootsCompanion Function({
+  Value<int> id,
+  Value<String> path,
+  Value<DateTime> addedAt,
+});
+
+class $$RootsTableFilterComposer extends Composer<_$AppDatabase, $RootsTable> {
+  $$RootsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RootsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RootsTable> {
+  $$RootsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get path => $composableBuilder(
+    column: $table.path,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RootsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RootsTable> {
+  $$RootsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get path =>
+      $composableBuilder(column: $table.path, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+}
+
+class $$RootsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RootsTable,
+          LibraryRoot,
+          $$RootsTableFilterComposer,
+          $$RootsTableOrderingComposer,
+          $$RootsTableAnnotationComposer,
+          $$RootsTableCreateCompanionBuilder,
+          $$RootsTableUpdateCompanionBuilder,
+          (
+            LibraryRoot,
+            BaseReferences<_$AppDatabase, $RootsTable, LibraryRoot>,
+          ),
+          LibraryRoot,
+          PrefetchHooks Function()
+        > {
+  $$RootsTableTableManager(_$AppDatabase db, $RootsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RootsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$RootsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$RootsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> path = const Value.absent(),
+            Value<DateTime> addedAt = const Value.absent(),
+          }) => RootsCompanion(id: id, path: path, addedAt: addedAt),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String path,
+            Value<DateTime> addedAt = const Value.absent(),
+          }) => RootsCompanion.insert(id: id, path: path, addedAt: addedAt),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$RootsTable, LibraryRoot>(table),
+                  BaseReferences<_$AppDatabase, $RootsTable, LibraryRoot>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RootsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RootsTable,
+      LibraryRoot,
+      $$RootsTableFilterComposer,
+      $$RootsTableOrderingComposer,
+      $$RootsTableAnnotationComposer,
+      $$RootsTableCreateCompanionBuilder,
+      $$RootsTableUpdateCompanionBuilder,
+      (LibraryRoot, BaseReferences<_$AppDatabase, $RootsTable, LibraryRoot>),
+      LibraryRoot,
+      PrefetchHooks Function()
     >;
 typedef $$FilesTableCreateCompanionBuilder = FilesCompanion Function({
   required String contentKey,
@@ -6472,6 +7276,8 @@ class $AppDatabaseManager {
       $$SeriesTableTableTableManager(_db, _db.seriesTable);
   $$BooksTableTableManager get books =>
       $$BooksTableTableManager(_db, _db.books);
+  $$RootsTableTableManager get roots =>
+      $$RootsTableTableManager(_db, _db.roots);
   $$FilesTableTableManager get files =>
       $$FilesTableTableManager(_db, _db.files);
   $$ProgressTableTableManager get progress =>
