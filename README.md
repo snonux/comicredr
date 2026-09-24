@@ -7,9 +7,10 @@ decision here.
 
 ## Quick start on Fedora
 
-> **Current state (M3):** CBZ files open and read in single-page or
-> two-page mode, with zoom, the full keymap, and resume. Guided view (M4),
-> PDF and folders (M6), and the library (M7) are still to come.
+> **Current state (M4):** CBZ files open and read in single-page or
+> two-page mode or in guided view, panel by panel, with zoom, the full
+> keymap, and resume. The learned panel detector (M5), PDF and folders (M6),
+> the library (M7) and touch gestures are still to come.
 
 ### 1. Install the build tools and Flutter
 
@@ -82,31 +83,60 @@ table the app binds from.
 | Next / previous page, skipping panels | `PgDn` `PgUp` | `Ctrl+f` `Ctrl+b` |
 | Pan, or scroll in continuous mode | `↓` `↑` | `j` `k`, `Ctrl+d` `Ctrl+u` for half a screen |
 | First / last page | `Home` `End` | `gg` `G`, and `42G` goes to page 42 |
-| Guided view on and off (M4) | | `v` |
-| Switch between single page and spread | `Tab` `Shift+Tab` | `d` |
+| Guided view on and off | | `v` |
+| Cycle single page, spread, guided view | `Tab` `Shift+Tab` | |
+| Switch between single page and spread | | `d` |
 | Shift the spread pairing by one page | | `D` |
-| Fit width, height or whole page | | `zw` `zh` `zz` |
+| Fit width, height or whole page; in guided view `zz` re-centres the panel | | `zw` `zh` `zz` |
 | Zoom in, out, reset | `+` `-` `=` | |
 | Hide the status line (and system bars on Android) | `F11` | `f` |
 | Night filter | | `i` |
 | Set mark a–z / jump to mark / jump back | | `ma` / `'a` / `''` |
 | Next / previous book in the same folder (the series, once the library lands in M7) | | `]` `[` |
-| Close the book, or cancel a half-typed key | `Esc` | |
+| Leave guided view, close the book, or cancel a half-typed key | `Esc` | |
 | Open a file | | `o` |
 
+The status line shows the page you are on out of the total (`page 3 / 36`),
+and in guided view the panel too (`guided: panel 2 / 6`). A thin bar along
+the bottom of the page shows how far through the book you are, and stays
+visible when `f` hides the status line.
+
 A count in front of a key repeats it: `5l` moves five pages (five panels
-once guided view lands), and `3 Ctrl+f` turns three pages. Marks last while
-the book is open for now; saved bookmarks arrive with sidecars in M8. A key
+in guided view), and `3 Ctrl+f` turns three pages. Marks are saved
+and survive a restart, and in guided view they remember the panel. A
+bookmark list arrives with the library in M7. A key
 whose feature has not landed yet says so on the status line. A half-typed sequence such as `g` or `4z`
 shows in the bottom-right corner. It is dropped if you don't finish it
 within 600 ms.
+
+### 5. Guided view
+
+Press `v`. The camera frames the first panel on the page and dims the rest,
+and `l`, `→` or `Space` glides to the next panel, onto the next page after
+the last one. `h` goes back. `Ctrl+f` or `PgDn` skips to the next page's
+first panel. `+` and `-` zoom within a panel and `zz` re-centres it. `v`
+again returns to single page or spread, whichever you came from, and `v`
+once more comes back to the same panel. Reopening a book remembers the
+panel you stopped on, even after a restart; press `v` to pick up there.
+
+Panels are found on the laptop's CPU in the background, about a quarter of
+a second a page, starting with the page you are on and the two after it.
+The results are cached in the app's database, so a page is only analysed
+once. While a page is still being analysed the status line says
+`finding panels…` and shows the whole page.
+
+A page whose panels don't look like a real layout is shown whole rather
+than guessed at: a splash, a cover, a text page and many ads. The status
+line says why, for example `guided: whole page (1 panel(s): nothing to
+guide through)`. Pages without gutters between panels, and some ads, still
+trip it up; the trained detector in M5 is meant for those.
 
 ## Layout
 
 ```
 lib/                      Flutter app: reader screen, page cache, keyboard layer, Drift index
 packages/comic_formats    ComicDocument, the CBZ adapter and its worker isolate, sniffing, sort
-packages/comic_analysis   Panel model, reading order, the guided-view confidence gate
+packages/comic_analysis   Panel model, classic-CV detection, reading order, the confidence gate
 packages/reader_input     ReaderIntents, default keymap, vi key-sequence resolver
 spike/                    M1 throwaway: classic-CV panel detection and overlays
 test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus/
@@ -118,7 +148,8 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done
-tool/e2e_linux.sh        # release build under Xvfb, driven by real keys, screenshots in build/e2e/
+(cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
+tool/e2e_linux.sh [book.cbz]  # release build under Xvfb, driven by real keys incl. guided view, screenshots in build/e2e/
 ```
 
 ## M1 detection spike

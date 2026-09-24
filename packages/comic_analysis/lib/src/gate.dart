@@ -17,8 +17,12 @@ class GateResult {
 /// so a page only gets guided view when its frames look like a real layout:
 /// between [minPanels] and [maxPanels] of them, none overlapping another by
 /// more than [maxOverlap] of the smaller one, none filling the whole page,
-/// together covering at least [minCoverage] of it. Otherwise the reader just
-/// pages. The thresholds match the M1 spike.
+/// together covering at least [minCoverage] of it, and no more than
+/// [maxScraps] of them smaller than [scrapArea] of the page. Otherwise the
+/// reader just pages. The thresholds match the M1 spike, except the scrap
+/// rule: on the real-comic run, ads and catalogue pages came out as a
+/// handful of real-looking boxes plus a crowd of tiny ones, while story
+/// pages had at most four tiny boxes.
 GateResult confidenceGate(
   List<Panel> frames, {
   int minPanels = 2,
@@ -26,6 +30,8 @@ GateResult confidenceGate(
   double maxOverlap = 0.15,
   double minCoverage = 0.6,
   double wholePage = 0.92,
+  int maxScraps = 4,
+  double scrapArea = 0.02,
   int grid = 200,
 }) {
   final reasons = <String>[];
@@ -43,6 +49,8 @@ GateResult confidenceGate(
       reasons.add('panel ${i + 1} is the whole page');
     }
   }
+  final scraps = frames.where((p) => p.area < scrapArea).length;
+  if (scraps > maxScraps) reasons.add('$scraps scraps: looks like an ad or a text page');
   final coverage = _coverage(frames, grid);
   if (coverage < minCoverage) {
     reasons.add('covers ${(coverage * 100).round()}% of page (< ${(minCoverage * 100).round()}%)');

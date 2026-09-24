@@ -60,8 +60,10 @@ void main() {
     final c = await pumpApp(tester);
     await open(tester, c, path);
     expect(c.read(readerProvider).pageCount, 6);
-    expect(status(tester), contains('1 / 6'));
+    expect(status(tester), contains('page 1 / 6'));
     expect(find.byType(RawImage), findsOneWidget);
+    double progress() => tester.widget<LinearProgressIndicator>(find.byKey(const Key('progress'))).value!;
+    expect(progress(), closeTo(1 / 6, 1e-9));
 
     await key(tester, LogicalKeyboardKey.keyL);
     expect(c.read(readerProvider).page, 1);
@@ -90,7 +92,8 @@ void main() {
     await key(tester, LogicalKeyboardKey.keyD);
     await key(tester, LogicalKeyboardKey.keyL);
     expect(c.read(readerProvider).unit, [1, 2]);
-    expect(status(tester), contains('2–3 / 6'));
+    expect(status(tester), contains('pages 2–3 / 6'));
+    expect(progress(), closeTo(3 / 6, 1e-9));
 
     // Closing the book flushes the position.
     await tester.runAsync(() => c.read(readerProvider.notifier).close());
@@ -152,5 +155,16 @@ void main() {
         .into(db.books)
         .insert(BooksCompanion.insert(contentKey: 'k', title: 'Daredevil 181', pageCount: 32, format: 'zip'));
     expect(await db.select(db.books).get(), hasLength(1));
+  });
+
+  test('an M3 index upgrades to the guided-view schema', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await old.customStatement('DROP TABLE analysed_pages');
+    await old.customStatement('PRAGMA user_version = 1');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    expect(await upgraded.select(upgraded.analysedPages).get(), isEmpty);
+    await upgraded.close();
   });
 }

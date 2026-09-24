@@ -137,6 +137,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       Positioned.fill(child: ReaderView(key: _view))
                     else
                       _EmptyState(loading: s.loading, onOpen: _pickFile),
+                    if (s.book != null)
+                      Positioned(left: 0, right: 0, bottom: 0, child: _ProgressBar(state: s)),
                     if (_showKeymap) KeymapOverlay(keymap: keymap),
                   ],
                 ),
@@ -182,8 +184,41 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+/// How far through the book you are, as a thin bar along the bottom of the
+/// page. It stays when fullscreen hides the status line. In guided view it
+/// also moves panel by panel within the page.
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({required this.state});
+
+  final ReaderState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = state.pageCount;
+    final stops = state.guided ? state.stopsOn(state.page).length : 0;
+    final within = stops > 0 ? (state.panelIndex + 1) / stops : 1.0;
+    final read = state.guided ? state.page + within : state.unit.last + 1.0;
+    return LinearProgressIndicator(
+      key: const Key('progress'),
+      value: n == 0 ? 0 : (read / n).clamp(0.0, 1.0),
+      minHeight: 3,
+      backgroundColor: Colors.white12,
+      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+    );
+  }
+}
+
 class _StatusLine extends StatelessWidget {
   const _StatusLine({required this.state, required this.pending});
+
+  /// Where guided view is on the page, or why it shows the whole page.
+  static String _guided(ReaderState s) {
+    final found = s.panels[s.page];
+    if (found == null) return 'guided: finding panels…';
+    final stops = s.stopsOn(s.page);
+    if (stops.isEmpty) return 'guided: whole page (${found.gate.reasons.first})';
+    return 'guided: panel ${s.panelIndex + 1} / ${stops.length}';
+  }
 
   final ReaderState state;
   final String pending;
@@ -196,12 +231,13 @@ class _StatusLine extends StatelessWidget {
     final pages = unit.isEmpty
         ? ''
         : unit.length == 1
-        ? '${unit.first + 1} / ${state.pageCount}'
-        : '${unit.first + 1}–${unit.last + 1} / ${state.pageCount}';
+        ? 'page ${unit.first + 1} / ${state.pageCount}'
+        : 'pages ${unit.first + 1}–${unit.last + 1} / ${state.pageCount}';
     final left = [
       if (book != null) book.title,
       if (book != null) pages,
-      if (book != null && state.mode == PageMode.spread) 'spread',
+      if (book != null && state.guided) _guided(state),
+      if (book != null && !state.guided && state.mode == PageMode.spread) 'spread',
       if (state.rightToLeft) 'RTL',
     ].join('  ·  ');
     return Container(

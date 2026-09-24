@@ -64,8 +64,17 @@ key z z; key G;      shot 09_last
 key i;               shot 10_night
 key i; key bracketright; sleep 1.5; shot 11_next_book
 key bracketleft; sleep 1.5;         shot 12_back
-key question;        shot 13_keymap
-key Escape; key Escape; shot 14_closed
+# Guided view, from page 3 so the cover is not first: panel by panel,
+# across a page, zoomed and re-centred, then back to the page mode.
+key 3 shift+g; key v; sleep 2;      shot 13_guided_panel1
+key l;               shot 14_guided_panel2
+key l l l l l;       shot 15_guided_five_on
+key ctrl+f; sleep 1; shot 16_guided_next_page
+key plus plus;       shot 17_guided_zoomed
+key z z;             shot 18_guided_recentred
+key v;               shot 19_guided_off
+key question;        shot 20_keymap
+key Escape; key Escape; shot 21_closed
 
 # Resume across a restart: quit, relaunch on the same book, and expect the
 # last page with "Resumed at page …" on the status line.
@@ -73,7 +82,7 @@ kill "$app"; wait "$app" 2>/dev/null || true
 HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$book" >>"$out/app.log" 2>&1 &
 app=$!
 sleep 5
-shot 15_resumed_after_restart
+shot 22_resumed_after_restart
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"
 if grep -v XGetInputFocus "$out/app.log" | grep -q 'Unhandled Exception\|\[ERROR'; then
