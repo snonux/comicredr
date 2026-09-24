@@ -73,6 +73,13 @@ build internals, test scripts, detector work and conventions here.
   the book is refused as a text ebook. Metadata comes from a ComicInfo.xml
   inside, else the OPF (Dublin Core, `belongs-to-collection`,
   `calibre:series`, creator roles `ill`/`art` as artists).
+- A PNG, JPEG or WebP file (sniffed by its first bytes) is a one-page
+  comic, `ImageDocument`. In the library a folder is a folder book when it
+  holds page images directly and no comic file anywhere under it
+  (`isFolderBook`); otherwise each loose PNG/JPEG/WebP in it is its own
+  book. GIF and BMP are only ever pages. The launcher lists the image types
+  for Open With; `linux/packaging/keep-viewer.sh` pins the previous default
+  viewer when installing into `~/.local` would otherwise take it over.
 - The library's first scan reads each book once in the background (about a
   third of a second a book); later starts only compare sizes and dates. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
@@ -191,6 +198,7 @@ tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned sprea
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
+COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 

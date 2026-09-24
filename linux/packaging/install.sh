@@ -28,6 +28,9 @@ for png in "$here"/packaging/icons/*.png; do
   rm -f "$ICONDIR/${s}x$s/apps/$APP_ID.png"
 done
 
+defaults=$(mktemp)
+[ -n "$uninstall" ] || "$here/packaging/keep-viewer.sh" save "$defaults" "$APPSDIR"
+
 if [ -z "$uninstall" ]; then
   mkdir -p "$LIBDIR" "$BINDIR" "$APPSDIR" "$ICONDIR/scalable/apps"
   cp -a "$here/bundle/." "$LIBDIR/"
@@ -45,6 +48,8 @@ fi
 if command -v update-desktop-database >/dev/null; then update-desktop-database -q "$APPSDIR" || true; fi
 if [ -f "$ICONDIR/icon-theme.cache" ]; then gtk-update-icon-cache -qtf "$ICONDIR" || true
 elif [ -d "$ICONDIR" ]; then touch "$ICONDIR"; fi
+[ -n "$uninstall" ] || "$here/packaging/keep-viewer.sh" restore "$defaults" "$APPSDIR"
+rm -f "$defaults"
 
 if [ -n "$uninstall" ]; then
   echo "Uninstalled. Your reading progress in ~/.local/share/$APP_ID is kept."
