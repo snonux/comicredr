@@ -79,7 +79,7 @@ setMark = "M"
 
     test('warns when a short key hides a longer one', () {
       final load = keymapFromToml('[keys]\nautoTrim = "g"\n');
-      expect(load.warnings.single, contains('hides gg'));
+      expect(load.warnings, [contains('hides gg'), contains('hides gt')]);
     });
 
     test('mark keys need their letter slot', () {

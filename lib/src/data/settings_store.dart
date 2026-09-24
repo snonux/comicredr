@@ -32,6 +32,9 @@ class SettingsStore {
   /// (LibraryDetection). On by default on the laptop, off on the phone.
   static const detectLibrary = 'detect.library';
 
+  /// The touch preset picked in Settings (a TouchPreset name).
+  static const touchPreset = 'touch.preset';
+
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
     final v = row == null ? null : jsonDecode(row.value);

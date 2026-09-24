@@ -41,6 +41,27 @@ void main() {
     await book.doc.close();
   });
 
+  test('a PNG opens as a one-page comic, and ] steps to the image beside it', () async {
+    final a = writeBook(tmp, 'Book 1.cbz', 2);
+    final strip = File('${tmp.path}/Book 2.png')..writeAsBytesSync([...png, 2]);
+    File('${tmp.path}/Book 3.jpg').writeAsBytesSync([0xFF, 0xD8, 0xFF, 0xE0]);
+    File('${tmp.path}/Book 4.gif').writeAsBytesSync([0x47, 0x49, 0x46]);
+    final book = await openBook(strip.path);
+    expect((book.doc.pageCount, book.title, book.folder), (1, 'Book 2', false));
+    await book.doc.close();
+
+    expect(await siblingBook(a, next: true), strip.path);
+    expect(await siblingBook(strip.path, next: true), '${tmp.path}/Book 3.jpg');
+    expect(await siblingBook('${tmp.path}/Book 3.jpg', next: true), isNull, reason: 'a GIF is only ever a page');
+  });
+
+  test('pages of a folder book are not books beside it, but an image opened from one steps to the next', () async {
+    final dir = folderBook('Strips', 3);
+    final other = folderBook('Zines', 1);
+    expect(await siblingBook(dir.path, next: true), other.path);
+    expect(await siblingBook('${dir.path}/page1.png', next: true), '${dir.path}/page2.png');
+  });
+
   test('a RAR is refused with the conversion hint', () async {
     final rar = File('${tmp.path}/x.cbr')..writeAsBytesSync([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0]);
     expect(openBook(rar.path), throwsA(isA<OpenBookException>().having((e) => e.message, 'message', contains('unar'))));

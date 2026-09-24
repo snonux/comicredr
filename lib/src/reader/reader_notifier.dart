@@ -985,6 +985,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.zoomIn:
       case ReaderIntent.zoomOut:
       case ReaderIntent.zoomReset:
+      case ReaderIntent.zoomToggle:
+      case ReaderIntent.showTouchZones:
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:
       case ReaderIntent.showKeymap:

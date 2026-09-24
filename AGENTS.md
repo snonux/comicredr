@@ -73,6 +73,13 @@ build internals, test scripts, detector work and conventions here.
   the book is refused as a text ebook. Metadata comes from a ComicInfo.xml
   inside, else the OPF (Dublin Core, `belongs-to-collection`,
   `calibre:series`, creator roles `ill`/`art` as artists).
+- A PNG, JPEG or WebP file (sniffed by its first bytes) is a one-page
+  comic, `ImageDocument`. In the library a folder is a folder book when it
+  holds page images directly and no comic file anywhere under it
+  (`isFolderBook`); otherwise each loose PNG/JPEG/WebP in it is its own
+  book. GIF and BMP are only ever pages. The launcher lists the image types
+  for Open With; `linux/packaging/keep-viewer.sh` pins the previous default
+  viewer when installing into `~/.local` would otherwise take it over.
 - The library's first scan reads each book once in the background (about a
   third of a second a book); later starts only compare sizes and dates. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
@@ -125,6 +132,14 @@ build internals, test scripts, detector work and conventions here.
   (`LibraryStore.setNote`) replaces the row with a new id and removes the
   old one, which the sidecar merge's "union by id, removal wins" carries
   to every copy.
+- Touch: `ReaderTouch` looks every gesture up in a `TouchMap`
+  (`reader_input` touch_map.dart): taps, double-taps and long presses on a
+  3x3 grid (30% side columns, rows in thirds), four swipes and a
+  two-finger tap, each mapped to a ReaderIntent. The map is the preset
+  picked in Settings (`touch.preset`) with the `[touch]` lines of
+  keys.toml over it. A tap only waits for a possible second tap in a zone
+  that has a double-tap action, so edge taps turn at once. Pinch zoom and
+  panning stay with the InteractiveViewer and can't be remapped.
 - Page thumbnails (the `p` grid and the progress bar's preview) come from
   `Thumbnails` in `lib/src/reader/thumbnails.dart`: made on demand through
   the book's own document (so PDFs use the shared PDFium isolate), scaled
@@ -192,6 +207,7 @@ COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padd
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3
 tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart
 tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
 tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
@@ -201,6 +217,7 @@ tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the 
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
+COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 
