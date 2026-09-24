@@ -80,4 +80,20 @@ void main() {
     await Directory(comics).create();
     expect(await addDefaultFolder(library, settings, comics), isTrue);
   });
+
+  test('~/Comics as a symlink: added by its own path, and taken out stays out', () async {
+    final real = Directory(p.join(home.path, 'Real'))..createSync();
+    Link(comics).createSync(real.path);
+    expect(await addDefaultFolder(library, settings, comics), isTrue);
+    expect(await roots(), [comics]);
+    final root = (await library.roots()).single;
+    await removeLibraryFolder(library, settings, root.id, root.path, defaultFolder: comics);
+    expect(await addDefaultFolder(library, settings, comics), isFalse);
+    expect(await roots(), isEmpty);
+  });
+
+  test('a dangling ~/Comics symlink is no ~/Comics', () async {
+    Link(comics).createSync(p.join(home.path, 'gone'));
+    expect(await addDefaultFolder(library, settings, comics), isFalse);
+  });
 }

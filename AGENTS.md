@@ -96,7 +96,9 @@ build internals, test scripts, detector work and conventions here.
   models in the XDG places are still read as a fallback, and the Makefile
   (`APPDATA`, `MODELDIR`, `KEYS`) uses the same rule. The scanner skips
   dot folders and the watcher ignores `.comicredr`. Android keeps its
-  private folders. `?` shows the folder (`appDataDirProvider`).
+  private folders. `?` shows the folder (`appDataDirProvider`). A
+  `~/Comics` symlink to a folder counts (`.comicredr` lands in the real
+  folder, the library folder keeps the link's path); a dangling one doesn't.
 - Every start, while the library has no folder at all, `~/Comics`
   (Android: `/storage/emulated/0/Comics`, once All files access is
   granted, also checked on resume) is added if it exists
@@ -283,7 +285,7 @@ COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/We
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
-tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept; nothing else written, .comicredr not in the library; makes its own books
+tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 

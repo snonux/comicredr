@@ -9,6 +9,9 @@
 #   2. No ~/Comics: the XDG folders, as before.
 #   3. A database in the XDG folder already, then ~/Comics appears: the
 #      database stays where it is, ~/Comics joins it, no .comicredr is made.
+#   4. ~/Comics a symlink to a folder elsewhere: as 1, through the link,
+#      and taken out of the library it stays out after a restart.
+#   5. A dangling ~/Comics symlink: as if there were no ~/Comics.
 # Checks the files on disk and the index with sqlite3, and takes screenshots
 # (the ? overlay names the folder).
 #
@@ -72,6 +75,7 @@ start() { # start home [args...]
 stop() { kill "$app"; wait "$app" 2>/dev/null || true; app=; }
 shot() { import -window root "$top/$out/$1.png"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 0.9; }
+click() { xdotool mousemove "$1" "$2" click 1; sleep 1.2; }
 sql() { sqlite3 -batch -noheader "$1" "$2"; }
 wait_files() { for _ in $(seq 1 40); do [[ "$(sql "$1" 'select count(*) from files' 2>/dev/null)" == "$2" ]] && break; sleep 0.5; done; }
 exists() { [[ -e "$1" ]] && echo yes || echo no; }
@@ -148,7 +152,50 @@ check "no .comicredr made" "$(exists "$h/Comics/.comicredr")" no
 check "~/Comics joined the old database" "$(sql "$xdg" 'select path from roots')" "$h/Comics"
 check "both comics in the old database" "$(sql "$xdg" 'select count(*) from files')" 2
 
-montage -label '%t' "$out"/0*.png -tile 3x -geometry 480x338+4+14 "$out/contact.png"
+# 4. ~/Comics a symlink to a folder elsewhere: .comicredr goes in the
+# real folder, the library folder keeps the link's path, the watcher sees
+# comics copied in through the link, and taken out it stays out.
+h="$top/$out/linked"
+real="$top/$out/Real Comics"
+mkdir -p "$h" "$real"
+comics_in "$real/.."; mv "$real/../Comics"/* "$real/"; rmdir "$real/../Comics"
+ln -s "$real" "$h/Comics"
+data="$real/.comicredr"
+start linked
+wait_files "$data/comicredr.sqlite" 2
+key Tab Tab Tab Tab; shot 07_linked_folders_tab
+cbz "$h/Comics/Indie/Linked 2.cbz"
+wait_files "$data/comicredr.sqlite" 3
+stop
+check "linked: database in the real folder's .comicredr" "$(exists "$data/comicredr.sqlite")" yes
+check "linked: library folder is the link's path" "$(sql "$data/comicredr.sqlite" 'select path from roots')" "$h/Comics"
+check "linked: comic copied in through the link indexed" "$(sql "$data/comicredr.sqlite" 'select count(*) from files')" 3
+check "linked: nothing from .comicredr in the index" \
+  "$(sql "$data/comicredr.sqlite" "select count(*) from files where rel_path like '%.comicredr%'")" 0
+check "linked: nothing of the app's outside ~/Comics" "$(outside linked)" ""
+# Taken out of the library (the Folders tab, its one folder, the pane's
+# "Take out of the library" button, as in e2e_default_folder.sh).
+start linked
+click 640 650
+key Tab Tab Tab Tab; key Right
+click "${REMOVE_X:-1080}" "${REMOVE_Y:-528}"
+shot 08_linked_taken_out
+stop
+check "linked: taken out" "$(sql "$data/comicredr.sqlite" 'select count(*) from roots')" 0
+start linked; stop
+check "linked: still out after a restart" "$(sql "$data/comicredr.sqlite" 'select count(*) from roots')" 0
+
+# 5. A dangling ~/Comics symlink is no ~/Comics.
+h="$top/$out/dangling"
+mkdir -p "$h"
+ln -s "$top/$out/gone" "$h/Comics"
+start dangling; stop
+check "dangling: XDG database" "$(exists "$h/.local/share/org.snonux.comicredr/comicredr.sqlite")" yes
+check "dangling: no library folder" \
+  "$(sql "$h/.local/share/org.snonux.comicredr/comicredr.sqlite" 'select count(*) from roots')" 0
+check "dangling: link left alone" "$(exists "$top/$out/gone")" no
+
+montage -label '%t' "$out"/0*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"
 cat "$out"/*.log | grep -v XGetInputFocus | grep -q 'Unhandled Exception\|\[ERROR' && { echo "FAIL  errors in the log"; failed=1; }
 echo "Screenshots in $out/, overview in $out/contact.png"
 exit $failed

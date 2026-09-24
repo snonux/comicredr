@@ -51,6 +51,15 @@ void main() {
     expect(folder(), isNotNull);
   });
 
+  test('~/Comics as a symlink to a folder counts; a dangling one does not', () {
+    final real = Directory(p.join(home.path, 'Elsewhere', 'Real Comics'))..createSync(recursive: true);
+    final link = Link(p.join(home.path, 'Comics'))..createSync(real.path);
+    expect(folder(), p.join(home.path, 'Comics', '.comicredr'));
+    real.deleteSync();
+    expect(folder(), isNull);
+    link.deleteSync();
+  });
+
   test('Android keeps its private folders', () {
     expect(comicsDataFolder(environment: env, android: true), isNull);
   });
