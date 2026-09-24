@@ -5,11 +5,14 @@
 #   make dev              debug build with hot reload (flutter run -d linux)
 #   make install          per-user install under ~/.local, no sudo
 #   make uninstall        remove what make install put there
+#   make tarball          release build packed as build/comicredr-VERSION-linux-ARCH.tar.gz
+#   make keys             copy the default keymap to ~/.config/comicredr/keys.toml to edit
 #   make install-model MODEL=comicredr-panels.onnx
 #   make keystore         create the Android release key (once, back it up)
 #   make apk              signed release APK for the phone (arm64)
 #   make install-apk      sideload it over USB with adb
 #   make push-model MODEL=comicredr-panels.onnx   model onto the phone
+#   make push-keys        your keys.toml onto the phone
 #   make test             flutter analyze + all tests
 #   make analyze          flutter analyze only
 #   make icons            re-render the PNG icons from the SVG
@@ -25,6 +28,7 @@ DART    ?= dart
 PREFIX  ?= $(HOME)/.local
 BOOK    ?=
 MODEL   ?= comicredr-panels.onnx
+KEYS    ?= $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/comicredr/keys.toml
 
 ARCH := $(shell uname -m | sed -e 's/x86_64/x64/' -e 's/aarch64/arm64/')
 BUNDLE := build/linux/$(ARCH)/release/bundle
@@ -48,14 +52,16 @@ ANDROID_ICONS := mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192
 
 # pubspec.yaml's version without the +build suffix: 0.1.0+1 gives 0.1.0.
 VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
+TARNAME := comicredr-$(VERSION)-linux-$(ARCH)
+TARBALL := build/$(TARNAME).tar.gz
 
 .PHONY: all build deps run dev test analyze install uninstall install-model icons clean help version \
-	keystore apk install-apk push-model
+	keystore apk install-apk push-model push-keys tarball keys
 
 all: build
 
 help:
-	@sed -n '2,21p' Makefile | sed 's/^# \{0,1\}//'
+	@sed -n '2,24p' Makefile | sed 's/^# \{0,1\}//'
 
 version:
 	@echo $(VERSION)
@@ -115,6 +121,24 @@ ifeq ($(DESTDIR),)
 	 elif test -d $(ICONDIR); then touch $(ICONDIR); fi
 endif
 
+# The Linux release as one file to copy to another machine: unpack it, then
+# run ./install.sh (into ~/.local) or start bundle/comicredr where it is.
+tarball: build
+	rm -rf build/tarball
+	mkdir -p build/tarball/$(TARNAME)/packaging
+	cp -a $(BUNDLE) build/tarball/$(TARNAME)/bundle
+	cp -a $(PKG)/icons $(PKG)/$(APP_ID).desktop.in $(PKG)/$(APP_ID).svg build/tarball/$(TARNAME)/packaging/
+	install -m755 $(PKG)/install.sh build/tarball/$(TARNAME)/install.sh
+	cp README.md CHANGELOG.md docs/keys.toml build/tarball/$(TARNAME)/
+	tar -C build/tarball -czf $(TARBALL) $(TARNAME)
+	@echo "Built $(TARBALL)"
+
+# Starts a keys.toml from the defaults; never overwrites one you have.
+keys:
+	@test ! -f "$(KEYS)" || { echo "$(KEYS) exists already; edit that one (docs/keys.toml has the defaults)."; exit 1; }
+	install -Dm644 docs/keys.toml "$(KEYS)"
+	@echo "Edit $(KEYS), keep only the lines you change, and restart ComicRedr."
+
 install-model:
 	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
 	install -Dm644 "$(MODEL)" $(MODELDIR)/comicredr-panels.onnx
@@ -151,6 +175,12 @@ push-model:
 	$(ADB) shell mkdir -p $(PHONE_MODELDIR)
 	$(ADB) push "$(MODEL)" $(PHONE_MODELDIR)/comicredr-panels.onnx
 	@echo "Model on the phone. Close and reopen ComicRedr to use it."
+
+push-keys:
+	@test -f "$(KEYS)" || { echo "No $(KEYS); run make keys first, or pass KEYS=/path/to/keys.toml"; exit 1; }
+	$(ADB) shell mkdir -p $(dir $(PHONE_MODELDIR))
+	$(ADB) push "$(KEYS)" $(dir $(PHONE_MODELDIR))keys.toml
+	@echo "Keys on the phone. Close and reopen ComicRedr to use them."
 
 # Re-render the committed PNG icons after editing the SVG.
 # Needs rsvg-convert (dnf install librsvg2-tools).

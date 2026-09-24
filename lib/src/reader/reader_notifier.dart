@@ -35,6 +35,7 @@ class ReaderState {
     this.rightToLeft = false,
     this.fullscreen = false,
     this.night = false,
+    this.trim = false,
     this.panels = const {},
     this.marks = const {},
     this.jumpedFrom,
@@ -72,6 +73,10 @@ class ReaderState {
   final bool rightToLeft;
   final bool fullscreen;
   final bool night;
+
+  /// Auto-trim: scanned margins are cut off each page (`t`). A setting,
+  /// like [night], remembered across books and restarts.
+  final bool trim;
 
   /// Detection results for this book's pages; a page not in here has not
   /// been analysed yet.
@@ -156,6 +161,7 @@ class ReaderState {
     bool? rightToLeft,
     bool? fullscreen,
     bool? night,
+    bool? trim,
     Map<int, PagePanels>? panels,
     Map<String, Place>? marks,
     Place? jumpedFrom,
@@ -174,6 +180,7 @@ class ReaderState {
     rightToLeft: rightToLeft ?? this.rightToLeft,
     fullscreen: fullscreen ?? this.fullscreen,
     night: night ?? this.night,
+    trim: trim ?? this.trim,
     panels: panels ?? this.panels,
     marks: marks ?? this.marks,
     jumpedFrom: jumpedFrom ?? this.jumpedFrom,
@@ -198,8 +205,7 @@ final sidecarSyncProvider = Provider<SidecarSync>((ref) {
     ref.watch(databaseProvider),
     progress: ref.watch(progressStoreProvider),
     coverDir: ref.watch(coverDirProvider),
-    writeAllowed: () async =>
-        await settings.loadBool(SettingsStore.writeSidecars).catchError((_) => null) ?? true,
+    writeAllowed: () async => await settings.loadBool(SettingsStore.writeSidecars).catchError((_) => null) ?? true,
   );
   ref.onDispose(sync.flush);
   return sync;
@@ -297,6 +303,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final whole =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.wholePageSteps)) ??
         state.wholePageSteps;
+    final night = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.night)) ?? state.night;
+    final trim = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.autoTrim)) ?? state.trim;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -320,7 +328,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
       fullscreen: state.fullscreen,
-      night: state.night,
+      night: night,
+      trim: trim,
       panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons)},
       marks: marks,
       message: at != null
@@ -387,6 +396,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       wholePageSteps: state.wholePageSteps,
       fullscreen: state.fullscreen,
       night: state.night,
+      trim: state.trim,
     );
     await book.doc.close();
     // Off the way of whatever opens next; flush() on exit waits for it.
@@ -630,12 +640,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
           wholePageSteps: on,
           message: on ? 'Whole page before and after the panels' : 'Straight from panel to panel across pages',
         );
-        unawaited(
-          ref
-              .read(settingsStoreProvider)
-              .saveBool(SettingsStore.wholePageSteps, on)
-              .catchError((Object e) => debugPrint('Could not save setting: $e')),
-        );
+        _saveSetting(SettingsStore.wholePageSteps, on);
       case ReaderIntent.toggleSpread:
         // Guided view shows one page, so d from there goes to the spread.
         state.guided
@@ -668,7 +673,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.fullscreen:
         state = state.copyWith(fullscreen: !state.fullscreen);
       case ReaderIntent.nightFilter:
-        state = state.copyWith(night: !state.night);
+        final on = !state.night;
+        state = state.copyWith(night: on, message: on ? 'Night filter on' : 'Night filter off');
+        _saveSetting(SettingsStore.night, on);
       case ReaderIntent.setMark:
         final key = state.book!.key;
         final i = state.panelIndex;
@@ -717,7 +724,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.searchPrev:
         _notice('In-book search is not built yet');
       case ReaderIntent.autoTrim:
-        _notice('Auto-trim arrives in M9');
+        final on = !state.trim;
+        state = state.copyWith(trim: on, message: on ? 'Auto-trim: margins cut' : 'Auto-trim off: whole pages');
+        _saveSetting(SettingsStore.autoTrim, on);
       case ReaderIntent.panDown:
       case ReaderIntent.panUp:
       case ReaderIntent.fitWidth:
@@ -738,6 +747,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // spot too. Saves are debounced, so this costs nothing per key.
     if (state.book case final book?) _saveProgress(book);
   }
+
+  void _saveSetting(String key, bool on) => unawaited(
+    ref
+        .read(settingsStoreProvider)
+        .saveBool(key, on)
+        .catchError((Object e) => debugPrint('Could not save setting: $e')),
+  );
 
   /// `]` and `[`: the next or previous book in the series when the book is
   /// in the library with others in its series, the next or previous book in
