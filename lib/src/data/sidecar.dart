@@ -22,7 +22,10 @@ const sidecarExtension = '.crdb';
 const folderSidecarName = '.comicredr.crdb';
 
 /// The format this code writes. A sidecar from a newer app is read for the
-/// tables it shares with this one and never written over.
+/// tables it shares with this one and never written over. The nullable
+/// `panels.shape` column (frame outlines) came later without a bump: older
+/// apps read such a sidecar fine, and one that rewrites it only drops the
+/// outlines, which leaves those frames as boxes.
 const sidecarSchemaVersion = 1;
 
 /// Whether [path] is a sidecar or one being written, which the library
@@ -124,7 +127,7 @@ const _schema = [
       'millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, PRIMARY KEY (page, source))',
   'CREATE TABLE panels (page INTEGER NOT NULL, idx INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, '
       'w REAL NOT NULL, h REAL NOT NULL, kind TEXT NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, '
-      'confidence REAL NOT NULL, PRIMARY KEY (page, kind, idx, source))',
+      'confidence REAL NOT NULL, shape TEXT, PRIMARY KEY (page, kind, idx, source))',
   'CREATE TABLE bookmarks (id TEXT PRIMARY KEY, page INTEGER NOT NULL, panel INTEGER, mark TEXT, note TEXT, '
       'created_at INTEGER NOT NULL, deleted_at INTEGER)',
   'CREATE TABLE progress (device TEXT PRIMARY KEY, device_name TEXT NOT NULL, page INTEGER NOT NULL, '
@@ -191,6 +194,8 @@ SidecarData? readSidecar(String path) {
             source: r['source'] as String,
             modelVer: r['model_ver'] as int,
             confidence: (r['confidence'] as num).toDouble(),
+            // Sidecars from before frame outlines have no such column.
+            shape: r.containsKey('shape') ? r['shape'] as String? : null,
           ),
       ],
       bookmarks: [
@@ -281,9 +286,9 @@ void writeSidecar(String path, SidecarData data, {required String device, String
       analysed.execute([a.page, a.source, a.modelVer, a.millis, a.analysedAt.millisecondsSinceEpoch]);
     }
     analysed.close();
-    final panels = db.prepare('INSERT OR REPLACE INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    final panels = db.prepare('INSERT OR REPLACE INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     for (final r in merged.panels) {
-      panels.execute([r.page, r.idx, r.x, r.y, r.w, r.h, r.kind, r.source, r.modelVer, r.confidence]);
+      panels.execute([r.page, r.idx, r.x, r.y, r.w, r.h, r.kind, r.source, r.modelVer, r.confidence, r.shape]);
     }
     panels.close();
     final marks = db.prepare('INSERT INTO bookmarks VALUES (?, ?, ?, ?, ?, ?, ?)');

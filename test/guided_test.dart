@@ -205,4 +205,20 @@ void main() {
     expect((s().page, s().panelIndex), (0, 0));
     expect(s().guided, isTrue);
   });
+
+  test('a slanted frame dims along its outline, relative to the hole', () {
+    const hole = Rect.fromLTWH(0.1, 0.1, 0.8, 0.4);
+    expect(holeShape(hole, null), isNull);
+    final shape = holeShape(hole, [0.1, 0.1, 0.9, 0.1, 0.9, 0.3, 0.1, 0.5])!;
+    final want = [const Offset(0, 0), const Offset(1, 0), const Offset(1, 0.5), const Offset(0, 1)];
+    expect(shape.length, want.length);
+    for (final (i, p) in shape.indexed) {
+      expect((p - want[i]).distance, lessThan(1e-9), reason: 'point $i: $p');
+    }
+    // In balloon mode the hole is the balloon's framing: the outline is cut
+    // to it.
+    final part = holeShape(const Rect.fromLTWH(0.5, 0.2, 0.4, 0.3), [0.1, 0.1, 0.9, 0.1, 0.9, 0.3, 0.1, 0.5])!;
+    expect(part.every((p) => p.dx >= -1e-9 && p.dx <= 1 + 1e-9 && p.dy >= -1e-9 && p.dy <= 1 + 1e-9), isTrue);
+    expect(part.length, greaterThanOrEqualTo(4));
+  });
 }

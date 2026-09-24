@@ -91,6 +91,75 @@ void main() {
     });
   });
 
+  group('refineOutlines', () {
+    // A 400x600 page of white paper with two panels split by a slanted
+    // gutter, like a modern action page. Their boxes overlap by a sliver.
+    const w = 400, h = 600;
+    bool inA(int x, int y) => x >= 20 && x < 380 && y >= 20 && y < 260 - 60 * (x - 20) / 360;
+    bool inB(int x, int y) => x >= 20 && x < 380 && y < 580 && y >= 280 - 60 * (x - 20) / 360;
+    Uint8List page() {
+      final px = Uint8List(w * h * 4)..fillRange(0, w * h * 4, 255);
+      for (var y = 0; y < h; y++) {
+        for (var x = 0; x < w; x++) {
+          if (!inA(x, y) && !inB(x, y)) continue;
+          final i = (y * w + x) * 4;
+          px[i] = inA(x, y) ? 60 : 180;
+          px[i + 1] = 90 + (x * 7 + y * 3) % 40; // some texture
+          px[i + 2] = inA(x, y) ? 160 : 40;
+        }
+      }
+      return px;
+    }
+
+    final a = Panel(20 / w, 20 / h, 360 / w, 240 / h);
+    final b = Panel(20 / w, 220 / h, 360 / w, 360 / h);
+
+    test('slanted panels get their real outline, and pass the gate', () {
+      final got = refineOutlines(page(), w, h, [a, b], const []);
+      expect(got[0].shape, isNotNull);
+      expect(got[1].shape, isNotNull);
+      // The box's bottom-right corner belongs to the panel below, and the
+      // top-left corner of the lower box to the panel above.
+      bool contains(Panel p, double x, double y) =>
+          polygonArea(
+            clipConvex(p.outline, [
+              (x - 1e-3, y - 1e-3),
+              (x + 1e-3, y - 1e-3),
+              (x + 1e-3, y + 1e-3),
+              (x - 1e-3, y + 1e-3),
+            ]),
+          ) >
+          0;
+      expect(contains(got[0], 370 / w, 250 / h), isFalse);
+      expect(contains(got[0], 30 / w, 250 / h), isTrue);
+      expect(contains(got[1], 30 / w, 230 / h), isFalse);
+      expect(contains(got[1], 370 / w, 230 / h), isTrue);
+      expect(got[0].overlap(got[1]), lessThan(0.002));
+      expect(confidenceGate([a, b]).passed, isFalse, reason: 'the boxes overlap');
+      expect(confidenceGate(got).passed, isTrue, reason: confidenceGate(got).reasons.join('; '));
+    });
+
+    test('rectangular panels keep their boxes', () {
+      final px = Uint8List(w * h * 4)..fillRange(0, w * h * 4, 255);
+      final grid = [Panel(20 / w, 20 / h, 360 / w, 270 / h), Panel(20 / w, 310 / h, 360 / w, 270 / h)];
+      for (final p in grid) {
+        for (var y = (p.y * h).round(); y < (p.bottom * h).round(); y++) {
+          for (var x = (p.x * w).round(); x < (p.right * w).round(); x++) {
+            px[(y * w + x) * 4] = 50;
+          }
+        }
+      }
+      expect(refineOutlines(px, w, h, grid, const []).map((p) => p.shape), everyElement(isNull));
+    });
+
+    test('shapes survive storage as text', () {
+      final s = [0.1, 0.2, 0.9, 0.2, 0.9, 0.8, 0.1, 0.7];
+      expect(decodeShape(encodeShape(s)), s);
+      expect(decodeShape(null), isNull);
+      expect(decodeShape('1,2,3'), isNull);
+    });
+  });
+
   group('modelVersion', () {
     test('tells model files apart and carries the code version', () {
       final a = modelVersion([1, 2, 3]);

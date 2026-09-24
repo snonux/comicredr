@@ -116,6 +116,10 @@ class Panels extends Table {
   IntColumn get modelVer => integer()();
   RealColumn get confidence => real()();
 
+  /// A frame's outline when it is not its box (Panel.shape), as
+  /// "x,y,x,y,..." in page coordinates; null for a rectangle.
+  TextColumn get shape => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey, page, kind, idx, source};
 }
@@ -178,7 +182,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -193,6 +197,7 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 5) await m.createTable(settings); // Whole-page steps in guided view
       if (from < 6) await m.addColumn(bookmarks, bookmarks.deletedAt); // M8: sidecars
+      if (from < 7) await m.addColumn(panels, panels.shape); // Non-rectangular frames
     },
   );
 }
