@@ -7,6 +7,7 @@ import 'package:archive/archive.dart';
 import 'comic_info.dart';
 import 'document.dart';
 import 'natural_sort.dart';
+import 'sniff.dart';
 
 /// A ZIP comic: `.cbz`, or a `.cbr` that is really a ZIP.
 ///
@@ -21,23 +22,26 @@ class CbzDocument implements ComicDocument {
   factory CbzDocument.open(String path) {
     final input = InputFileStream(path);
     try {
-      final archive = ZipDecoder().decodeStream(input);
-      final pages = archive.files.where((f) => f.isFile && isPageEntry(f.name)).toList()
-        ..sort((a, b) => naturalCompare(a.name, b.name));
-      if (pages.isEmpty) {
-        throw FormatException('No page images in $path');
-      }
-      final info = archive.files
-          .where((f) => f.isFile && f.name.split('/').last.toLowerCase() == 'comicinfo.xml')
-          .firstOrNull;
-      return CbzDocument._(input, pages, info);
-    } on FormatException {
+      return CbzDocument.fromArchive(input, decodeZip(input, path), path);
+    } catch (_) {
       input.closeSync();
       rethrow;
-    } catch (e) {
-      input.closeSync();
-      throw FormatException('Not a readable ZIP: $path ($e)');
     }
+  }
+
+  /// The comic whose ZIP directory is [archive], read from [input], which it
+  /// then owns. Throws [FormatException] when it holds no pages; [input] is
+  /// left for the caller to close then.
+  factory CbzDocument.fromArchive(InputFileStream input, Archive archive, String path) {
+    final pages = archive.files.where((f) => f.isFile && isPageEntry(f.name)).toList()
+      ..sort((a, b) => naturalCompare(a.name, b.name));
+    if (pages.isEmpty) {
+      throw FormatException('No page images in $path');
+    }
+    final info = archive.files
+        .where((f) => f.isFile && f.name.split('/').last.toLowerCase() == 'comicinfo.xml')
+        .firstOrNull;
+    return CbzDocument._(input, pages, info);
   }
 
   final InputFileStream _input;
@@ -74,8 +78,27 @@ class CbzDocument implements ComicDocument {
   }
 }
 
+/// Reads [input]'s ZIP central directory. Throws [FormatException] when it
+/// is not a readable ZIP.
+Archive decodeZip(InputFileStream input, String path) {
+  try {
+    return ZipDecoder().decodeStream(input);
+  } catch (e) {
+    throw FormatException('Not a readable ZIP: $path ($e)');
+  }
+}
+
+/// Whether a ZIP is an EPUB: it has a container file and its `mimetype`
+/// entry says so, wherever in the archive that entry sits.
+bool isEpubArchive(Archive archive) {
+  if (archive.findFile('META-INF/container.xml') == null) return false;
+  final mimetype = archive.findFile('mimetype');
+  if (mimetype == null) return true; // A container file is EPUB enough.
+  return utf8.decode(mimetype.content, allowMalformed: true).trim() == 'application/epub+zip';
+}
+
 /// Reads the first bytes of a file, for [sniffFormat].
-Uint8List readHead(String path, [int bytes = 8]) {
+Uint8List readHead(String path, [int bytes = sniffLength]) {
   final f = File(path).openSync();
   try {
     return f.readSync(bytes);

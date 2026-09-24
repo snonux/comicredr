@@ -274,7 +274,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final file = await openFile(
         acceptedTypeGroups: const [
-          XTypeGroup(label: 'Comics', extensions: ['cbz', 'cbr', 'zip', 'pdf']),
+          XTypeGroup(label: 'Comics', extensions: ['cbz', 'cbr', 'cbt', 'zip', 'epub', 'pdf']),
         ],
       );
       if (file != null) await ref.read(readerProvider.notifier).open(file.path);

@@ -1,0 +1,42 @@
+# Real files for the CBT and EPUB end-to-end test (tool/e2e_formats.sh).
+#
+# Same rules as test/corpus.manifest.toml: fetched into the git-ignored
+# test/corpus-formats/ by spike/fetch_corpus.py, never committed. The CBT is
+# made from the CBZ by the e2e script with GNU tar, since no free source
+# publishes CBTs. The EPUBs cover what people actually have: a comic that
+# calibre converted from a PDF (every page image in one XHTML file), the
+# Internet Archive's OCR derivatives of scanned comics (text beside cut-out
+# pictures, which the reader refuses), and a text ebook (refused).
+#
+#   python3 spike/fetch_corpus.py --manifest test/formats.manifest.toml --out test/corpus-formats --skip-model
+
+[[book]]
+name = "science-comics-001.cbz"
+style = "golden-age-grid"
+url = "https://archive.org/download/ScienceComics0011946/Science_Comics_ACE_01_194601.cbz"
+licence = "public domain (Science Comics 1, Ace, 1946)"
+purpose = "source of the CBT and the fixed-layout EPUB the e2e script builds"
+sha256 = "a1b77f84cd5ce2b0145271b25906c870077a6c3ddf563be04822b9cbe44ec683"
+
+[[book]]
+name = "dark-sun-chronicles-1.epub"
+style = "modern-indie"
+url = "https://archive.org/download/dark-sun-chronicles-chapter-1/Dark%20Sun%20Chronicles%20Chapter%201.EPUB"
+licence = "public domain mark (Paul Winchester, Dark Sun Chronicles chapter 1)"
+purpose = "a comic EPUB calibre made from a PDF: one XHTML file holding all 54 page images"
+sha256 = "39796045195c15c040fd68c1ca6f569f3de8bd1e53c3c60e5bbf75073510a48f"
+
+[[book]]
+name = "science-comics-001-ia.epub"
+style = "golden-age-grid"
+url = "https://archive.org/download/ScienceComics0011946/Science_Comics_ACE_01_194601.epub"
+licence = "public domain (Science Comics 1, Ace, 1946)"
+purpose = "the Internet Archive's OCR derivative: must be refused, not shown as cut-out pictures"
+sha256 = "20a17979bc90cc154645ae0b9b7948fd2c3eae5c7f74d71792ccb73d830d311b"
+
+[[book]]
+name = "alice.epub"
+style = "text"
+url = "https://www.gutenberg.org/ebooks/11.epub3.images"
+licence = "public domain (Project Gutenberg #11, Alice's Adventures in Wonderland)"
+purpose = "an illustrated text ebook: must be refused"

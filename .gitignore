@@ -64,3 +64,4 @@ __pycache__/
 *.jks
 *.keystore
 /android/key.properties
+/test/corpus-formats/

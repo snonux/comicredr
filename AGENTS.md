@@ -56,7 +56,17 @@ build internals, test scripts, detector work and conventions here.
   second at the 2048 px guided view asks for. The current page renders
   before prefetched ones.
 - Folder books read JPEG, PNG, WebP, GIF and BMP in natural order,
-  subfolders included, skipping dotfiles and `Thumbs.db`.
+  subfolders included, skipping dotfiles and `Thumbs.db`. CBZ and CBT
+  (tar) use the same order; a CBT is indexed once on open (GNU long names,
+  pax and v7 headers) and each page is one seek.
+- An EPUB is a ZIP whose `mimetype` entry says so (or that has
+  `META-INF/container.xml`). Pages follow the OPF spine: an image item is
+  a page, an XHTML or SVG item is the largest image it points at, items
+  without an image are skipped. Fewer than half the spine as pages, or
+  pages with paragraphs of text (unless the book is `pre-paginated`), and
+  the book is refused as a text ebook. Metadata comes from a ComicInfo.xml
+  inside, else the OPF (Dublin Core, `belongs-to-collection`,
+  `calibre:series`, creator roles `ill`/`art` as artists).
 - The library's first scan reads each book once in the background (about a
   third of a second a book); later starts only compare sizes and dates. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
@@ -99,7 +109,7 @@ build internals, test scripts, detector work and conventions here.
 
 ```
 lib/                      Flutter app: library, reader screen, page cache, keyboard layer, Drift index
-packages/comic_formats    ComicDocument, the CBZ adapter and its worker isolate, sniffing, sort
+packages/comic_formats    ComicDocument, the CBZ, CBT, EPUB, PDF and folder adapters, the worker isolate, sniffing, sort
 packages/comic_analysis   Panel model, classic-CV detection, reading order, the confidence gate
 packages/reader_input     ReaderIntents, default keymap, vi key-sequence resolver
 spike/                    M1 throwaway: classic-CV panel detection and overlays

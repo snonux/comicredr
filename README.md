@@ -5,8 +5,9 @@
 <h1 align="center">ComicRedr</h1>
 
 A comic reader with Comixology-style guided view, for a Fedora laptop and
-an Android phone. It reads CBZ, PDF and folders of page images, runs
-entirely on your own machine, and needs no account, sync or network.
+an Android phone. It reads CBZ, CBT, comic EPUB, PDF and folders of page
+images, runs entirely on your own machine, and needs no account, sync or
+network.
 
 ## Screenshots
 
@@ -48,7 +49,8 @@ Potion Contest*, by David Revoy, licensed
 - **Your data travels with the comic**: panels, bookmarks and your position
   live in a small `.crdb` file beside it, so a comic copied to the phone
   opens there ready to read.
-- **CBZ, PDF and folders of page images**, on Fedora and Android.
+- **CBZ, CBT, comic EPUB, PDF and folders of page images**, on Fedora and
+  Android. EPUBs made of page images open like any comic; text ebooks don't.
 
 ## Install on Fedora
 
@@ -71,7 +73,7 @@ make install          # add it to the GNOME app grid, no sudo needed
 ```
 
 After `make install`, ComicRedr is in Activities with its own icon, and
-**Open With → ComicRedr** works on CBZ and PDF files. To update, run
+**Open With → ComicRedr** works on CBZ, CBT, EPUB and PDF files. To update, run
 `git pull && make && make install`; `make uninstall` removes it and keeps
 your reading progress. `make help` lists everything else.
 
@@ -131,8 +133,8 @@ keys as the laptop.
 ## Quick start
 
 1. **Add your comics.** Press `A`, or click **Add your comics folder**, and
-   pick the folder your comics are in. Every CBZ, PDF and folder of page
-   images under it turns up as a cover, grouped into series.
+   pick the folder your comics are in. Every CBZ, CBT, EPUB, PDF and folder
+   of page images under it turns up as a cover, grouped into series.
 2. **Read.** Pick a book and press `Enter`. `→` and `←` (or `Space`) turn
    pages; `Esc` goes back to the library.
 3. **Try guided view.** Press `v` to go panel by panel, and `b` to step
