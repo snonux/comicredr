@@ -39,8 +39,8 @@ Contest*, by David Revoy, licensed
 > series, search and bookmarks. CBZ files, PDFs and folders of page images
 > read in single-page or two-page mode or in guided view, panel by panel or
 > balloon by balloon, with zoom, the full keymap, touch gestures, and
-> resume. Guided view uses the trained panel and balloon detector when it
-> is installed (step 7) and classic computer vision otherwise. Each comic
+> resume. Guided view uses the trained panel and balloon detector built
+> into the app (step 7) and classic computer vision otherwise. Each comic
 > carries its panels, bookmarks and position in a sidecar file beside it
 > (step 9). Collections, reading history and settings are still to come.
 
@@ -57,6 +57,7 @@ flutter doctor        # the "Linux toolchain" line should be green
 
 ```sh
 git clone https://github.com/snonux/comicredr.git && cd comicredr
+make model MODEL=path/to/comicredr-panels.onnx   # once, see step 7
 make                  # release build, into build/linux/x64/release/bundle/
 make run              # build if needed, then start it
 make run BOOK=~/Comics/Daredevil\ 181.cbz    # start straight on a book
@@ -68,8 +69,8 @@ command in `~/.local/bin`, and a launcher with its icon in
 `~/.local/share`. ComicRedr then shows up in Activities like any other app,
 with its own icon in the dash, and **Open With → ComicRedr** works on CBZ
 and PDF files in Files. Run `make install` again after `git pull && make`
-to update, and `make uninstall` to remove it; your reading progress and the
-detector model stay. For a system-wide install, run `make` first and then
+to update, and `make uninstall` to remove it; your reading progress and any
+model you installed with `make install-model` stay. For a system-wide install, run `make` first and then
 `sudo make install PREFIX=/usr/local`.
 
 `comicredr --version` (or `make version` in the checkout) prints the
@@ -276,27 +277,32 @@ same way, and `b` again goes back to panel by panel at the same panel.
 Balloons come from the trained detector; with classic CV the status line
 says `no balloons found` and balloon mode steps panels only.
 
-### 7. Install the trained detector
+### 7. The trained detector
 
 The trained model finds panels on pages classic CV gets wrong (borderless
 art, ads, captions) and is the only source of balloons. It is one file,
-`comicredr-panels.onnx`, kept out of this public repository because it
-starts from a model trained on Manga109, whose data is for research use.
-Copy it into the app's data folder once:
+`comicredr-panels.onnx`, that the build packs into the app: `make` puts it
+in the Linux bundle and `make apk` in the APK, so an installed ComicRedr
+needs no separate model step. The build takes it from
+`assets/models/comicredr-panels.onnx`, which git ignores: the file is kept
+out of this public repository because it starts from a model trained on
+Manga109, whose data is for research use. Put it there once per checkout:
 
 ```sh
-make install-model MODEL=path/to/comicredr-panels.onnx
+make model MODEL=path/to/comicredr-panels.onnx
 ```
 
-This copies it to `~/.local/share/org.snonux.comicredr/models/`.
+`make` and `make apk` stop with a message saying so when it is missing;
+`make NO_MODEL=1` builds without it, and the app then uses classic CV.
 
-On Android it goes in `Android/data/org.snonux.comicredr/files/models/` on
-the phone's storage; with the phone on USB, `make push-model
-MODEL=path/to/comicredr-panels.onnx` puts it there (see
-[Android phone](#android-phone)). Restart the app.
-`COMICREDR_MODEL=/path/to/file.onnx` points at a model anywhere else.
-Pages analysed by classic CV, or by a different model file, are analysed
-again the next time you read them, so installing a retrained model needs
+To try another model without rebuilding, `make install-model
+MODEL=other.onnx` copies it to `~/.local/share/org.snonux.comicredr/models/`,
+where it wins over the built-in one (delete it there to go back). On the
+phone `make push-model MODEL=other.onnx` does the same over USB (see
+[Android phone](#android-phone)). `COMICREDR_MODEL=/path/to/file.onnx`
+points at a model anywhere else, and `COMICREDR_MODEL=none` forces
+classic CV. Pages analysed by classic CV, or by a different model file,
+are analysed again the next time you read them, so a new model needs
 nothing else. To build the file yourself, see
 [Train the detector](#m5-train-the-detector).
 
@@ -401,7 +407,7 @@ plug it in and accept the laptop's key. Then:
 ```sh
 make apk            # build/app/outputs/flutter-apk/app-release.apk, arm64
 make install-apk    # adb install -r, keeps the app's data
-make push-model MODEL=path/to/comicredr-panels.onnx   # optional, see step 7 above
+make push-model MODEL=other.onnx   # optional: override the built-in model, step 7 above
 ```
 
 Without a cable, copy the APK to the phone any way you like and open it

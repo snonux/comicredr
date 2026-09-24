@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Detector built in:** the trained panel and balloon model is packed
+  into the Linux build and the APK, so guided view uses it without
+  `make install-model` or `make push-model`. The build takes it from
+  `assets/models/` (`make model MODEL=...` puts it there); a model
+  installed the old way still wins, for trying another one.
 - **Android:** the APK builds and has been tested on an Android 14
   emulator. `make keystore`, `make apk`, `make install-apk` and
   `make push-model` build, sign and sideload it; the README has the steps.

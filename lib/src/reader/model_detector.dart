@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:comic_analysis/comic_analysis.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:onnxruntime/onnxruntime.dart';
 import 'package:path_provider/path_provider.dart';
@@ -60,15 +61,17 @@ Future<String?> bundledModel() async {
     }
     final bytes = (await rootBundle.load(bundledModelAsset)).buffer.asUint8List();
     final dir = Directory('${(await getApplicationSupportDirectory()).path}/bundled-model');
-    return await Isolate.run(() => _extract(bytes, dir.path));
+    return await Isolate.run(() => extractModel(bytes, dir.path));
   } catch (_) {
     // No asset (built without the model) or no data folder.
     return null;
   }
 }
 
-/// Writes [bytes] to [dir] unless the copy there is already this model.
-String _extract(Uint8List bytes, String dir) {
+/// Writes [bytes] to [dir] unless the copy there is already this model,
+/// and returns the file.
+@visibleForTesting
+String extractModel(Uint8List bytes, String dir) {
   final f = File('$dir/$modelFileName');
   final stamp = File('$dir/$modelFileName.version');
   final version = '${modelVersion(bytes)}';
