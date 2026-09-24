@@ -211,13 +211,13 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
         // Warm the next two units and the previous one.
         final n = s.pageCount;
         final mode = s.guided ? PageMode.single : s.mode;
-        final ahead1 = stepFrom(unit.last, 1, n, mode, coverAlone: s.coverAlone);
-        final ahead2 = stepFrom(unit.last, 2, n, mode, coverAlone: s.coverAlone);
-        final behind = stepFrom(unit.first, -1, n, mode, coverAlone: s.coverAlone);
+        final ahead1 = stepFrom(unit.last, 1, n, mode, coverAlone: s.coverAlone, wide: s.wide);
+        final ahead2 = stepFrom(unit.last, 2, n, mode, coverAlone: s.coverAlone, wide: s.wide);
+        final behind = stepFrom(unit.first, -1, n, mode, coverAlone: s.coverAlone, wide: s.wide);
         cache.prefetch({
-          ...unitAt(ahead1, n, mode, coverAlone: s.coverAlone),
-          ...unitAt(ahead2, n, mode, coverAlone: s.coverAlone),
-          ...unitAt(behind, n, mode, coverAlone: s.coverAlone),
+          ...unitAt(ahead1, n, mode, coverAlone: s.coverAlone, wide: s.wide),
+          ...unitAt(ahead2, n, mode, coverAlone: s.coverAlone, wide: s.wide),
+          ...unitAt(behind, n, mode, coverAlone: s.coverAlone, wide: s.wide),
         }, box);
       },
       onError: (Object e) {
