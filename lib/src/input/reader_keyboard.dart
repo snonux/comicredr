@@ -38,9 +38,27 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
   FocusNode get _focus => widget.focusNode ?? _own!;
 
   @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_focusChanged);
+  }
+
+  @override
   void dispose() {
+    FocusManager.instance.removeListener(_focusChanged);
     _own?.dispose();
     super.dispose();
+  }
+
+  /// Focus can fall back to a scope above us, where no key reaches [_onKey]:
+  /// clicking a folder open while the library search had the cursor did
+  /// that, and every key went dead. Take it back, so `/` and the rest work.
+  void _focusChanged() {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary is! FocusScopeNode || !_focus.ancestors.contains(primary)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && FocusManager.instance.primaryFocus == primary) _focus.requestFocus();
+    });
   }
 
   @override

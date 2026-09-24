@@ -47,6 +47,8 @@ toggleBalloons = ["b"]
 toggleWholePage = ["w"]
 # Hold one step on a page guided view shows whole before turning, on and off
 togglePauseWhole = ["W"]
+# How a held page shows it: wine-red background or zoom out and back
+cyclePauseCue = ["gw"]
 # Cycle single, double, continuous, guided; next library tab
 cycleModeForward = ["Tab"]
 # Cycle modes backwards; previous library tab
@@ -113,7 +115,7 @@ back = ["Esc"]
 up = ["Backspace"]
 # Open the selected book, series or folder in the library
 activate = ["Enter"]
-# Add a folder to the library
+# Add a folder to the library (~/Comics is in it by default, if it exists)
 addRoot = ["A"]
 # Rescan the library folders
 rescan = ["R"]

@@ -34,6 +34,7 @@ class SettingsDialog extends ConsumerStatefulWidget {
 class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   bool? _wholePage;
   bool? _pauseWhole;
+  PauseCue? _pauseCue;
   bool? _cleanUp;
   bool? _sidecars;
   bool? _detectLibrary;
@@ -51,6 +52,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final settings = ref.read(settingsStoreProvider);
     final whole = await settings.loadBool(SettingsStore.wholePageSteps);
     final pause = await settings.loadBool(SettingsStore.pauseWhole);
+    final cue = await settings.loadString(SettingsStore.pauseCue);
     final cleanUp = await settings.loadBool(SettingsStore.cleanUp);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final detectLibrary = await settings.loadBool(SettingsStore.detectLibrary);
@@ -60,6 +62,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     setState(() {
       _wholePage = whole ?? true;
       _pauseWhole = pause ?? true;
+      _pauseCue = PauseCue.values.asNameMap()[cue] ?? PauseCue.colour;
       _cleanUp = cleanUp ?? false;
       _sidecars = sidecars ?? true;
       _detectLibrary = detectLibrary ?? detectLibraryByDefault;
@@ -215,16 +218,30 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       value: _wholePage!,
                       onChanged: (v) => _set(SettingsStore.wholePageSteps, v),
                     ),
-                    SwitchListTile(
-                      key: const Key('setting-pauseWhole'),
+                    ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Hold on a page without panels before turning'),
+                      title: const Text('On a page without panels, the first step stays'),
                       subtitle: const Text(
-                        'The first step shows a short zoom cue and stays on the page; the next one turns. '
-                        'W switches it while reading.',
+                        'and shows it: the background turns wine red, or the page zooms out and back. The next step '
+                        'turns. W switches it off and on while reading, gw picks the cue.',
                       ),
-                      value: _pauseWhole!,
-                      onChanged: (v) => _set(SettingsStore.pauseWhole, v),
+                    ),
+                    SegmentedButton<PauseCue?>(
+                      key: const Key('setting-pauseCue'),
+                      segments: const [
+                        ButtonSegment(value: null, label: Text('Off')),
+                        ButtonSegment(value: PauseCue.colour, label: Text('Colour')),
+                        ButtonSegment(value: PauseCue.zoom, label: Text('Zoom')),
+                      ],
+                      selected: {_pauseWhole! ? _pauseCue : null},
+                      onSelectionChanged: (v) async {
+                        final cue = v.first;
+                        await ref.read(settingsStoreProvider).saveBool(SettingsStore.pauseWhole, cue != null);
+                        if (cue != null) {
+                          await ref.read(settingsStoreProvider).saveString(SettingsStore.pauseCue, cue.name);
+                        }
+                        await _load();
+                      },
                     ),
                     Text('Panel detector', style: theme.textTheme.bodyMedium),
                     Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),
@@ -243,7 +260,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       key: const Key('setting-sidecars'),
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Save panels, bookmarks and position in a file for each comic'),
-                      subtitle: const Text('Sidecars already there are always read.'),
+                      subtitle: const Text('Hidden files, like .book.cbz.crdb. Sidecars already there are always read.'),
                       value: _sidecars!,
                       onChanged: (v) => _set(SettingsStore.writeSidecars, v),
                     ),

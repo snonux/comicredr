@@ -99,6 +99,95 @@ void main() {
     expect(c.read(readerProvider).page, 2);
   });
 
+  testWidgets('the grid zooms with + and -, Ctrl and the wheel, and a pinch; the size is kept', (tester) async {
+    final c = await openBook(tester, 30);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit2, character: '2');
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit0, character: '0');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'G');
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await settle(tester);
+    expect(c.read(readerProvider).page, 19);
+    await key(tester, LogicalKeyboardKey.keyP);
+    final grid = tester.getRect(find.byKey(const Key('pageGrid')));
+    double width() => tester.getSize(find.byKey(const Key('pageTile-19'))).width;
+    void inView(String why) {
+      final r = tester.getRect(find.byKey(const Key('pageTile-19')));
+      expect(r.top >= grid.top && r.top < grid.bottom, isTrue, reason: why);
+    }
+
+    final start = width();
+    Future<void> plus() async {
+      await tester.sendKeyEvent(LogicalKeyboardKey.equal, character: '+');
+      await settle(tester);
+    }
+
+    await plus();
+    expect(width(), greaterThan(start * 1.2));
+    inView('the selected page stays in view');
+    for (var i = 0; i < 4; i++) {
+      await plus();
+    }
+    expect(width(), greaterThan(grid.width * 0.9), reason: 'one page a row at the biggest');
+    inView('still in view at the biggest');
+    final big = width();
+    // A sharper thumbnail is made for the big tile.
+    final bookKey = c.read(readerProvider).book!.key;
+    for (var i = 0; i < 10 && !File('${tmp.path}/covers/pages/$bookKey/w1024/20.jpg').existsSync(); i++) {
+      await settle(tester);
+    }
+    expect(File('${tmp.path}/covers/pages/$bookKey/w1024/20.jpg').existsSync(), isTrue);
+
+    // Closed and opened again: the same size.
+    await key(tester, LogicalKeyboardKey.escape);
+    await key(tester, LogicalKeyboardKey.keyP);
+    expect(width(), big);
+    final saved = await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.gridZoom));
+    expect(double.parse(saved!), greaterThan(700), reason: 'the tile width is kept');
+
+    // - makes them smaller, and so does Ctrl with the wheel down.
+    await tester.sendKeyEvent(LogicalKeyboardKey.minus, character: '-');
+    await settle(tester);
+    final minus = width();
+    expect(minus, lessThan(big));
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(mouse.hover(grid.center));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 40)));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await settle(tester);
+    expect(width(), lessThan(minus));
+    // The wheel alone only scrolls.
+    final scrolled = width();
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 40)));
+    await settle(tester);
+    expect(width(), scrolled);
+
+    // Two fingers spread apart zoom in, pinched together zoom out.
+    await key(tester, LogicalKeyboardKey.equal);
+    final before = width();
+    final a = await tester.startGesture(grid.center - const Offset(30, 0), kind: PointerDeviceKind.touch);
+    final b = await tester.startGesture(grid.center + const Offset(30, 0), kind: PointerDeviceKind.touch);
+    await a.moveBy(const Offset(-40, 0));
+    await b.moveBy(const Offset(40, 0));
+    await a.up();
+    await b.up();
+    await settle(tester);
+    expect(width(), greaterThan(before), reason: 'spread: bigger');
+    final spread = width();
+    final d = await tester.startGesture(grid.center - const Offset(100, 0), kind: PointerDeviceKind.touch);
+    final e = await tester.startGesture(grid.center + const Offset(100, 0), kind: PointerDeviceKind.touch);
+    await d.moveBy(const Offset(60, 0));
+    await e.moveBy(const Offset(-60, 0));
+    await d.up();
+    await e.up();
+    await settle(tester);
+    expect(width(), lessThan(spread), reason: 'pinch: smaller');
+    expect(find.byKey(const Key('pageGrid')), findsOneWidget, reason: 'a pinch does not pick a page');
+    expect(c.read(readerProvider).page, 19);
+  });
+
   testWidgets('G in the grid selects the last page, and Esc closes without jumping', (tester) async {
     final c = await openBook(tester, 40);
     await key(tester, LogicalKeyboardKey.keyP);
@@ -133,7 +222,8 @@ void main() {
     }
     expect(find.byType(Image), findsWidgets);
     final key0 = c.read(readerProvider).book!.key;
-    expect(File('${tmp.path}/covers/pages/$key0/1.jpg').existsSync(), isTrue);
+    // At the test's 3x pixel ratio the default tiles take the 512 px size.
+    expect(File('${tmp.path}/covers/pages/$key0/w512/1.jpg').existsSync(), isTrue);
 
     await tester.tap(find.byKey(const Key('pageTile-6')), kind: PointerDeviceKind.touch);
     await settle(tester);

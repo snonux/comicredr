@@ -73,6 +73,14 @@ void main() {
     return scales.isEmpty ? 1 : scales.first;
   }
 
+  /// The reader's background: black, or wine red while a page is held.
+  Color? background(WidgetTester tester) => tester.widgetList<Scaffold>(find.byType(Scaffold)).first.backgroundColor;
+
+  Future<void> gw(WidgetTester tester) async {
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyW);
+  }
+
   /// A blank page the gate refuses, two four-panel pages, and another blank.
   String writeBook() => writeBookOf(tmp, 'Pause 01.cbz', [
     gridPage(400, 600, const []),
@@ -90,21 +98,24 @@ void main() {
     return c;
   }
 
-  testWidgets('a page shown whole holds for one step each way, with a cue', (tester) async {
+  testWidgets('a page shown whole holds for one step each way, the background wine red', (tester) async {
     final c = await openGuided(tester, whole: false);
     expect(c.read(readerProvider).pauseWhole, isTrue, reason: 'on by default');
+    expect(c.read(readerProvider).pauseCue, PauseCue.colour, reason: 'the colour cue by default');
     expect(at(c), (0, false));
+    expect(background(tester), Colors.black);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 180));
-    expect(pulseScale(tester), lessThan(0.93), reason: 'the page eases out mid-cue');
+    expect(pulseScale(tester), 1, reason: 'no zoom with the colour cue');
     await settle(tester);
-    expect(pulseScale(tester), 1, reason: 'and back');
     expect(at(c), (0, false), reason: 'the first step stays on the page');
+    expect(background(tester), heldColour, reason: 'held: wine red until the page is left');
     expect(status(tester), contains('press again for the next page'));
     await key(tester, LogicalKeyboardKey.keyL);
     expect(at(c), (1, true), reason: 'the second turns, onto the first panel');
+    expect(background(tester), Colors.black);
 
     // Pages with panels are never held: straight across to the last page.
     await key(tester, LogicalKeyboardKey.keyL, times: 8);
@@ -117,9 +128,11 @@ void main() {
     expect(at(c), (0, false));
     await key(tester, LogicalKeyboardKey.keyH);
     expect(at(c), (0, false));
+    expect(background(tester), heldColour);
     expect(status(tester), contains('press again for the previous page'));
     await key(tester, LogicalKeyboardKey.keyL);
     expect(at(c), (1, true));
+    expect(background(tester), Colors.black);
 
     // Arriving from ahead, forward leaves at once.
     await key(tester, LogicalKeyboardKey.keyH);
@@ -159,9 +172,37 @@ void main() {
     expect(c.read(readerProvider).pauseWhole, isFalse);
   });
 
-  testWidgets('with reduced motion the cue is the hint alone, every time', (tester) async {
+  testWidgets('gw picks the zoom cue, and the choice is kept', (tester) async {
+    var c = await openGuided(tester, whole: false);
+    await gw(tester);
+    expect(c.read(readerProvider).pauseCue, PauseCue.zoom);
+    expect(status(tester), contains('zoom out and back'));
+    expect(await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.pauseCue)), 'zoom');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 180));
+    expect(pulseScale(tester), lessThan(0.93), reason: 'the page zooms out mid-cue');
+    await settle(tester);
+    expect(pulseScale(tester), 1, reason: 'and back');
+    expect(at(c), (0, false));
+    expect(background(tester), Colors.black, reason: 'no colour with the zoom cue');
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(c), (1, true));
+
+    await tester.runAsync(() => c.read(readerProvider.notifier).flush());
+    c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(writeBook()));
+    await settle(tester);
+    expect(c.read(readerProvider).pauseCue, PauseCue.zoom);
+    await gw(tester);
+    expect(c.read(readerProvider).pauseCue, PauseCue.colour, reason: 'gw goes round');
+  });
+
+  testWidgets('with reduced motion the zoom cue gives way to the colour, hint every time', (tester) async {
     tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await tester.runAsync(() => SettingsStore(db).saveString(SettingsStore.pauseCue, 'zoom'));
     final c = await openGuided(tester, whole: false);
     for (var i = 0; i < 5; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
@@ -170,6 +211,7 @@ void main() {
       expect(pulseScale(tester), 1, reason: 'no zoom');
       await settle(tester);
       expect(at(c), (0, false));
+      expect(background(tester), heldColour);
       expect(status(tester), contains('press again for the next page'));
       await key(tester, LogicalKeyboardKey.keyL);
       expect(at(c), (1, true));

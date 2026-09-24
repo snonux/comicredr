@@ -11,6 +11,19 @@ the `?` overlay.
   page):** the current time, large and centred on a dim backing, for two
   seconds, then it fades away; in the library, the reader and fullscreen.
   It follows the system's 12 or 24 hour setting and takes no taps.
+- **Hidden sidecars:** a comic's sidecar is now `.book.cbz.crdb`, a
+  hidden file, beside the comic and in the one sidecar folder alike (a
+  folder book's `.comicredr.crdb` already was). A sidecar under the old
+  visible name is renamed the next time the comic is opened or scanned,
+  keeping its panels, bookmarks and positions; when both names exist the
+  two are merged.
+
+- **Zoom the page grid:** in the `p` grid, `+` and `-` (or Ctrl and the
+  scroll wheel, a pinch, or the header's buttons) go from many small
+  thumbnails to one page a row, keeping the selected page in view. Bigger
+  tiles get sharper thumbnails (512 or 1024 px, made when first needed),
+  and the size is remembered.
+
 - **Comic details (`I`, the info button on the status line, or Details
   in the library):** the file (format as its bytes say, size, content key,
   sidecar), the pages (pixel sizes, wide spreads, what they are stored as,

@@ -36,7 +36,10 @@ Potion Contest*, by David Revoy, licensed
 
 - **Guided view** glides from panel to panel, and **balloon mode** from
   speech balloon to speech balloon inside each panel. Panels are found by a
-  small detector that runs on your own CPU.
+  small detector that runs on your own CPU. On a page it can't guide,
+  the first press stays and turns the background a dark wine red, so you
+  look at the whole page before the next press turns it (or the page
+  zooms out and back instead, `gw`; `W` turns it off).
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins. A scanned double-page
   spread stays whole, and the pages after it keep their sides.
@@ -65,7 +68,7 @@ Potion Contest*, by David Revoy, licensed
   own key bindings, plus full touch support on the phone and on a laptop
   touchscreen, with tap zones you can rearrange.
 - **Your data travels with the comic**: panels, bookmarks and your position
-  live in a small `.crdb` file beside it, so a comic copied to the phone
+  live in a small hidden `.crdb` file beside it, so a comic copied to the phone
   opens there ready to read. Settings can keep those files in one folder
   instead.
 - **CBZ, CBT, comic EPUB, PDF and folders of page images**, on Fedora and
@@ -199,17 +202,21 @@ make install-apk    # install it, keeping the app's data
 > and positions, when it is signed with the same key. On a new laptop,
 > restore both files instead of running `make keystore` again.
 
-On first start, copy some comics to the phone (for example into `Comics`),
-tap the folder button, allow **All files access** on the settings page it
-opens, then add the folder. The buttons on the reader's status line switch
+On first start, copy some comics into the phone's `Comics` folder, tap
+the folder button and allow **All files access** on the settings page it
+opens; back in the app, `Comics` is in the library. Any other folder is
+added from the same button. The buttons on the reader's status line switch
 guided view, balloons and bookmarks, and a Bluetooth keyboard gets the same
 keys as the laptop.
 
 ## Quick start
 
-1. **Add your comics.** Press `A`, or click **Add your comics folder**, and
-   pick the folder your comics are in. Every CBZ, CBT, EPUB, PDF, one-page image
-   and folder of page images under it turns up as a cover, grouped into series.
+1. **Add your comics.** Put them in `~/Comics` and they are in the
+   library the first time ComicRedr starts. Kept somewhere else? Press `A`,
+   or click **Add your comics folder**, and pick that folder. Every CBZ, CBT,
+   EPUB, PDF, one-page image and folder of page images under it turns up as
+   a cover, grouped into series. Take `~/Comics` out of the library and it
+   stays out.
 2. **Read.** Pick a book and press `Enter`. `→` and `←` (or `Space`) turn
    pages; `Esc` goes back to the library.
 3. **Try guided view.** Press `v` to go panel by panel, and `b` to step
@@ -223,7 +230,7 @@ A single file opens without the library too: `comicredr book.cbz`,
 window. A folder of comics, `comicredr ~/Comics/Marvel` or dropped on the
 window, opens the Folders tab there, and is added to the library if it
 isn't in it yet. To take a comic to the phone or another laptop, copy its
-`.crdb` file along with it.
+hidden `.crdb` file along with it (`.book.cbz.crdb` beside `book.cbz`).
 
 Any key can be changed in `~/.config/comicredr/keys.toml`: `make keys`
 starts one from [docs/keys.toml](docs/keys.toml), which lists every action.
