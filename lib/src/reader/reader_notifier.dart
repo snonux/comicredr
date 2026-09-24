@@ -33,6 +33,7 @@ class ReaderState {
     this.balloons = false,
     this.wholePageSteps = true,
     this.coverAlone = true,
+    this.wide = const {},
     this.rightToLeft = false,
     this.fullscreen = false,
     this.night = false,
@@ -72,6 +73,10 @@ class ReaderState {
   /// default; `w` toggles it.
   final bool wholePageSteps;
   final bool coverAlone;
+
+  /// Pages wider than tall: scanned double-page spreads, shown alone in
+  /// spread mode. Empty until the page sizes are read after opening.
+  final Set<int> wide;
   final bool rightToLeft;
   final bool fullscreen;
   final bool night;
@@ -105,7 +110,7 @@ class ReaderState {
       ? const []
       : guided
       ? [page]
-      : unitAt(page, pageCount, mode, coverAlone: coverAlone);
+      : unitAt(page, pageCount, mode, coverAlone: coverAlone, wide: wide);
 
   /// Camera stops on [p] in reading order; empty when the page is shown
   /// whole, either because its panels are unknown or because the gate
@@ -165,6 +170,7 @@ class ReaderState {
     bool? balloons,
     bool? wholePageSteps,
     bool? coverAlone,
+    Set<int>? wide,
     bool? rightToLeft,
     bool? fullscreen,
     bool? night,
@@ -185,6 +191,7 @@ class ReaderState {
     balloons: balloons ?? this.balloons,
     wholePageSteps: wholePageSteps ?? this.wholePageSteps,
     coverAlone: coverAlone ?? this.coverAlone,
+    wide: wide ?? this.wide,
     rightToLeft: rightToLeft ?? this.rightToLeft,
     fullscreen: fullscreen ?? this.fullscreen,
     night: night ?? this.night,
@@ -370,6 +377,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
     _ensurePanels();
+    unawaited(_readWidePages(book));
     unawaited(_writeSidecar(book));
   }
 
@@ -453,6 +461,25 @@ class ReaderNotifier extends Notifier<ReaderState> {
     );
   }
 
+  /// Finds the wide pages of [book], which spread mode shows alone. The
+  /// sizes come from the page headers on the book's worker, after the page
+  /// being opened on, so the first page is not kept waiting; until they
+  /// arrive, spreads pair as if every page were narrow.
+  Future<void> _readWidePages(OpenBook book) async {
+    final List<(int, int)?> sizes;
+    try {
+      sizes = await book.doc.pageSizes();
+    } catch (e) {
+      debugPrint('Could not read the page sizes of ${book.path}: $e');
+      return;
+    }
+    final wide = {
+      for (var i = 0; i < sizes.length; i++)
+        if (sizes[i] case (final w, final h) when isWidePage(w, h)) i,
+    };
+    if (wide.isNotEmpty && identical(state.book, book)) state = state.copyWith(wide: wide);
+  }
+
   /// Goes to [page], at [panel] or where guided view enters a page.
   void _goTo(int page, {int? panel, int balloon = -1, bool jump = false}) {
     final book = state.book!;
@@ -504,7 +531,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   void _step(int steps) =>
-      _goTo(stepFrom(state.page, steps, state.pageCount, state.mode, coverAlone: state.coverAlone));
+      _goTo(stepFrom(state.page, steps, state.pageCount, state.mode, coverAlone: state.coverAlone, wide: state.wide));
 
   /// Guided view's step: the next or previous panel, crossing onto the
   /// neighbouring page at either end. A page shown whole is one step. In

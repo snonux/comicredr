@@ -83,6 +83,9 @@ class PdfComicDocument implements ComicDocument {
   @override
   Future<Uint8List?> rawPage(int index) async => null;
 
+  @override
+  Future<List<(int, int)?>> pageSizes() async => [for (final p in _doc.pages) (p.width.round(), p.height.round())];
+
   /// PDFs carry no ComicInfo; the title comes from the file name.
   @override
   Future<ComicMeta?> embeddedMetadata() async => null;
