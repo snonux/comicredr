@@ -12,6 +12,7 @@ import 'package:reader_input/reader_input.dart';
 import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
 import 'providers.dart';
+import 'reader/guided.dart';
 import 'reader/layout.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
@@ -236,7 +237,7 @@ class _ProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = state.pageCount;
     final stops = state.guided ? state.stopsOn(state.page).length : 0;
-    final within = stops > 0 ? (state.panelIndex + 1) / stops : 1.0;
+    final within = stops == 0 || state.panel >= pageEnd ? 1.0 : (state.panelIndex + 1) / stops;
     final read = state.guided ? state.page + within : state.unit.last + 1.0;
     return LinearProgressIndicator(
       key: const Key('progress'),
@@ -257,6 +258,11 @@ class _StatusLine extends StatelessWidget {
     if (found == null) return 'guided: finding panels…';
     final stops = s.stopsOn(s.page);
     if (stops.isEmpty) return 'guided: whole page (${found.gate.reasons.first})';
+    if (s.panelIndex < 0) {
+      return s.panel >= pageEnd
+          ? 'guided: whole page, ${stops.length} panels read'
+          : 'guided: whole page, then ${stops.length} panels';
+    }
     final panel = 'guided: panel ${s.panelIndex + 1} / ${stops.length}';
     if (!s.balloons) return panel;
     final n = s.balloonsOn(s.page, s.panelIndex).length;

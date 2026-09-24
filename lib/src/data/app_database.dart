@@ -129,7 +129,20 @@ class ReadLog extends Table {
   IntColumn get pages => integer()();
 }
 
-@DriftDatabase(tables: [Books, Files, SeriesTable, Progress, Bookmarks, Panels, AnalysedPages, Overrides, ReadLog])
+/// App-wide settings as key and JSON value, for what the reader changes
+/// from a key or, later, a settings screen. See SettingsStore.
+@DataClassName('SettingRow')
+class Settings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
+@DriftDatabase(
+  tables: [Books, Files, SeriesTable, Progress, Bookmarks, Panels, AnalysedPages, Overrides, ReadLog, Settings],
+)
 class AppDatabase extends _$AppDatabase {
   /// Lives in the app support directory (`~/.local/share/org.snonux.comicredr`
   /// on Linux), not in Documents, which may not exist.
@@ -143,13 +156,14 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.createTable(analysedPages); // M4: guided view
       if (from < 3) await m.addColumn(progress, progress.viewJson); // Exact resume
+      if (from < 4) await m.createTable(settings); // Whole-page steps
     },
   );
 }
