@@ -7,6 +7,7 @@ import 'comic_info.dart';
 import 'document.dart';
 import 'image_size.dart';
 import 'natural_sort.dart';
+import 'page_facts.dart';
 import 'sniff.dart';
 
 /// A tar comic: `.cbt`.
@@ -54,6 +55,15 @@ class CbtDocument implements ComicDocument {
   @override
   Future<List<(int, int)?>> pageSizes() async => [
     for (final p in _pages) imageSize(_read(p, headBytes)) ?? (p.size > headBytes ? imageSize(_read(p)) : null),
+  ];
+
+  @override
+  Future<List<PageFacts>> pageFacts() async => [
+    for (final p in _pages)
+      switch (imageFacts(_read(p, headBytes), total: p.size)) {
+        final f when f.width == null && p.size > headBytes => imageFacts(_read(p), total: p.size),
+        final f => f,
+      },
   ];
 
   @override

@@ -838,6 +838,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.activate:
       case ReaderIntent.up:
       case ReaderIntent.pageGrid:
+      case ReaderIntent.showDetails:
         break; // Handled by the screen, or only mean something in the library.
     }
     // Mode switches (guided, balloons, spread, direction) are part of the

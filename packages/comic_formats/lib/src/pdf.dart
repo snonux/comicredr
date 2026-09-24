@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:pdfrx_engine/pdfrx_engine.dart' as pdfrx;
 
 import 'document.dart';
+import 'page_facts.dart';
 
 /// A PDF comic, rendered through PDFium (`pdfrx_engine`).
 ///
@@ -85,6 +86,11 @@ class PdfComicDocument implements ComicDocument {
 
   @override
   Future<List<(int, int)?>> pageSizes() async => [for (final p in _doc.pages) (p.width.round(), p.height.round())];
+
+  @override
+  Future<List<PageFacts>> pageFacts() async => [
+    for (final p in _doc.pages) PageFacts(format: 'pdf', width: p.width.round(), height: p.height.round()),
+  ];
 
   /// PDFs carry no ComicInfo; the title comes from the file name.
   @override

@@ -7,6 +7,17 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Comic details (`I`, the info button on the status line, or Details
+  in the library):** the file (format as its bytes say, size, content key,
+  sidecar), the pages (pixel sizes, wide spreads, what they are stored as,
+  JPEG quality estimated from the quantisation tables, how sharp they are
+  on this screen; for a PDF its page size and the scanned images inside,
+  read from the file), metadata with hand edits marked, progress and time
+  read, and detection: the detector, pages analysed, panels, balloons and
+  captions found, why pages are shown whole, confidence and time, and
+  every page on its own line. A page picked in the list is gone to, and
+  Redo panels finds the comic's panels again. Only page headers are read.
+
 - **Page thumbnails:** `p` (or the grid button on the status line) opens
   a grid of the book's pages, the current one outlined and bookmarked or
   marked pages flagged; arrows, `hjkl`, `G` with a count, a click or a tap

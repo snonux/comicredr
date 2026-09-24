@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'page_facts.dart';
+
 /// A part of a page, as fractions (0..1) of its width and height.
 typedef PageRegion = ({double left, double top, double width, double height});
 
@@ -78,6 +80,11 @@ abstract interface class ComicDocument {
   /// decoding the pages; null for a page whose size could not be read. What
   /// counts is the shape: spread mode shows a wide page on its own.
   Future<List<(int, int)?>> pageSizes();
+
+  /// What every page is made of (format, pixel size, stored bytes, JPEG
+  /// quality), in order, read from the page headers like [pageSizes]; for
+  /// a PDF, each page's size in points.
+  Future<List<PageFacts>> pageFacts();
 
   Future<ComicMeta?> embeddedMetadata();
 

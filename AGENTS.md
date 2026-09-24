@@ -122,6 +122,17 @@ build internals, test scripts, detector work and conventions here.
   by Flutter's decoder, JPEG-encoded on a short isolate and kept in
   `<cache>/covers/pages/<content key>/<page>.jpg`. Newest request first,
   two at a time; tiles evict their images when they scroll away.
+- The details view (`I`, `lib/src/reader/comic_details.dart`, gathered by
+  `readComicReport` in `comic_report.dart`) reads no pixels: each page's
+  format, size, bytes and JPEG quality come from `ComicDocument.pageFacts`
+  (the header, as `pageSizes` reads it; quality estimated from the
+  luminance quantisation table the way libjpeg scales it), through the
+  book's own worker, so a PDF stays on the PDFium isolate. A PDF's images
+  come from `pdfImages` (comic_formats), which scans the file's bytes for
+  image XObjects on a short isolate, no PDFium: about 50 ms for 10 MB.
+  Both are cached per content key for the session. Detection numbers are
+  `PanelStore.load` for this install's detector, judged by the same gate
+  guided view uses.
 - Scan clean-up (`c`): `findLevels` (comic_analysis `cleanup.dart`) reads
   the paper colour off the 240 px copy auto-trim also measures, and the
   page is drawn through that colour matrix, so it costs nothing to show.
@@ -191,6 +202,7 @@ tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned sprea
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
+COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 

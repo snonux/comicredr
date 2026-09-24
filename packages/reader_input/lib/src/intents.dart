@@ -14,6 +14,7 @@ enum ReaderIntent {
   firstPage('First page; first cover in the library'),
   lastPage('Last page, or page N with a count; last cover in the library'),
   pageGrid('Page thumbnails: pick a page to jump to'),
+  showDetails("Details of this comic: file, pages and scan quality, metadata, reading, panels and balloons found; the selected book's in the library"),
   nextBook('Next book in the series, or in the same folder'),
   prevBook('Previous book in the series, or in the same folder'),
   toggleGuided('Guided view, there and back'),
