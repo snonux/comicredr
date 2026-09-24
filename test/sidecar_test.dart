@@ -5,6 +5,7 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/panel_store.dart';
 import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/data/read_log_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/library/library_store.dart';
@@ -159,6 +160,59 @@ void main() {
     expect((await laptop.bookmarks(key)).where((b) => b.mark == null), isEmpty);
     await laptop.sync.write(key);
     expect(readSidecar('$path.crdb')!.bookmarks.where((b) => b.mark == null).single.deletedAt, isNotNull);
+  });
+
+  test('resetting panels finds them again and keeps bookmarks and every position', () async {
+    final (path, key) = await readOnLaptop();
+    // The phone read it too, so the file holds a second position.
+    await phone.sync.attach(path, key, folder: false);
+    await phone.sync.write(key);
+    // A write still waiting must not bring the panels back.
+    laptop.sync.touch(key);
+
+    expect(await laptop.sync.reset(key, everything: false), isTrue);
+    expect(await laptop.panels.load(key, source: PanelSource.classicCv, version: classicCvVersion), isEmpty);
+    var side = readSidecar('$path.crdb')!;
+    expect(side.analysed, isEmpty);
+    expect(side.panels, isEmpty);
+    expect(side.progress, hasLength(2));
+    expect(side.bookmarks, hasLength(2));
+
+    await laptop.sync.attach(path, key, folder: false);
+    await laptop.sync.flush();
+    expect(await laptop.panels.load(key, source: PanelSource.classicCv, version: classicCvVersion), isEmpty);
+    expect(await laptop.marks.load(key), {'a': (page: 1, panel: 0)});
+    expect((await laptop.progress.load(key))?.page, 2);
+    side = readSidecar('$path.crdb')!;
+    expect(side.panels, isEmpty);
+  });
+
+  test('resetting everything starts the book from scratch but keeps its collections', () async {
+    final (path, key) = await readOnLaptop();
+    await laptop.library.addToCollection(key, 'Favourites');
+    await ReadLogStore(laptop.db).record(key, DateTime(2026), DateTime(2026, 1, 1, 0, 10), 5);
+    await laptop.sync.write(key);
+    await phone.sync.attach(path, key, folder: false);
+    await phone.sync.write(key);
+
+    expect(await laptop.sync.reset(key, everything: true), isTrue);
+    expect(await laptop.progress.load(key), isNull);
+    expect(await laptop.marks.load(key), isEmpty);
+    expect(await laptop.bookmarks(key), isEmpty);
+    expect(await laptop.db.select(laptop.db.readLog).get(), isEmpty);
+    final side = readSidecar('$path.crdb')!;
+    expect(side.panels, isEmpty);
+    expect(side.bookmarks, isEmpty);
+    expect(side.progress, isEmpty);
+    expect(side.collections.map((c) => c.name), ['Favourites']);
+
+    // Opened again: nothing comes back from the file, and nobody offers a position.
+    final got = await laptop.sync.attach(path, key, folder: false);
+    expect(got.adopted, isNull);
+    expect(got.elsewhere, isNull);
+    expect(await laptop.bookmarks(key), isEmpty);
+    expect(await laptop.panels.load(key, source: PanelSource.classicCv, version: classicCvVersion), isEmpty);
+    expect((await laptop.db.select(laptop.db.collectionBooks).get()).map((c) => c.name), ['Favourites']);
   });
 
   test('a folder that refuses the sidecar keeps everything in the index', () async {
