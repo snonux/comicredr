@@ -1,16 +1,22 @@
 import 'dart:typed_data';
 
-/// A page as encoded image bytes (JPEG, PNG, WebP) for the UI to decode.
+/// A page for the UI to decode: encoded image bytes (JPEG, PNG, WebP), or
+/// raw BGRA pixels when [bgra] is set.
 ///
 /// Archives and folders hand back the stored image untouched and leave
-/// downscaling to Flutter's native decoder; PDF (M6) renders at the target
-/// size and fills in [width] and [height].
+/// downscaling to Flutter's native decoder; PDF renders at the target size
+/// into raw pixels and fills in [width] and [height].
 class PageImage {
-  const PageImage(this.encoded, {this.width, this.height});
+  const PageImage(this.bytes, {this.width, this.height, this.bgra = false})
+    : assert(!bgra || (width != null && height != null));
 
-  final Uint8List encoded;
+  final Uint8List bytes;
   final int? width;
   final int? height;
+
+  /// Whether [bytes] are raw pixels, 4 bytes each in B, G, R, A order, row
+  /// after row, rather than an encoded image.
+  final bool bgra;
 }
 
 /// Metadata embedded in the book: ComicInfo.xml for archives and folders,
@@ -49,6 +55,8 @@ abstract interface class ComicDocument {
   int get pageCount;
 
   /// Page [index] at roughly [targetWidth] x [targetHeight] device pixels.
+  /// Sources that render (PDF) fit the page inside that box; sources that
+  /// store images return them as stored.
   Future<PageImage> page(int index, {required int targetWidth, required int targetHeight});
 
   /// The page's original encoded bytes, or null where there are none (PDF).

@@ -387,7 +387,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// passes everything else here.
   Future<void> handle(ReaderCommand c) async {
     if (state.book == null) {
-      if (c.intent != ReaderIntent.showKeymap && c.intent != ReaderIntent.openFile) {
+      if (c.intent != ReaderIntent.showKeymap &&
+          c.intent != ReaderIntent.openFile &&
+          c.intent != ReaderIntent.openFolder) {
         _notice('Open a comic first: press o, or drop a .cbz on the window');
       }
       return;
@@ -505,6 +507,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.zoomOut:
       case ReaderIntent.zoomReset:
       case ReaderIntent.openFile:
+      case ReaderIntent.openFolder:
       case ReaderIntent.showKeymap:
         break; // Handled by the screen.
     }

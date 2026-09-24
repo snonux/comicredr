@@ -7,12 +7,12 @@ decision here.
 
 ## Quick start on Fedora
 
-> **Current state (M5):** CBZ files open and read in single-page or
-> two-page mode or in guided view, panel by panel or balloon by balloon,
-> with zoom, the full keymap, touch gestures, and resume. Guided view uses
-> the trained panel and balloon detector when it is installed (step 6) and
-> classic computer vision otherwise. PDF and folders (M6) and the library
-> (M7) are still to come.
+> **Current state (M6):** CBZ files, PDFs and folders of page images open
+> and read in single-page or two-page mode or in guided view, panel by
+> panel or balloon by balloon, with zoom, the full keymap, touch gestures,
+> and resume. Guided view uses the trained panel and balloon detector when
+> it is installed (step 6) and classic computer vision otherwise. The
+> library (M7) is still to come.
 
 ### 1. Install the build tools and Flutter
 
@@ -43,19 +43,36 @@ The `bundle/` directory is self-contained. Copy it anywhere, for example
 
 ### 3. Open a comic book
 
-Any of these opens a `.cbz` straight away, without adding it to a library:
+A book is a `.cbz`, a `.pdf`, or a folder of page images. Any of these
+opens one straight away, without adding it to a library:
 
-- pass it on the command line: `comicredr ~/Comics/Daredevil\ 181.cbz`
-- press `o`, or click **Open a comic**, for a file picker
-- drag the file onto the window
+- pass it on the command line: `comicredr ~/Comics/Daredevil\ 181.cbz`,
+  `comicredr ~/Comics/Swamp\ Thing\ 21.pdf` or `comicredr ~/Comics/Preacher\ 01/`
+- press `o`, or click **Open a comic**, for a file picker (CBZ and PDF)
+- press `O`, or click **Open a folder**, to pick a folder of page images
+- drag the file or folder onto the window
 
 The book reopens at the page where you left it, even after you rename or
 copy it, because progress is keyed on the file's content rather than its
-path. `]` and `[` open the next and previous book in the same folder. `Esc`
-closes the book.
+path. `]` and `[` open the next and previous book in the same folder,
+CBZs, PDFs and folder books alike, in natural name order. `Esc` closes the
+book.
 
 The file's first bytes decide how it is read, not its extension, so a `.cbr`
-that is really a ZIP opens as-is. PDFs and folders of images arrive in M6.
+that is really a ZIP opens as-is.
+
+- **PDFs** render through PDFium at the size they are shown at, never above
+  300 dpi, so a 600 dpi scan does not become a giant bitmap. On this
+  container's CPU a page takes about a quarter of a second at screen size
+  and just under a second at 2048 pixels wide, which is what guided view
+  asks for; the page you turn to renders before the pages being prefetched.
+  PDFium comes with the build: the first `flutter build` or `flutter run`
+  downloads it once, so that one needs the network.
+- **Folders** read their JPEG, PNG, WebP, GIF and BMP files as pages,
+  subfolders included, in natural order (`page2` before `page10`), skipping
+  dotfiles and `Thumbs.db`. A `ComicInfo.xml` inside the folder supplies
+  the title and series. Progress follows the folder when you rename it, as
+  it does for files.
 
 #### The CBR files you already have
 
@@ -97,7 +114,7 @@ table the app binds from.
 | Set mark a–z / jump to mark / jump back | | `ma` / `'a` / `''` |
 | Next / previous book in the same folder (the series, once the library lands in M7) | | `]` `[` |
 | Leave guided view, close the book, or cancel a half-typed key | `Esc` | |
-| Open a file | | `o` |
+| Open a CBZ or PDF / a folder of page images | | `o` / `O` |
 
 The status line shows the page you are on out of the total (`page 3 / 36`),
 and in guided view the panel too (`guided: panel 2 / 6`). A thin bar along
@@ -203,7 +220,7 @@ dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
-tool/e2e_linux.sh [book.cbz]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
+tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
 ```
 
 ## M1 detection spike

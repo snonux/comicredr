@@ -83,6 +83,7 @@ class Keymap {
       Binding(['n'], ReaderIntent.searchNext),
       Binding(['N'], ReaderIntent.searchPrev),
       Binding(['o'], ReaderIntent.openFile),
+      Binding(['O'], ReaderIntent.openFolder),
       Binding(['Esc'], ReaderIntent.back, layer: s),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
     ]);

@@ -6,7 +6,9 @@
 # tool/touch_inject.c, preloaded into the app, which feeds GTK touch events
 # into the window the way a touchscreen driver's events arrive.
 #
-#   tool/e2e_linux.sh [book.cbz]   # default: a generated 12-page fixture
+#   tool/e2e_linux.sh [book]   # a CBZ, PDF or folder; default: a generated 12-page fixture
+#
+# E2E_SKIP_BUILD=1 reuses the release build already in build/.
 #
 # With COMICREDR_MODEL naming the trained .onnx file the app detects with
 # the model (the log says which detector ran), and the balloon-mode steps
@@ -45,7 +47,7 @@ EOF
   book="$out/Comics/Fixture 01.cbz"
 fi
 
-flutter build linux --release
+[[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
 cc -shared -fPIC -o "$out/touch_inject.so" tool/touch_inject.c $(pkg-config --cflags --libs gtk+-3.0)
 export DISPLAY=:97
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &

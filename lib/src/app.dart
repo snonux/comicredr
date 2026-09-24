@@ -86,10 +86,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     try {
       final file = await openFile(
         acceptedTypeGroups: const [
-          XTypeGroup(label: 'Comics', extensions: ['cbz', 'cbr', 'zip']),
+          XTypeGroup(label: 'Comics', extensions: ['cbz', 'cbr', 'zip', 'pdf']),
         ],
       );
       if (file != null) await ref.read(readerProvider.notifier).open(file.path);
+    } finally {
+      _picking = false;
+    }
+  }
+
+  Future<void> _pickFolder() async {
+    if (_picking) return;
+    _picking = true;
+    try {
+      final dir = await getDirectoryPath(confirmButtonText: 'Open as a book');
+      if (dir != null) await ref.read(readerProvider.notifier).open(dir);
     } finally {
       _picking = false;
     }
@@ -106,6 +117,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
     if (c.intent == ReaderIntent.openFile) {
       unawaited(_pickFile());
+      return;
+    }
+    if (c.intent == ReaderIntent.openFolder) {
+      unawaited(_pickFolder());
       return;
     }
     if (_view.currentState?.handle(c) ?? false) return;
@@ -144,7 +159,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         ),
                       )
                     else
-                      _EmptyState(loading: s.loading, onOpen: _pickFile),
+                      _EmptyState(loading: s.loading, onOpen: _pickFile, onOpenFolder: _pickFolder),
                     if (s.book != null)
                       Positioned(left: 0, right: 0, bottom: 0, child: _ProgressBar(state: s)),
                     if (_showKeymap) KeymapOverlay(keymap: keymap),
@@ -162,10 +177,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.loading, required this.onOpen});
+  const _EmptyState({required this.loading, required this.onOpen, required this.onOpenFolder});
 
   final bool loading;
   final VoidCallback onOpen;
+  final VoidCallback onOpenFolder;
 
   @override
   Widget build(BuildContext context) {
@@ -179,13 +195,29 @@ class _EmptyState extends StatelessWidget {
           if (loading)
             const CircularProgressIndicator()
           else
-            FilledButton.icon(
-              onPressed: onOpen,
-              icon: const Icon(Icons.folder_open),
-              label: const Text('Open a comic'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                FilledButton.icon(
+                  onPressed: onOpen,
+                  icon: const Icon(Icons.menu_book),
+                  label: const Text('Open a comic'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onOpenFolder,
+                  icon: const Icon(Icons.folder_open),
+                  label: const Text('Open a folder'),
+                ),
+              ],
             ),
           const SizedBox(height: 12),
-          Text('Press o, or drop a .cbz here. Press ? for the keymap.', style: theme.textTheme.bodyMedium),
+          Text(
+            'Press o for a CBZ or PDF, O for a folder of pages, or drop either here. Press ? for the keymap.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium,
+          ),
         ],
       ),
     );
@@ -229,7 +261,9 @@ class _StatusLine extends StatelessWidget {
     if (!s.balloons) return panel;
     final n = s.balloonsOn(s.page, s.panelIndex).length;
     if (found.balloons.isEmpty) return '$panel  ·  no balloons found';
-    return n == 0 ? '$panel  ·  no balloons' : '$panel  ·  balloon ${s.balloonIndex < 0 ? '–' : s.balloonIndex + 1} / $n';
+    return n == 0
+        ? '$panel  ·  no balloons'
+        : '$panel  ·  balloon ${s.balloonIndex < 0 ? '–' : s.balloonIndex + 1} / $n';
   }
 
   final ReaderState state;
@@ -258,12 +292,7 @@ class _StatusLine extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              state.message ?? left,
-              key: const Key('status'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(state.message ?? left, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
           Text(
             pending,

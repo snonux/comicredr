@@ -40,6 +40,7 @@ enum ReaderIntent {
   searchNext('Next match'),
   searchPrev('Previous match'),
   openFile('Open a file without adding it to the library'),
+  openFolder('Open a folder of page images as a book'),
   back('Back out one level'),
   showKeymap('Show the keymap');
 

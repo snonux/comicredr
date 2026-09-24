@@ -12,3 +12,4 @@ dev_dependencies:
 dependencies:
   archive: ^4.3.0
   crypto: ^3.0.7
+  pdfrx_engine: ^0.6.1

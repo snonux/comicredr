@@ -46,12 +46,11 @@ class PanelDetector {
   int get version => model != null ? modelDetectorVersion : classicCvVersion;
 
   Future<DetectedPage> detect(ComicDocument doc, int page) async {
-    final bytes = await doc.rawPage(page) ?? (await doc.page(page, targetWidth: 1200, targetHeight: 1200)).encoded;
     final model = this.model;
     if (model != null) {
       try {
         final sw = Stopwatch()..start();
-        final (rgba, w, h) = await decodeSmall(bytes, model.inputSize);
+        final (rgba, w, h) = await pageRgba(doc, page, model.inputSize);
         final found = await model.detect(rgba, w, h);
         return DetectedPage(
           found.frames,
@@ -65,7 +64,7 @@ class PanelDetector {
       }
     }
     final sw = Stopwatch()..start();
-    final (rgba, w, h) = await decodeSmall(bytes, detectionLongSide);
+    final (rgba, w, h) = await pageRgba(doc, page, detectionLongSide);
     final frames = await _detectOnWorker(TransferableTypedData.fromList([rgba]), w, h);
     return DetectedPage(
       frames,
@@ -75,6 +74,20 @@ class PanelDetector {
       millis: sw.elapsedMilliseconds,
     );
   }
+}
+
+/// Page [index] of [doc] as raw RGBA with the long side at most [longSide]:
+/// rendered at that size for PDF, decoded down to it otherwise.
+Future<(Uint8List, int, int)> pageRgba(ComicDocument doc, int index, int longSide) async {
+  final page = await doc.page(index, targetWidth: longSide, targetHeight: longSide);
+  if (!page.bgra) return decodeSmall(page.bytes, longSide);
+  final px = page.bytes;
+  for (var i = 0; i < px.length; i += 4) {
+    final b = px[i];
+    px[i] = px[i + 2];
+    px[i + 2] = b;
+  }
+  return (px, page.width!, page.height!);
 }
 
 /// Decodes [bytes] with the long side at most [longSide] and returns raw
