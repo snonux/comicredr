@@ -19,6 +19,7 @@ import 'reader/guided.dart';
 import 'reader/layout.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
+import 'reader/reset_dialog.dart';
 import 'version.dart';
 
 class ComicRedrApp extends StatelessWidget {
@@ -227,6 +228,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// `X` in the reader: asks, then resets the open comic.
+  Future<void> _reset(String title) async {
+    final scope = await askReset(context, title);
+    _keys.requestFocus();
+    if (scope != null) await ref.read(readerProvider.notifier).reset(scope);
+  }
+
   /// Another device read further in the book just opened: ask, don't jump.
   Future<void> _offer(PositionOffer offer) async {
     final at = offer.at;
@@ -324,6 +332,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (c.intent == ReaderIntent.rescan) {
       unawaited(_rescan());
+      return;
+    }
+    if (c.intent == ReaderIntent.resetBook) {
+      if (ref.read(readerProvider).book case final book?) {
+        unawaited(_reset(book.title));
+      } else {
+        _library.currentState?.handle(c);
+      }
       return;
     }
     if (ref.read(readerProvider).book == null) {

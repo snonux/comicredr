@@ -99,5 +99,7 @@ activate = ["Enter"]
 addRoot = ["A"]
 # Rescan the library folders
 rescan = ["R"]
+# Reset this comic: find its panels again, or forget its bookmarks and position too
+resetBook = ["X"]
 # Show the keymap
 showKeymap = ["?"]
