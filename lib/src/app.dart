@@ -15,6 +15,7 @@ import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
 import 'input/touch_providers.dart';
 import 'input/touch_zones.dart';
+import 'library/default_folder.dart';
 import 'library/delete_book.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
@@ -121,8 +122,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onPause: () => ref.read(readerProvider.notifier).flush(),
       // Android has no change notifications for the library folders, so it
       // rescans when the app comes back (design plan section 4).
+      // All files access may have been granted meanwhile, which lets the
+      // default Comics folder in.
       onResume: () {
-        if (Platform.isAndroid) unawaited(ref.read(scannerProvider).scan());
+        if (Platform.isAndroid) unawaited(_addDefaultFolder().then((_) => ref.read(scannerProvider).scan()));
       },
       onExitRequested: () async {
         await ref.read(readerProvider.notifier).flush();
@@ -218,12 +221,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (e) {
       debugPrint('Could not add a library folder: $e');
     }
+    await _addDefaultFolder();
     final path = widget.initialPath;
     // Before the scan, so a folder it adds to the library is scanned too.
     if (path != null) await _openPath(path, scan: false);
     // Listens for the scan's end, so it is there before the first scan.
     ref.read(libraryDetectionProvider);
     await _rescan();
+  }
+
+  /// ~/Comics (on Android the Comics folder in shared storage, once the app
+  /// may read it) while no library folder is set up.
+  Future<void> _addDefaultFolder() async {
+    try {
+      if (Platform.isAndroid) {
+        final granted = await _storage.invokeMethod<bool>('hasAllFilesAccess').catchError((_) => false) ?? false;
+        if (!granted) return;
+      }
+      await addDefaultFolder(ref.read(libraryStoreProvider), ref.read(settingsStoreProvider), defaultComicsFolder());
+    } catch (e) {
+      debugPrint('Could not add the default comics folder: $e');
+    }
   }
 
   /// Scans every library folder, then watches them for changes.

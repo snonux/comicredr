@@ -16,6 +16,7 @@ import '../reader/open_book.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/reset_dialog.dart';
 import '../version.dart';
+import 'default_folder.dart';
 import 'delete_book.dart';
 import 'edit_dialog.dart';
 import 'library_detection.dart';
@@ -198,6 +199,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         _setTab(LibraryTab.values[(tab.index - 1) % LibraryTab.values.length]);
       case ReaderIntent.search:
         _searchFocus.requestFocus();
+        // Typing replaces the last search; arrows keep it. After the field
+        // has taken focus, which places the cursor itself.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _search.selection = TextSelection(baseOffset: 0, extentOffset: _search.text.length);
+        });
       case ReaderIntent.bookmarkList:
         _setTab(LibraryTab.bookmarks);
       case ReaderIntent.remove:
@@ -523,6 +529,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 onAddRoot: widget.onAddRoot,
                 onOpenFile: widget.onOpenFile,
                 onOpenFolder: widget.onOpenFolder,
+                onSettings: () => showSettings(context, onExportSidecars: widget.onExportSidecars),
               )
             : _detail && !wide && selectedItem is _BookItem
             ? BookDetail(book: selectedItem.book, onRead: read, onBack: back)
@@ -1586,7 +1593,12 @@ class _FolderDetail extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               key: const Key('removeRoot'),
-              onPressed: () => ref.read(libraryStoreProvider).removeRoot(root.id),
+              onPressed: () => removeLibraryFolder(
+                ref.read(libraryStoreProvider),
+                ref.read(settingsStoreProvider),
+                root.id,
+                root.path,
+              ),
               icon: const Icon(Icons.remove_circle_outline),
               label: const Text('Take out of the library (the files stay)'),
             ),
@@ -1600,11 +1612,17 @@ class _FolderDetail extends ConsumerWidget {
 }
 
 class _EmptyLibrary extends StatelessWidget {
-  const _EmptyLibrary({required this.onAddRoot, required this.onOpenFile, required this.onOpenFolder});
+  const _EmptyLibrary({
+    required this.onAddRoot,
+    required this.onOpenFile,
+    required this.onOpenFolder,
+    required this.onSettings,
+  });
 
   final VoidCallback onAddRoot;
   final VoidCallback onOpenFile;
   final VoidCallback onOpenFolder;
+  final VoidCallback onSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -1640,11 +1658,19 @@ class _EmptyLibrary extends StatelessWidget {
                   icon: const Icon(Icons.folder_open),
                   label: const Text('Open a folder'),
                 ),
+                OutlinedButton.icon(
+                  key: const Key('settingsEmpty'),
+                  onPressed: onSettings,
+                  icon: const Icon(Icons.settings_outlined),
+                  label: const Text('Settings'),
+                ),
               ],
             ),
             const SizedBox(height: 12),
             Text(
-              'A adds a folder of comics to the library. o opens a CBZ or PDF and O a folder of pages '
+              '${Platform.isAndroid ? 'A Comics folder on the phone' : 'A Comics folder in your home'} '
+              'joins the library by itself when ComicRedr starts. '
+              'A adds any other folder of comics. o opens a CBZ or PDF and O a folder of pages '
               'without adding them. Or drop either here. ? shows the keymap.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium,
