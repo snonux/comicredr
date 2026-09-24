@@ -37,7 +37,7 @@ class FolderDocument implements ComicDocument {
   int get pageCount => _pages.length;
 
   @override
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight}) async =>
+  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async =>
       PageImage(await _read(index));
 
   @override

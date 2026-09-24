@@ -327,6 +327,18 @@ void main() {
       await key(tester, LogicalKeyboardKey.backspace);
       expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
       expect(find.text('Old'), findsWidgets);
+      await tester.enterText(find.byKey(const Key('search')), '');
+      await settle(tester);
+
+      // Indie emptied on disk while shown: the view goes up to Comics.
+      await tester.runAsync(() async {
+        Directory('${root.path}/Indie').deleteSync(recursive: true);
+        await c.read(scannerProvider).scan();
+      });
+      await settle(tester);
+      expect(find.text('Old'), findsNothing);
+      expect(find.text('The Spirit #1'), findsWidgets);
+      expect(find.text('No books in this folder any more.'), findsNothing);
     });
 
     testWidgets('on a phone-sized screen a tap goes into a folder, and back comes out', (tester) async {

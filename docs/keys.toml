@@ -103,6 +103,8 @@ addRoot = ["A"]
 rescan = ["R"]
 # Reset this comic: find its panels again, or forget its bookmarks and position too
 resetBook = ["X"]
+# Edit the selected book's title, series, issue and creators in the library; on a series, rename it
+editBook = ["e"]
 # Show the keymap
 showKeymap = ["?"]
 # Show the touch zones for a moment
