@@ -103,6 +103,11 @@ build internals, test scripts, detector work and conventions here.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
+- A resize or rotation keeps the page, the zoom and the point in the
+  middle of the screen; guided view re-frames the same panel. Pages
+  decode again at the new size a quarter second after the size settles.
+  Android handles rotation in the running activity (`configChanges` in
+  the manifest), so nothing restarts.
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
   settings page. The APK was tested on an Android 14 emulator only; a real
   phone, pinch zoom and real speed and memory are untested.
@@ -145,6 +150,7 @@ COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padd
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
 tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
