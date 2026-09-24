@@ -37,7 +37,7 @@ import numpy as np
 import detect_cv
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
-PANEL_CONF = 0.5
+PANEL_CONF = 0.3
 # Wider than this (width over height) and a page is a two-page spread.
 SPREAD_ASPECT = 1.2
 BALLOON_CONF = 0.4

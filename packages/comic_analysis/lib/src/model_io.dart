@@ -73,7 +73,7 @@ ModelDetection decodeDetections(
   int h, {
   int frameClass = 0,
   int balloonClass = 2,
-  double frameConf = 0.5,
+  double frameConf = 0.3,
   double balloonConf = 0.4,
   bool rightToLeft = false,
 }) {
