@@ -195,7 +195,7 @@ class _RecordingDoc implements ComicDocument {
   int get pageCount => 4;
 
   @override
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight}) async {
+  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async {
     read.add(index);
     throw const FormatException('no pixels in this test');
   }
