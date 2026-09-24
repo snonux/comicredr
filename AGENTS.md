@@ -196,8 +196,8 @@ build internals, test scripts, detector work and conventions here.
   Android handles rotation in the running activity (`configChanges` in
   the manifest), so nothing restarts.
 - Fullscreen (`f`, F11, a status-line button, a tap in the middle):
-  `ReaderState.fullscreen`, saved as `reader.fullscreen` and loaded when a
-  book opens. `HomeScreen._applyFullscreen` makes the window follow: on
+  `ReaderState.fullscreen`, in the library as in the reader, saved as
+  `reader.fullscreen` and loaded at launch and when a book opens. `HomeScreen._applyFullscreen` makes the window follow: on
   Linux through the `org.snonux.comicredr/window` channel in
   `linux/runner/my_application.cc` (`gtk_window_fullscreen`, which also
   hides the GNOME header bar; a `window-state-event` reports the window
@@ -205,7 +205,10 @@ build internals, test scripts, detector work and conventions here.
   immersive mode. In fullscreen the page keeps the whole screen; the
   status line and progress bar come over it on a notice, while keys are
   typed, or while the mouse is in the bottom 96 px, and the pointer hides
-  1.5 s after the mouse stops. Esc leaves fullscreen before guided view.
+  1.5 s after the mouse stops. The library keeps its tabs and search in
+  fullscreen. Esc keeps its meanings (guided view, the book, the search, a
+  folder up) and leaves fullscreen only when the library has nothing left
+  to back out of (`LibraryScreenState.handle` returns false).
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
   settings page. The APK was tested on an Android 14 emulator only; a real
   phone, pinch zoom and real speed and memory are untested.

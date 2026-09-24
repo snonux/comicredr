@@ -21,8 +21,8 @@ class SettingsStore {
   static const night = 'reader.night';
   static const autoTrim = 'reader.autoTrim';
 
-  /// Fullscreen (`f`, F11): the reader opens the next book, and the next
-  /// launch, the way it was left.
+  /// Fullscreen (`f`, F11), in the library and the reader: the next book
+  /// and the next launch come back the way it was left.
   static const fullscreen = 'reader.fullscreen';
 
   /// Scan clean-up (`c`): levels on the paper colour, and small pages

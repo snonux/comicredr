@@ -6,8 +6,11 @@
 # pixels that the window covers the screen with nothing but the page (no
 # title bar, header bar, status line or progress bar, and no pointer after
 # the mouse rests), that the mouse along the bottom brings the status line
-# back, that the window manager leaving fullscreen is followed, that Esc
-# leaves it on the same page, and that a restart comes back fullscreen.
+# back, that the window manager leaving fullscreen is followed, and that a
+# restart comes back fullscreen. Then the library: Esc out of the book stays
+# fullscreen, a book opened there is fullscreen, `f` in the search box is a
+# letter while F11 still works, Esc at the top leaves fullscreen, `f` goes
+# back in, and a launch into the library comes back fullscreen.
 #
 #   tool/e2e_fullscreen.sh
 #
@@ -21,10 +24,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=build/e2e-fullscreen
-rm -rf "$out" && mkdir -p "$out"
+rm -rf "$out" && mkdir -p "$out/Comics"
 [[ -x build/linux/x64/release/bundle/comicredr ]] || flutter build linux --release
 
-python3 - "$out/Colours.cbz" <<'EOF'
+python3 - "$out/Comics/Colours.cbz" <<'EOF'
 import io, sys, zipfile
 from PIL import Image, ImageDraw
 colours = [(200, 40, 40), (40, 160, 60), (40, 80, 200), (220, 180, 30), (160, 50, 170), (30, 170, 170)]
@@ -90,8 +93,12 @@ sys.exit(0 if visible == 0 else 1)
 EOF
 }
 
+# Starts the app on the book, or in the library with `launch library`.
 launch() {
-  HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$PWD/$out/Colours.cbz" >>"$run/app.log" 2>&1 &
+  local book=("$PWD/$out/Comics/Colours.cbz")
+  [[ ${1:-} == library ]] && book=()
+  HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr --add-root "$PWD/$out/Comics" "${book[@]}" \
+    >>"$run/app.log" 2>&1 &
   app=$!
   sleep 6
   win=$(xdotool search --name ComicRedr | tail -1)
@@ -110,7 +117,7 @@ one_run() {
   run="$out/$name"
   mkdir -p "$run"
   # A fresh install and no sidecar, so the book opens on page 1.
-  rm -rf "$out/home" "$out"/.Colours.cbz.crdb* && mkdir -p "$out/home"
+  rm -rf "$out/home" "$out"/Comics/.Colours.cbz.crdb* && mkdir -p "$out/home"
   echo "== $name (window manager says: $(xprop -id "$(xprop -root _NET_SUPPORTING_WM_CHECK | awk '{print $NF}')" _NET_WM_NAME | cut -d'"' -f2))"
   launch
   xdotool mousemove 640 400 click 1
@@ -155,21 +162,52 @@ one_run() {
   key F11
   sleep 1
   fullscreen && ok "F11: fullscreen again" || fail "F11 did not go fullscreen"
-  key Escape
-  sleep 1
-  shot 7_esc
-  fullscreen && fail "Esc did not leave fullscreen" || ok "Esc leaves fullscreen"
-  [[ $(share 7_esc 4) > 0.3 ]] && ok "still on page 4, not back in the library" || fail "Esc left the book"
-
-  key f
-  sleep 1
   quit
   launch
   sleep 2
-  shot 8_restart
+  shot 7_restart
   fullscreen && ok "a restart comes back fullscreen" || fail "a restart forgot fullscreen"
-  only_page 8_restart 4 && ok "on page 4, only the page" || fail "the restart does not show only page 4"
+  only_page 7_restart 4 && ok "on page 4, only the page" || fail "the restart does not show only page 4"
+
+  # The library is fullscreen too, and Esc keeps its meanings there.
   key Escape
+  sleep 1
+  shot 8_library
+  fullscreen && ok "Esc: back in the library, still fullscreen" || fail "Esc out of the book left fullscreen"
+  geo=$(xdotool getwindowgeometry "$win" | awk '/Geometry/ {print $2}')
+  [[ $geo == 1280x800 ]] && ok "the library covers the screen ($geo)" || fail "the library window is $geo"
+  key Right Return # select the one cover, open it
+  sleep 2
+  shot 9_reopened
+  only_page 9_reopened 4 && ok "a book opened from the library is fullscreen, only the page" \
+    || fail "the book opened from the library is not only the page"
+  key Escape
+  sleep 1
+  key slash
+  xdotool type --delay 100 f
+  sleep 1
+  shot 10_search
+  fullscreen && ok "f typed into the search box is a letter" || fail "f in the search box left fullscreen"
+  key F11
+  fullscreen && fail "F11 in the search box did nothing" || ok "F11 works from the search box"
+  key F11
+  key Escape Escape # out of the search box, then clear the search
+  sleep 1
+  fullscreen && ok "Esc leaves the search, still fullscreen" || fail "Esc in the search left fullscreen"
+  key Escape
+  sleep 1
+  shot 11_esc_at_top
+  fullscreen && fail "Esc at the top of the library did not leave fullscreen" \
+    || ok "Esc with nothing left to back out of leaves fullscreen"
+
+  key f
+  sleep 1
+  fullscreen && ok "f in the library goes fullscreen" || fail "f in the library did nothing"
+  quit
+  launch library
+  sleep 2
+  shot 12_library_restart
+  fullscreen && ok "a launch into the library comes back fullscreen" || fail "the library launch forgot fullscreen"
   quit
 }
 

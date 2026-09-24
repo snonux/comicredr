@@ -49,11 +49,28 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     if (old.keymap != widget.keymap) _resolver = KeySequenceResolver(widget.keymap);
   }
 
+  static final _functionKeys = {
+    LogicalKeyboardKey.f1,
+    LogicalKeyboardKey.f2,
+    LogicalKeyboardKey.f3,
+    LogicalKeyboardKey.f4,
+    LogicalKeyboardKey.f5,
+    LogicalKeyboardKey.f6,
+    LogicalKeyboardKey.f7,
+    LogicalKeyboardKey.f8,
+    LogicalKeyboardKey.f9,
+    LogicalKeyboardKey.f10,
+    LogicalKeyboardKey.f11,
+    LogicalKeyboardKey.f12,
+  };
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     // Typing into a text field (the library search) is not a command; Esc
-    // leaves the field and comes back to the keys.
-    if (FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
+    // leaves the field and comes back to the keys. Function keys type
+    // nothing, so they still work there (F11 for fullscreen).
+    if (FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null &&
+        !_functionKeys.contains(event.logicalKey)) {
       if (event.logicalKey != LogicalKeyboardKey.escape) return KeyEventResult.ignored;
       _focus.requestFocus();
       return KeyEventResult.handled;
