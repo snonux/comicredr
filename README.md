@@ -61,8 +61,7 @@ Potion Contest*, by David Revoy, licensed
   collections, a folder view and a reading history. Fix a
   book's title, series or issue in the app; the comic file stays as it is.
 - **Done with a comic?** Shift+Delete (or `gd`) deletes it and its `.crdb`
-  file after asking. On Fedora both go to the trash, so you can restore
-  them; Android has no trash, so there it is gone for good.
+  file for good after asking; they don't go to the trash.
 - **Picks up where you left off**, on the same page, panel and zoom, even
   after you rename or copy the file.
 - **Keyboard first**, with a vi layer on top of the usual keys and your

@@ -30,7 +30,6 @@ void main() {
   setUp(() {
     tmp = Directory.systemTemp.createTempSync('delete_test');
     db = AppDatabase(NativeDatabase.memory());
-    trashAvailable = () async => false; // No gio in tests: deleted for good.
   });
   tearDown(() async {
     await db.close();
@@ -75,15 +74,8 @@ void main() {
 
     Future<List<BookmarkInfo>> bookmarks(String key) => store.watchBookmarks(key).first;
 
-    Future<List<String>> delete(String path, String key) => deleteComic(
-      path: path,
-      contentKey: key,
-      folder: false,
-      trash: false,
-      sidecars: sync,
-      store: store,
-      coverDir: covers(),
-    );
+    Future<List<String>> delete(String path, String key) =>
+        deleteComic(path: path, contentKey: key, folder: false, sidecars: sync, store: store, coverDir: covers());
 
     test('a copy goes with its sidecar; the book stays while another copy does', () async {
       final (a, b, key) = await shelf();
@@ -140,7 +132,6 @@ void main() {
         path: folder.path,
         contentKey: key,
         folder: true,
-        trash: false,
         sidecars: sync,
         store: store,
         coverDir: covers(),

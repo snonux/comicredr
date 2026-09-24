@@ -2,8 +2,9 @@
 # End-to-end check of deleting a comic (gd, Shift+Delete) on the Linux
 # build under Xvfb: open a comic, bookmark it and make its page
 # thumbnails, then ask to delete it and cancel with Enter and with Esc,
-# then confirm. Checks the comic and its sidecar are in the desktop trash,
-# and the index rows, cover and thumbnails are gone. Then deletes a folder
+# then confirm. Checks the comic and its sidecar are deleted for good, not
+# moved to the desktop trash, and the index rows, cover and thumbnails are
+# gone. Then deletes a folder
 # book from the library's Series tab, checks the next cover took the
 # selection, and that the third book is untouched.
 #
@@ -11,7 +12,7 @@
 #
 # Makes its own books, so it needs no corpus. E2E_SKIP_BUILD=1 reuses the
 # release build already in build/. Needs: Xvfb, xdotool, ImageMagick,
-# sqlite3, Python 3, gio (glib2), a C compiler, X11 headers.
+# sqlite3, Python 3, a C compiler, X11 headers.
 # Output: build/e2e-delete/*.png and a pass/fail line per check.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -109,10 +110,9 @@ key g d; sleep 3
 key Tab; key Return; sleep 4
 shot 05_after_delete
 check "the comic is gone from its folder" test ! -e "$doomed"
-check "the comic is in the trash" test -f "$trash/files/Delete Me 1.cbz"
-check "with a trashinfo saying where it was" grep -q "Delete%20Me%201.cbz" "$trash/info/Delete Me 1.cbz.trashinfo"
+check "the comic is not in the trash" test ! -e "$trash/files/Delete Me 1.cbz"
 check "the sidecar is gone from beside it" test ! -e "$side"
-check "the sidecar is in the trash too" test -f "$trash/files/$(basename "$side")"
+check "nor its sidecar" test ! -e "$trash/files/$(basename "$side")"
 check "the index forgot the file" test "$(rows files "$k")" = 0
 check "and the book" test "$(rows books "$k")" = 0
 check "and the bookmark" test "$(rows bookmarks "$k")" = 0
@@ -134,7 +134,7 @@ key shift+Delete; sleep 3
 shot 07b_next_selected
 key Escape; sleep 1
 check "the folder book is gone" test ! -e "$folder"
-check "the folder book is in the trash" test -f "$trash/files/Folder Book/p1.png"
+check "the folder book is not in the trash" test ! -e "$trash/files/Folder Book"
 check "the third book is untouched" test -f "$keep"
 check "and still in the index" test "$(rows files "$kk")" = 1
 check "one book is left in the index" test "$(q 'select count(*) from books')" = 1

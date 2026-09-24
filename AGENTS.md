@@ -123,8 +123,7 @@ build internals, test scripts, detector work and conventions here.
   `lib/src/library/delete_book.dart`) asks first with Cancel focused,
   closes the book, then `SidecarSync.forget` flushes and stops writing
   its sidecar and returns every copy of it (`sidecarsOf`). The comic goes
-  first (`gio trash` on Linux, deleted for good where there is no `gio`,
-  as on Android); if that fails nothing else changes. Then its sidecars,
+  first, for good and not to the trash (snonux's choice); if that fails nothing else changes. Then its sidecars,
   and `LibraryStore.forgetDeleted` drops the file's row, and when no other
   copy of the content key is left, every row about it plus its cover and
   page thumbnails.
@@ -274,7 +273,7 @@ COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/We
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
-tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks the trash, sidecars, index and thumbnails; makes its own books
+tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 

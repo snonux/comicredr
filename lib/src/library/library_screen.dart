@@ -1293,12 +1293,11 @@ Future<void> deleteLibraryBook(
       path: book.path,
       contentKey: book.key,
       folder: folder,
-      trash: facts.toTrash,
       sidecars: ref.read(sidecarSyncProvider),
       store: ref.read(libraryStoreProvider),
       coverDir: ref.read(coverDirProvider),
     );
-    messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.name, facts.toTrash, stuck))));
+    messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.name, stuck))));
   } on FileSystemException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text('Could not delete ${book.name}: ${e.message}')));
   }

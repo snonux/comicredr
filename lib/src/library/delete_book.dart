@@ -14,7 +14,6 @@ class DeleteFacts {
     required this.folder,
     required this.bytes,
     required this.pages,
-    required this.toTrash,
   });
 
   final String name;
@@ -24,28 +23,6 @@ class DeleteFacts {
   final bool folder;
   final int bytes;
   final int pages;
-
-  /// Whether it goes to the desktop trash, where it can be restored from;
-  /// deleted for good otherwise.
-  final bool toTrash;
-}
-
-/// Whether deleted comics go to the desktop trash: on Linux through
-/// `gio trash`, which knows the freedesktop trash of every mount. Android
-/// has no trash, so there a comic is deleted for good. Tests set it.
-Future<bool> Function() trashAvailable = _gioTrash;
-
-bool? _hasGio;
-
-Future<bool> _gioTrash() async {
-  if (!Platform.isLinux) return false;
-  if (_hasGio case final has?) return has;
-  try {
-    final r = await Process.run('gio', ['help', 'trash']);
-    return _hasGio = r.exitCode == 0;
-  } on ProcessException {
-    return _hasGio = false;
-  }
 }
 
 /// Gathers what [askDelete] shows about the book at [path].
@@ -62,14 +39,7 @@ Future<DeleteFacts> deleteFacts(String name, String path, {required bool folder,
   } on FileSystemException {
     // The dialog shows no size rather than failing.
   }
-  return DeleteFacts(
-    name: name,
-    path: path,
-    folder: folder,
-    bytes: bytes,
-    pages: pages,
-    toTrash: await trashAvailable(),
-  );
+  return DeleteFacts(name: name, path: path, folder: folder, bytes: bytes, pages: pages);
 }
 
 /// `1.2 MB`, `830 KB`.
@@ -105,12 +75,9 @@ Future<bool> askDelete(BuildContext context, DeleteFacts f) async =>
                 const SizedBox(height: 4),
                 SelectableText(p.dirname(f.path), style: theme.textTheme.bodySmall),
                 const SizedBox(height: 16),
-                Text(
-                  f.toTrash
-                      ? 'It goes to the trash with its sidecar, so you can restore both from there. '
-                            'Its bookmarks, position and panels are forgotten here.'
-                      : 'It is deleted for good with its sidecar, its bookmarks, position and panels. '
-                            'There is no trash to restore it from.',
+                const Text(
+                  'It is deleted for good with its sidecar, its bookmarks, position and panels. '
+                  'It does not go to the trash, so it cannot be restored.',
                 ),
               ],
             ),
@@ -130,7 +97,7 @@ Future<bool> askDelete(BuildContext context, DeleteFacts f) async =>
               ),
               onPressed: () => Navigator.pop(context, true),
               icon: const Icon(Icons.delete_outline),
-              label: Text(f.toTrash ? 'Move to trash' : 'Delete for good'),
+              label: const Text('Delete for good'),
             ),
           ],
         );
@@ -138,16 +105,9 @@ Future<bool> askDelete(BuildContext context, DeleteFacts f) async =>
     ) ??
     false;
 
-/// Moves [path] to the trash, or deletes it for good when [trash] is
-/// false. Throws a [FileSystemException] when it can't.
-Future<void> removePath(String path, {required bool trash}) async {
-  if (trash) {
-    final r = await Process.run('gio', ['trash', '--', path]);
-    if (r.exitCode != 0) {
-      throw FileSystemException('${r.stderr}'.trim().isEmpty ? 'gio trash failed' : '${r.stderr}'.trim(), path);
-    }
-    return;
-  }
+/// Deletes [path] for good, a file or a whole folder. Throws a
+/// [FileSystemException] when it can't.
+Future<void> removePath(String path) async {
   if (await FileSystemEntity.isDirectory(path)) {
     await Directory(path).delete(recursive: true);
   } else {
@@ -155,7 +115,7 @@ Future<void> removePath(String path, {required bool trash}) async {
   }
 }
 
-/// Deletes the comic at [path]: the file or folder, every sidecar of it
+/// Deletes the comic at [path] for good (not to the trash): the file or folder, every sidecar of it
 /// ([SidecarSync.forget]), its row in the index, and when it was the last
 /// copy everything else kept about it, its cover and its page thumbnails.
 /// The comic goes first: if that fails nothing else is touched. Returns
@@ -166,19 +126,18 @@ Future<List<String>> deleteComic({
   required String path,
   required String contentKey,
   required bool folder,
-  required bool trash,
   required SidecarSync sidecars,
   required LibraryStore store,
   required String coverDir,
 }) async {
   final places = await sidecars.forget(path, contentKey, folder: folder);
-  await removePath(path, trash: trash);
+  await removePath(path);
   final stuck = <String>[];
   for (final s in places) {
     // A folder book's own sidecar went with the folder.
     if (FileSystemEntity.typeSync(s) == FileSystemEntityType.notFound) continue;
     try {
-      await removePath(s, trash: trash);
+      await removePath(s);
     } on FileSystemException catch (e) {
       debugPrint('Could not delete the sidecar $s: $e');
       stuck.add(s);
@@ -199,6 +158,5 @@ Future<List<String>> deleteComic({
 }
 
 /// The notice after a delete.
-String deletedNotice(String name, bool toTrash, List<String> stuck) => stuck.isEmpty
-    ? (toTrash ? '$name moved to the trash' : '$name deleted')
-    : '${toTrash ? '$name moved to the trash' : '$name deleted'}, but its sidecar ${stuck.first} could not be removed';
+String deletedNotice(String name, List<String> stuck) =>
+    stuck.isEmpty ? '$name deleted' : '$name deleted, but its sidecar ${stuck.first} could not be removed';

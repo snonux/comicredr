@@ -431,12 +431,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         path: book.path,
         contentKey: book.key,
         folder: book.folder,
-        trash: facts.toTrash,
         sidecars: ref.read(sidecarSyncProvider),
         store: ref.read(libraryStoreProvider),
         coverDir: ref.read(coverDirProvider),
       );
-      messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.title, facts.toTrash, stuck))));
+      messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.title, stuck))));
     } on FileSystemException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not delete ${book.title}: ${e.message}')));
       await reader.open(book.path);
