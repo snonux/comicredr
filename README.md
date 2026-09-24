@@ -263,9 +263,15 @@ Modern layouts (panels of different sizes, slanted frames, insets,
 borderless art) need the trained detector from 2026-09-24 or later; on the
 66-page modern test set it guides 49 pages right, shows 15 whole and
 moves wrongly on 2. A two-page spread (a landscape page image) reads the
-whole left page before the right one. Slanted panels are still framed by
-their box, so a sliver of the neighbouring panel stays lit, and a page
-whose slanted panels overlap a lot is shown whole.
+whole left page before the right one.
+
+Slanted and cut panels are dimmed along their real outline, not their
+box, so the corners of the neighbouring panels go dark too; the camera
+still frames the whole box. The app finds the outline from the page
+itself (the gutter around the panel), so slanted panels whose boxes
+overlap now pass the checks and read top first. Rounded corners,
+borderless art on white paper and tilted panels drawn in thin lines keep
+their box. Books detected before this are detected again on first open.
 
 **Balloon by balloon.** Press `b` for balloon mode, from guided view or
 straight from the page. Each panel is shown whole first, then every speech
@@ -555,5 +561,14 @@ threshold to 0.3 and reads two-page spreads page by page:
 
 Per style on the modern set: digital 9 to 14 of 18, indie 17 to 24 of 36,
 painted 11 of 12 either way. Still missed: IHOW's rounded frames on black
-(0 of 9, nothing like it in training), and pages whose slanted panels'
-boxes overlap too much for the gate.
+(0 of 9, nothing like it in training).
+
+**Frame outlines (2026-09-24).** `refineOutlines` (Dart, in
+`packages/comic_analysis`) and its Python twin `spike/outlines.py` find
+the outline of non-rectangular frames. On the labelled sets (379 pages,
+2,181 frames) they reshape 52 frames: 11 of 292 modern, 14 of 440 in the
+original set and 27 of 1,449 in training. Every one was checked by eye;
+none cuts into a panel's own art. About 9 more non-rectangular modern
+frames are missed, mostly a collage page of tilted thin-lined panels in
+I Villain. `python3 spike/outlines.py eval PAGES --crops DIR` writes a
+review crop of each reshaped frame.

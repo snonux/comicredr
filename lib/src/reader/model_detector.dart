@@ -163,8 +163,9 @@ Future<void> _serve((SendPort, String, int, int) args) async {
       ];
       final found = decodeDetections(rows, w, h);
       // The page is already here at the model's size: find the real outline
-      // of slanted and cut frames while at it.
-      final frames = refineOutlines(rgba, w, h, found.frames, found.balloons);
+      // of slanted and cut frames while at it, then sort again, since panels
+      // either side of a slanted gutter read by their outlines.
+      final frames = readingOrder(refineOutlines(rgba, w, h, found.frames, found.balloons), aspect: w / h);
       reply.send((id, _flat(frames), [for (final f in frames) f.shape], _flat(found.balloons)));
     } catch (e) {
       reply.send((id, '$e'));

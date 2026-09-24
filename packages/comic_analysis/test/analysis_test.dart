@@ -67,6 +67,19 @@ void main() {
       expect(readingOrder([r, l, wide], aspect: 1.5), [wide, l, r]);
     });
 
+    test('panels across a slanted gutter read top first, by their outlines', () {
+      // The lower panel's box starts further left and reaches higher than
+      // the upper one's bottom: by boxes they share a row.
+      const top = Panel(0.04, 0.02, 0.5, 0.2, shape: [0.04, 0.02, 0.54, 0.02, 0.54, 0.07, 0.04, 0.22]);
+      const low = Panel(0.03, 0.08, 0.51, 0.24, shape: [0.03, 0.23, 0.54, 0.08, 0.54, 0.32, 0.03, 0.32]);
+      expect(readingOrder([low, top]), [top, low]);
+      expect(
+        readingOrder([low.withShape(null), top.withShape(null)]).first.y,
+        0.08,
+        reason: 'boxes alone get it wrong',
+      );
+    });
+
     test('boxes overlapping a gutter by a hair still cut', () {
       const a = Panel(0.05, 0.05, 0.9, 0.305);
       const b = Panel(0.05, 0.35, 0.44, 0.6);

@@ -27,6 +27,8 @@ books=(
   "$corpus/modern-digital/zombie-pandemic.pdf|30|5"
   "$corpus/modern-indie/stigkland-locked-up.pdf|10|5"
   "$corpus/modern-indie/i-villain.pdf|17|6"
+  # Two slanted panels, dimmed along their outlines
+  "$corpus/modern-indie/wolfs-head-003.pdf|20|2"
 )
 
 export DISPLAY=:96
@@ -38,10 +40,13 @@ sleep 1
 for entry in "${books[@]}"; do
   IFS='|' read -r book page steps <<<"$entry"
   name=$(basename "$book" .pdf)
-  # A fresh HOME each time: nothing cached, the model detects every page.
+  # A fresh HOME and a copy of the book each time: nothing cached, no
+  # sidecar left beside the corpus, the model detects every page.
   home="$out/home-$name"
-  mkdir -p "$home"
-  HOME="$PWD/$home" build/linux/x64/release/bundle/comicredr "$book" >"$out/$name.log" 2>&1 &
+  mkdir -p "$home" "$out/books"
+  copy="$out/books/$(basename "$book")"
+  cp -r "$book" "$copy"
+  HOME="$PWD/$home" build/linux/x64/release/bundle/comicredr "$copy" >"$out/$name.log" 2>&1 &
   app=$!
   sleep 5
   win=$(xdotool search --name ComicRedr | tail -1)
