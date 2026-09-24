@@ -117,8 +117,8 @@ you read last first), **Series**, **Books** (everything, series by series),
 comics folders as they are on disk: open a library folder, then any
 sub-folder inside it, with sub-folders first and then the books in that
 folder. A breadcrumb at the top shows where you are and takes you back to
-any folder above; `Esc`, the up arrow or Android's back gesture goes up
-one folder. A folder of page images is a book here, not a folder to walk
+any folder above; `Backspace`, `Esc`, the up arrow or Android's back
+gesture goes up one folder. A folder of page images is a book here, not a folder to walk
 into. Select a library folder to take it out of the library; that leaves
 the files alone and keeps your reading progress for when they come back.
 
@@ -129,7 +129,7 @@ the files alone and keeps your reading progress for when they come back.
 | See a book's details, progress and bookmarks | select it; on a narrow window `Enter` reads straight away | tap it on a narrow window, long-press anywhere |
 | Search titles, series, creators and years | `/`, type, `Enter` to go back to the covers | the search field |
 | Next / previous tab | `Tab` `Shift+Tab` | the tabs at the side or bottom |
-| Back out of the details, the search or a series, or up a folder | `Esc` | the back arrow, the breadcrumb, Android's back gesture |
+| Back out of the details, the search or a series, or up a folder | `Esc`; `Backspace` goes up a folder | the back arrow, the breadcrumb, Android's back gesture |
 | Add a folder / rescan | `A` / `R` | the folder button, or the **Folders** tab |
 
 On a wide window the selected book or series shows beside the covers, with

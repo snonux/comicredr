@@ -91,6 +91,8 @@ openFile = ["o"]
 openFolder = ["O"]
 # Back out one level, ending at the library
 back = ["Esc"]
+# Up to the folder above in the library
+up = ["Backspace"]
 # Open the selected book, series or folder in the library
 activate = ["Enter"]
 # Add a folder to the library

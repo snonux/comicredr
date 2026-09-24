@@ -173,6 +173,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         _searchFocus.requestFocus();
       case ReaderIntent.back:
         back();
+      case ReaderIntent.up:
+        _folderUp();
       default:
         return false;
     }
@@ -194,17 +196,24 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         _selected = _seriesSelected;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
-    } else if (tab == LibraryTab.folders && _folder != null) {
-      if (_folder == _folderRoot) {
-        final from = _folder!;
-        _openFolder(null);
-        setState(() => _selected = 'f:$from');
-        WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
-      } else {
-        _upTo(p.dirname(_folder!));
-      }
-    } else {
+    } else if (!_folderUp()) {
       return false;
+    }
+    return true;
+  }
+
+  /// Backspace, and Esc once nothing else is open: up to the folder above
+  /// on the Folders tab. False at the top or on another tab.
+  bool _folderUp() {
+    if (tab != LibraryTab.folders || _folder == null) return false;
+    _detail = false;
+    if (_folder == _folderRoot) {
+      final from = _folder!;
+      _openFolder(null);
+      setState(() => _selected = 'f:$from');
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+    } else {
+      _upTo(p.dirname(_folder!));
     }
     return true;
   }
