@@ -1,9 +1,31 @@
-# ComicRedr
+<p align="center">
+  <img src="linux/packaging/org.snonux.comicredr.svg" alt="ComicRedr icon" width="128">
+</p>
+
+<h1 align="center">ComicRedr</h1>
 
 A local-first comic reader with Comixology-style guided view, for a Fedora
 laptop and an Android phone. CBZ, PDF and folders of page images; no sync,
 no network, everything on CPU. The design plan is the reference for every
 decision here.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![A page of All Top Comics in single-page view](docs/screenshots/page.webp) | ![A two-page spread of Pepper&Carrot](docs/screenshots/spread.webp) |
+| Single page, with the page counter and progress bar | Two-page spread (`d`) |
+| ![Guided view framing one panel, the rest of the page dimmed](docs/screenshots/guided.webp) | ![Balloon mode zoomed in on one speech balloon](docs/screenshots/balloon.webp) |
+| Guided view (`v`) on panel 2 of 6, found by the trained detector | Balloon mode (`b`) steps through the speech balloons in each panel |
+| ![Guided view on a painted modern page](docs/screenshots/guided-painted.webp) | ![The night filter on a page](docs/screenshots/night.webp) |
+| Guided view on painted art with no gutters | Night filter (`i`) |
+
+Taken from the release build on Linux. The books are *All Top Comics* 6
+(Norlen, 1959; public domain, its copyright was not renewed; from the
+Digital Comic Museum's archive.org mirror) and
+[Pepper&Carrot](https://www.peppercarrot.com) episode 6, *The Potion
+Contest*, by David Revoy, licensed
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ## Quick start on Fedora
 
