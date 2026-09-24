@@ -106,6 +106,8 @@ class Keymap {
       Binding(['g', 's'], ReaderIntent.reshuffle),
       Binding(['X'], ReaderIntent.resetBook),
       Binding(['e'], ReaderIntent.editBook),
+      Binding(['g', 'd'], ReaderIntent.deleteBook),
+      Binding(['S-Delete'], ReaderIntent.deleteBook, layer: s),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
       Binding(['g', 't'], ReaderIntent.showTouchZones),
     ]);

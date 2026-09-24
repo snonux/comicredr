@@ -1131,6 +1131,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.toggleShuffle:
       case ReaderIntent.reshuffle:
       case ReaderIntent.resetBook:
+      case ReaderIntent.deleteBook:
       case ReaderIntent.editBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:

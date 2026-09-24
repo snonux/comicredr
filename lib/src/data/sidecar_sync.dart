@@ -333,6 +333,8 @@ class SidecarSync {
   Future<bool> write(String contentKey) async {
     final at = _where[contentKey];
     if (at == null) return false;
+    // Deleted meanwhile: a sidecar would be left behind with nothing to go with.
+    if (FileSystemEntity.typeSync(at.path) == FileSystemEntityType.notFound) return true;
     if (!await (writeAllowed?.call() ?? Future.value(true))) return true; // Nothing to do is not a failure.
     final target = await sidecarFor(at.path, folder: at.folder);
     final ok = await _writeTo(target, contentKey, makeDir: !p.equals(target, sidecarPath(at.path, folder: at.folder)));
@@ -358,6 +360,21 @@ class SidecarSync {
     }
     return false;
   });
+
+  /// The book at [path] is about to be deleted: writes anything pending
+  /// for it, stops writing its sidecar from here on, and returns every
+  /// sidecar of it there is on disk, for the caller to delete with it.
+  Future<List<String>> forget(String path, String contentKey, {required bool folder}) async {
+    await flush();
+    return _serial(() async {
+      _dirty.remove(contentKey);
+      if (_where[contentKey] case final w? when p.equals(w.path, path)) _where.remove(contentKey);
+      return [
+        for (final s in await sidecarsOf(path, folder: folder))
+          if (FileSystemEntity.typeSync(s) != FileSystemEntityType.notFound) s,
+      ];
+    });
+  }
 
   /// Forgets what the app knows about [contentKey], so the book starts from
   /// scratch: its detected panels and balloons, which are found again, and
