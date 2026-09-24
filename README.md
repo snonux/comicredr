@@ -35,13 +35,14 @@ Contest*, by David Revoy, licensed
 
 ## Quick start on Fedora
 
-> **Current state (M7):** a library of your comics folders, with covers,
+> **Current state (M8):** a library of your comics folders, with covers,
 > series, search and bookmarks. CBZ files, PDFs and folders of page images
 > read in single-page or two-page mode or in guided view, panel by panel or
 > balloon by balloon, with zoom, the full keymap, touch gestures, and
 > resume. Guided view uses the trained panel and balloon detector when it
-> is installed (step 7) and classic computer vision otherwise. Per-comic
-> sidecar files (M8) are still to come.
+> is installed (step 7) and classic computer vision otherwise. Each comic
+> carries its panels, bookmarks and position in a sidecar file beside it
+> (step 9). Collections, reading history and settings are still to come.
 
 ### 1. Install the build tools and Flutter
 
@@ -309,6 +310,36 @@ edge of the page to turn. In guided view a swipe always moves to the
 next or previous panel, and one finger does not pan there. Right to left books mirror taps and swipes just
 as they mirror the arrow keys. A touchpad pinch zooms too.
 
+### 9. Take a comic to another machine
+
+Every comic you open gets a small SQLite file beside it holding what the
+app knows about it: the detected panels and balloons, your bookmarks and
+marks, and where you stopped. `Daredevil 181.cbz` gets
+`Daredevil 181.cbz.crdb`; a folder of page images keeps
+`.comicredr.crdb` inside itself. The comic itself is never touched.
+
+Copy the comic together with its `.crdb` to the phone (or another
+folder, or another laptop) and it opens there with guided view ready,
+without running the detector again, on the page you left it. The library
+ignores `.crdb` files, and a sidecar left behind when you rename a comic
+is found again by its content.
+
+Positions are kept per device. When you open a comic that was read
+further on another machine, the app asks whether to go there instead of
+jumping. A bookmark you remove stays removed even if an older copy of
+the sidecar comes back.
+
+A folder the app cannot write to (a read-only share, a locked SD card)
+still works: everything stays in the app's own database, and the reader
+says so once. To get sidecars for those books, use **Export sidecars**
+(the folder-arrow button in the library's top bar): it writes every
+book's sidecar under a folder you pick, laid out like your library, so
+you can copy that tree over your comics later.
+
+```sh
+sqlite3 'Daredevil 181.cbz.crdb' 'select page, kind, x, y, w, h from panels'
+```
+
 ## Layout
 
 ```
@@ -331,6 +362,7 @@ make icons                       # re-render linux/packaging/icons/*.png after e
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
 tool/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
+COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 ```

@@ -91,6 +91,10 @@ class Bookmarks extends Table {
   TextColumn get note => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
 
+  /// Set when the bookmark is removed. The row stays, so a sidecar copied
+  /// from another device that still has it cannot bring it back (M8).
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -174,7 +178,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -188,6 +192,7 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(books);
       }
       if (from < 5) await m.createTable(settings); // Whole-page steps in guided view
+      if (from < 6) await m.addColumn(bookmarks, bookmarks.deletedAt); // M8: sidecars
     },
   );
 }

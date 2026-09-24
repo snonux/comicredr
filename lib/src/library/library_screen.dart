@@ -58,6 +58,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
     required this.onAddRoot,
     required this.onOpenFile,
     required this.onOpenFolder,
+    this.onExportSidecars,
     this.keysFocus,
     this.pending = '',
   });
@@ -68,6 +69,9 @@ class LibraryScreen extends ConsumerStatefulWidget {
   final VoidCallback onAddRoot;
   final VoidCallback onOpenFile;
   final VoidCallback onOpenFolder;
+
+  /// Writes every book's sidecar to a folder of the person's choosing.
+  final VoidCallback? onExportSidecars;
 
   /// The half-typed key sequence, for the status line.
   final String pending;
@@ -393,6 +397,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Open a comic without adding it (o)',
             onPressed: widget.onOpenFile,
           ),
+          if (widget.onExportSidecars case final export?)
+            IconButton(
+              key: const Key('exportSidecars'),
+              icon: const Icon(Icons.drive_file_move_outline),
+              tooltip: 'Export sidecars to another folder',
+              onPressed: export,
+            ),
         ],
       ),
     );
@@ -632,7 +643,10 @@ class BookDetail extends ConsumerWidget {
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Remove',
-              onPressed: () => ref.read(libraryStoreProvider).deleteBookmark(m.id),
+              onPressed: () async {
+                await ref.read(libraryStoreProvider).deleteBookmark(m.id);
+                await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+              },
             ),
           ),
         const SizedBox(height: 16),

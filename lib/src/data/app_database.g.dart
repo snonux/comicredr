@@ -2211,6 +2211,17 @@ class $BookmarksTable extends Bookmarks
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2220,6 +2231,7 @@ class $BookmarksTable extends Bookmarks
     mark,
     note,
     createdAt,
+    deletedAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2280,6 +2292,12 @@ class $BookmarksTable extends Bookmarks
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -2317,6 +2335,10 @@ class $BookmarksTable extends Bookmarks
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
     );
   }
 
@@ -2334,6 +2356,10 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
   final String? mark;
   final String? note;
   final DateTime createdAt;
+
+  /// Set when the bookmark is removed. The row stays, so a sidecar copied
+  /// from another device that still has it cannot bring it back (M8).
+  final DateTime? deletedAt;
   const Bookmark({
     required this.id,
     required this.contentKey,
@@ -2342,6 +2368,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
     this.mark,
     this.note,
     required this.createdAt,
+    this.deletedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2359,6 +2386,9 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       map['note'] = Variable<String>(note);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     return map;
   }
 
@@ -2373,6 +2403,9 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       mark: mark == null && nullToAbsent ? const Value.absent() : Value(mark),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       createdAt: Value(createdAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
     );
   }
 
@@ -2389,6 +2422,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       mark: serializer.fromJson<String?>(json['mark']),
       note: serializer.fromJson<String?>(json['note']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
     );
   }
   @override
@@ -2402,6 +2436,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       'mark': serializer.toJson<String?>(mark),
       'note': serializer.toJson<String?>(note),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
     };
   }
 
@@ -2413,6 +2448,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
     Value<String?> mark = const Value.absent(),
     Value<String?> note = const Value.absent(),
     DateTime? createdAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
   }) => Bookmark(
     id: id ?? this.id,
     contentKey: contentKey ?? this.contentKey,
@@ -2421,6 +2457,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
     mark: mark.present ? mark.value : this.mark,
     note: note.present ? note.value : this.note,
     createdAt: createdAt ?? this.createdAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
   );
   Bookmark copyWithCompanion(BookmarksCompanion data) {
     return Bookmark(
@@ -2433,6 +2470,7 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
       mark: data.mark.present ? data.mark.value : this.mark,
       note: data.note.present ? data.note.value : this.note,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
     );
   }
 
@@ -2445,14 +2483,23 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
           ..write('panel: $panel, ')
           ..write('mark: $mark, ')
           ..write('note: $note, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, contentKey, page, panel, mark, note, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    contentKey,
+    page,
+    panel,
+    mark,
+    note,
+    createdAt,
+    deletedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2463,7 +2510,8 @@ class Bookmark extends DataClass implements Insertable<Bookmark> {
           other.panel == this.panel &&
           other.mark == this.mark &&
           other.note == this.note &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.deletedAt == this.deletedAt);
 }
 
 class BookmarksCompanion extends UpdateCompanion<Bookmark> {
@@ -2474,6 +2522,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
   final Value<String?> mark;
   final Value<String?> note;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> deletedAt;
   final Value<int> rowid;
   const BookmarksCompanion({
     this.id = const Value.absent(),
@@ -2483,6 +2532,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     this.mark = const Value.absent(),
     this.note = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   BookmarksCompanion.insert({
@@ -2493,6 +2543,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     this.mark = const Value.absent(),
     this.note = const Value.absent(),
     required DateTime createdAt,
+    this.deletedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        contentKey = Value(contentKey),
@@ -2506,6 +2557,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     Expression<String>? mark,
     Expression<String>? note,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? deletedAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2516,6 +2568,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
       if (mark != null) 'mark': mark,
       if (note != null) 'note': note,
       if (createdAt != null) 'created_at': createdAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2528,6 +2581,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     Value<String?>? mark,
     Value<String?>? note,
     Value<DateTime>? createdAt,
+    Value<DateTime?>? deletedAt,
     Value<int>? rowid,
   }) {
     return BookmarksCompanion(
@@ -2538,6 +2592,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
       mark: mark ?? this.mark,
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2566,6 +2621,9 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2582,6 +2640,7 @@ class BookmarksCompanion extends UpdateCompanion<Bookmark> {
           ..write('mark: $mark, ')
           ..write('note: $note, ')
           ..write('createdAt: $createdAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5995,6 +6054,7 @@ typedef $$BookmarksTableCreateCompanionBuilder = BookmarksCompanion Function({
   Value<String?> mark,
   Value<String?> note,
   required DateTime createdAt,
+  Value<DateTime?> deletedAt,
   Value<int> rowid,
 });
 typedef $$BookmarksTableUpdateCompanionBuilder = BookmarksCompanion Function({
@@ -6005,6 +6065,7 @@ typedef $$BookmarksTableUpdateCompanionBuilder = BookmarksCompanion Function({
   Value<String?> mark,
   Value<String?> note,
   Value<DateTime> createdAt,
+  Value<DateTime?> deletedAt,
   Value<int> rowid,
 });
 
@@ -6049,6 +6110,11 @@ class $$BookmarksTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6096,6 +6162,11 @@ class $$BookmarksTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$BookmarksTableAnnotationComposer
@@ -6129,6 +6200,9 @@ class $$BookmarksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 }
 
 class $$BookmarksTableTableManager
@@ -6166,6 +6240,7 @@ class $$BookmarksTableTableManager
                 Value<String?> mark = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BookmarksCompanion(
                 id: id,
@@ -6175,6 +6250,7 @@ class $$BookmarksTableTableManager
                 mark: mark,
                 note: note,
                 createdAt: createdAt,
+                deletedAt: deletedAt,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6186,6 +6262,7 @@ class $$BookmarksTableTableManager
                 Value<String?> mark = const Value.absent(),
                 Value<String?> note = const Value.absent(),
                 required DateTime createdAt,
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => BookmarksCompanion.insert(
                 id: id,
@@ -6195,6 +6272,7 @@ class $$BookmarksTableTableManager
                 mark: mark,
                 note: note,
                 createdAt: createdAt,
+                deletedAt: deletedAt,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

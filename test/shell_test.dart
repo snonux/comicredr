@@ -85,9 +85,7 @@ void main() {
     expect(c.read(readerProvider).page, 3);
     // The test harness has no key code for ', so dispatch what '' resolves to
     // (the resolver's own tests cover the key sequence).
-    await tester.runAsync(
-      () => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.jumpBack)),
-    );
+    await tester.runAsync(() => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.jumpBack)));
     expect(c.read(readerProvider).page, 0);
 
     // Spread mode keeps the cover alone, then pairs.
@@ -131,20 +129,14 @@ void main() {
     final second = writeBook(tmp, 'Series 02.cbz', 3);
     final c = await pumpApp(tester);
     await open(tester, c, '${tmp.path}/Series 01.cbz');
-    await tester.runAsync(
-      () => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.nextBook)),
-    );
+    await tester.runAsync(() => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.nextBook)));
     await settle(tester);
     expect(c.read(readerProvider).book?.path, second);
   });
 
   testWidgets('? shows the keymap generated from the bindings', (tester) async {
     await pumpApp(tester);
-    await tester.sendKeyEvent(
-      LogicalKeyboardKey.slash,
-      physicalKey: PhysicalKeyboardKey.slash,
-      character: '?',
-    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, physicalKey: PhysicalKeyboardKey.slash, character: '?');
     await tester.pump();
     expect(find.text('Guided view, there and back'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -164,6 +156,7 @@ void main() {
     final old = AppDatabase(NativeDatabase(file));
     await old.customStatement('DROP TABLE analysed_pages');
     await old.customStatement('ALTER TABLE progress DROP COLUMN view_json');
+    await dropM8(old);
     await old.customStatement('PRAGMA user_version = 1');
     await old.close();
     final upgraded = AppDatabase(NativeDatabase(file));
@@ -179,6 +172,7 @@ void main() {
     await old.customStatement(
       "INSERT INTO progress (content_key, page, panel, percent, finished, updated_at) VALUES ('k', 4, 2, 0.5, 0, 0)",
     );
+    await dropM8(old);
     await old.customStatement('PRAGMA user_version = 2');
     await old.close();
     final upgraded = AppDatabase(NativeDatabase(file));
@@ -199,6 +193,7 @@ void main() {
     await old.customStatement(
       "INSERT INTO progress (content_key, page, panel, percent, finished, updated_at) VALUES ('k', 4, 2, 0.5, 0, 0)",
     );
+    await dropM8(old);
     await old.customStatement('PRAGMA user_version = 3');
     await old.close();
     final upgraded = AppDatabase(NativeDatabase(file));
@@ -206,7 +201,44 @@ void main() {
     expect((await ProgressStore(upgraded).load('k'))?.page, 4);
     await upgraded
         .into(upgraded.books)
-        .insert(BooksCompanion.insert(contentKey: 'k', title: 'X', pageCount: 3, format: 'cbz', year: const Value(1982)));
+        .insert(
+          BooksCompanion.insert(contentKey: 'k', title: 'X', pageCount: 3, format: 'cbz', year: const Value(1982)),
+        );
     await upgraded.close();
   });
+
+  test('an M7 index keeps its bookmarks and gains sidecar support', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await dropM8(old);
+    await old.customStatement(
+      "INSERT INTO bookmarks (id, content_key, page, panel, mark, created_at) VALUES ('b', 'k', 4, 2, NULL, 0)",
+    );
+    await old.customStatement('PRAGMA user_version = 4');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    final marks = await upgraded.select(upgraded.bookmarks).get();
+    expect((marks.single.page, marks.single.deletedAt), (4, null));
+    expect(await upgraded.select(upgraded.settings).get(), isEmpty);
+    await upgraded.close();
+  });
+
+  test('an index with settings but no removal times gains them', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await old.customStatement('ALTER TABLE bookmarks DROP COLUMN deleted_at');
+    await old.customStatement("INSERT INTO settings (key, value) VALUES ('guided.wholePageSteps', 'false')");
+    await old.customStatement('PRAGMA user_version = 5');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    expect(await upgraded.select(upgraded.bookmarks).get(), isEmpty);
+    expect((await upgraded.select(upgraded.settings).get()).single.value, 'false');
+    await upgraded.close();
+  });
+}
+
+/// Takes an index back to before schema 5: no removal times, no settings.
+Future<void> dropM8(AppDatabase old) async {
+  await old.customStatement('ALTER TABLE bookmarks DROP COLUMN deleted_at');
+  await old.customStatement('DROP TABLE settings');
 }

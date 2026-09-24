@@ -34,7 +34,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         key: UniqueKey(), // A new scope each time: a fresh app, same index.
-        overrides: [databaseProvider.overrideWithValue(db), classicCvOnly],
+        overrides: [databaseProvider.overrideWithValue(db), classicCvOnly, noSidecars(db)],
         child: const ComicRedrApp(),
       ),
     );

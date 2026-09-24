@@ -8,6 +8,8 @@ import 'package:reader_input/reader_input.dart';
 import '../data/panel_store.dart';
 import '../data/progress_store.dart';
 import '../data/settings_store.dart';
+import '../data/sidecar.dart';
+import '../data/sidecar_sync.dart';
 import '../library/providers.dart';
 import '../providers.dart';
 import 'guided.dart';
@@ -178,6 +180,31 @@ final progressStoreProvider = Provider<ProgressStore>((ref) {
   return store;
 });
 
+/// The sidecars beside the books. Pending writes go out when the app is
+/// disposed.
+final sidecarSyncProvider = Provider<SidecarSync>((ref) {
+  final sync = SidecarSync(
+    ref.watch(databaseProvider),
+    progress: ref.watch(progressStoreProvider),
+    coverDir: ref.watch(coverDirProvider),
+  );
+  ref.onDispose(sync.flush);
+  return sync;
+});
+
+/// Another device's later position in the book just opened, which the
+/// reader offers rather than jumps to (design plan section 7).
+typedef PositionOffer = ({String path, String contentKey, SidecarProgress at});
+
+final positionOfferProvider = NotifierProvider<PositionOfferNotifier, PositionOffer?>(PositionOfferNotifier.new);
+
+class PositionOfferNotifier extends Notifier<PositionOffer?> {
+  @override
+  PositionOffer? build() => null;
+
+  void set(PositionOffer? offer) => state = offer;
+}
+
 final panelStoreProvider = Provider<PanelStore>((ref) => PanelStore(ref.watch(databaseProvider)));
 
 final settingsStoreProvider = Provider<SettingsStore>((ref) => SettingsStore(ref.watch(databaseProvider)));
@@ -197,6 +224,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   ReaderState build() => const ReaderState();
 
   ProgressStore get _progress => ref.read(progressStoreProvider);
+  SidecarSync get _sidecars => ref.read(sidecarSyncProvider);
 
   /// Zoom and scroll as the reader screen last reported them, saved with the
   /// position; and the saved one for the screen to restore on open.
@@ -222,6 +250,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       return;
     }
     await close();
+    // The sidecar first, so what it brings (panels from the laptop, a
+    // position from the phone) is in the index before the reads below.
+    final side = await _orNull(() => _sidecars.attach(book.path, book.key, folder: book.folder));
     // A broken index must not keep a book from opening: each of these falls
     // back to nothing saved.
     final saved = await _orNull(() => _progress.load(book.key));
@@ -265,12 +296,40 @@ class ReaderNotifier extends Notifier<ReaderState> {
           ? 'Bookmark: page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'
           : saved == null || (page == 0 && !guided)
           ? null
-          : 'Resumed at page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}',
+          : 'Resumed at page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'
+                '${side?.adopted != null ? ' (read on ${side!.adopted!.deviceName})' : ''}',
     );
+    ref
+        .read(positionOfferProvider.notifier)
+        .set(
+          at == null && side?.elsewhere != null ? (path: book.path, contentKey: book.key, at: side!.elsewhere!) : null,
+        );
     // Opening a book counts as reading it: the library's Reading tab lists
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
     _ensurePanels();
+    unawaited(_writeSidecar(book));
+  }
+
+  /// Writes the sidecar as the book opens, so a folder that refuses it says
+  /// so now rather than silently later.
+  Future<void> _writeSidecar(OpenBook book) async {
+    try {
+      await _progress.flush();
+      if (await _sidecars.write(book.key) || !identical(state.book, book)) return;
+      _notice("Can't write beside this comic, so its panels and bookmarks stay in this app only");
+    } catch (e) {
+      debugPrint('Sidecar write failed: $e');
+    }
+  }
+
+  /// Takes the offered position from another device: saves it as this
+  /// device's and reopens the book there, view and all.
+  Future<void> acceptOffer(PositionOffer offer) async {
+    ref.read(positionOfferProvider.notifier).set(null);
+    await close();
+    await _sidecars.adopt(offer.contentKey, offer.at);
+    await open(offer.path);
   }
 
   Future<T?> _orNull<T>(Future<T> Function() f) async {
@@ -297,6 +356,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       night: state.night,
     );
     await book.doc.close();
+    // Off the way of whatever opens next; flush() on exit waits for it.
+    unawaited(_sidecars.flush().catchError((Object e) => debugPrint('Sidecar write failed: $e')));
   }
 
   /// Goes to [page], at [panel] or where guided view enters a page.
@@ -331,6 +392,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       ),
       state.pageCount,
     );
+    _sidecars.touch(book.key);
   }
 
   /// The reader screen's zoom and scroll changed; saved with the position.
@@ -473,6 +535,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
             ref
                 .read(panelStoreProvider)
                 .save(book.key, page, result)
+                .then((_) => _sidecars.touch(book.key))
                 .catchError((Object e) => debugPrint('Could not cache panels: $e')),
           );
         } catch (e) {
@@ -573,6 +636,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.nightFilter:
         state = state.copyWith(night: !state.night);
       case ReaderIntent.setMark:
+        final key = state.book!.key;
         final i = state.panelIndex;
         // A whole-page step is a place too, so the mark keeps it.
         final place = (page: state.page, panel: state.guided ? (i >= 0 ? i : state.panel) : 0);
@@ -585,7 +649,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         unawaited(
           ref
               .read(markStoreProvider)
-              .save(state.book!.key, c.register!, place.page, place.panel)
+              .save(key, c.register!, place.page, place.panel)
+              .then((_) => _sidecars.touch(key))
               .catchError((Object e) => debugPrint('Could not save mark: $e')),
         );
       case ReaderIntent.jumpMark:
@@ -602,13 +667,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.halfPageUp:
         _notice('Continuous scroll arrives in a later milestone');
       case ReaderIntent.bookmark:
+        final key = state.book!.key;
         final i = state.panelIndex;
         final panel = state.guided && i >= 0 ? i : null;
         _notice('Bookmarked page ${state.page + 1}${panel != null ? ', panel ${panel + 1}' : ''}');
         unawaited(
           ref
               .read(markStoreProvider)
-              .addBookmark(state.book!.key, state.page, panel)
+              .addBookmark(key, state.page, panel)
+              .then((_) => _sidecars.touch(key))
               .catchError((Object e) => debugPrint('Could not save bookmark: $e')),
         );
       case ReaderIntent.search:
@@ -661,5 +728,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
-  Future<void> flush() => _progress.flush();
+  /// Saves the position and writes pending sidecars: on pause and exit.
+  Future<void> flush() async {
+    await _progress.flush();
+    await _sidecars.flush();
+  }
 }
