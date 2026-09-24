@@ -14,8 +14,12 @@ class ReaderKeyboard extends StatefulWidget {
     required this.keymap,
     required this.onCommand,
     this.onPendingChanged,
+    this.focusNode,
     required this.child,
   });
+
+  /// The node keys arrive on, for a parent to hand focus back to it.
+  final FocusNode? focusNode;
 
   final Keymap keymap;
   final ValueChanged<ReaderCommand> onCommand;
@@ -30,6 +34,14 @@ class ReaderKeyboard extends StatefulWidget {
 
 class _ReaderKeyboardState extends State<ReaderKeyboard> {
   late KeySequenceResolver _resolver = KeySequenceResolver(widget.keymap);
+  late final _own = widget.focusNode == null ? FocusNode(debugLabel: 'ReaderKeyboard') : null;
+  FocusNode get _focus => widget.focusNode ?? _own!;
+
+  @override
+  void dispose() {
+    _own?.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(ReaderKeyboard old) {
@@ -39,6 +51,13 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
+    // Typing into a text field (the library search) is not a command; Esc
+    // leaves the field and comes back to the keys.
+    if (FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
+      if (event.logicalKey != LogicalKeyboardKey.escape) return KeyEventResult.ignored;
+      _focus.requestFocus();
+      return KeyEventResult.handled;
+    }
     final keys = HardwareKeyboard.instance;
     final token = keyToken(event, ctrl: keys.isControlPressed, shift: keys.isShiftPressed);
     if (token == null) return KeyEventResult.ignored;
@@ -49,5 +68,6 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
   }
 
   @override
-  Widget build(BuildContext context) => Focus(autofocus: true, onKeyEvent: _onKey, child: widget.child);
+  Widget build(BuildContext context) =>
+      Focus(focusNode: _focus, autofocus: true, onKeyEvent: _onKey, child: widget.child);
 }

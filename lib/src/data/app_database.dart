@@ -19,11 +19,29 @@ class Books extends Table {
   TextColumn get format => text()(); // zip, pdf, folder
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
 
+  // Metadata from ComicInfo.xml or the file name (M7).
+  TextColumn get issueTitle => text().nullable()();
+  IntColumn get volume => integer().nullable()();
+  IntColumn get year => integer().nullable()();
+  TextColumn get writers => text().nullable()(); // comma-separated
+  TextColumn get artists => text().nullable()();
+  TextColumn get summary => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey};
 }
 
-/// The same book can live at many paths, across roots.
+/// A folder the library watches (design plan section 4). Books under it are
+/// found by scanning; a real path on both Linux and Android.
+@DataClassName('LibraryRoot')
+class Roots extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get path => text().unique()();
+  DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+/// The same book can live at many paths, across roots. `relPath` is relative
+/// to its root; size and mtime let a rescan skip unchanged files.
 @DataClassName('BookFile')
 class Files extends Table {
   TextColumn get contentKey => text().references(Books, #contentKey)();
@@ -43,7 +61,7 @@ class SeriesTable extends Table {
 
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
-  TextColumn get sortName => text()();
+  TextColumn get sortName => text()(); // seriesKey(name): what books group by
   BoolColumn get rtl => boolean().withDefault(const Constant(false))();
 }
 
@@ -129,7 +147,7 @@ class ReadLog extends Table {
   IntColumn get pages => integer()();
 }
 
-@DriftDatabase(tables: [Books, Files, SeriesTable, Progress, Bookmarks, Panels, AnalysedPages, Overrides, ReadLog])
+@DriftDatabase(tables: [Books, Roots, Files, SeriesTable, Progress, Bookmarks, Panels, AnalysedPages, Overrides, ReadLog])
 class AppDatabase extends _$AppDatabase {
   /// Lives in the app support directory (`~/.local/share/org.snonux.comicredr`
   /// on Linux), not in Documents, which may not exist.
@@ -143,13 +161,19 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.createTable(analysedPages); // M4: guided view
       if (from < 3) await m.addColumn(progress, progress.viewJson); // Exact resume
+      if (from < 4) {
+        // M7: the library. Nothing wrote books before, so they start over.
+        await m.createTable(roots);
+        await m.deleteTable('books');
+        await m.createTable(books);
+      }
     },
   );
 }

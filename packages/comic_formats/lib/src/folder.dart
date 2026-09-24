@@ -19,7 +19,7 @@ class FolderDocument implements ComicDocument {
     if (!dir.existsSync()) throw FormatException('No such folder: $path');
     final root = dir.absolute.path;
     final pages = [
-      for (final e in dir.listSync(recursive: true, followLinks: false))
+      for (final e in Directory(root).listSync(recursive: true, followLinks: false))
         if (e is File && isPageEntry(_relative(root, e.path))) _relative(root, e.path),
     ]..sort(naturalCompare);
     if (pages.isEmpty) throw FormatException('No page images in $path');

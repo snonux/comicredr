@@ -97,6 +97,21 @@ void main() {
     });
   });
 
+  test('PDFs open at once and a cover read beside them do not crash PDFium', () async {
+    final a = await BackgroundDocument.open(writePdf('a.pdf', [(600, 900)]));
+    final b = await BackgroundDocument.open(writePdf('b.pdf', [(600, 900), (600, 900)]));
+    final results = await Future.wait([
+      a.page(0, targetWidth: 300, targetHeight: 900),
+      b.page(1, targetWidth: 300, targetHeight: 900),
+      readBookInfoInBackground(writePdf('c.pdf', [(600, 900)]), coverDir: '${tmp.path}/covers'),
+    ]);
+    expect((results[2] as BookInfo).pageCount, 1);
+    expect(File((results[2] as BookInfo).cover!).existsSync(), isTrue);
+    await a.close();
+    expect((await b.page(0, targetWidth: 300, targetHeight: 900)).width, 300, reason: 'b stays open');
+    await b.close();
+  });
+
   test('the newest page request is served first, and close fails the rest', () async {
     final doc = await BackgroundDocument.open(writePdf('book.pdf', [for (var i = 0; i < 6; i++) (600, 900)]));
     final done = <int>[];
