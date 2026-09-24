@@ -4274,7 +4274,8 @@ class ReadLogCompanion extends UpdateCompanion<ReadLogData> {
   }
 }
 
-class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
+class $SettingsTable extends Settings
+    with TableInfo<$SettingsTable, SettingRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -4306,7 +4307,7 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   static const String $name = 'settings';
   @override
   VerificationContext validateIntegrity(
-    Insertable<Setting> instance, {
+    Insertable<SettingRow> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -4333,9 +4334,9 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   @override
   Set<GeneratedColumn> get $primaryKey => {key};
   @override
-  Setting map(Map<String, dynamic> data, {String? tablePrefix}) {
+  SettingRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Setting(
+    return SettingRow(
       key: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}key'],
@@ -4353,10 +4354,10 @@ class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   }
 }
 
-class Setting extends DataClass implements Insertable<Setting> {
+class SettingRow extends DataClass implements Insertable<SettingRow> {
   final String key;
   final String value;
-  const Setting({required this.key, required this.value});
+  const SettingRow({required this.key, required this.value});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -4369,12 +4370,12 @@ class Setting extends DataClass implements Insertable<Setting> {
     return SettingsCompanion(key: Value(key), value: Value(value));
   }
 
-  factory Setting.fromJson(
+  factory SettingRow.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Setting(
+    return SettingRow(
       key: serializer.fromJson<String>(json['key']),
       value: serializer.fromJson<String>(json['value']),
     );
@@ -4388,10 +4389,10 @@ class Setting extends DataClass implements Insertable<Setting> {
     };
   }
 
-  Setting copyWith({String? key, String? value}) =>
-      Setting(key: key ?? this.key, value: value ?? this.value);
-  Setting copyWithCompanion(SettingsCompanion data) {
-    return Setting(
+  SettingRow copyWith({String? key, String? value}) =>
+      SettingRow(key: key ?? this.key, value: value ?? this.value);
+  SettingRow copyWithCompanion(SettingsCompanion data) {
+    return SettingRow(
       key: data.key.present ? data.key.value : this.key,
       value: data.value.present ? data.value.value : this.value,
     );
@@ -4399,7 +4400,7 @@ class Setting extends DataClass implements Insertable<Setting> {
 
   @override
   String toString() {
-    return (StringBuffer('Setting(')
+    return (StringBuffer('SettingRow(')
           ..write('key: $key, ')
           ..write('value: $value')
           ..write(')'))
@@ -4411,10 +4412,12 @@ class Setting extends DataClass implements Insertable<Setting> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is Setting && other.key == this.key && other.value == this.value);
+      (other is SettingRow &&
+          other.key == this.key &&
+          other.value == this.value);
 }
 
-class SettingsCompanion extends UpdateCompanion<Setting> {
+class SettingsCompanion extends UpdateCompanion<SettingRow> {
   final Value<String> key;
   final Value<String> value;
   final Value<int> rowid;
@@ -4429,7 +4432,7 @@ class SettingsCompanion extends UpdateCompanion<Setting> {
     this.rowid = const Value.absent(),
   }) : key = Value(key),
        value = Value(value);
-  static Insertable<Setting> custom({
+  static Insertable<SettingRow> custom({
     Expression<String>? key,
     Expression<String>? value,
     Expression<int>? rowid,
@@ -7278,14 +7281,17 @@ class $$SettingsTableTableManager
         RootTableManager<
           _$AppDatabase,
           $SettingsTable,
-          Setting,
+          SettingRow,
           $$SettingsTableFilterComposer,
           $$SettingsTableOrderingComposer,
           $$SettingsTableAnnotationComposer,
           $$SettingsTableCreateCompanionBuilder,
           $$SettingsTableUpdateCompanionBuilder,
-          (Setting, BaseReferences<_$AppDatabase, $SettingsTable, Setting>),
-          Setting,
+          (
+            SettingRow,
+            BaseReferences<_$AppDatabase, $SettingsTable, SettingRow>,
+          ),
+          SettingRow,
           PrefetchHooks Function()
         > {
   $$SettingsTableTableManager(_$AppDatabase db, $SettingsTable table)
@@ -7312,8 +7318,8 @@ class $$SettingsTableTableManager
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
-                  e.readTable<$SettingsTable, Setting>(table),
-                  BaseReferences<_$AppDatabase, $SettingsTable, Setting>(
+                  e.readTable<$SettingsTable, SettingRow>(table),
+                  BaseReferences<_$AppDatabase, $SettingsTable, SettingRow>(
                     db,
                     table,
                     e,
@@ -7330,14 +7336,14 @@ typedef $$SettingsTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
       $SettingsTable,
-      Setting,
+      SettingRow,
       $$SettingsTableFilterComposer,
       $$SettingsTableOrderingComposer,
       $$SettingsTableAnnotationComposer,
       $$SettingsTableCreateCompanionBuilder,
       $$SettingsTableUpdateCompanionBuilder,
-      (Setting, BaseReferences<_$AppDatabase, $SettingsTable, Setting>),
-      Setting,
+      (SettingRow, BaseReferences<_$AppDatabase, $SettingsTable, SettingRow>),
+      SettingRow,
       PrefetchHooks Function()
     >;
 

@@ -11,6 +11,11 @@ decision here.
 
 ## Screenshots
 
+![The library: series of covers, with the selected book's details beside them](docs/screenshots/library.webp)
+
+The library: every book in your comics folders as a cover, grouped by
+series, with the selected book's details beside them.
+
 | | |
 |---|---|
 | ![A page of All Top Comics in single-page view](docs/screenshots/page.webp) | ![A two-page spread of Pepper&Carrot](docs/screenshots/spread.webp) |
@@ -20,9 +25,10 @@ decision here.
 | ![Guided view on a painted modern page](docs/screenshots/guided-painted.webp) | ![The night filter on a page](docs/screenshots/night.webp) |
 | Guided view on painted art with no gutters | Night filter (`i`) |
 
-Taken from the release build on Linux. The books are *All Top Comics* 6
-(Norlen, 1959; public domain, its copyright was not renewed; from the
-Digital Comic Museum's archive.org mirror) and
+Taken from the release build on Linux. The comics are golden- and
+silver-age books that are in the public domain because their copyright
+was not renewed, from the Digital Comic Museum's archive.org mirror (the
+reader screenshots show *All Top Comics* 6, Norlen, 1959), and
 [Pepper&Carrot](https://www.peppercarrot.com) episode 6, *The Potion
 Contest*, by David Revoy, licensed
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
@@ -65,6 +71,10 @@ and PDF files in Files. Run `make install` again after `git pull && make`
 to update, and `make uninstall` to remove it; your reading progress and the
 detector model stay. For a system-wide install, run `make` first and then
 `sudo make install PREFIX=/usr/local`.
+
+`comicredr --version` (or `make version` in the checkout) prints the
+version, which the library's status line and the `?` overlay also show. What each
+version brought is in [CHANGELOG.md](CHANGELOG.md).
 
 `make dev` starts a debug build with hot reload (`r` in the terminal),
 `make test` runs the analyzer and every test, and `make help` lists all
@@ -191,6 +201,7 @@ table the app binds from.
 | First / last page | `Home` `End` | `gg` `G`, and `42G` goes to page 42 |
 | Guided view on and off | | `v` |
 | Balloon by balloon inside each panel, on and off | | `b` |
+| Whole page before and after its panels in guided view, on and off (on by default) | | `w` |
 | Cycle single page, spread, guided view | `Tab` `Shift+Tab` | |
 | Switch between single page and spread | | `d` |
 | Shift the spread pairing by one page | | `D` |
@@ -220,10 +231,17 @@ within 600 ms.
 
 ### 6. Guided view
 
-Press `v`. The camera frames the first panel on the page and dims the rest,
-and `l`, `→` or `Space` glides to the next panel, onto the next page after
-the last one. `h` goes back. `Ctrl+f` or `PgDn` skips to the next page's
-first panel. `+` and `-` zoom within a panel and `zz` re-centres it. `v`
+Press `v`. The page is shown whole first, so you see its layout, then
+`l`, `→` or `Space` glides into the first panel and dims the rest, and on
+panel by panel. After the last panel the camera pulls back to the whole
+page once more, and the next step turns to the next page, again shown
+whole. `h` goes back the same way. `Ctrl+f` or `PgDn` skips to the next
+page, shown whole. `+` and `-` zoom within a panel and `zz` re-centres it.
+
+The whole-page steps are on by default. Press `w` to go straight from panel
+to panel across pages instead, and `w` again to bring them back; the choice
+is kept across restarts. A page that is only ever shown whole (a splash,
+a cover) is one step either way. `v`
 again returns to single page or spread, whichever you came from, and `v`
 once more comes back to the same panel. Reopening a book remembers the
 panel you stopped on, even after a restart; press `v` to pick up there.
@@ -339,12 +357,14 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done   # make test runs all three
+make version                     # the version in pubspec.yaml; bump lib/src/version.dart and CHANGELOG.md with it
 make icons                       # re-render linux/packaging/icons/*.png after editing the SVG
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
 tool/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
+tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 ```
 
 ## M1 detection spike

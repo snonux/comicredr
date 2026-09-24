@@ -2,8 +2,7 @@ import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
-import 'package:comicredr/src/data/progress_store.dart';
-import 'package:comicredr/src/data/sidecar_sync.dart';
+import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/layout.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
@@ -23,9 +22,11 @@ void main() {
   late Directory tmp;
   late AppDatabase db;
 
-  setUp(() {
+  setUp(() async {
     tmp = Directory.systemTemp.createTempSync('resume_test');
     db = AppDatabase(NativeDatabase.memory());
+    // These tests step panel to panel; whole_page_test covers the default.
+    await SettingsStore(db).saveBool(SettingsStore.wholePageSteps, false);
   });
   tearDown(() => tmp.deleteSync(recursive: true));
 
@@ -35,7 +36,7 @@ void main() {
         key: UniqueKey(), // A new scope each time: a fresh app, same index.
         overrides: [
           databaseProvider.overrideWithValue(db),
-          sidecarSyncProvider.overrideWith((ref) => _NoSidecars(db, ref.watch(progressStoreProvider))),
+          noSidecars(db),
         ],
         child: const ComicRedrApp(),
       ),
@@ -133,23 +134,4 @@ void main() {
     final s = c.read(readerProvider);
     expect((s.page, s.mode), (0, PageMode.spread));
   });
-}
-
-/// Resume is about the index; sidecars have their own tests. Their writes
-/// run on worker isolates, which a flush inside runAsync cannot wait for
-/// while the test clock holds the continuations.
-class _NoSidecars extends SidecarSync {
-  _NoSidecars(super.db, ProgressStore progress) : super(progress: progress);
-
-  @override
-  Future<SidecarImport> attach(String path, String contentKey, {required bool folder}) async => SidecarImport.none;
-
-  @override
-  void touch(String contentKey) {}
-
-  @override
-  Future<bool> write(String contentKey) async => true;
-
-  @override
-  Future<void> flush() => progress.flush();
 }

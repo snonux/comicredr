@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
@@ -72,16 +73,16 @@ class SidecarSync {
   /// This install's id and name, made once and kept in the index.
   Future<Device> device() async {
     if (_device case final d?) return d;
-    final rows = {for (final r in await _db.select(_db.settings).get()) r.key: r.value};
-    var id = rows['device.id'];
-    final name = rows['device.name'] ?? _deviceName();
+    final rows = {for (final r in await _db.select(_db.settings).get()) r.key: jsonDecode(r.value)};
+    var id = rows['device.id'] as String?;
+    final name = rows['device.name'] as String? ?? _deviceName();
     if (id == null) {
       final r = Random.secure();
       id = List.generate(16, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
       await _db.batch((b) {
         b.insertAllOnConflictUpdate(_db.settings, [
-          SettingsCompanion.insert(key: 'device.id', value: id!),
-          SettingsCompanion.insert(key: 'device.name', value: name),
+          SettingsCompanion.insert(key: 'device.id', value: jsonEncode(id)),
+          SettingsCompanion.insert(key: 'device.name', value: jsonEncode(name)),
         ]);
       });
     }

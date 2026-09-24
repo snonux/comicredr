@@ -144,22 +144,22 @@ class Overrides extends Table {
   Set<Column> get primaryKey => {contentKey, field};
 }
 
-/// Small app settings, as key and value: this install's device id and name
-/// for sidecar positions (M8), more to come.
-@DataClassName('Setting')
+class ReadLog extends Table {
+  TextColumn get contentKey => text()();
+  DateTimeColumn get startedAt => dateTime()();
+  DateTimeColumn get endedAt => dateTime()();
+  IntColumn get pages => integer()();
+}
+
+/// App-wide settings as key and JSON value, for what the reader changes
+/// from a key or, later, a settings screen. See SettingsStore.
+@DataClassName('SettingRow')
 class Settings extends Table {
   TextColumn get key => text()();
   TextColumn get value => text()();
 
   @override
   Set<Column> get primaryKey => {key};
-}
-
-class ReadLog extends Table {
-  TextColumn get contentKey => text()();
-  DateTimeColumn get startedAt => dateTime()();
-  DateTimeColumn get endedAt => dateTime()();
-  IntColumn get pages => integer()();
 }
 
 @DriftDatabase(
@@ -178,7 +178,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -191,11 +191,8 @@ class AppDatabase extends _$AppDatabase {
         await m.deleteTable('books');
         await m.createTable(books);
       }
-      if (from < 5) {
-        // M8: sidecars.
-        await m.addColumn(bookmarks, bookmarks.deletedAt);
-        await m.createTable(settings);
-      }
+      if (from < 5) await m.createTable(settings); // Whole-page steps in guided view
+      if (from < 6) await m.addColumn(bookmarks, bookmarks.deletedAt); // M8: sidecars
     },
   );
 }

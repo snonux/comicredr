@@ -75,10 +75,11 @@ key z z; key G;      shot 09_last
 key i;               shot 10_night
 key i; key bracketright; sleep 1.5; shot 11_next_book
 key bracketleft; sleep 1.5;         shot 12_back
-# Guided view, from page 3 so the cover is not first: panel by panel,
-# across a page, zoomed and re-centred, then back to the page mode.
-key 3 shift+g; key v; sleep 2;      shot 13_guided_panel1
-key l;               shot 14_guided_panel2
+# Guided view, from page 3 so the cover is not first: the page whole, then
+# panel by panel, across a page, zoomed and re-centred, then back to the
+# page mode. tool/e2e_whole_page.sh checks the whole-page steps closely.
+key 3 shift+g; key v; sleep 2;      shot 13_guided_whole_page
+key l;               shot 14_guided_panel1
 key l l l l l;       shot 15_guided_five_on
 key ctrl+f; sleep 1; shot 16_guided_next_page
 key plus plus;       shot 17_guided_zoomed
@@ -133,7 +134,7 @@ tap 640 340; sleep 0.1; tap 640 340; settle; shot 32_touch_zoom_reset
 tap 640 340; settle;              shot 33_touch_tap_middle_hides_status
 tap 640 340; settle;              shot 34_touch_tap_middle_shows_status
 # Touch in guided view: taps and swipes step panels, a double-tap re-centres.
-key 3 shift+g; key v; sleep 2;    shot 35_touch_guided_panel1
+key 3 shift+g; key v; sleep 2;    shot 35_touch_guided_whole_page
 tap 1200 340; settle;             shot 36_touch_guided_tap_right
 swipe 900 340 400 20; settle;     shot 37_touch_guided_swipe_left
 swipe 400 340 900 20; settle;     shot 38_touch_guided_swipe_right

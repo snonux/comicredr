@@ -3,6 +3,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:comicredr/src/data/app_database.dart' hide Override;
+import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/data/sidecar_sync.dart';
+import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 
 /// A 1x1 PNG. Every page of a fixture book is this, plus a trailing byte
 /// that PNG decoders ignore, so pages stay distinguishable.
@@ -78,4 +83,27 @@ String writeBookOf(Directory dir, String name, List<Uint8List> pages) {
   final path = '${dir.path}/$name';
   File(path).writeAsBytesSync(ZipEncoder().encodeBytes(a));
   return path;
+}
+
+/// For widget tests that restart the app on one index: no sidecars, which
+/// have their own tests. Their writes run on worker isolates, and a flush
+/// inside runAsync cannot wait for them while the test clock holds the
+/// continuations.
+Override noSidecars(AppDatabase db) =>
+    sidecarSyncProvider.overrideWith((ref) => _NoSidecars(db, ref.watch(progressStoreProvider)));
+
+class _NoSidecars extends SidecarSync {
+  _NoSidecars(super.db, ProgressStore progress) : super(progress: progress);
+
+  @override
+  Future<SidecarImport> attach(String path, String contentKey, {required bool folder}) async => SidecarImport.none;
+
+  @override
+  void touch(String contentKey) {}
+
+  @override
+  Future<bool> write(String contentKey) async => true;
+
+  @override
+  Future<void> flush() => progress.flush();
 }

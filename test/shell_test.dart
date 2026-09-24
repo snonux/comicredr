@@ -222,9 +222,22 @@ void main() {
     expect(await upgraded.select(upgraded.settings).get(), isEmpty);
     await upgraded.close();
   });
+
+  test('an index with settings but no removal times gains them', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await old.customStatement('ALTER TABLE bookmarks DROP COLUMN deleted_at');
+    await old.customStatement("INSERT INTO settings (key, value) VALUES ('guided.wholePageSteps', 'false')");
+    await old.customStatement('PRAGMA user_version = 5');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    expect(await upgraded.select(upgraded.bookmarks).get(), isEmpty);
+    expect((await upgraded.select(upgraded.settings).get()).single.value, 'false');
+    await upgraded.close();
+  });
 }
 
-/// Takes an index back to before M8: no removal times, no settings.
+/// Takes an index back to before schema 5: no removal times, no settings.
 Future<void> dropM8(AppDatabase old) async {
   await old.customStatement('ALTER TABLE bookmarks DROP COLUMN deleted_at');
   await old.customStatement('DROP TABLE settings');

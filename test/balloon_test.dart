@@ -4,6 +4,7 @@ import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/panel_detector.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
@@ -49,9 +50,11 @@ void main() {
   late Directory tmp;
   late AppDatabase db;
 
-  setUp(() {
+  setUp(() async {
     tmp = Directory.systemTemp.createTempSync('balloon_test');
     db = AppDatabase(NativeDatabase.memory());
+    // These tests step panel to panel; whole_page_test covers the default.
+    await SettingsStore(db).saveBool(SettingsStore.wholePageSteps, false);
   });
   tearDown(() => tmp.deleteSync(recursive: true));
 

@@ -10,6 +10,18 @@ typedef Place = ({int page, int panel});
 /// stepping back onto a page lands on its last panel once they arrive.
 const lastPanel = 1 << 20;
 
+/// Guided view's panel on arrival at a page when whole-page steps are on:
+/// the whole page, shown before its first panel.
+const pageStart = -1;
+
+/// The whole page once more after its last panel, before the next page,
+/// when whole-page steps are on. Above [lastPanel], so it never clamps to a
+/// panel.
+const pageEnd = 1 << 21;
+
+/// Whether a saved [panel] names a panel rather than the whole page.
+bool isPanel(int? panel) => panel != null && panel >= 0 && panel < pageEnd;
+
 /// Stands for "the last balloon" in a panel whose balloons are not known
 /// yet, like [lastPanel].
 const lastBalloon = 1 << 20;
