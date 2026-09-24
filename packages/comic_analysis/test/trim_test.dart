@@ -67,4 +67,50 @@ void main() {
       expect(t, Trim.full);
     });
   });
+
+  group('detection on a trimmed page', () {
+    test('measureTrimRgba reads a big page like its 240 px copy', () {
+      final big = page(800, 1200, art: (160, 180, 640, 1020));
+      final t = measureTrimRgba(big, 800, 1200, pad: detectionTrimPad);
+      expect(t.left, closeTo(0.17, 0.01));
+      expect(t.top, closeTo(0.12, 0.01));
+      expect(t.right, closeTo(0.83, 0.01));
+      expect(t.bottom, closeTo(0.88, 0.01));
+      expect(t.width * t.height, lessThan(detectionTrimArea));
+    });
+
+    test('cropRgba cuts whole pixels and reports the trim they are', () {
+      final px = page(10, 10, art: (0, 0, 0, 0));
+      px[(3 * 10 + 2) * 4] = 7; // the crop's top-left pixel
+      final (out, w, h, exact) = cropRgba(px, 10, 10, const Trim(0.21, 0.29, 0.79, 0.81));
+      expect((w, h), (6, 5));
+      expect(exact, const Trim(0.2, 0.3, 0.8, 0.8));
+      expect(out[0], 7);
+      expect(out.length, 6 * 5 * 4);
+    });
+
+    test('panels move between the trimmed part and the page and back', () {
+      const t = Trim(0.1, 0.2, 0.9, 0.7);
+      const p = Panel(0.5, 0.5, 0.25, 0.5, kind: PanelKind.balloon, confidence: 0.6, shape: [0.5, 0.5, 0.75, 1]);
+      final onPage = t.toPage(p);
+      expect(onPage.x, closeTo(0.5, 1e-9));
+      expect(onPage.y, closeTo(0.45, 1e-9));
+      expect(onPage.w, closeTo(0.2, 1e-9));
+      expect(onPage.h, closeTo(0.25, 1e-9));
+      expect(onPage.shape![1], closeTo(0.45, 1e-9));
+      expect((onPage.kind, onPage.confidence), (PanelKind.balloon, 0.6));
+      final back = t.toTrim(onPage);
+      expect(back.x, closeTo(p.x, 1e-9));
+      expect(back.h, closeTo(p.h, 1e-9));
+      expect(back.shape![2], closeTo(0.75, 1e-9));
+      expect(identical(Trim.full.toPage(p), p), isTrue);
+    });
+
+    test('a trim is stored as text, the whole page as null', () {
+      expect(encodeTrim(Trim.full), isNull);
+      expect(decodeTrim(null), Trim.full);
+      expect(decodeTrim('junk'), Trim.full);
+      expect(decodeTrim(encodeTrim(const Trim(0.1, 0.2, 0.9, 0.8))), const Trim(0.1, 0.2, 0.9, 0.8));
+    });
+  });
 }

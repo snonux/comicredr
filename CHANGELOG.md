@@ -7,6 +7,25 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Detector built in:** the trained panel and balloon model is packed
+  into the Linux build and the APK, so guided view uses it without
+  `make install-model` or `make push-model`. The build takes it from
+  `assets/models/` (`make model MODEL=...` puts it there); a model
+  installed the old way still wins, for trying another one.
+
+- **Wide scanned margins:** guided view no longer shows a page whole just
+  because it was scanned with a wide blank margin. The trained detector
+  looks at such a page with the margin cut off, whether or not `t` is on;
+  with a 12% margin added to the labelled test pages, 68 of 100 are guided
+  right instead of 28. Books are detected again once.
+
+- **Panels for the whole library:** after each library scan, the panels of
+  every book are found in the background, so guided view is ready in any
+  book as soon as it is opened. Progress shows on the library's status
+  line, with a pause button; the pass skips what is done, goes on where it
+  stopped after a restart, waits while the reader is busy, and can be
+  switched off in Settings. Off by default on Android.
+
 - **M9, polish and ship:** `t` auto-trims the white margins off scanned
   pages, and it and the night filter (`i`) are now remembered across books
   and restarts. Any key can be remapped in

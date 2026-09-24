@@ -50,6 +50,7 @@ class SidecarSync {
     required this.progress,
     this.coverDir,
     this.writeAllowed,
+    this.storeDir,
     this.debounce = const Duration(seconds: 2),
   });
 
@@ -61,6 +62,10 @@ class SidecarSync {
   /// null. Reading them, and [exportAll], do not ask.
   final Future<bool> Function()? writeAllowed;
   final Duration debounce;
+
+  /// The one folder every sidecar is kept in (a setting), or null to keep
+  /// each beside its comic, the default. See [storedSidecarPath].
+  final Future<String?> Function()? storeDir;
 
   Device? _device;
   final _where = <String, ({String path, bool folder})>{};
@@ -107,6 +112,40 @@ class SidecarSync {
     return '${os[0].toUpperCase()}${os.substring(1)}';
   }
 
+  Future<String?> _storeDir() async {
+    try {
+      final dir = await storeDir?.call();
+      return dir == null || dir.isEmpty ? null : dir;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<({int id, String path})>> _roots() async => [
+    for (final r in await _db.select(_db.roots).get()) (id: r.id, path: r.path),
+  ];
+
+  /// Where the sidecar of the book at [path] is written: beside it, or in
+  /// the sidecar folder when Settings names one.
+  Future<String> sidecarFor(String path, {required bool folder}) async => _placeIn(await _storeDir(), path, folder);
+
+  Future<String> _placeIn(String? dir, String path, bool folder) async => dir == null
+      ? sidecarPath(path, folder: folder)
+      : storedSidecarPath(path, folder: folder, dir: dir, roots: await _roots());
+
+  /// Every place a sidecar of the book at [path] may be, the one written
+  /// first: with a sidecar folder, a sidecar left beside the comic is still
+  /// read. Removing a book's data removes all of them.
+  Future<List<String>> sidecarsOf(String path, {required bool folder}) async {
+    final here = await sidecarFor(path, folder: folder);
+    final beside = sidecarPath(path, folder: folder);
+    return [here, if (!p.equals(here, beside)) beside];
+  }
+
+  /// The sidecar folder setting changed: a folder that refused a write
+  /// before may take one now.
+  void placeChanged() => _readOnly.clear();
+
   /// Reads the sidecar of the book at [path], re-linking one left behind by
   /// a rename, and merges it into the index. From here on the book's changes
   /// go back to it.
@@ -114,7 +153,7 @@ class SidecarSync {
     _where[contentKey] = (path: path, folder: folder);
     final SidecarData? side;
     try {
-      side = await _readBeside(path, contentKey, folder);
+      side = await _readAll(path, contentKey, folder, await sidecarsOf(path, folder: folder));
     } catch (e) {
       debugPrint('Could not read the sidecar of $path: $e');
       return SidecarImport.none;
@@ -295,19 +334,21 @@ class SidecarSync {
     final at = _where[contentKey];
     if (at == null) return false;
     if (!await (writeAllowed?.call() ?? Future.value(true))) return true; // Nothing to do is not a failure.
-    final ok = await _writeTo(sidecarPath(at.path, folder: at.folder), contentKey);
+    final target = await sidecarFor(at.path, folder: at.folder);
+    final ok = await _writeTo(target, contentKey, makeDir: !p.equals(target, sidecarPath(at.path, folder: at.folder)));
     if (!ok && _readOnly.add(contentKey)) {
-      debugPrint('Cannot write a sidecar beside ${at.path}; its data stays in the app database');
+      debugPrint('Cannot write the sidecar of ${at.path} to $target; its data stays in the app database');
     }
     if (ok) _readOnly.remove(contentKey);
     return ok;
   }
 
-  Future<bool> _writeTo(String target, String contentKey) => _serial(() async {
+  Future<bool> _writeTo(String target, String contentKey, {bool makeDir = false}) => _serial(() async {
     final me = await device();
     await progress.flush();
     final data = await gather(contentKey);
     try {
+      if (makeDir) await Directory(p.dirname(target)).create(recursive: true);
       await _writeOnWorker(target, data, me.id);
       return true;
     } on FileSystemException catch (e) {
@@ -317,6 +358,79 @@ class SidecarSync {
     }
     return false;
   });
+
+  /// Forgets what the app knows about [contentKey], so the book starts from
+  /// scratch: its detected panels and balloons, which are found again, and
+  /// with [everything] also its bookmarks and marks, this and every other
+  /// device's position, its reading history and its metadata overrides.
+  /// Collections keep the book. The index rows go, and so do the sidecars
+  /// beside every copy of the book: they are written anew with only what is
+  /// kept, because a sidecar left as it was would be merged straight back
+  /// in on the next open. Returns false when a sidecar could not be
+  /// replaced (a read-only folder); the index is reset either way.
+  ///
+  /// Close the book in the reader first, so nothing touches it meanwhile.
+  Future<bool> reset(String contentKey, {required bool everything}) async {
+    await flush(); // Nothing pending for the book may land after the reset.
+    return _serial(() async {
+      _dirty.remove(contentKey);
+      await progress.flush();
+      final key = contentKey;
+      await _db.transaction(() async {
+        await (_db.delete(_db.analysedPages)..where((r) => r.contentKey.equals(key))).go();
+        await (_db.delete(_db.panels)..where((r) => r.contentKey.equals(key))).go();
+        if (everything) {
+          await (_db.delete(_db.bookmarks)..where((r) => r.contentKey.equals(key))).go();
+          await (_db.delete(_db.progress)..where((r) => r.contentKey.equals(key))).go();
+          await (_db.delete(_db.readLog)..where((r) => r.contentKey.equals(key))).go();
+          await (_db.delete(_db.overrides)..where((r) => r.contentKey.equals(key))).go();
+        }
+      });
+      final places = {
+        for (final w in [?_where[key], ...await _copies(key)]) ...await sidecarsOf(w.path, folder: w.folder),
+      };
+      if (places.isEmpty) return true;
+      final me = await device();
+      final kept = await gather(key);
+      final write = await (writeAllowed?.call() ?? Future.value(true));
+      var ok = true;
+      for (final target in places) {
+        try {
+          await _resetOnWorker(target, kept, everything: everything, write: write, device: me.id);
+          _readOnly.remove(key);
+        } on FileSystemException catch (e) {
+          debugPrint('Could not reset the sidecar $target: $e');
+          ok = false;
+        } on SqliteException catch (e) {
+          debugPrint('Could not reset the sidecar $target: $e');
+          ok = false;
+        }
+      }
+      return ok;
+    });
+  }
+
+  /// Every copy of [contentKey] the library knows, as full paths; every
+  /// book in the library without one.
+  Future<List<({String path, bool folder})>> _copies([String? contentKey]) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT r.path AS root, f.rel_path, b.format FROM files f JOIN roots r ON r.id = f.root_id '
+          'JOIN books b ON b.content_key = f.content_key '
+          '${contentKey == null ? '' : 'WHERE f.content_key = ? '}ORDER BY f.root_id, f.rel_path',
+          variables: [if (contentKey != null) Variable(contentKey)],
+        )
+        .get();
+    return [
+      for (final r in rows)
+        (
+          path: r.read<String>('rel_path').isEmpty
+              ? r.read<String>('root')
+              : p.join(r.read<String>('root'), r.read<String>('rel_path')),
+          folder: r.read<String>('format') == 'folder',
+        ),
+    ];
+  }
 
   /// "Export sidecars" (design plan section 7): writes the sidecar of every
   /// book in the library under [dir], laid out like the library, so the
@@ -346,13 +460,102 @@ class SidecarSync {
     }
     return n;
   }
+
+  /// How many of the library's sidecars are kept at [dir] (null: beside the
+  /// comics), to ask before moving them.
+  Future<int> countIn(String? dir) async {
+    var n = 0;
+    for (final b in await _copies()) {
+      if (await File(await _placeIn(dir, b.path, b.folder)).exists()) n++;
+    }
+    return n;
+  }
+
+  /// Moves the library's sidecars from where [from] keeps them to where
+  /// [to] does (null: beside each comic), after the sidecar folder setting
+  /// changed. One meeting a sidecar of the same book at the new place is
+  /// merged into it. Returns how many moved.
+  Future<int> moveAll({required String? from, required String? to}) async {
+    await flush();
+    final roots = await _roots();
+    final moves = [
+      for (final b in await _copies())
+        (
+          from: from == null
+              ? sidecarPath(b.path, folder: b.folder)
+              : storedSidecarPath(b.path, folder: b.folder, dir: from, roots: roots),
+          to: to == null
+              ? sidecarPath(b.path, folder: b.folder)
+              : storedSidecarPath(b.path, folder: b.folder, dir: to, roots: roots),
+        ),
+    ];
+    final me = await device();
+    return _serial(() => _moveOnWorker(moves, me.id));
+  }
 }
 
 // Top level, so the closures sent to the worker hold only their arguments.
 Future<void> _writeOnWorker(String target, SidecarData data, String device) =>
     Isolate.run(() => writeSidecar(target, data, device: device, appVersion: appVersion));
 
-Future<SidecarData?> _readBeside(String path, String contentKey, bool folder) => Isolate.run(() {
-  if (!folder) relinkOrphan(path, contentKey);
-  return readSidecar(sidecarPath(path, folder: folder));
+Future<int> _moveOnWorker(List<({String from, String to})> moves, String device) =>
+    Isolate.run(() => moves.where((m) => moveSidecar(m.from, m.to, device: device, appVersion: appVersion)).length);
+
+/// Reads the sidecars of the book at [path] from [places], the one written
+/// first, merged; that one wins where they differ.
+Future<SidecarData?> _readAll(String path, String contentKey, bool folder, List<String> places) => Isolate.run(() {
+  if (!folder) relinkOrphan(path, contentKey, sidecar: places.first);
+  SidecarData? merged;
+  for (final at in places.reversed) {
+    final side = readSidecar(at);
+    if (side == null || side.contentKey != contentKey) continue;
+    merged = merged == null ? side : mergeSidecars(merged, side);
+  }
+  return merged;
 });
+
+Future<void> _resetOnWorker(
+  String target,
+  SidecarData kept, {
+  required bool everything,
+  required bool write,
+  required String device,
+}) => Isolate.run(
+  () => _resetSidecar(target, kept, everything: everything, write: write, device: device, version: appVersion),
+);
+
+/// Replaces the sidecar at [target] with [kept], the index's rows after a
+/// reset, plus what only the old file held that a reset keeps: other
+/// devices' positions and bookmarks when only panels are reset, and the
+/// collections either way. The old file is removed first, so the write
+/// cannot merge the dropped rows back in.
+void _resetSidecar(
+  String target,
+  SidecarData kept, {
+  required bool everything,
+  required bool write,
+  required String device,
+  required String version,
+}) {
+  final file = File(target);
+  final old = readSidecar(target);
+  if (old != null && old.schemaVersion > sidecarSchemaVersion) {
+    // A newer app's file is never written over, so it goes whole.
+    file.deleteSync();
+    return;
+  }
+  if (file.existsSync()) file.deleteSync();
+  if (!write || !Directory(p.dirname(target)).existsSync()) return;
+  final carried = old == null || old.contentKey != kept.contentKey
+      ? null
+      : SidecarData(
+          contentKey: old.contentKey,
+          book: old.book,
+          bookmarks: everything ? const [] : old.bookmarks,
+          progress: everything ? const [] : old.progress,
+          overrides: everything ? const {} : old.overrides,
+          collections: old.collections,
+          cover: old.cover,
+        );
+  writeSidecar(target, carried == null ? kept : mergeSidecars(carried, kept), device: device, appVersion: version);
+}

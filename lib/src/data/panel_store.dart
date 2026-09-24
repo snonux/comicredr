@@ -50,8 +50,34 @@ class PanelStore {
     }
     return {
       for (final MapEntry(key: page, value: (s, a)) in best.entries)
-        page: DetectedPage(frames[page]!, balloons[page]!, source: s, version: a.modelVer, millis: a.millis),
+        page: DetectedPage(
+          frames[page]!,
+          balloons[page]!,
+          source: s,
+          version: a.modelVer,
+          millis: a.millis,
+          trim: decodeTrim(a.trim),
+        ),
     };
+  }
+
+  /// Per book, the pages [load] would find a usable run for, from the
+  /// analysed-pages table alone: what the library pass (LibraryDetection)
+  /// needs to know to skip what is done. Only [contentKey] when given.
+  Future<Map<String, Set<int>>> analysed({
+    required PanelSource source,
+    required int version,
+    String? contentKey,
+  }) async {
+    final q = _db.select(_db.analysedPages);
+    if (contentKey != null) q.where((a) => a.contentKey.equals(contentKey));
+    final done = <String, Set<int>>{};
+    for (final a in await q.get()) {
+      final s = PanelSource.values.asNameMap()[a.source];
+      if (s == null || !(s == source ? _atLeast(a.modelVer, version) : s.index > source.index)) continue;
+      (done[a.contentKey] ??= {}).add(a.page);
+    }
+    return done;
   }
 
   /// A run stored at [stored] is as good as what the detector at [current]
@@ -103,6 +129,7 @@ class PanelStore {
             modelVer: found.version,
             millis: found.millis,
             analysedAt: DateTime.now(),
+            trim: Value(encodeTrim(found.trim)),
           ),
         );
   });

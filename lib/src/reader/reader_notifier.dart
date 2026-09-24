@@ -18,6 +18,7 @@ import 'layout.dart';
 import 'model_detector.dart';
 import 'open_book.dart';
 import 'panel_detector.dart';
+import 'reset_dialog.dart';
 
 /// Everything about the open book that page navigation changes. Zoom and pan
 /// are view concerns and live in the reader screen instead.
@@ -206,6 +207,7 @@ final sidecarSyncProvider = Provider<SidecarSync>((ref) {
     progress: ref.watch(progressStoreProvider),
     coverDir: ref.watch(coverDirProvider),
     writeAllowed: () async => await settings.loadBool(SettingsStore.writeSidecars).catchError((_) => null) ?? true,
+    storeDir: () => settings.loadString(SettingsStore.sidecarDir),
   );
   ref.onDispose(sync.flush);
   return sync;
@@ -232,11 +234,11 @@ final settingsStoreProvider = Provider<SettingsStore>((ref) => SettingsStore(ref
 
 final markStoreProvider = Provider<MarkStore>((ref) => MarkStore(ref.watch(databaseProvider)));
 
-/// The trained model when one is installed (see [findModel]), classic CV
-/// otherwise.
+/// The trained model, built in or installed by the user (see [findModel]),
+/// classic CV when there is none.
 final panelDetectorProvider = FutureProvider<PanelDetector>((ref) async {
   final path = await findModel();
-  debugPrint(path == null ? 'Panel detector: classic CV (no model installed)' : 'Panel detector: model $path');
+  debugPrint(path == null ? 'Panel detector: classic CV (no model)' : 'Panel detector: model $path');
   return PanelDetector(model: path == null ? null : await ModelDetector.open(path));
 });
 
@@ -271,6 +273,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// Pages waiting for detection, and whether the worker loop is running.
   final _wanted = <int>{};
   bool _detecting = false;
+
+  /// Finding panels for the open book: the library pass waits meanwhile.
+  bool get detecting => _detecting;
 
   /// Opens [path], closing any open book, and resumes where it was left, or
   /// goes to [at] when given (a bookmark picked in the library).
@@ -330,7 +335,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       fullscreen: state.fullscreen,
       night: night,
       trim: trim,
-      panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons)},
+      panels: {
+        for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons, value.trim),
+      },
       marks: marks,
       message: at != null
           ? 'Bookmark: page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'
@@ -401,6 +408,34 @@ class ReaderNotifier extends Notifier<ReaderState> {
     await book.doc.close();
     // Off the way of whatever opens next; flush() on exit waits for it.
     unawaited(_sidecars.flush().catchError((Object e) => debugPrint('Sidecar write failed: $e')));
+  }
+
+  /// Resets the open book (see [SidecarSync.reset]) and opens it again:
+  /// where it was, finding its panels anew, after [ResetScope.panels]; on
+  /// the first page, as if never opened, after [ResetScope.everything].
+  Future<void> reset(ResetScope scope) async {
+    final book = state.book;
+    if (book == null) return;
+    await close();
+    var ok = true;
+    try {
+      ok = await _sidecars.reset(book.key, everything: scope == ResetScope.everything);
+    } catch (e) {
+      debugPrint('Reset failed: $e');
+      state = state.copyWith(message: 'Could not reset ${book.title}: $e');
+      return;
+    }
+    await open(book.path);
+    if (state.book?.key != book.key) return; // It could not be opened again; open() said why.
+    _notice(
+      !ok
+          ? "Reset here, but the file beside the comic can't be changed, so the next open may bring it back"
+          : scope == ResetScope.everything
+          ? 'Started ${book.title} from scratch'
+          : state.guided
+          ? 'Finding the panels again'
+          : 'Panels forgotten; guided view (v) finds them again',
+    );
   }
 
   /// Goes to [page], at [panel] or where guided view enters a page.
@@ -574,7 +609,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         try {
           final detector = await ref.read(panelDetectorProvider.future);
           final result = await detector.detect(book.doc, page);
-          found = PagePanels(result.frames, result.balloons);
+          found = PagePanels(result.frames, result.balloons, result.trim);
           unawaited(
             ref
                 .read(panelStoreProvider)
@@ -740,6 +775,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.showKeymap:
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
+      case ReaderIntent.resetBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:
         break; // Handled by the screen, or only mean something in the library.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -9,11 +10,13 @@ import 'package:reader_input/reader_input.dart';
 
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
+import '../reader/reset_dialog.dart';
 import '../version.dart';
-import 'settings_dialog.dart';
+import 'library_detection.dart';
 import 'library_store.dart';
 import 'providers.dart';
 import 'scanner.dart';
+import 'settings_dialog.dart';
 
 enum LibraryTab {
   reading('Reading', Icons.auto_stories),
@@ -175,6 +178,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         back();
       case ReaderIntent.up:
         _folderUp();
+      case ReaderIntent.resetBook:
+        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+          unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
+        }
       default:
         return false;
     }
@@ -344,6 +351,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     // A library folder taken out of the library while we are in it.
     if (_folderRoot != null && roots != null && !roots.any((r) => r.path == _folderRoot)) {
       _folder = _folderRoot = null;
+    }
+    // The folder shown was deleted or emptied on disk: up to the nearest
+    // folder above that still holds books, as a file manager would.
+    while (_folder != null && _folder != _folderRoot && !books.any((b) => p.isWithin(_folder!, b.path))) {
+      _folder = p.dirname(_folder!);
+      _selected = null;
+      _detail = false;
     }
     _items = _itemsFor(books, roots ?? const []);
     if (_selected != null && !_items.any((it) => it.id == _selected)) _selected = null;
@@ -861,6 +875,16 @@ class BookDetail extends ConsumerWidget {
           ),
         const SizedBox(height: 16),
         SelectableText(book.path, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            key: const Key('resetBook'),
+            onPressed: () => resetBook(context, ref, book),
+            icon: const Icon(Icons.restart_alt),
+            label: const Text('Reset this comic… (X)'),
+          ),
+        ),
       ],
     );
   }
@@ -871,6 +895,32 @@ extension on BookDetail {
   Future<void> _changed(WidgetRef ref, Future<void> Function() change) async {
     await change();
     await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+  }
+}
+
+/// Asks, then resets [book] from the library: `X` on its cover, or the
+/// button in its details. Its panels are found again by the library pass,
+/// or by the reader when it is opened.
+Future<void> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final scope = await askReset(context, book.name);
+  if (scope == null) return;
+  try {
+    final ok = await ref.read(sidecarSyncProvider).reset(book.key, everything: scope == ResetScope.everything);
+    unawaited(ref.read(libraryDetectionProvider).run());
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          !ok
+              ? "Reset ${book.name} here, but the file beside it can't be changed, so it may come back"
+              : scope == ResetScope.everything
+              ? '${book.name} starts from scratch'
+              : "${book.name}'s panels will be found again",
+        ),
+      ),
+    );
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('Could not reset ${book.name}: $e')));
   }
 }
 
@@ -1211,7 +1261,15 @@ class _EmptyLibrary extends StatelessWidget {
   }
 }
 
+/// The library pass on the status line, after the book count.
+String _detecting(DetectionStatus d) {
+  if (d.paused) return '  ·  Finding panels paused';
+  if (!d.running || d.total == 0) return '';
+  return '  ·  Finding panels: ${d.done} / ${d.total} pages${d.book == null ? '' : ' (${d.book})'}';
+}
+
 /// The library's status line: a notice, the scan's progress, or a count.
+
 class _LibraryStatus extends ConsumerWidget {
   const _LibraryStatus({required this.books, required this.pending, required this.onFailures});
 
@@ -1224,6 +1282,7 @@ class _LibraryStatus extends ConsumerWidget {
     final theme = Theme.of(context);
     final reader = ref.watch(readerProvider);
     final scan = ref.watch(scanStatusProvider).value ?? const ScanStatus();
+    final detect = ref.watch(detectionStatusProvider).value ?? const DetectionStatus();
     final series = books.map((b) => b.seriesId).toSet().length;
     final text =
         reader.message ??
@@ -1232,7 +1291,8 @@ class _LibraryStatus extends ConsumerWidget {
                   ? 'Scanning the library folders…'
                   : 'Scanning: ${scan.done} / ${scan.total} new or changed books'
             : '${books.length} books in $series series'
-                  '${scan.failed.isEmpty ? '' : '  ·  ${scan.failed.length} could not be read'}');
+                  '${scan.failed.isEmpty ? '' : '  ·  ${scan.failed.length} could not be read'}'
+                  '${_detecting(detect)}');
     return Material(
       color: theme.colorScheme.surfaceContainer,
       child: Column(
@@ -1249,6 +1309,16 @@ class _LibraryStatus extends ConsumerWidget {
                   Expanded(
                     child: Text(text, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
+                  if (detect.running || detect.paused)
+                    IconButton(
+                      key: const Key('detect-pause'),
+                      tooltip: detect.paused ? 'Go on finding panels' : 'Pause finding panels',
+                      icon: Icon(detect.paused ? Icons.play_arrow : Icons.pause),
+                      onPressed: () {
+                        final d = ref.read(libraryDetectionProvider);
+                        detect.paused ? d.resume() : d.pause();
+                      },
+                    ),
                   Text(
                     pending,
                     key: const Key('pending'),
