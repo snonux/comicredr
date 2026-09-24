@@ -419,8 +419,8 @@ class SidecarSync {
 
   /// Moves the library's sidecars from where [from] keeps them to where
   /// [to] does (null: beside each comic), after the sidecar folder setting
-  /// changed. One already at the new place is left where it was; both are
-  /// read. Returns how many moved.
+  /// changed. One meeting a sidecar of the same book at the new place is
+  /// merged into it. Returns how many moved.
   Future<int> moveAll({required String? from, required String? to}) async {
     await flush();
     final roots = await _roots();
@@ -435,7 +435,8 @@ class SidecarSync {
               : storedSidecarPath(b.path, folder: b.folder, dir: to, roots: roots),
         ),
     ];
-    return _serial(() => _moveOnWorker(moves));
+    final me = await device();
+    return _serial(() => _moveOnWorker(moves, me.id));
   }
 }
 
@@ -443,8 +444,8 @@ class SidecarSync {
 Future<void> _writeOnWorker(String target, SidecarData data, String device) =>
     Isolate.run(() => writeSidecar(target, data, device: device, appVersion: appVersion));
 
-Future<int> _moveOnWorker(List<({String from, String to})> moves) =>
-    Isolate.run(() => moves.where((m) => moveSidecar(m.from, m.to)).length);
+Future<int> _moveOnWorker(List<({String from, String to})> moves, String device) =>
+    Isolate.run(() => moves.where((m) => moveSidecar(m.from, m.to, device: device, appVersion: appVersion)).length);
 
 /// Reads the sidecars of the book at [path] from [places], the one written
 /// first, merged; that one wins where they differ.

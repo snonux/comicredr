@@ -510,13 +510,23 @@ bool relinkOrphan(String bookPath, String contentKey, {String? sidecar}) {
 }
 
 /// Moves the sidecar at [from] to [to], making [to]'s folder. A rename when
-/// both are on one disk, a copy and a delete otherwise. Leaves [from] alone
-/// when [to] is there already or cannot be written; returns whether it
-/// moved.
-bool moveSidecar(String from, String to) {
+/// both are on one disk, a copy and a delete otherwise. When [to] holds the
+/// same book's sidecar already, the two are merged into [to] (written as
+/// [device]). Leaves [from] alone when [to] cannot be written, belongs to
+/// another book or comes from a newer app; returns whether it moved.
+bool moveSidecar(String from, String to, {required String device, String? appVersion}) {
   final src = File(from);
-  if (!src.existsSync() || File(to).existsSync() || p.equals(from, to)) return false;
+  if (!src.existsSync() || p.equals(from, to)) return false;
   try {
+    if (File(to).existsSync()) {
+      final there = readSidecar(to);
+      final here = readSidecar(from);
+      if (here == null || there == null || here.contentKey != there.contentKey) return false;
+      if (here.schemaVersion > sidecarSchemaVersion || there.schemaVersion > sidecarSchemaVersion) return false;
+      writeSidecar(to, here, device: device, appVersion: appVersion);
+      _deleteQuietly(src);
+      return true;
+    }
     Directory(p.dirname(to)).createSync(recursive: true);
     try {
       src.renameSync(to);
@@ -524,14 +534,20 @@ bool moveSidecar(String from, String to) {
       final tmp = p.join(p.dirname(to), '.${p.basename(to)}.tmp');
       src.copySync(tmp);
       File(tmp).renameSync(to);
-      try {
-        src.deleteSync();
-      } on FileSystemException {
-        // A read-only folder: the copy is the one read first from now on.
-      }
+      _deleteQuietly(src);
     }
     return true;
   } on FileSystemException {
     return false;
+  } on SqliteException {
+    return false;
+  }
+}
+
+void _deleteQuietly(File f) {
+  try {
+    f.deleteSync();
+  } on FileSystemException {
+    // A read-only folder: the copy is the one read first from now on.
   }
 }

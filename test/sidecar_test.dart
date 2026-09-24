@@ -434,8 +434,15 @@ void main() {
     expect(File('$side/Comics/Indie/Barefoot Bride.cbz.crdb').existsSync(), isTrue);
     expect(File('$side/Comics/Pepper Carrot e06/.comicredr.crdb').existsSync(), isTrue);
 
+    // Meanwhile another install wrote one beside the CBZ: moving back
+    // merges the two.
+    final key = (await laptop.library.books()).firstWhere((b) => b.format == 'cbz').key;
+    await phone.sync.attach(cbz, key, folder: false);
+    await phone.marks.save(key, 'z', 2, 0);
+    expect(await phone.sync.write(key), isTrue);
+
     expect(await laptop.sync.moveAll(from: side, to: null), 2);
-    expect(readSidecar('$cbz.crdb')?.bookmarks, hasLength(1));
+    expect(readSidecar('$cbz.crdb')?.bookmarks.map((b) => b.mark).toSet(), {null, 'z'});
     expect(await laptop.sync.countIn(side), 0);
   });
 }
