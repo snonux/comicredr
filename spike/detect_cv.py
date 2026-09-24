@@ -39,6 +39,16 @@ class Result:
 def _foreground(gray):
     border = np.concatenate([gray[:8].ravel(), gray[-8:].ravel(), gray[:, :8].ravel(), gray[:, -8:].ravel()])
     paper = np.percentile(border, 90)
+    if paper > 200 and np.percentile(border, 10) > 170:
+        # Old scans: the scanner margin is often whiter than the yellowed gutters.
+        # The gutters are the page's cleanest rows and columns, so take paper
+        # from those (their 20th percentile, i.e. what nearly all of them clear).
+        # Only when the page has a real paper margin; full-bleed art keeps the
+        # border estimate.
+        clean = np.concatenate([np.percentile(gray, 20, axis=1), np.percentile(gray, 20, axis=0)])
+        gutter = np.percentile(clean, 97)
+        if gutter > 200:
+            paper = min(paper, gutter)
     # Only treat bright borders as paper; a dark border means full-bleed art.
     thresh = paper - 28 if paper > 200 else 250
     fg = (gray < thresh).astype(np.uint8) * 255

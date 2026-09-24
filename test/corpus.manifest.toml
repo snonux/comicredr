@@ -2,41 +2,179 @@
 #
 # Real comics are fetched into the git-ignored test/corpus/ by
 # spike/fetch_corpus.py and never committed or redistributed. Public-domain
-# status of golden-age scans rests on copyright non-renewal, curated by the
-# sources but not guaranteed per file. Pepper&Carrot is CC-BY 4.0 (David
-# Revoy) and needs attribution if a page appears in a screenshot or README.
+# status of golden-age and Charlton scans rests on copyright non-renewal,
+# curated by the sources but not guaranteed per file. The CC-licensed books
+# need attribution if a page appears in a screenshot or README; the NC-ND
+# ones are for local testing only.
 #
-# Search entries are the starting point; once a fetch has run, pin the files
-# that turned out useful as [[book]] entries with their sha256.
+# Every entry carries a `style`; spike/extract_pages.py samples pages into one
+# folder per style so the spike reports results per style. Styles cover the
+# spread of western comics: golden-age grids, irregular early golden age,
+# silver age, black-and-white indie, modern indie and modern painted
+# full-bleed. [[search]] entries (Internet Archive queries) still work for
+# finding more books; pin what proves useful as a [[book]] with its sha256.
 
 [model]
 # YOLO26s-seg, classes frame/balloon/text, trained on Manga109 (academic-use
 # data). Fine for a personal spike; not for redistributed weights.
 repo = "ShadowB/Manga109-panel-balloon-text-yolov26-segmentation"
 
-[[search]]
-group = "golden-age"
-purpose = "regular grids, JPEG artefacts, skew: classic CV should ace these"
-licence = "public domain (copyright not renewed), Digital Comic Museum mirror"
-query = "collection:(DCMGoldenAge) AND mediatype:(texts)"
-formats = [".cbz"]
-count = 6
-max_mb = 120
+[[book]]
+name = "golden-age/all-top-comics-6.cbz"
+style = "golden-age-grid"
+url = "https://archive.org/download/DCMGoldenAge/All_Top_Comics_6_Norlen_1959_C2C__Atomic_Mouse__Happy_the_Magic_Bunny___js_DCP_.cbz"
+licence = "public domain (copyright not renewed), Digital Comic Museum upload mirrored as DCMGoldenAge"
+purpose = "1959 funny animal, regular gutters"
+sha256 = "de918056fa9102917fcad0141bf9f597614d7824f72d593e8dfd427a0cde82a6"
 
-[[search]]
-group = "golden-age-pdf"
-purpose = "scanned PDFs, mixed page sizes, high dpi"
-licence = "public domain (copyright not renewed)"
-query = "title:(comics) AND subject:(golden age comics) AND mediatype:(texts) AND format:(PDF)"
-formats = [".pdf"]
-count = 2
-max_mb = 150
+[[book]]
+name = "golden-age/international-comics-004.cbz"
+style = "golden-age-grid"
+url = "https://archive.org/download/international-comics-004/International%20Comics%20004%20%28EC.1947%29%20%28c2c%29%20%28monkworks%29.cbz"
+licence = "public domain (copyright not renewed), EC 1947"
+purpose = "crime, dense grids"
+sha256 = "3ffa06d9987b924838fbae1c8b89b8d20468dd4bb549d62c03c4dd5490245db0"
 
-[[search]]
-group = "modern"
-purpose = "modern full-colour full-bleed layouts, where classic CV is expected to struggle"
+[[book]]
+name = "golden-age/mercy-for-millions.cbz"
+style = "golden-age-grid"
+url = "https://archive.org/download/mercy-for-millions-true-comics-1945/Mercy%20For%20Millions%20%28True%20Comics%29%20%281945%29.cbz"
+licence = "public domain (copyright not renewed), True Comics 1945"
+purpose = "educational, captions and mixed layouts"
+sha256 = "95c9022578a397c3803055c558c224fd19381cd0629e19b4c6f04e79130a10f0"
+
+[[book]]
+name = "golden-age/weird-comics-004.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/weird-comics-004/Weird%20Comics%20004%20%28Fox%29%20%281940%29%20%28c2c%29%20%28Mark%20Bowen%29%20%28preferred%20version%29.cbz"
+licence = "public domain (copyright not renewed), Fox 1940"
+purpose = "early golden age: irregular panels, splash pages, heavy borders"
+sha256 = "25440663db8e54aadfae6e7a9b69f7b358fae3a3d193481cec97d4fd2bb7502f"
+
+[[book]]
+name = "golden-age-pdf/first-love-illustrated-078.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/first-love-illustrated-078-harvey-1957-07-c-2-c/First%20Love%20Illustrated%20078%20%28Harvey%29%20%281957-07%29%20%28C2C%29.pdf"
+licence = "public domain (copyright not renewed), Harvey 1957"
+purpose = "romance; exercises the scanned-PDF path"
+sha256 = "cbf4ba2c5e83099272cabf498fbbec7d0c93208ccb04f4996c8fceb767b843d3"
+
+[[book]]
+name = "silver-age/space-war-002.cbz"
+style = "silver-age"
+url = "https://archive.org/download/space-war-018-vol-1-september-1962charltonc-2c-colorcorrected-das-fat-jiggler_202604/Space%20War%20002%20%281959-12.Charlton%29%28c2c.Geo%29.cbz"
+licence = "public domain (copyright not renewed), Charlton 1959"
+purpose = "late-50s sci-fi, Ditko-era Charlton layouts"
+sha256 = "0c7653953ebbabc637871ab4196824eb792502dc098e2340af3c7365c313a85b"
+
+[[book]]
+name = "silver-age/reptisaurus-v2-005.cbz"
+style = "silver-age"
+url = "https://archive.org/download/reptisaurus-the-terrible-v-2-006-charlton-1962-vigilante-407/Reptisaurus%20the%20Terrible%20v2%20005%20%5BCharlton%5D%20%281962%29%20%28Vigilante407%29.cbz"
+licence = "public domain (copyright not renewed), Charlton 1962"
+purpose = "monster book, big splash panels"
+sha256 = "43c60f94025869bd465ab9f3a7c9efcc1f38a0eeb630aec445d2c71c344e6ad7"
+
+[[book]]
+name = "bw-indie/barefoot-bride.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/censorship_202606/CENSORSHIP.pdf"
+licence = "CC BY-NC-ND 4.0 (The Barefoot Bride, archive.org censorship_202606)"
+purpose = "black-and-white silkscreen newspaper comic"
+sha256 = "98aed3f0277984fe2782c5a436928d47ea7c52723cc4ea0c104f8fcafe436019"
+
+[[book]]
+name = "bw-indie/next-stop-ghost-town-promo.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/NextStopGhostTownPromo/promo2.pdf"
+licence = "CC BY-NC-ND 3.0 US (Next Stop: Ghost Town)"
+purpose = "black-and-white poetry comics, experimental layouts"
+sha256 = "aebb5858ec5b28bea22aee2c37fcabaf5faf63db67cb1ba9a411dc3d705a30c7"
+
+[[book]]
+name = "modern-indie/metamorfica-03.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/pdf-3-1/PDF%203%20%281%29.pdf"
+licence = "CC BY-SA 4.0 (Revista Metamórfica)"
+purpose = "contemporary indie, digital lettering"
+sha256 = "7be5537a0d6938e6a11ab6dcaa28d9d3fea0acb4765971875bc4abf1f56ade53"
+
+[[book]]
+name = "modern/pepper-carrot-e06/en_Pepper-and-Carrot_by-David-Revoy_E06P01.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep06_The-Potion-Contest/low-res/en_Pepper-and-Carrot_by-David-Revoy_E06P01.jpg"
 licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
-query = "(title:(\"Pepper&Carrot\") OR title:(\"Pepper and Carrot\")) AND mediatype:(texts OR image)"
-formats = [".cbz", ".pdf", ".zip"]
-count = 3
-max_mb = 200
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "893712989801daabc2a3d351e597946b61312aeb54e14e3d28aaf7f63ad64618"
+
+[[book]]
+name = "modern/pepper-carrot-e06/en_Pepper-and-Carrot_by-David-Revoy_E06P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep06_The-Potion-Contest/low-res/en_Pepper-and-Carrot_by-David-Revoy_E06P03.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "6ccb36eda0b9fde1ea47865490c68213708d6fedd9b2586565000e725150791f"
+
+[[book]]
+name = "modern/pepper-carrot-e06/en_Pepper-and-Carrot_by-David-Revoy_E06P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep06_The-Potion-Contest/low-res/en_Pepper-and-Carrot_by-David-Revoy_E06P05.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "9643c06af07285f8e267dffd4abd7bb17936a6d86e948fca54be4fd0f0341ec4"
+
+[[book]]
+name = "modern/pepper-carrot-e06/en_Pepper-and-Carrot_by-David-Revoy_E06P07.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep06_The-Potion-Contest/low-res/en_Pepper-and-Carrot_by-David-Revoy_E06P07.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "1f027fc060293c4ac6f6e98b104cd8af3fd7d654004ad08c8716327f5ee45504"
+
+[[book]]
+name = "modern/pepper-carrot-e22/en_Pepper-and-Carrot_by-David-Revoy_E22P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep22_The-Voting-System/low-res/en_Pepper-and-Carrot_by-David-Revoy_E22P02.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "b4d848229d466947c21bfb2329a4c243ed2433565c88322509dffc704cd5c0a3"
+
+[[book]]
+name = "modern/pepper-carrot-e22/en_Pepper-and-Carrot_by-David-Revoy_E22P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep22_The-Voting-System/low-res/en_Pepper-and-Carrot_by-David-Revoy_E22P05.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "17029c5496daa491cea7e4e337f36116e45bd102b42d058caaea2b4e0ae28327"
+
+[[book]]
+name = "modern/pepper-carrot-e22/en_Pepper-and-Carrot_by-David-Revoy_E22P08.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep22_The-Voting-System/low-res/en_Pepper-and-Carrot_by-David-Revoy_E22P08.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "b601ae91ddb39e55a0525ae179e8c1acc62d38b24a623f4b8787dfd4a50c509d"
+
+[[book]]
+name = "modern/pepper-carrot-e35/en_Pepper-and-Carrot_by-David-Revoy_E35P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep35_The-Reflection/low-res/en_Pepper-and-Carrot_by-David-Revoy_E35P02.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "f5e2e2dfe31ca2671fa528987ce9fa38df8eeeefd6a159a9d79391bf99a2eb16"
+
+[[book]]
+name = "modern/pepper-carrot-e35/en_Pepper-and-Carrot_by-David-Revoy_E35P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep35_The-Reflection/low-res/en_Pepper-and-Carrot_by-David-Revoy_E35P05.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "1285c8e3f8b70858db7d474b897e8189987e5a68a95f9eff2c1e1e6b08a87f3c"
+
+[[book]]
+name = "modern/pepper-carrot-e35/en_Pepper-and-Carrot_by-David-Revoy_E35P08.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep35_The-Reflection/low-res/en_Pepper-and-Carrot_by-David-Revoy_E35P08.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed and borderless panels"
+sha256 = "1ff5436be50ad78e89eb889ee1e08d671c00741f6942fdae82929d97ff96ebf8"
