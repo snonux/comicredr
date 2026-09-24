@@ -13,7 +13,10 @@ page:
   trained     the western fine-tune (an .onnx file is run exactly the way
               the app runs it: same letterbox, same thresholds)
 
-Panels and balloons are scored as F1 at IoU 0.5. Guided view is scored per
+Panels and balloons are scored as F1 at IoU 0.5. Balloons are speech and
+thought only: labelled captions (narration boxes) are scored on their own,
+for a model that has a caption class, and a balloon found on a caption
+counts against balloon precision. Guided view is scored per
 page, because a wrong camera move is worse than none (design plan section 5):
 
   right   the gate passed and the panels match the labels one for one, in
@@ -188,7 +191,7 @@ class Ultralytics:
     def __call__(self, img):
         r = self.model.predict(img, imgsz=1024, device="cpu", verbose=False, conf=min(PANEL_CONF, BALLOON_CONF))[0]
         h, w = img.shape[:2]
-        panels, balloons = [], []
+        panels, balloons, self.captions = [], [], []
         for (x0, y0, x1, y1), c, conf in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist()):
             box = [x0 / w, y0 / h, (x1 - x0) / w, (y1 - y0) / h]
             kind = r.names[int(c)]
@@ -196,6 +199,8 @@ class Ultralytics:
                 panels.append(box)
             elif kind == "balloon" and conf >= BALLOON_CONF:
                 balloons.append(box)
+            elif kind == "caption" and conf >= BALLOON_CONF:
+                self.captions.append(box)
         return panels, balloons
 
 
@@ -224,12 +229,13 @@ class Onnx:
         canvas[:nh, :nw] = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
         x = canvas[:, :, ::-1].transpose(2, 0, 1)[None].astype(np.float32) / 255
         out = self.sess.run(None, {self.input: x})[0][0]
-        found = {"frame": ([], []), "balloon": ([], [])}
+        found = {"frame": ([], []), "balloon": ([], []), "caption": ([], [])}
         for x0, y0, x1, y1, conf, c in out:
             kind = self.names.get(int(c))
             if kind in found and conf >= (PANEL_CONF if kind == "frame" else BALLOON_CONF):
                 found[kind][0].append([float(v) for v in (x0 / s / w, y0 / s / h, (x1 - x0) / s / w, (y1 - y0) / s / h)])
                 found[kind][1].append(float(conf))
+        self.captions = dedupe(*found["caption"])
         return drop_containers(dedupe(*found["frame"])), dedupe(*found["balloon"])
 
 
@@ -325,6 +331,13 @@ def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotr
     }
 
 
+def score_captions(res, captions, gt_captions):
+    """Caption matches, and how many found balloons sit on a labelled caption."""
+    cm = match(clip(captions), gt_captions)
+    res.update(captions=captions, c_tp=len(cm), c_fp=len(captions) - len(cm), c_fn=len(gt_captions) - len(cm),
+               b_on_c=sum(any(iou(b, c) > 0.5 for c in gt_captions) for b in clip(res["balloons"])))
+
+
 def f1(tp, fp, fn):
     p = tp / (tp + fp) if tp + fp else 1.0
     r = tp / (tp + fn) if tp + fn else 1.0
@@ -332,10 +345,14 @@ def f1(tp, fp, fn):
 
 
 def summarise(rows):
-    s = {k: sum(r[k] for r in rows) for k in ("p_tp", "p_fp", "p_fn", "b_tp", "b_fp", "b_fn")}
+    s = {k: sum(r.get(k, 0) for r in rows) for k in ("p_tp", "p_fp", "p_fn", "b_tp", "b_fp", "b_fn",
+                                                    "c_tp", "c_fp", "c_fn")}
     out = {"pages": len(rows)}
     out["panel_p"], out["panel_r"], out["panel_f1"] = f1(s["p_tp"], s["p_fp"], s["p_fn"])
     out["balloon_p"], out["balloon_r"], out["balloon_f1"] = f1(s["b_tp"], s["b_fp"], s["b_fn"])
+    out["caption_p"], out["caption_r"], out["caption_f1"] = f1(s["c_tp"], s["c_fp"], s["c_fn"])
+    # Balloons that landed on a labelled caption: the old mistake, counted apart.
+    out["balloon_on_caption"] = sum(r.get("b_on_c", 0) for r in rows)
     for o in ("right", "whole", "wrong"):
         out[o] = sum(r["outcome"] == o for r in rows)
     out["ms"] = sum(r["ms"] for r in rows) / max(1, len(rows))
@@ -368,17 +385,20 @@ def overlay(img, gt, res, dest):
 def report(summary, out):
     lines = ["# M5 detector evaluation", ""]
     dets = list(summary["all"].keys())
-    lines += ["| Detector | Pages | Panel F1 | Balloon F1 | Guided right | Whole page | Wrong camera | ms/page |",
-              "|---|---|---|---|---|---|---|---|"]
+    lines += ["| Detector | Pages | Panel F1 | Balloon F1 | Balloon P | Balloon R | Balloons on captions | "
+              "Caption P | Caption R | Guided right | Whole page | Wrong camera | ms/page |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for d in dets:
         s = summary["all"][d]
-        lines.append(f"| {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_f1']:.3f} | {s['right']} | "
-                     f"{s['whole']} | {s['wrong']} | {s['ms']:.0f} |")
-    lines += ["", "## Per style", "", "| Style | Detector | Pages | Panel F1 | Balloon F1 | Right | Whole | Wrong |",
-              "|---|---|---|---|---|---|---|---|"]
+        lines.append(f"| {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_f1']:.3f} | {s['balloon_p']:.3f} | "
+                     f"{s['balloon_r']:.3f} | {s['balloon_on_caption']} | {s['caption_p']:.3f} | "
+                     f"{s['caption_r']:.3f} | {s['right']} | {s['whole']} | {s['wrong']} | {s['ms']:.0f} |")
+    lines += ["", "## Per style", "", "| Style | Detector | Pages | Panel F1 | Balloon P | Balloon R | Caption P | "
+              "Caption R | Right | Whole | Wrong |", "|---|---|---|---|---|---|---|---|---|---|---|"]
     for style, per in summary["styles"].items():
         for d, s in per.items():
-            lines.append(f"| {style} | {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_f1']:.3f} | "
+            lines.append(f"| {style} | {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_p']:.3f} | "
+                         f"{s['balloon_r']:.3f} | {s['caption_p']:.3f} | {s['caption_r']:.3f} | "
                          f"{s['right']} | {s['whole']} | {s['wrong']} |")
     (out / "report.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
@@ -422,7 +442,8 @@ def main():
     for page in pages:
         lab = json.loads(page.with_suffix(".json").read_text())
         W, H = lab["w"], lab["h"]
-        gt = {k: [[x / W, y / H, w / W, h / H] for x, y, w, h in lab[k]] for k in ("panels", "balloons")}
+        gt = {k: [[x / W, y / H, w / W, h / H] for x, y, w, h in lab.get(k, [])]
+              for k in ("panels", "balloons", "captions")}
         img = cv2.imread(str(page))
         if a.add_margin:
             img, W, H, gt = add_margin(img, gt, a.add_margin, a.margin_colour)
@@ -441,6 +462,7 @@ def main():
             panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
             ms = (time.perf_counter() - t0) * 1000
             res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt)
+            score_captions(res, autotrim.to_page(getattr(d, "captions", []), dt), gt["captions"])
             res["ms"] = ms
             row["det"][d.name] = res
             if a.overlays:

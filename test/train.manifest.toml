@@ -455,3 +455,424 @@ name = "modern/pepper-carrot-e36/en_Pepper-and-Carrot_by-David-Revoy_E36P05.jpg"
 style = "modern-painted"
 url = "https://www.peppercarrot.com/0_sources/ep36_The-Surprise-Attack/low-res/en_Pepper-and-Carrot_by-David-Revoy_E36P05.jpg"
 licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+# Modern round 2 (2026-09-24): more modern books for the second modern
+# retrain, chosen for the weak spots: black gutters and page backgrounds,
+# curved and tilted frames, touching panels, borderless art, balloon-heavy
+# pages. None shares a series with the test slice. The Federal Reserve
+# comics are free educational handouts, not public domain: local training
+# only.
+
+[[book]]
+name = "modern-digital/frbny-story-of-monetary-policy.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/storyofmonetarypolicy/storyofmonetarypolicy.pdf"
+sha256 = "7bad77673d98dd02d86d509745da3f4ae75167175ae1a96e9147c6427910e5ee"
+licence = "Federal Reserve Bank of New York educational comic (2018), free distribution; IA tag CC BY-NC-ND 4.0, local training only"
+
+[[book]]
+name = "modern-digital/frbny-story-of-checks.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/gov.frb.ny.comic.checks/gov.frb.ny.comic.checks.pdf"
+sha256 = "f5a7b9173afb71268d59d36471f99ad8dfb3dbbc38db10148a4a4ed9d68759a0"
+licence = "Federal Reserve Bank of New York educational comic (2000s), free distribution; local training only"
+
+[[book]]
+name = "modern-digital/frbny-story-of-the-fed.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/gov.frb.ny.comic.federal/gov.frb.ny.comic.federal.pdf"
+sha256 = "09986aefd0b9837473afa324add64d7ce1673a5d6918666c453faf8a09b9a42c"
+licence = "Federal Reserve Bank of New York educational comic (c. 2006), free distribution; local training only"
+
+[[book]]
+name = "modern-digital/frbny-too-much-too-little.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/gov.frb.ny.comic.much/gov.frb.ny.comic.much.pdf"
+sha256 = "d0cf9a594f798c378c6210569a6c052ce464ad0be34485046a3f5d9e6dede3a0"
+licence = "Federal Reserve Bank of New York educational comic (2000s), free distribution; local training only"
+
+[[book]]
+name = "modern-digital/frbb-wishes-and-rainbows.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/gov.frb.boston.comic.wishes/gov.frb.boston.comic.wishes.pdf"
+sha256 = "a1f6895db89f7abe3e9058df8eb0eaebc7194acac69236ed0c7d4db3be35c124"
+licence = "Federal Reserve Bank of Boston educational comic (2000s), free distribution; local training only"
+
+[[book]]
+name = "modern-indie/sheba-the-great.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/sheba-the-great-by-von-allan/Sheba-the-Great-by-Von-Allan-High-Rez.pdf"
+sha256 = "ebb6e7c93672e811f9952f0047d7caa5d850b195668e4b1cc5cd26f7a7fc64a3"
+licence = "CC BY-NC-ND 4.0 (Von Allan, Sheba the Great, 2023)"
+
+[[book]]
+name = "modern-indie/wizards-for-hire-cheap.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/wizards-for-hire-cheap-by-von-allan_202311/Wizards-for-Hire-Cheap-by-Von-Allan-High-Rez.pdf"
+sha256 = "4dad97ca15641cdd767ef09e21f1a275749aa13b1d906fc085c288a4e83127ba"
+licence = "CC BY-NC-ND 4.0 (Von Allan, Wizards For Hire - Cheap!, 2017)"
+
+[[book]]
+name = "modern-indie/virtuoso-00-prologue.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/virtuoso-00-prologue/Virtuoso-00-Prologue.pdf"
+sha256 = "6aafea2f9e4d88fb022ad975e323c1052f0de2a22659521238d87e0cc9e7246b"
+licence = "CC BY-SA 4.0 (Jon Munger, Krista Brennan, Virtuoso Prologue, 2010)"
+
+[[book]]
+name = "modern-indie/topaz-chapter-01.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/topaz-chapters-one-through-twelve/topaz%20chapter%20one.pdf"
+sha256 = "1339cf5f36ae5dca48023ff4c47dcf2223960de03be18f26186348f34bcca4c8"
+licence = "CC BY-ND 4.0 (Warren West, Topaz chapter 1, 2024)"
+
+[[book]]
+name = "modern-indie/bio-whale-book-1.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/bio-whale-book-1/Bio-Whale%20Book%201.pdf"
+sha256 = "113f8fa00c3ac88feab5e332c1879515a981ed0511b05913914a060422fbad76"
+licence = "CC0 1.0 (Ville Kallio, Bio-Whale Book 1, 2015)"
+
+[[book]]
+name = "modern-indie/ski-ninjas-vol-1.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/SkiNinjasVolume1ThisIsFreeOnTheInternet/Ski%20Ninjas%20Volume%201%20-%20This%20is%20Free%20on%20the%20Internet.pdf"
+sha256 = "4ff3f5422bfef2cb96ecd58c8b1f50fc931275bc3fd431e3513e28c09be3ba09"
+licence = "CC BY-NC-ND 3.0 (Kyle Lees, Ski Ninjas Volume 1, 2017)"
+
+[[book]]
+name = "modern-indie/pawns.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/pawns_202502/Pawns.pdf"
+sha256 = "4b879617697ea313f6975f9ad1b751a61918b33740b8996a9609dff0fdd72dd3"
+licence = "CC BY-ND 4.0 (Bob Lynch, Pawns, 2025)"
+
+[[book]]
+name = "modern-indie/durpsville-pt1.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/durpsville/Durpsville%20Pt.%201.pdf"
+sha256 = "4df697da481b8064bebbce1a783bd26fc337ef0ffbef1d2dfee6c1bcb9800bfc"
+licence = "CC BY-SA 4.0 (Pacmation Studios, Durpsville Pt. 1, 2021)"
+
+[[book]]
+name = "modern-indie/fodongo-issue-1digital.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/fodongo-issue-1/Fodongo%20Issue%201_Digital.pdf"
+sha256 = "ea9787194a736496a00c56c9314df1064da4d8a1504d9e30de5c67028ed98fee"
+licence = "CC BY-SA 4.0, Fodongo free culture comics zine issue 1 (2023)"
+
+[[book]]
+name = "modern-indie/fodongo-issue-3digital.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/fodongo-issue-3/Fodongo%20Issue%203_Digital.pdf"
+sha256 = "9af058d975d648e556d3683daec67b4d218ceef8d9208676569922c9d024f3ad"
+licence = "CC BY-SA 4.0, Fodongo free culture comics zine issue 3"
+
+[[book]]
+name = "bw-indie/dream-life-book-one.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/dream-life-bookone/DreamLifebookone.pdf"
+sha256 = "0afefad32fe98b5038588a5288e1efd8015e2cb7b8ff1ecf0a93e7b0fa9260d0"
+licence = "CC BY-NC-ND 4.0 (Salgood Sam, Dream Life book one, 2014), local training only"
+
+[[book]]
+name = "modern/pepper-carrot-e13/en_Pepper-and-Carrot_by-David-Revoy_E13P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep13_The-Pyjama-Party/low-res/en_Pepper-and-Carrot_by-David-Revoy_E13P02.jpg"
+sha256 = "37e64dde29aeaac82fa6ad05cbbae544663eaa1cdce24f0568ecb57fe88da8e3"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e13/en_Pepper-and-Carrot_by-David-Revoy_E13P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep13_The-Pyjama-Party/low-res/en_Pepper-and-Carrot_by-David-Revoy_E13P03.jpg"
+sha256 = "6872c8baba16b1bda4138730029f98a486291549e49c488eb96d36f8eea2571e"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e13/en_Pepper-and-Carrot_by-David-Revoy_E13P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep13_The-Pyjama-Party/low-res/en_Pepper-and-Carrot_by-David-Revoy_E13P04.jpg"
+sha256 = "a58af3dd600a37941d141873b695272972676ad41e6b3a0a049715584bda90ac"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e13/en_Pepper-and-Carrot_by-David-Revoy_E13P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep13_The-Pyjama-Party/low-res/en_Pepper-and-Carrot_by-David-Revoy_E13P05.jpg"
+sha256 = "058164741949e869da7f7a6b95cea320073f0c9e16f0bd11a80e6477090bc4d5"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e13/en_Pepper-and-Carrot_by-David-Revoy_E13P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep13_The-Pyjama-Party/low-res/en_Pepper-and-Carrot_by-David-Revoy_E13P06.jpg"
+sha256 = "3493f2f8ef5c7198f495b54eb31dd030337268140e1b6cf0ea31ed09274dbdae"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e16/en_Pepper-and-Carrot_by-David-Revoy_E16P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep16_The-Sage-of-the-Mountain/low-res/en_Pepper-and-Carrot_by-David-Revoy_E16P02.jpg"
+sha256 = "6d1d54ebd214ed533d6413b42a3436ecce815deea6686666ef9b05beaec1eafc"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e16/en_Pepper-and-Carrot_by-David-Revoy_E16P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep16_The-Sage-of-the-Mountain/low-res/en_Pepper-and-Carrot_by-David-Revoy_E16P03.jpg"
+sha256 = "e996415b191a3577e216fa7fbd528ca785bbef996ba9e250ab04a542ead2e98a"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e16/en_Pepper-and-Carrot_by-David-Revoy_E16P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep16_The-Sage-of-the-Mountain/low-res/en_Pepper-and-Carrot_by-David-Revoy_E16P04.jpg"
+sha256 = "ad9a8730da7f383d7b826806bf7bdb036c06fc87ebe114d0ae4da793ab107b50"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e16/en_Pepper-and-Carrot_by-David-Revoy_E16P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep16_The-Sage-of-the-Mountain/low-res/en_Pepper-and-Carrot_by-David-Revoy_E16P05.jpg"
+sha256 = "30aaf10181c654dec4f3dc5a81062188e4726deaf0655593866d54dc5558bdbb"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e16/en_Pepper-and-Carrot_by-David-Revoy_E16P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep16_The-Sage-of-the-Mountain/low-res/en_Pepper-and-Carrot_by-David-Revoy_E16P06.jpg"
+sha256 = "cfa16b5851a210b3170355f19488b5d3d8342d9f8acd235a7485875dcfd8a055"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e23/en_Pepper-and-Carrot_by-David-Revoy_E23P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep23_Take-a-Chance/low-res/en_Pepper-and-Carrot_by-David-Revoy_E23P02.jpg"
+sha256 = "a0a6c9b4ca3293582ec44f80327d319d939b6942e57aaab857066cbe934f6cdb"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e23/en_Pepper-and-Carrot_by-David-Revoy_E23P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep23_Take-a-Chance/low-res/en_Pepper-and-Carrot_by-David-Revoy_E23P03.jpg"
+sha256 = "1198f9d091cab8b628e8008ebb13bdaaff8944e7981db61482885636caf4f744"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e23/en_Pepper-and-Carrot_by-David-Revoy_E23P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep23_Take-a-Chance/low-res/en_Pepper-and-Carrot_by-David-Revoy_E23P04.jpg"
+sha256 = "2683bbdda107f6e895d5d4a9f325b4419cf2769f5b923cb141fb6d86fe1fb46c"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e23/en_Pepper-and-Carrot_by-David-Revoy_E23P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep23_Take-a-Chance/low-res/en_Pepper-and-Carrot_by-David-Revoy_E23P05.jpg"
+sha256 = "34fb1133c239fbff18826d229b62021edc523d5c4b4ab5255b79da9be0509d1a"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e23/en_Pepper-and-Carrot_by-David-Revoy_E23P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep23_Take-a-Chance/low-res/en_Pepper-and-Carrot_by-David-Revoy_E23P06.jpg"
+sha256 = "eff665c702a7a421088ade6d5bb3882fdae56cdb99c6f117d91ac75e6ea4c775"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e23/en_Pepper-and-Carrot_by-David-Revoy_E23P07.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep23_Take-a-Chance/low-res/en_Pepper-and-Carrot_by-David-Revoy_E23P07.jpg"
+sha256 = "ddeeca50985b4429cb121e8d8016c8ae251e59076681c4dd3f9c42d13eaf08f1"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e26/en_Pepper-and-Carrot_by-David-Revoy_E26P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep26_Books-Are-Great/low-res/en_Pepper-and-Carrot_by-David-Revoy_E26P02.jpg"
+sha256 = "db9de599fcad5189d4dc6aab36921a266025ee9e0942500658a809d104e5e4fd"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e26/en_Pepper-and-Carrot_by-David-Revoy_E26P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep26_Books-Are-Great/low-res/en_Pepper-and-Carrot_by-David-Revoy_E26P03.jpg"
+sha256 = "08f4f5d670e25a58910c64597d6d01fad4b6e00046c5009265c9cb9f9cdb3171"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e26/en_Pepper-and-Carrot_by-David-Revoy_E26P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep26_Books-Are-Great/low-res/en_Pepper-and-Carrot_by-David-Revoy_E26P04.jpg"
+sha256 = "cc2c2ce72e86511208cf42646a4bf47752673cd50daf3d6a9b48ab01139e6c80"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e26/en_Pepper-and-Carrot_by-David-Revoy_E26P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep26_Books-Are-Great/low-res/en_Pepper-and-Carrot_by-David-Revoy_E26P05.jpg"
+sha256 = "244ccfdd3e8ef8646bff9b5ee41a837ee90c6e705e7347646b3186337e5212ae"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e26/en_Pepper-and-Carrot_by-David-Revoy_E26P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep26_Books-Are-Great/low-res/en_Pepper-and-Carrot_by-David-Revoy_E26P06.jpg"
+sha256 = "c3059d308c59218330758dce136e8685180283376d134a97bc580bf5247dc5d3"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e27/en_Pepper-and-Carrot_by-David-Revoy_E27P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep27_Coriander-s-Invention/low-res/en_Pepper-and-Carrot_by-David-Revoy_E27P02.jpg"
+sha256 = "76f176e56db8336b68042b45057f4ff0b8ac8ebdcd502dd8c94e11c13fb23473"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e27/en_Pepper-and-Carrot_by-David-Revoy_E27P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep27_Coriander-s-Invention/low-res/en_Pepper-and-Carrot_by-David-Revoy_E27P03.jpg"
+sha256 = "95e05d60a487c96863cbffe7516f191cfb2b8b5bf659091908c9bd1af1f91ff9"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e27/en_Pepper-and-Carrot_by-David-Revoy_E27P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep27_Coriander-s-Invention/low-res/en_Pepper-and-Carrot_by-David-Revoy_E27P04.jpg"
+sha256 = "50b05c6b479b31a31bbbf8b1258c455adb2c570770973144e1d086a0557add46"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e27/en_Pepper-and-Carrot_by-David-Revoy_E27P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep27_Coriander-s-Invention/low-res/en_Pepper-and-Carrot_by-David-Revoy_E27P05.jpg"
+sha256 = "d00b8f5c6afec4c3a076f904ce3feac0ba9d801c84cc060a200d686a52355f4b"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e27/en_Pepper-and-Carrot_by-David-Revoy_E27P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep27_Coriander-s-Invention/low-res/en_Pepper-and-Carrot_by-David-Revoy_E27P06.jpg"
+sha256 = "fd2dbd6b4d8a40fd1feca459c8c3c33b5930f3923a08b514924ebd7fe896e264"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e38/en_Pepper-and-Carrot_by-David-Revoy_E38P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep38_The-Healer/low-res/en_Pepper-and-Carrot_by-David-Revoy_E38P02.jpg"
+sha256 = "98dd0a81d1f87dd1e22536a79e80b933f1408d85b89fcc08efc136070898adf6"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e38/en_Pepper-and-Carrot_by-David-Revoy_E38P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep38_The-Healer/low-res/en_Pepper-and-Carrot_by-David-Revoy_E38P03.jpg"
+sha256 = "8cae2eddf2c8ffc32f360d402321c77026ad507881d557d61cf6b37f64c99ff9"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e38/en_Pepper-and-Carrot_by-David-Revoy_E38P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep38_The-Healer/low-res/en_Pepper-and-Carrot_by-David-Revoy_E38P04.jpg"
+sha256 = "bd227c8492db64dc7e8711730e05113df3176f190ed37d7d4b83be2d1b650142"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e38/en_Pepper-and-Carrot_by-David-Revoy_E38P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep38_The-Healer/low-res/en_Pepper-and-Carrot_by-David-Revoy_E38P05.jpg"
+sha256 = "5eb4ff3cdb59b6e2ecdcea98148dd7459b441592adf259b7189b5938a807dba6"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e38/en_Pepper-and-Carrot_by-David-Revoy_E38P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep38_The-Healer/low-res/en_Pepper-and-Carrot_by-David-Revoy_E38P06.jpg"
+sha256 = "0bdf2ac1975e9a60dc6dc241006557c364ad1e7389383f5dbfdcd8e9cddf8925"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e38/en_Pepper-and-Carrot_by-David-Revoy_E38P07.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep38_The-Healer/low-res/en_Pepper-and-Carrot_by-David-Revoy_E38P07.jpg"
+sha256 = "741a2816ecfc5176582d36ef832f16a43213d287b659ec82eb1b925c60eee3a7"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e38/en_Pepper-and-Carrot_by-David-Revoy_E38P08.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep38_The-Healer/low-res/en_Pepper-and-Carrot_by-David-Revoy_E38P08.jpg"
+sha256 = "5520b7d42da228da4dbd950949ff93c68eca8aacc71e56bdabaa07b86479785b"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P02.jpg"
+sha256 = "4b93f5aac857406f2ee928001e6759fd021eca8c93d362ff4133afa4c886e667"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P03.jpg"
+sha256 = "a0826ccc0764a229d8c225385dc89c9bcba0f2882d0e75aeb35892bbab0cccdd"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P04.jpg"
+sha256 = "792d6c69487b1f71d1d3a0f1ee9d9185d8b61d2df6d23ca78f8a39f33b46fec0"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P05.jpg"
+sha256 = "67e195d58fb72123c9c3b827d3695ea836f4a83e5d4b2011f3081309597aa05a"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P06.jpg"
+sha256 = "5d8a7fbfe174a0e7d81ad2aaf75d2b715035f1fb422623d4e37098886c88c6b6"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P07.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P07.jpg"
+sha256 = "b4fb162191f7fa1958646ee59365899e5dd35e716c60ea34d8bcfec0eebfd708"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P08.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P08.jpg"
+sha256 = "40ea244b91d6d0e7b0f90ca5da2d75aba1b51a7c01a4ce16d930efa87cff184a"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P09.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P09.jpg"
+sha256 = "c0cedb8934f82e387afc5d325655b73b752badcf0371bf6a67b93c862b896324"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P10.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P10.jpg"
+sha256 = "1679f7079535b1338ed361998c77049b29549c993488474af7ac1eee4d6cc49d"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e39/en_Pepper-and-Carrot_by-David-Revoy_E39P11.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-and-Carrot_by-David-Revoy_E39P11.jpg"
+sha256 = "646119db58c2abd44f24fef224e497745b0100dc2c2dcc83b08f6970ef5a01f9"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+

@@ -11,10 +11,10 @@ separate corpus (spike/evaluate.py) that training never sees.
 
 The starting point is the ShadowB Manga109 YOLO26s-seg checkpoint, loaded
 into the same network with a plain detection head: guided view needs boxes,
-not masks. The head keeps its three classes (frame, text, balloon) so every
-pretrained weight carries over; western labels map panel -> frame and
-balloon -> balloon (captions included), and text is never labelled, so the
-model learns to stop reporting it.
+not masks. The head keeps its three classes so every pretrained weight
+carries over; western labels map panel -> frame, speech balloon -> balloon
+and narration caption -> the checkpoint's text class, renamed caption. The
+app stops only on balloons, so narration no longer passes for speech.
 
 CPU only (design plan section 9). On 4 cores an epoch over ~200 pages at
 800 px takes a few minutes; the backbone is frozen for speed, which is
@@ -31,8 +31,8 @@ import cv2
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 # The checkpoint's own class order, so its class head carries over unchanged.
-CLASSES = ["frame", "text", "balloon"]
-KIND_TO_CLASS = {"panels": 0, "balloons": 2}
+CLASSES = ["frame", "caption", "balloon"]
+KIND_TO_CLASS = {"panels": 0, "captions": 1, "balloons": 2}
 
 
 def labelled_pages(folders):
@@ -62,7 +62,7 @@ def build_dataset(folders, root):
         cv2.imwrite(str(root / "images" / split / f"{stem}.jpg"), img, [cv2.IMWRITE_JPEG_QUALITY, 92])
         rows = []
         for kind, cls in KIND_TO_CLASS.items():
-            for x, y, bw, bh in lab[kind]:
+            for x, y, bw, bh in lab.get(kind, []):
                 if bw <= 0 or bh <= 0:
                     continue
                 rows.append(f"{cls} {(x + bw / 2) / w:.6f} {(y + bh / 2) / h:.6f} {bw / w:.6f} {bh / h:.6f}")

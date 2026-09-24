@@ -12,8 +12,9 @@ int detectorGeneration(int version) => version >= 100000000 ? version ~/ 1000000
 /// Bumped whenever the decoding, input size, thresholds or outline finding
 /// change, so pages cached by older code are detected again. The model file
 /// itself is folded in by [modelVersion]. 3: frame outlines. 4: detection
-/// on the page with its scanned margins trimmed.
-const modelDetectorVersion = 4;
+/// on the page with its scanned margins trimmed. 5: narration captions are
+/// their own class, so balloons are speech and thought only.
+const modelDetectorVersion = 5;
 
 /// The version cached panels are stored under for the model file [bytes]:
 /// [modelDetectorVersion] times 10^8 plus a hash of the file, so installing
@@ -34,7 +35,8 @@ class ModelDetection {
   /// Frames in reading order.
   final List<Panel> frames;
 
-  /// Speech, thought and caption balloons, in no particular order;
+  /// Speech and thought balloons (not narration captions, which the model
+  /// reports as a class of their own and the app skips), in no particular order;
   /// [balloonsByFrame] sorts them per frame.
   final List<Panel> balloons;
 }
