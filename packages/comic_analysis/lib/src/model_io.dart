@@ -11,8 +11,9 @@ int detectorGeneration(int version) => version >= 100000000 ? version ~/ 1000000
 
 /// Bumped whenever the decoding, input size, thresholds or outline finding
 /// change, so pages cached by older code are detected again. The model file
-/// itself is folded in by [modelVersion]. 3: frame outlines.
-const modelDetectorVersion = 3;
+/// itself is folded in by [modelVersion]. 3: frame outlines. 4: detection
+/// on the page with its scanned margins trimmed.
+const modelDetectorVersion = 4;
 
 /// The version cached panels are stored under for the model file [bytes]:
 /// [modelDetectorVersion] times 10^8 plus a hash of the file, so installing

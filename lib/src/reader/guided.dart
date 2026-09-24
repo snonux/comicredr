@@ -31,8 +31,12 @@ const lastBalloon = 1 << 20;
 /// pages that pass; the rest are shown whole.
 class PagePanels {
   /// [frames] come in reading order, as the detector sorted them: it saw
-  /// the page, so it knew a two-page spread from a single page.
-  PagePanels(this.frames, [this.balloons = const []]) : gate = confidenceGate(frames);
+  /// the page, so it knew a two-page spread from a single page. [trim] is
+  /// the part of the page the detector looked at; the gate judges the
+  /// frames against it, so a wide blank margin does not count as page the
+  /// frames fail to cover.
+  PagePanels(this.frames, [this.balloons = const [], Trim trim = Trim.full])
+    : gate = confidenceGate([for (final f in frames) trim.toTrim(f)]);
 
   final List<Panel> frames;
 

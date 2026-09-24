@@ -333,7 +333,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       fullscreen: state.fullscreen,
       night: night,
       trim: trim,
-      panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons)},
+      panels: {
+        for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons, value.trim),
+      },
       marks: marks,
       message: at != null
           ? 'Bookmark: page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'
@@ -577,7 +579,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         try {
           final detector = await ref.read(panelDetectorProvider.future);
           final result = await detector.detect(book.doc, page);
-          found = PagePanels(result.frames, result.balloons);
+          found = PagePanels(result.frames, result.balloons, result.trim);
           unawaited(
             ref
                 .read(panelStoreProvider)

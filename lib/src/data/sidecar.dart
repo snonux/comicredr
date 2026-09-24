@@ -24,8 +24,9 @@ const folderSidecarName = '.comicredr.crdb';
 /// The format this code writes. A sidecar from a newer app is read for the
 /// tables it shares with this one and never written over. 2: collections,
 /// and the nullable `panels.shape` column (frame outlines), which a
-/// sidecar written before it lacks.
-const sidecarSchemaVersion = 2;
+/// sidecar written before it lacks. 3: the nullable `analysed_pages.trim`
+/// column (the part of the page detection looked at).
+const sidecarSchemaVersion = 3;
 
 /// Whether [path] is a sidecar or one being written, which the library
 /// scanner and its folder watch ignore.
@@ -128,7 +129,7 @@ const _schema = [
   'CREATE TABLE book (title TEXT NOT NULL, series TEXT, number TEXT, volume INTEGER, year INTEGER, '
       'writers TEXT, artists TEXT, summary TEXT)',
   'CREATE TABLE analysed_pages (page INTEGER NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, '
-      'millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, PRIMARY KEY (page, source))',
+      'millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, trim TEXT, PRIMARY KEY (page, source))',
   'CREATE TABLE panels (page INTEGER NOT NULL, idx INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, '
       'w REAL NOT NULL, h REAL NOT NULL, kind TEXT NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, '
       'confidence REAL NOT NULL, shape TEXT, PRIMARY KEY (page, kind, idx, source))',
@@ -183,6 +184,7 @@ SidecarData? readSidecar(String path) {
             modelVer: r['model_ver'] as int,
             millis: r['millis'] as int,
             analysedAt: _time(r['analysed_at']),
+            trim: r.containsKey('trim') ? r['trim'] as String? : null,
           ),
       ],
       panels: [
@@ -295,9 +297,9 @@ void writeSidecar(String path, SidecarData data, {required String device, String
         b.summary,
       ]);
     }
-    final analysed = db.prepare('INSERT INTO analysed_pages VALUES (?, ?, ?, ?, ?)');
+    final analysed = db.prepare('INSERT INTO analysed_pages VALUES (?, ?, ?, ?, ?, ?)');
     for (final a in merged.analysed) {
-      analysed.execute([a.page, a.source, a.modelVer, a.millis, a.analysedAt.millisecondsSinceEpoch]);
+      analysed.execute([a.page, a.source, a.modelVer, a.millis, a.analysedAt.millisecondsSinceEpoch, a.trim]);
     }
     analysed.close();
     final panels = db.prepare('INSERT OR REPLACE INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');

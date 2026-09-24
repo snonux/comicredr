@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Wide scanned margins:** guided view no longer shows a page whole just
+  because it was scanned with a wide blank margin. The trained detector
+  looks at such a page with the margin cut off, whether or not `t` is on;
+  with a 12% margin added to the labelled test pages, 68 of 100 are guided
+  right instead of 28. Books are detected again once.
+
 - **Panels for the whole library:** after each library scan, the panels of
   every book are found in the background, so guided view is ready in any
   book as soon as it is opened. Progress shows on the library's status

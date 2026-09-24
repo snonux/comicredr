@@ -533,6 +533,7 @@ tool/e2e_library.sh           # library over the fetched corpus: scan, covers, s
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
 tool/e2e_m8_library.sh        # collections made from book details, a sitting in the history, the settings dialog, a restart; checks the index and a sidecar with sqlite3
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
+COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padded with a wide scanned margin; checks the index records the trim
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 ```
 
@@ -626,3 +627,29 @@ none cuts into a panel's own art. About 9 more non-rectangular modern
 frames are missed, mostly a collage page of tilted thin-lined panels in
 I Villain. `python3 spike/outlines.py eval PAGES --crops DIR` writes a
 review crop of each reshaped frame.
+
+**Wide scanned margins (2026-09-24).** A page scanned with a wide blank
+margin was shown whole: its frames covered too little of the page for the
+confidence gate. When trimming would leave at most 80% of a page, the
+model now looks at the page with the margin cut off (the same measure as
+`t`, leaving 3% of paper) and the gate judges the frames against that
+part; the trim is stored with the run. `evaluate.py --trim` does the same,
+and `--add-margin 0.12` pads every page first (`--margin-colour 30,30,30`
+for a dark scanner bed). Guided right / whole / wrong:
+
+| Test set | Before | Trimmed |
+|---|---|---|
+| Original, 100 pages | 67 / 20 / 13 | 67 / 20 / 13 |
+| Original, 8% margin added | 44 / 54 / 2 | 67 / 20 / 13 |
+| Original, 12% margin added | 28 / 72 / 0 | 68 / 20 / 12 |
+| Original, 12% dark margin | 28 / 67 / 5 | 64 / 32 / 4 |
+| Modern, 66 pages | 49 / 15 / 2 | 49 / 15 / 2 |
+| Modern, 8% margin added | 36 / 27 / 3 | 47 / 15 / 4 |
+| Modern, 12% margin added | 16 / 49 / 1 | 46 / 16 / 4 |
+
+The wrong pages with a margin are the ones the model gets wrong without
+one; the margin used to hide them. Trimming every page, even a thin
+margin, changed the model's answer on a few pages for no gain (modern: 47
+right instead of 49), hence the 80% rule. Classic CV keeps the whole page:
+trimmed, it passed the gate with wrong frames on 43 more of the padded
+pages while getting 8 more right.

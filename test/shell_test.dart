@@ -290,9 +290,9 @@ void main() {
   test('an M3 index upgrades to the guided-view schema', () async {
     final file = File('${tmp.path}/index.sqlite');
     final old = AppDatabase(NativeDatabase(file));
+    await dropM8(old);
     await old.customStatement('DROP TABLE analysed_pages');
     await old.customStatement('ALTER TABLE progress DROP COLUMN view_json');
-    await dropM8(old);
     await old.customStatement('PRAGMA user_version = 1');
     await old.close();
     final upgraded = AppDatabase(NativeDatabase(file));
@@ -388,6 +388,22 @@ void main() {
     expect((rows.single.x, rows.single.shape), (0.1, null));
     await upgraded.close();
   });
+
+  test('an index from before trimmed detection keeps its runs and gains trims', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await dropTrims(old);
+    await old.customStatement(
+      'INSERT INTO analysed_pages (content_key, page, source, model_ver, millis, analysed_at) '
+      "VALUES ('k', 1, 'model', 300000001, 120, 0)",
+    );
+    await old.customStatement('PRAGMA user_version = 8');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    final runs = await upgraded.select(upgraded.analysedPages).get();
+    expect((runs.single.modelVer, runs.single.trim), (300000001, null));
+    await upgraded.close();
+  });
 }
 
 /// Takes an index back to before schema 5: no removal times, no settings.
@@ -398,4 +414,10 @@ Future<void> dropM8(AppDatabase old) async {
 }
 
 /// Takes an index back to before schema 8: frames are boxes only.
-Future<void> dropOutlines(AppDatabase old) => old.customStatement('ALTER TABLE panels DROP COLUMN shape');
+Future<void> dropOutlines(AppDatabase old) async {
+  await old.customStatement('ALTER TABLE panels DROP COLUMN shape');
+  await dropTrims(old);
+}
+
+/// Takes an index back to before schema 9: detection saw the whole page.
+Future<void> dropTrims(AppDatabase old) => old.customStatement('ALTER TABLE analysed_pages DROP COLUMN trim');
