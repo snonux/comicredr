@@ -140,7 +140,7 @@ key Escape;              shot 22d_back_in_comics
 key l Return;            shot 22e_in_pepper_carrot
 key Return; sleep 2;     shot 22f_reading_from_folder
 key Escape; sleep 1;     shot 22g_back_in_pepper_carrot
-key Escape Escape;       shot 22h_folders_top
+key BackSpace BackSpace; shot 22h_folders_top
 # Mouse, on the Series tab: click a cover to select it, click again to read.
 key Tab Tab; sleep 0.5
 xdotool mousemove 190 200 click 1; sleep 1; shot 23_click_selects

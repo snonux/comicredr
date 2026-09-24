@@ -88,6 +88,7 @@ class Keymap {
       Binding(['Esc'], ReaderIntent.back, layer: s),
       // The library.
       Binding(['Enter'], ReaderIntent.activate, layer: s),
+      Binding(['Backspace'], ReaderIntent.up, layer: s),
       Binding(['A'], ReaderIntent.addRoot),
       Binding(['R'], ReaderIntent.rescan),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),

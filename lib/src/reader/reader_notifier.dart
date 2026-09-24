@@ -732,6 +732,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
       case ReaderIntent.activate:
+      case ReaderIntent.up:
         break; // Handled by the screen, or only mean something in the library.
     }
     // Mode switches (guided, balloons, spread, direction) are part of the

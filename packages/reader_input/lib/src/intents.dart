@@ -43,6 +43,7 @@ enum ReaderIntent {
   openFile('Open a file without adding it to the library'),
   openFolder('Open a folder of page images as a book'),
   back('Back out one level, ending at the library'),
+  up('Up to the folder above in the library'),
   activate('Open the selected book, series or folder in the library'),
   addRoot('Add a folder to the library'),
   rescan('Rescan the library folders'),

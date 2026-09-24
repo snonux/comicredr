@@ -304,8 +304,11 @@ void main() {
       await key(tester, LogicalKeyboardKey.enter);
       await key(tester, LogicalKeyboardKey.escape);
       expect(find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Indie')), findsOneWidget);
-      await key(tester, LogicalKeyboardKey.escape);
+      // Backspace goes up a folder too, and does nothing at the top.
+      await key(tester, LogicalKeyboardKey.backspace);
       expect(find.byKey(const Key('breadcrumb')), findsNothing);
+      expect(find.text('5 books'), findsWidgets);
+      await key(tester, LogicalKeyboardKey.backspace);
       expect(find.text('5 books'), findsWidgets);
 
       // A book opens from inside a folder.
@@ -317,6 +320,12 @@ void main() {
       expect(c.read(readerProvider).book?.title, 'Barefoot Bride');
       // Esc from the reader comes back to the same folder.
       await key(tester, LogicalKeyboardKey.escape);
+      expect(find.text('Old'), findsWidgets);
+      // Backspace in the search field edits the text; it does not go up.
+      await key(tester, LogicalKeyboardKey.slash, character: '/');
+      await tester.enterText(find.byKey(const Key('search')), 'ol');
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
       expect(find.text('Old'), findsWidgets);
     });
 
