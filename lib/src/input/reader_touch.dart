@@ -13,19 +13,31 @@ import 'package:reader_input/reader_input.dart';
 /// - Tap the left or right edge: previous or next step (a panel in guided
 ///   view, a page otherwise), like `←` and `→`.
 /// - Swipe left or right: next or previous step, unless the swipe panned a
-///   zoomed page instead.
+///   zoomed page instead. In guided view a swipe always steps: the camera
+///   is always zoomed there, and it glides on to the next panel from
+///   wherever the finger left it.
 /// - Tap the middle: status line on or off. Double-tap the middle: zoom in
-///   on that spot, or back out when zoomed.
+///   on that spot, or back out when zoomed; in guided view, re-centre the
+///   panel.
 ///
 /// Only fingers and pens count. A mouse click does nothing here, so clicking
 /// the window to focus it never turns a page.
 class ReaderTouch extends StatefulWidget {
-  const ReaderTouch({super.key, required this.onCommand, required this.viewTransform, required this.child});
+  const ReaderTouch({
+    super.key,
+    required this.onCommand,
+    required this.viewTransform,
+    required this.guided,
+    required this.child,
+  });
 
   final ValueChanged<ReaderCommand> onCommand;
 
   /// The reader's current zoom and pan, or null with no page on screen.
   final ValueGetter<Matrix4?> viewTransform;
+
+  /// Whether guided view is on.
+  final ValueGetter<bool> guided;
   final Widget child;
 
   /// Width of each edge zone that turns pages, as a share of the view.
@@ -126,7 +138,7 @@ class _ReaderTouchState extends State<ReaderTouch> {
     final horizontal = moved.dx.abs() > 2 * moved.dy.abs();
     final far = moved.dx.abs() > ReaderTouch.swipeDistance * size.width;
     final quick = moved.dx.abs() > 2 * kTouchSlop && vx.abs() > ReaderTouch.swipeVelocity && vx.sign == moved.dx.sign;
-    if (horizontal && (far || quick) && !_viewMoved()) {
+    if (horizontal && (far || quick) && (widget.guided() || !_viewMoved())) {
       // Finger moving left drags the next page in, as `→` would.
       _send(ReaderCommand(moved.dx < 0 ? ReaderIntent.nextStep : ReaderIntent.prevStep));
     }

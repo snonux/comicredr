@@ -16,17 +16,17 @@ class ProgressStore {
   Timer? _timer;
   ProgressCompanion? _pendingRow;
 
-  Future<int?> load(String contentKey) async {
-    final row = await (_db.select(
-      _db.progress,
-    )..where((p) => p.contentKey.equals(contentKey))).getSingleOrNull();
-    return row?.page;
+  /// The saved page, and the panel when reading stopped in guided view.
+  Future<({int page, int? panel})?> load(String contentKey) async {
+    final row = await (_db.select(_db.progress)..where((p) => p.contentKey.equals(contentKey))).getSingleOrNull();
+    return row == null ? null : (page: row.page, panel: row.panel);
   }
 
-  void save(String contentKey, int page, int pageCount) {
+  void save(String contentKey, int page, int pageCount, {int? panel}) {
     _pendingRow = ProgressCompanion.insert(
       contentKey: contentKey,
       page: page,
+      panel: Value(panel),
       percent: pageCount <= 1 ? 1 : page / (pageCount - 1),
       finished: Value(page >= pageCount - 1),
       updatedAt: DateTime.now(),

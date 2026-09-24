@@ -69,8 +69,17 @@ key z z; key G;      shot 09_last
 key i;               shot 10_night
 key i; key bracketright; sleep 1.5; shot 11_next_book
 key bracketleft; sleep 1.5;         shot 12_back
-key question;        shot 13_keymap
-key Escape; key Escape; shot 14_closed
+# Guided view, from page 3 so the cover is not first: panel by panel,
+# across a page, zoomed and re-centred, then back to the page mode.
+key 3 shift+g; key v; sleep 2;      shot 13_guided_panel1
+key l;               shot 14_guided_panel2
+key l l l l l;       shot 15_guided_five_on
+key ctrl+f; sleep 1; shot 16_guided_next_page
+key plus plus;       shot 17_guided_zoomed
+key z z;             shot 18_guided_recentred
+key v;               shot 19_guided_off
+key question;        shot 20_keymap
+key Escape; key Escape; shot 21_closed
 
 # Resume across a restart: quit, relaunch on the same book, and expect the
 # last page with "Resumed at page …" on the status line.
@@ -81,7 +90,7 @@ TOUCH_INJECT_FILE="$touches" LD_PRELOAD="$PWD/$out/touch_inject.so" \
   HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$book" >>"$out/app.log" 2>&1 &
 app=$!
 sleep 5
-shot 15_resumed_after_restart
+shot 22_resumed_after_restart
 
 # Touch, in the Flutter view's logical pixels (the window is 1280x720).
 # Each finger event is 16 ms apart, about what a touchscreen reports.
@@ -105,18 +114,26 @@ pinch() {
 settle() { sleep 0.8; }
 
 key g g
-tap 1200 340; settle;             shot 16_touch_tap_right
-tap 1200 340; settle;             shot 17_touch_tap_right_again
-tap 80 340; settle;               shot 18_touch_tap_left
-swipe 900 340 400 20; settle;     shot 19_touch_swipe_left
-swipe 400 340 900 20; settle;     shot 20_touch_swipe_right
-tap 640 340; sleep 0.1; tap 640 340; settle; shot 21_touch_double_tap_zoom
-swipe 800 340 500 20; settle;     shot 22_touch_drag_pans_zoomed
-tap 640 340; sleep 0.1; tap 640 340; settle; shot 23_touch_double_tap_out
-pinch 640 340 60 260; settle;     shot 24_touch_pinch_out
-tap 640 340; sleep 0.1; tap 640 340; settle; shot 25_touch_zoom_reset
-tap 640 340; settle;              shot 26_touch_tap_middle_hides_status
-tap 640 340; settle;              shot 27_touch_tap_middle_shows_status
+tap 1200 340; settle;             shot 23_touch_tap_right
+tap 1200 340; settle;             shot 24_touch_tap_right_again
+tap 80 340; settle;               shot 25_touch_tap_left
+swipe 900 340 400 20; settle;     shot 26_touch_swipe_left
+swipe 400 340 900 20; settle;     shot 27_touch_swipe_right
+tap 640 340; sleep 0.1; tap 640 340; settle; shot 28_touch_double_tap_zoom
+swipe 800 340 500 20; settle;     shot 29_touch_drag_pans_zoomed
+tap 640 340; sleep 0.1; tap 640 340; settle; shot 30_touch_double_tap_out
+pinch 640 340 60 260; settle;     shot 31_touch_pinch_out
+tap 640 340; sleep 0.1; tap 640 340; settle; shot 32_touch_zoom_reset
+tap 640 340; settle;              shot 33_touch_tap_middle_hides_status
+tap 640 340; settle;              shot 34_touch_tap_middle_shows_status
+# Touch in guided view: taps and swipes step panels, a double-tap re-centres.
+key 3 shift+g; key v; sleep 2;    shot 35_touch_guided_panel1
+tap 1200 340; settle;             shot 36_touch_guided_tap_right
+swipe 900 340 400 20; settle;     shot 37_touch_guided_swipe_left
+swipe 400 340 900 20; settle;     shot 38_touch_guided_swipe_right
+tap 80 340; settle;               shot 39_touch_guided_tap_left
+pinch 640 340 60 160; settle;     shot 40_touch_guided_pinch
+tap 640 340; sleep 0.1; tap 640 340; settle; shot 41_touch_guided_recentred
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"
 if grep -v XGetInputFocus "$out/app.log" | grep -q 'Unhandled Exception\|\[ERROR'; then

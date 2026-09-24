@@ -1,5 +1,5 @@
-/// How pages are laid out on screen. Continuous scroll and guided view join
-/// in later milestones; `v` and `Tab` already know about them.
+/// How pages are laid out on screen outside guided view, which is a flag on
+/// top of this so `v` can return to it. Continuous scroll joins later.
 enum PageMode { single, spread }
 
 /// The pages shown together at [page]: one in single mode, up to two in a

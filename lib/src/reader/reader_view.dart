@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:comic_analysis/comic_analysis.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
+import 'guided.dart';
 import 'layout.dart';
 import 'page_cache.dart';
 import 'reader_notifier.dart';
@@ -17,6 +19,10 @@ enum Fit { page, width, height }
 /// The open book on screen: decodes the pages of the current unit through a
 /// [PageCache], fits them, and handles zoom and pan. Page turns come from
 /// [readerProvider]; view intents arrive through [ReaderViewState.handle].
+///
+/// Guided view is a camera, not a re-render (design plan section 5): the
+/// page stays one image, and an animated transform moves between panels
+/// while the rest of the page is dimmed.
 class ReaderView extends ConsumerStatefulWidget {
   const ReaderView({super.key});
 
@@ -24,8 +30,19 @@ class ReaderView extends ConsumerStatefulWidget {
   ConsumerState<ReaderView> createState() => ReaderViewState();
 }
 
-class ReaderViewState extends ConsumerState<ReaderView> {
+class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProviderStateMixin {
   final _transform = TransformationController();
+  late final _camera = AnimationController(vsync: this, duration: const Duration(milliseconds: 220))
+    ..addListener(_onCameraTick);
+  Matrix4Tween? _cameraTween;
+  RectTween? _focusTween;
+
+  /// The dimming hole in page coordinates (0..1), or null for no dimming.
+  Rect? _focus;
+
+  /// What the camera last aimed at. A change moves the camera; null makes
+  /// it cut to its target on the next frame.
+  ({bool guided, int page, Panel? focus, Size viewport, Size content})? _cameraKey;
   PageCache? _cache;
   Object? _cacheBook;
   List<ui.Image> _images = const [];
@@ -42,6 +59,7 @@ class ReaderViewState extends ConsumerState<ReaderView> {
   void dispose() {
     _disposeImages(_images);
     _cache?.dispose();
+    _camera.dispose();
     _transform.dispose();
     super.dispose();
   }
@@ -56,9 +74,11 @@ class ReaderViewState extends ConsumerState<ReaderView> {
   /// on the laptop. The phone decodes at screen width, so its 80 MB budget
   /// holds about ten pages rather than four (a 2610 px scan at full width
   /// is some 20 MB decoded).
-  int get _targetWidth {
+  /// In guided view the camera zooms into panels, so pages decode at up to
+  /// 2.5x screen width, which is a whole scan at typical sizes.
+  int _targetWidth(bool guided) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final headroom = defaultTargetPlatform == TargetPlatform.android ? 1.0 : 1.5;
+    final headroom = guided ? 2.5 : (defaultTargetPlatform == TargetPlatform.android ? 1.0 : 1.5);
     return (_viewport.width * dpr * headroom).round().clamp(512, 8192);
   }
 
@@ -77,7 +97,7 @@ class ReaderViewState extends ConsumerState<ReaderView> {
     if (_listEquals(unit, _shownUnit) || _viewport == Size.zero) return;
     final request = ++_request;
     final cache = _cache!;
-    final width = _targetWidth;
+    final width = _targetWidth(s.guided);
     Future.wait([for (final p in unit) cache.get(p, width)]).then(
       (images) {
         if (!mounted || request != _request) {
@@ -88,18 +108,22 @@ class ReaderViewState extends ConsumerState<ReaderView> {
         setState(() {
           _images = images;
           _shownUnit = unit;
+          _camera.stop();
+          _cameraKey = null; // A new page: the camera jumps rather than glides.
+          _focus = null;
           _transform.value = Matrix4.identity();
         });
         _disposeImages(old);
         // Warm the next two units and the previous one.
         final n = s.pageCount;
-        final ahead1 = stepFrom(unit.last, 1, n, s.mode, coverAlone: s.coverAlone);
-        final ahead2 = stepFrom(unit.last, 2, n, s.mode, coverAlone: s.coverAlone);
-        final behind = stepFrom(unit.first, -1, n, s.mode, coverAlone: s.coverAlone);
+        final mode = s.guided ? PageMode.single : s.mode;
+        final ahead1 = stepFrom(unit.last, 1, n, mode, coverAlone: s.coverAlone);
+        final ahead2 = stepFrom(unit.last, 2, n, mode, coverAlone: s.coverAlone);
+        final behind = stepFrom(unit.first, -1, n, mode, coverAlone: s.coverAlone);
         cache.prefetch({
-          ...unitAt(ahead1, n, s.mode, coverAlone: s.coverAlone),
-          ...unitAt(ahead2, n, s.mode, coverAlone: s.coverAlone),
-          ...unitAt(behind, n, s.mode, coverAlone: s.coverAlone),
+          ...unitAt(ahead1, n, mode, coverAlone: s.coverAlone),
+          ...unitAt(ahead2, n, mode, coverAlone: s.coverAlone),
+          ...unitAt(behind, n, mode, coverAlone: s.coverAlone),
         }, width);
       },
       onError: (Object e) {
@@ -113,7 +137,11 @@ class ReaderViewState extends ConsumerState<ReaderView> {
 
   /// View intents: zoom, fit and pan. Returns false for anything else.
   bool handle(ReaderCommand c) {
+    final guided = ref.read(readerProvider).guided;
     switch (c.intent) {
+      case ReaderIntent.fitPage when guided:
+      case ReaderIntent.zoomReset when guided:
+        _recentre(); // zz re-centres the panel in guided view.
       case ReaderIntent.fitWidth:
         _setFit(Fit.width);
       case ReaderIntent.fitHeight:
@@ -139,7 +167,68 @@ class ReaderViewState extends ConsumerState<ReaderView> {
   void _setFit(Fit fit) => setState(() {
     _fit = fit;
     _transform.value = Matrix4.identity();
+    _cameraKey = null;
   });
+
+  void _recentre() => setState(() => _cameraKey = null);
+
+  /// Points the camera at the focused panel, or back at the whole page, once
+  /// the frame is laid out. Within a page the camera glides; onto a new page,
+  /// or when the system asks for reduced motion, it cuts.
+  void _aimCamera(ReaderState s) {
+    final focus = s.focus;
+    final key = (guided: s.guided, page: s.page, focus: focus, viewport: _viewport, content: _content);
+    final last = _cameraKey;
+    if (key == last) return;
+    final glide =
+        last != null &&
+        last.page == key.page &&
+        last.viewport == key.viewport &&
+        !MediaQuery.disableAnimationsOf(context);
+    _cameraKey = key;
+    final target = Matrix4.identity();
+    Rect? hole;
+    if (focus != null) {
+      final child = _childSize;
+      final origin = Offset((child.width - _content.width) / 2, (child.height - _content.height) / 2);
+      final rect = Rect.fromLTWH(
+        origin.dx + focus.x * _content.width,
+        origin.dy + focus.y * _content.height,
+        focus.w * _content.width,
+        focus.h * _content.height,
+      );
+      final cam = cameraOn(rect, _viewport);
+      target
+        ..setTranslationRaw(cam.offset.dx, cam.offset.dy, 0)
+        ..scaleByDouble(cam.scale, cam.scale, 1, 1);
+      hole = Rect.fromLTWH(focus.x, focus.y, focus.w, focus.h);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (glide) {
+        _cameraTween = Matrix4Tween(begin: _transform.value.clone(), end: target);
+        _focusTween = RectTween(
+          begin: _focus ?? const Rect.fromLTWH(0, 0, 1, 1),
+          end: hole ?? const Rect.fromLTWH(0, 0, 1, 1),
+        );
+        _camera.forward(from: 0);
+      } else {
+        _camera.stop();
+        _transform.value = target;
+        setState(() => _focus = hole);
+      }
+    });
+  }
+
+  void _onCameraTick() {
+    final t = Curves.easeInOut.transform(_camera.value);
+    _transform.value = _cameraTween!.lerp(t);
+    final hole = _focusTween!.lerp(t);
+    setState(() {
+      // A hole the size of the page means the camera is heading home.
+      _focus = _camera.isCompleted && hole == const Rect.fromLTWH(0, 0, 1, 1) ? null : hole;
+    });
+  }
 
   double get _scale => _transform.value.getMaxScaleOnAxis();
 
@@ -166,7 +255,9 @@ class ReaderViewState extends ConsumerState<ReaderView> {
   }
 
   /// Keeps the zoomed content covering the viewport, as dragging does.
+  /// Guided view is free to look past the page edge around a panel.
   Matrix4 _clamped(Matrix4 m) {
+    if (ref.read(readerProvider).guided) return m;
     final s = m.getMaxScaleOnAxis();
     final child = _childSize;
     final t = m.getTranslation();
@@ -175,16 +266,15 @@ class ReaderViewState extends ConsumerState<ReaderView> {
     return Matrix4.diagonal3Values(s, s, 1)..setTranslationRaw(tx, ty, 0);
   }
 
-  Size get _childSize =>
-      Size(math.max(_content.width, _viewport.width), math.max(_content.height, _viewport.height));
+  Size get _childSize => Size(math.max(_content.width, _viewport.width), math.max(_content.height, _viewport.height));
 
   /// Natural size of the unit laid side by side at a common height, then
-  /// fitted to the viewport.
-  Size _fitted(List<ui.Image> images) {
+  /// fitted to the viewport. Guided view always starts from the whole page.
+  Size _fitted(List<ui.Image> images, {required bool guided}) {
     if (images.isEmpty) return Size.zero;
     final h = images.map((i) => i.height).reduce(math.max).toDouble();
     final w = images.fold<double>(0, (sum, i) => sum + i.width * h / i.height);
-    final scale = switch (_fit) {
+    final scale = switch (guided ? Fit.page : _fit) {
       Fit.page => math.min(_viewport.width / w, _viewport.height / h),
       Fit.width => _viewport.width / w,
       Fit.height => _viewport.height / h,
@@ -206,7 +296,8 @@ class ReaderViewState extends ConsumerState<ReaderView> {
           if (mounted) _sync(ref.read(readerProvider));
         });
         if (_images.isEmpty) return const Center(child: CircularProgressIndicator());
-        _content = _fitted(_images);
+        _content = _fitted(_images, guided: s.guided);
+        _aimCamera(s);
         final ordered = s.rightToLeft ? _images.reversed.toList() : _images;
         final h = _content.height;
         Widget pages = Row(
@@ -222,6 +313,16 @@ class ReaderViewState extends ConsumerState<ReaderView> {
               ),
           ],
         );
+        if (s.guided && _focus != null) {
+          pages = Stack(
+            children: [
+              pages,
+              Positioned.fill(
+                child: CustomPaint(key: const Key('guided-dim'), painter: _DimPainter(_focus!)),
+              ),
+            ],
+          );
+        }
         if (s.night) {
           pages = ColorFiltered(colorFilter: const ColorFilter.matrix(_night), child: pages);
         }
@@ -229,12 +330,16 @@ class ReaderViewState extends ConsumerState<ReaderView> {
         return InteractiveViewer(
           transformationController: _transform,
           constrained: false,
-          minScale: 1,
+          minScale: s.guided ? 0.5 : 1,
           maxScale: 8,
+          boundaryMargin: s.guided ? const EdgeInsets.all(double.infinity) : EdgeInsets.zero,
           child: SizedBox(
             width: child.width,
             height: child.height,
-            child: Align(alignment: _fit == Fit.width ? Alignment.topCenter : Alignment.center, child: pages),
+            child: Align(
+              alignment: !s.guided && _fit == Fit.width ? Alignment.topCenter : Alignment.center,
+              child: pages,
+            ),
           ),
         );
       },
@@ -249,3 +354,29 @@ const _night = <double>[
   0.02, 0.05, 0.30, 0, 0, //
   0, 0, 0, 1, 0,
 ];
+
+/// Dims the page outside [hole] (page coordinates, 0..1) to 45%, so the
+/// panel stands out and the reader keeps their place on the page.
+class _DimPainter extends CustomPainter {
+  const _DimPainter(this.hole);
+
+  final Rect hole;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final page = Offset.zero & size;
+    final cut = Rect.fromLTRB(
+      hole.left * size.width,
+      hole.top * size.height,
+      hole.right * size.width,
+      hole.bottom * size.height,
+    );
+    canvas.drawPath(
+      Path.combine(PathOperation.difference, Path()..addRect(page), Path()..addRect(cut)),
+      Paint()..color = const Color(0x8C000000),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DimPainter old) => old.hole != hole;
+}
