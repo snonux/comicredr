@@ -71,6 +71,7 @@ class Keymap {
       Binding(['+'], ReaderIntent.zoomIn, layer: s),
       Binding(['-'], ReaderIntent.zoomOut, layer: s),
       Binding(['='], ReaderIntent.zoomReset, layer: s),
+      Binding(['Z'], ReaderIntent.zoomToggle),
       Binding(['t'], ReaderIntent.autoTrim),
       Binding(['i'], ReaderIntent.nightFilter),
       Binding(['f'], ReaderIntent.fullscreen),
@@ -93,6 +94,7 @@ class Keymap {
       Binding(['R'], ReaderIntent.rescan),
       Binding(['X'], ReaderIntent.resetBook),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
+      Binding(['g', 't'], ReaderIntent.showTouchZones),
     ]);
   }
 

@@ -44,7 +44,7 @@ Potion Contest*, by David Revoy, licensed
   after you rename or copy the file.
 - **Keyboard first**, with a vi layer on top of the usual keys and your
   own key bindings, plus full touch support on the phone and on a laptop
-  touchscreen.
+  touchscreen, with tap zones you can rearrange.
 - **Your data travels with the comic**: panels, bookmarks and your position
   live in a small `.crdb` file beside it, so a comic copied to the phone
   opens there ready to read.
@@ -154,6 +154,11 @@ starts one from [docs/keys.toml](docs/keys.toml), which lists every action.
 Tap or swipe at the left and right edges to turn, pinch or double-tap to
 zoom, drag to pan, and tap the middle to hide the status line. Android's
 back gesture leaves guided view, then the book.
+
+Settings has a left-handed and a one-thumb layout, and `gt` shows the
+zones while reading. The `[touch]` section of `keys.toml` gives any action
+to a tap, double-tap or long press in each of nine zones, to a swipe, or
+to a two-finger tap.
 
 ### The CBR files you already have
 

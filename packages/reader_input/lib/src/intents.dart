@@ -30,6 +30,7 @@ enum ReaderIntent {
   zoomIn('Zoom in'),
   zoomOut('Zoom out'),
   zoomReset('Reset zoom'),
+  zoomToggle('Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view'),
   autoTrim('Auto-trim scan margins'),
   nightFilter('Night filter'),
   fullscreen('Fullscreen'),
@@ -48,7 +49,8 @@ enum ReaderIntent {
   addRoot('Add a folder to the library'),
   rescan('Rescan the library folders'),
   resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
-  showKeymap('Show the keymap');
+  showKeymap('Show the keymap'),
+  showTouchZones('Show the touch zones for a moment');
 
   const ReaderIntent(this.description);
 

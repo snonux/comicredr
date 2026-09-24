@@ -213,6 +213,11 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
         _zoom(math.pow(0.8, c.times).toDouble(), at: c.at);
       case ReaderIntent.zoomReset:
         _transform.value = Matrix4.identity();
+      case ReaderIntent.zoomToggle:
+        // A double-tap: back out when zoomed (re-centring the panel in
+        // guided view), else about 2.4x on the spot tapped.
+        if (_scale > 1.01) return handle(const ReaderCommand(ReaderIntent.zoomReset));
+        _zoom(math.pow(1.25, 4).toDouble(), at: c.at);
       case ReaderIntent.panDown:
         _pan(0.15 * _viewport.height * c.times);
       case ReaderIntent.panUp:

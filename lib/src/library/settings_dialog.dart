@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:reader_input/reader_input.dart';
+
 import '../data/settings_store.dart';
+import '../input/touch_providers.dart';
+import '../input/touch_zones.dart';
 import '../providers.dart';
 import '../reader/reader_notifier.dart';
 import '../version.dart';
@@ -140,6 +144,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                           label: const Text('Export sidecars to a folder…'),
                         ),
                       ),
+                    heading('Touch'),
+                    _TouchPicker(),
                     heading('Reading history'),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -161,6 +167,55 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           key: const Key('setting-close'),
           onPressed: () => Navigator.pop(context),
           child: const Text('Close'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Picks the touch preset, with a small drawing of its tap zones. Lines in
+/// `keys.toml`'s `[touch]` section still apply on top.
+class _TouchPicker extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final preset = ref.watch(touchPresetProvider);
+    final changed = ref.watch(keymapLoadProvider).load.touch.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SegmentedButton<TouchPreset>(
+          key: const Key('setting-touch'),
+          showSelectedIcon: false,
+          segments: [
+            for (final p in TouchPreset.values)
+              ButtonSegment(
+                value: p,
+                label: Text(p.label, key: Key('setting-touch-${p.name}')),
+              ),
+          ],
+          selected: {preset},
+          onSelectionChanged: (s) => ref.read(touchPresetProvider.notifier).pick(s.single),
+        ),
+        const SizedBox(height: 8),
+        Text(preset.description, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 8),
+        ExcludeSemantics(
+          child: SizedBox(
+            key: const Key('setting-touch-preview'),
+            width: 240,
+            height: 150,
+            child: TouchZonesView(map: ref.watch(touchMapProvider), compact: true),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          [
+            'Double-tap the middle to zoom, swipe to turn, gt shows the zones while reading.',
+            if (changed > 0) 'keys.toml changes $changed ${changed == 1 ? 'gesture' : 'gestures'} on top of this.',
+          ].join(' '),
+          key: const Key('setting-touch-note'),
+          style: theme.textTheme.bodySmall,
         ),
       ],
     );

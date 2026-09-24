@@ -23,6 +23,9 @@ class SettingsStore {
   /// (LibraryDetection). On by default on the laptop, off on the phone.
   static const detectLibrary = 'detect.library';
 
+  /// The touch preset picked in Settings (a TouchPreset name).
+  static const touchPreset = 'touch.preset';
+
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
     final v = row == null ? null : jsonDecode(row.value);
@@ -30,5 +33,14 @@ class SettingsStore {
   }
 
   Future<void> saveBool(String key, bool value) =>
+      _db.into(_db.settings).insertOnConflictUpdate(SettingRow(key: key, value: jsonEncode(value)));
+
+  Future<String?> loadString(String key) async {
+    final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
+    final v = row == null ? null : jsonDecode(row.value);
+    return v is String ? v : null;
+  }
+
+  Future<void> saveString(String key, String value) =>
       _db.into(_db.settings).insertOnConflictUpdate(SettingRow(key: key, value: jsonEncode(value)));
 }
