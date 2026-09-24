@@ -291,13 +291,14 @@ make install-model MODEL=path/to/comicredr-panels.onnx
 
 This copies it to `~/.local/share/org.snonux.comicredr/models/`.
 
-On Android put it in `Android/data/org.snonux.comicredr/files/models/` on
-the phone's storage, for example with
-`adb push comicredr-panels.onnx /sdcard/Android/data/org.snonux.comicredr/files/models/`.
-Restart the app. `COMICREDR_MODEL=/path/to/file.onnx` points at a model
-anywhere else. Pages analysed by classic CV, or by a different model file,
-are analysed again the next time you read them, so installing a retrained
-model needs nothing else. To build the file yourself, see
+On Android it goes in `Android/data/org.snonux.comicredr/files/models/` on
+the phone's storage; with the phone on USB, `make push-model
+MODEL=path/to/comicredr-panels.onnx` puts it there (see
+[Android phone](#android-phone)). Restart the app.
+`COMICREDR_MODEL=/path/to/file.onnx` points at a model anywhere else.
+Pages analysed by classic CV, or by a different model file, are analysed
+again the next time you read them, so installing a retrained model needs
+nothing else. To build the file yourself, see
 [Train the detector](#m5-train-the-detector).
 
 ### 8. Touch
@@ -313,6 +314,10 @@ so clicking into the window is safe.
 | Back to the whole page, or re-centre the panel in guided view | double-tap the middle again | `=`, `zz` |
 | Move around a zoomed page | drag with one finger | `↓` `↑` |
 | Hide or show the status line | tap the middle | `F11` |
+| Guided view on or off | the panels button at the right of the status line | `v` |
+| Balloon by balloon, in guided view | the speech-balloon button next to it | `b` |
+| Bookmark the page (the panel in guided view) | the bookmark button | `mm` |
+| Leave guided view, then the book | Android's back gesture or button | `Esc` |
 
 The edges are the outer 30% of the screen on each side. A swipe on a
 zoomed page pans it instead of turning; swipe again once it stops at the
@@ -368,6 +373,79 @@ and close again is not listed. Click an entry to read on.
 steps in guided view (the same switch as `w` in the reader), whether
 sidecars are written beside your comics, Export sidecars, Clear reading
 history, and which panel detector is in use.
+
+## Android phone
+
+ComicRedr is sideloaded as an APK; there is no app store build. You build
+it on the Fedora laptop and install it over USB.
+
+### 1. Install the Android SDK
+
+Flutter from step 1 above, plus a JDK and Google's command-line tools:
+
+```sh
+sudo dnf install java-21-openjdk-devel android-tools
+mkdir -p ~/Android/Sdk/cmdline-tools && cd ~/Android/Sdk/cmdline-tools
+curl -LO https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip
+unzip commandlinetools-linux-*_latest.zip && mv cmdline-tools latest
+export ANDROID_HOME=~/Android/Sdk   # put this in ~/.bashrc too
+~/Android/Sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools"
+flutter config --android-sdk ~/Android/Sdk
+flutter doctor --android-licenses
+```
+
+The first APK build downloads the rest (the SDK platform, build tools and
+the NDK) by itself.
+
+### 2. Create the release key, once
+
+```sh
+make keystore
+```
+
+This makes `~/.config/comicredr/release.jks` and writes its random
+password to `android/key.properties`, which git ignores. **Back up both
+files.** Android installs an update over the old app, keeping your
+library, positions and bookmarks, only when it is signed with the same
+key; with a new key you have to uninstall first and lose that data. On a
+new laptop, restore both files instead of running `make keystore` again
+(`KEYSTORE=/path/to/release.jks` if you keep it elsewhere, and fix the
+path in `android/key.properties`).
+
+### 3. Build and install
+
+Turn on **USB debugging** on the phone (Settings, About phone, tap
+**Build number** seven times, then Settings, System, Developer options),
+plug it in and accept the laptop's key. Then:
+
+```sh
+make apk            # build/app/outputs/flutter-apk/app-release.apk, arm64
+make install-apk    # adb install -r, keeps the app's data
+make push-model MODEL=path/to/comicredr-panels.onnx   # optional, see step 7 above
+```
+
+Without a cable, copy the APK to the phone any way you like and open it
+in the Files app; Android asks once to allow installing apps from that
+source. `APK_ABI=android-arm64,android-x64` adds the emulator's ABI.
+
+### 4. First start
+
+Copy comics to the phone, for example into `Comics` on its storage (with
+their `.crdb` sidecars if you want the laptop's panels and positions, see
+step 9 above). In the app tap the folder button, allow **All files
+access** on the settings page it opens, come back, tap the folder button
+again and add `/storage/emulated/0/Comics`. Touch works as in step 8,
+with the buttons on the reader's status line for guided view, balloons
+and bookmarks; a Bluetooth keyboard gets the same keys as the laptop.
+Back steps out of guided view, then the book, then the series, and only
+then leaves the app.
+
+The APK has been tested on an Android 14 emulator (x86_64, software
+emulation, no model): All-files access, the library scan over CBZ, PDF
+and a folder of pages, reading, guided view, taps and swipes, bookmarks,
+sidecars, resume and an update install keeping the library. Not yet
+tried on a real phone: the ONNX model (the emulator build has no x86_64
+ONNX Runtime), pinch zoom, and speed and memory on real hardware.
 
 ## Layout
 
