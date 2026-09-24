@@ -49,6 +49,7 @@ enum ReaderIntent {
   addRoot('Add a folder to the library'),
   rescan('Rescan the library folders'),
   resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
+  editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),
   showKeymap('Show the keymap');
 
   const ReaderIntent(this.description);

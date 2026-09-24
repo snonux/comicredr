@@ -87,6 +87,11 @@ build internals, test scripts, detector work and conventions here.
   `X` (or Reset in the book's details) resets a comic: `SidecarSync.reset`
   deletes its rows and rewrites every copy's sidecar without them, since a
   sidecar left alone would merge them straight back in.
+  Metadata edits (`e`, `lib/src/library/edit_dialog.dart`) are rows in
+  `overrides`, field to a JSON `MetaEdit` with a time; the later edit per
+  field wins a sidecar merge, and an undo is a row too, so it travels.
+  `LibraryStore.books()` lays them over the file's facts; the comic file is
+  never rewritten, since that would change its content key.
   Settings → "In one folder" (`sidecars.dir`, per install) keeps them all
   in one folder instead, laid out like the library by root folder name
   (`storedSidecarPath`; books outside the library go under `elsewhere/`).
@@ -154,6 +159,7 @@ tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-tr
 tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
 tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
+tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 
 ## Detection spike (M1)
