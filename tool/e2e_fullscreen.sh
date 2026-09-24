@@ -110,7 +110,7 @@ one_run() {
   run="$out/$name"
   mkdir -p "$run"
   # A fresh install and no sidecar, so the book opens on page 1.
-  rm -rf "$out/home" "$out"/Colours.cbz.crdb* && mkdir -p "$out/home"
+  rm -rf "$out/home" "$out"/.Colours.cbz.crdb* && mkdir -p "$out/home"
   echo "== $name (window manager says: $(xprop -id "$(xprop -root _NET_SUPPORTING_WM_CHECK | awk '{print $NF}')" _NET_WM_NAME | cut -d'"' -f2))"
   launch
   xdotool mousemove 640 400 click 1

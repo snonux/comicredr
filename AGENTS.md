@@ -108,9 +108,12 @@ build internals, test scripts, detector work and conventions here.
   then the built-in one. On Linux the built-in file is opened in place in
   `bundle/data/flutter_assets/assets/models/`; on Android it is copied out
   of the APK into `<app support>/bundled-model/` once per model version.
-- Sidecars: `book.cbz.crdb` beside the file, `.comicredr.crdb` inside a
-  folder book. They hold metadata, panels and balloons, bookmarks, marks,
-  collections and per-device positions. Removed bookmarks stay removed
+- Sidecars: `.book.cbz.crdb` beside the file, `.comicredr.crdb` inside a
+  folder book; both hidden. One under the old visible name
+  (`book.cbz.crdb`) is renamed on open, scan, reset or move
+  (`adoptLegacySidecar`), merged into the hidden one when both exist.
+  They hold metadata, panels and balloons, bookmarks, marks, collections
+  and per-device positions. Removed bookmarks stay removed
   when an older sidecar comes back. Unwritable folders fall back to the
   app database; Settings → Export sidecars writes them to a tree elsewhere.
   `X` (or Reset in the book's details) resets a comic: `SidecarSync.reset`
@@ -137,7 +140,7 @@ build internals, test scripts, detector work and conventions here.
   move them, merging into a sidecar already there. Anything that finds a
   book's sidecar goes through `SidecarSync.sidecarsOf`/`sidecarFor`.
   Inspect one with
-  `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
+  `sqlite3 '.book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
 - Bookmarks and vi marks are rows in `bookmarks` (mark null for a
   bookmark, panel null for a whole page). The reader follows the open
   book's rows through `LibraryStore.watchBookmarks`, so the list (`M`,
@@ -184,12 +187,15 @@ build internals, test scripts, detector work and conventions here.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
 - A page guided view shows whole (no panels that pass the gate) holds
-  for one step: the first step onward stays and plays a zoom cue (the
-  status line explains the first three; with reduced motion only the hint,
-  every time), the next one turns, however soon. Mirrored going back. A
-  page arrived on from the other side, a count (`3l`) and pages whose
-  panels are not known yet are not held (`_pauseOnWhole` in
-  `reader_notifier.dart`). `W` or Settings turns it off (`guided.pauseWhole`).
+  for one step: the first step onward stays and sets `ReaderState.held`,
+  the next one turns, however soon. Mirrored going back. The cue
+  (`guided.pauseCue`, `gw` cycles it) is the Scaffold background turning
+  `heldColour` (#3A0D16) in app.dart until the page is left, the default,
+  or ReaderView's zoom pulse (colour instead with reduced motion). The
+  status line explains the first three. A page arrived on from the other
+  side, a count (`3l`) and pages whose panels are not known yet are not
+  held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or Settings turns
+  it off (`guided.pauseWhole`).
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -255,6 +261,7 @@ tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked
 tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart, grid zoom with + and Ctrl+wheel kept across a restart
 tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
 tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
+tool/e2e_hidden_sidecars.sh   # sidecars written hidden; a fresh install renames old visible ones and merges a pair, keeping bookmarks and position; makes its own books
 tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
@@ -264,7 +271,7 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
-tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the zoom cue, keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks the trash, sidecars, index and thumbnails; makes its own books

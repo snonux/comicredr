@@ -37,6 +37,9 @@ class Device {
   Future<List<BookmarkInfo>> bookmarks(String key) => library.watchBookmarks(key).first;
 }
 
+/// Where the sidecar of the book at [book] goes: hidden, beside it.
+String hidden(String book) => sidecarPath(book, folder: false);
+
 void main() {
   late Directory tmp;
   late Device laptop;
@@ -85,17 +88,17 @@ void main() {
 
   test('the sidecar carries panels, marks and position to a device that never detected', () async {
     final (path, key) = await readOnLaptop();
-    expect(File('$path.crdb').existsSync(), isTrue);
+    expect(File(hidden(path)).existsSync(), isTrue);
 
     // Copied to the phone, and renamed on the way without its sidecar.
     final there = '${dir('phone').path}/dd-181.cbz';
     File(path).copySync(there);
-    File('$path.crdb').copySync('${dir('phone').path}/Daredevil 181 (1982).cbz.crdb');
+    File(hidden(path)).copySync('${dir('phone').path}/.Daredevil 181 (1982).cbz.crdb');
 
     final got = await phone.sync.attach(there, key, folder: false);
     expect(got.found, isTrue);
-    expect(File('$there.crdb').existsSync(), isTrue, reason: 'the orphan is re-linked by content key');
-    expect(File('${dir('phone').path}/Daredevil 181 (1982).cbz.crdb').existsSync(), isFalse);
+    expect(File(hidden(there)).existsSync(), isTrue, reason: 'the orphan is re-linked by content key');
+    expect(File('${dir('phone').path}/.Daredevil 181 (1982).cbz.crdb').existsSync(), isFalse);
 
     // The phone has classic CV only, and still gets the model's panels.
     final pages = await phone.panels.load(key, source: PanelSource.classicCv, version: classicCvVersion);
@@ -143,23 +146,73 @@ void main() {
     expect((await laptop.sync.attach(path, key, folder: false)).elsewhere, isNull);
 
     // Both devices' positions stay in the file.
-    expect(readSidecar('$path.crdb')!.progress, hasLength(2));
+    expect(readSidecar(hidden(path))!.progress, hasLength(2));
   });
 
   test('a removed bookmark stays removed when an older copy comes back', () async {
     final (path, key) = await readOnLaptop();
     final old = '${tmp.path}/old.crdb';
-    File('$path.crdb').copySync(old);
+    File(hidden(path)).copySync(old);
 
     final mm = (await laptop.bookmarks(key)).firstWhere((b) => b.mark == null);
     await laptop.library.deleteBookmark(mm.id);
     await laptop.sync.write(key);
 
-    File(old).copySync('$path.crdb'); // The phone's stale copy, copied back.
+    File(old).copySync(hidden(path)); // The phone's stale copy, copied back.
     await laptop.sync.attach(path, key, folder: false);
     expect((await laptop.bookmarks(key)).where((b) => b.mark == null), isEmpty);
     await laptop.sync.write(key);
-    expect(readSidecar('$path.crdb')!.bookmarks.where((b) => b.mark == null).single.deletedAt, isNotNull);
+    expect(readSidecar(hidden(path))!.bookmarks.where((b) => b.mark == null).single.deletedAt, isNotNull);
+  });
+
+  test('a sidecar under the old visible name is renamed to the hidden one and keeps everything', () async {
+    final (path, key) = await readOnLaptop();
+    final visible = '$path.crdb';
+    File(hidden(path)).renameSync(visible); // As an older app left it.
+
+    final got = await phone.sync.attach(path, key, folder: false);
+    expect(got.found, isTrue);
+    expect(File(visible).existsSync(), isFalse);
+    expect(File(hidden(path)).existsSync(), isTrue);
+    expect((await phone.progress.load(key))?.page, 2);
+    expect(await phone.marks.load(key), {'a': (page: 1, panel: 0)});
+  });
+
+  test('when both names exist they are merged into the hidden one', () async {
+    final (path, key) = await readOnLaptop();
+    final visible = '$path.crdb';
+    File(hidden(path)).copySync(visible);
+    // An older app on the phone went on writing the visible one.
+    await phone.sync.attach(path, key, folder: false);
+    await phone.marks.save(key, 'q', 3, 0);
+    await phone.progress.flush();
+    writeSidecar(visible, await phone.sync.gather(key), device: 'old-phone');
+
+    await laptop.sync.attach(path, key, folder: false);
+    expect(File(visible).existsSync(), isFalse);
+    expect(await laptop.marks.load(key), {'a': (page: 1, panel: 0), 'q': (page: 3, panel: 0)});
+    expect(readSidecar(hidden(path))!.progress, hasLength(2), reason: "the laptop's position and the phone's");
+  });
+
+  test('an orphan under the old visible name is re-linked to the renamed book', () async {
+    final (path, key) = await readOnLaptop();
+    final there = '${dir('phone').path}/dd-181.cbz';
+    File(path).copySync(there);
+    File(hidden(path)).copySync('${dir('phone').path}/Daredevil 181 (1982).cbz.crdb');
+
+    expect((await phone.sync.attach(there, key, folder: false)).found, isTrue);
+    expect(File(hidden(there)).existsSync(), isTrue);
+    expect(File('${dir('phone').path}/Daredevil 181 (1982).cbz.crdb').existsSync(), isFalse);
+  });
+
+  test('a reset also clears a sidecar still under the old visible name', () async {
+    final (path, key) = await readOnLaptop();
+    File(hidden(path)).renameSync('$path.crdb');
+
+    expect(await laptop.sync.reset(key, everything: true), isTrue);
+    expect(File('$path.crdb').existsSync(), isFalse);
+    await laptop.sync.attach(path, key, folder: false);
+    expect(await laptop.marks.load(key), isEmpty, reason: 'nothing merged back from the old name');
   });
 
   test('resetting panels finds them again and keeps bookmarks and every position', () async {
@@ -172,7 +225,7 @@ void main() {
 
     expect(await laptop.sync.reset(key, everything: false), isTrue);
     expect(await laptop.panels.load(key, source: PanelSource.classicCv, version: classicCvVersion), isEmpty);
-    var side = readSidecar('$path.crdb')!;
+    var side = readSidecar(hidden(path))!;
     expect(side.analysed, isEmpty);
     expect(side.panels, isEmpty);
     expect(side.progress, hasLength(2));
@@ -183,7 +236,7 @@ void main() {
     expect(await laptop.panels.load(key, source: PanelSource.classicCv, version: classicCvVersion), isEmpty);
     expect(await laptop.marks.load(key), {'a': (page: 1, panel: 0)});
     expect((await laptop.progress.load(key))?.page, 2);
-    side = readSidecar('$path.crdb')!;
+    side = readSidecar(hidden(path))!;
     expect(side.panels, isEmpty);
   });
 
@@ -200,7 +253,7 @@ void main() {
     expect(await laptop.marks.load(key), isEmpty);
     expect(await laptop.bookmarks(key), isEmpty);
     expect(await laptop.db.select(laptop.db.readLog).get(), isEmpty);
-    final side = readSidecar('$path.crdb')!;
+    final side = readSidecar(hidden(path))!;
     expect(side.panels, isEmpty);
     expect(side.bookmarks, isEmpty);
     expect(side.progress, isEmpty);
@@ -218,7 +271,7 @@ void main() {
   test('a folder that refuses the sidecar keeps everything in the index', () async {
     final path = writeBook(dir('share'), 'Swamp Thing 21.cbz', 3);
     final key = await contentKey(path);
-    Directory('$path.crdb').createSync(); // Something in the way that cannot be replaced.
+    Directory(hidden(path)).createSync(); // Something in the way that cannot be replaced.
     await laptop.sync.attach(path, key, folder: false);
     await laptop.marks.save(key, 'b', 2, 0);
     expect(await laptop.sync.write(key), isFalse);
@@ -347,12 +400,13 @@ void main() {
     // like the library.
     final out = '${tmp.path}/export';
     expect(await phone.sync.exportAll(out), 2);
-    expect(readSidecar('$out/Indie/Barefoot Bride.cbz.crdb')?.contentKey, keys[0]);
+    expect(readSidecar('$out/Indie/.Barefoot Bride.cbz.crdb')?.contentKey, keys[0]);
     expect(readSidecar('$out/Pepper Carrot e06/.comicredr.crdb')?.contentKey, keys[1]);
   });
 
   test('sidecar files are recognised for the folder watch to ignore', () {
-    expect(isSidecarFile('/c/Daredevil.cbz.crdb'), isTrue);
+    expect(isSidecarFile('/c/.Daredevil.cbz.crdb'), isTrue);
+    expect(isSidecarFile('/c/Daredevil.cbz.crdb'), isTrue, reason: 'the old visible name');
     expect(isSidecarFile('/c/.Daredevil.cbz.crdb.tmp'), isTrue);
     expect(isSidecarFile('/c/Preacher/.comicredr.crdb'), isTrue);
     expect(isSidecarFile('/c/Daredevil.cbz'), isFalse);
@@ -363,7 +417,7 @@ void main() {
     final key = await contentKey(path);
     await laptop.sync.attach(path, key, folder: false);
     await laptop.sync.write(key);
-    final side = File('$path.crdb');
+    final side = File(hidden(path));
     // Pretend a later version wrote it.
     sqlite3.open(side.path)
       ..execute('UPDATE meta SET schema_version = 99')
@@ -385,16 +439,16 @@ void main() {
         storedSidecarPath(book, folder: folder, dir: '/data/side', roots: roots);
     // The deepest root holding the book names it; two roots called Comics
     // are told apart by id.
-    expect(at('/home/me/Comics/Indie/Bride.cbz'), '/data/side/Comics-1/Indie/Bride.cbz.crdb');
-    expect(at('/home/me/Comics/Marvel/DD 181.cbz'), '/data/side/Marvel/DD 181.cbz.crdb');
+    expect(at('/home/me/Comics/Indie/Bride.cbz'), '/data/side/Comics-1/Indie/.Bride.cbz.crdb');
+    expect(at('/home/me/Comics/Marvel/DD 181.cbz'), '/data/side/Marvel/.DD 181.cbz.crdb');
     expect(at('/mnt/nas/Comics/Pepper', folder: true), '/data/side/Comics-3/Pepper/.comicredr.crdb');
     expect(at('/home/me/Comics/Marvel', folder: true), '/data/side/Marvel/.comicredr.crdb');
     // A book opened from outside the library keeps its full path.
-    expect(at('/tmp/Loose.pdf'), '/data/side/elsewhere/tmp/Loose.pdf.crdb');
+    expect(at('/tmp/Loose.pdf'), '/data/side/elsewhere/tmp/.Loose.pdf.crdb');
     // One root: its own name, no id.
     expect(
       storedSidecarPath('/a/Comics/x.cbz', folder: false, dir: '/s', roots: const [(id: 7, path: '/a/Comics')]),
-      '/s/Comics/x.cbz.crdb',
+      '/s/Comics/.x.cbz.crdb',
     );
   });
 
@@ -407,10 +461,10 @@ void main() {
     await laptop.sync.attach(path, key, folder: false);
     await laptop.marks.addBookmark(key, 2, null);
     expect(await laptop.sync.write(key), isTrue);
-    expect(File('$path.crdb').existsSync(), isFalse);
-    final stored = '${tmp.path}/side/Comics/Indie/Barefoot Bride.cbz.crdb';
+    expect(File(hidden(path)).existsSync(), isFalse);
+    final stored = '${tmp.path}/side/Comics/Indie/.Barefoot Bride.cbz.crdb';
     expect(readSidecar(stored)?.contentKey, key);
-    expect(await laptop.sync.sidecarsOf(path, folder: false), [stored, '$path.crdb']);
+    expect(await laptop.sync.sidecarsOf(path, folder: false), [stored, hidden(path)]);
 
     // The phone keeps its comics elsewhere but syncs the same folder.
     final there = writeBook(dir('phone/Comics/Indie'), 'Barefoot Bride.cbz', 3);
@@ -428,7 +482,7 @@ void main() {
     await laptop.sync.attach(path, key, folder: false);
     await laptop.marks.addBookmark(key, 1, null);
     await laptop.sync.write(key);
-    expect(File('$path.crdb').existsSync(), isTrue);
+    expect(File(hidden(path)).existsSync(), isTrue);
 
     await phone.library.addRoot(root.path);
     phone.store = '${tmp.path}/side';
@@ -436,7 +490,7 @@ void main() {
     expect((await phone.bookmarks(key)).single.page, 1);
     await phone.marks.save(key, 'q', 2, 0);
     expect(await phone.sync.write(key), isTrue);
-    final stored = readSidecar('${tmp.path}/side/Comics/Swamp Thing 21.cbz.crdb')!;
+    final stored = readSidecar('${tmp.path}/side/Comics/.Swamp Thing 21.cbz.crdb')!;
     expect(stored.bookmarks.map((b) => (b.page, b.mark)).toSet(), {(1, null), (2, 'q')});
   });
 
@@ -456,8 +510,8 @@ void main() {
     phone.store = '${tmp.path}/side';
     expect((await phone.sync.attach(renamed, key, folder: false)).found, isTrue);
     expect(await phone.marks.load(key), {'a': (page: 2, panel: 0)});
-    expect(File('${tmp.path}/side/Comics/Daredevil 181.cbz.crdb').existsSync(), isTrue);
-    expect(File('${tmp.path}/side/Comics/dd181.cbz.crdb').existsSync(), isFalse);
+    expect(File('${tmp.path}/side/Comics/.Daredevil 181.cbz.crdb').existsSync(), isTrue);
+    expect(File('${tmp.path}/side/Comics/.dd181.cbz.crdb').existsSync(), isFalse);
   });
 
   test('switching places moves the sidecars there and back, when asked', () async {
@@ -479,13 +533,15 @@ void main() {
       expect(await laptop.sync.write(b.key), isTrue);
     }
     final side = '${tmp.path}/side';
+    File(hidden(cbz)).renameSync('$cbz.crdb'); // Left by an older app: counted and moved too.
     expect(await laptop.sync.countIn(null), 2);
     expect(await laptop.sync.countIn(side), 0);
 
     expect(await laptop.sync.moveAll(from: null, to: side), 2);
+    expect(File(hidden(cbz)).existsSync(), isFalse);
     expect(File('$cbz.crdb').existsSync(), isFalse);
     expect(File('${folder.path}/.comicredr.crdb').existsSync(), isFalse);
-    expect(File('$side/Comics/Indie/Barefoot Bride.cbz.crdb').existsSync(), isTrue);
+    expect(File('$side/Comics/Indie/.Barefoot Bride.cbz.crdb').existsSync(), isTrue);
     expect(File('$side/Comics/Pepper Carrot e06/.comicredr.crdb').existsSync(), isTrue);
 
     // Meanwhile another install wrote one beside the CBZ: moving back
@@ -496,7 +552,7 @@ void main() {
     expect(await phone.sync.write(key), isTrue);
 
     expect(await laptop.sync.moveAll(from: side, to: null), 2);
-    expect(readSidecar('$cbz.crdb')?.bookmarks.map((b) => b.mark).toSet(), {null, 'z'});
+    expect(readSidecar(hidden(cbz))?.bookmarks.map((b) => b.mark).toSet(), {null, 'z'});
     expect(await laptop.sync.countIn(side), 0);
   });
 
@@ -511,11 +567,11 @@ void main() {
     laptop.store = '${tmp.path}/side';
     await laptop.marks.addBookmark(key, 2, null);
     await laptop.sync.write(key);
-    final stored = '${tmp.path}/side/Comics/Swamp Thing 21.cbz.crdb';
+    final stored = '${tmp.path}/side/Comics/.Swamp Thing 21.cbz.crdb';
     expect(readSidecar(stored)!.bookmarks, hasLength(2));
 
     expect(await laptop.sync.reset(key, everything: true), isTrue);
-    for (final at in [stored, '$path.crdb']) {
+    for (final at in [stored, hidden(path)]) {
       expect(readSidecar(at)?.bookmarks.where((b) => b.deletedAt == null) ?? [], isEmpty, reason: at);
     }
   });
