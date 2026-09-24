@@ -220,6 +220,11 @@ void main() {
       await settle(tester);
       expect(find.byKey(const Key('editDialog')), findsNothing);
       expect(find.text('3 books'), findsOneWidget, reason: 'Barefoot Bride joined The Spirit');
+      expect(
+        find.descendant(of: find.byKey(const Key('detail')), matching: find.text('3 books · 0 read')),
+        findsOneWidget,
+        reason: 'the selection followed the book into its new series',
+      );
       final bride = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!
           .firstWhere((b) => b.number == '3');
       expect((bride.series, bride.year), ('The Spirit', 1941));
@@ -227,7 +232,6 @@ void main() {
       expect(activeEdits(side!.overrides)[MetaField.series], 'The Spirit', reason: 'written beside the comic');
 
       // e on the series cover renames every book in it.
-      await key(tester, LogicalKeyboardKey.keyG, character: 'G');
       await key(tester, LogicalKeyboardKey.keyE, character: 'e');
       expect(find.byKey(const Key('renameSeriesDialog')), findsOneWidget);
       await tester.enterText(find.byKey(const Key('seriesName')), 'Spirit Section');

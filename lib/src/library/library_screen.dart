@@ -107,6 +107,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   final _searchFocus = FocusNode();
   final _scroll = ScrollController();
   String? _selected;
+  Set<String> _selectedBooks = const {}; // The keys of the books it stands for.
   bool _detail = false; // The narrow layout's full-screen detail page.
 
   // Grid geometry from the last layout, for keyboard movement.
@@ -251,6 +252,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     _reveal();
   }
 
+  static Set<String> _books(_Item? item) => switch (item) {
+    _BookItem(:final book) => {book.key},
+    _SeriesItem(:final series) => {for (final b in series.books) b.key},
+    _ => const {},
+  };
+
   /// Scrolls the selected cover into view.
   void _reveal() {
     final i = _items.indexWhere((it) => it.id == _selected);
@@ -370,7 +377,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       _detail = false;
     }
     _items = _itemsFor(books, roots ?? const []);
-    if (_selected != null && !_items.any((it) => it.id == _selected)) _selected = null;
+    if (_selected != null && !_items.any((it) => it.id == _selected)) {
+      // An edit moved the book to another series, or renamed its series:
+      // the selection follows the books.
+      _selected = _items.where((it) => _books(it).any(_selectedBooks.contains)).firstOrNull?.id;
+    }
+    _selectedBooks = _books(_items.where((it) => it.id == _selected).firstOrNull);
 
     final empty = roots != null && roots.isEmpty && books.isEmpty;
     return LayoutBuilder(
