@@ -1,12 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'src/app.dart';
+import 'src/data/data_dirs.dart';
 import 'src/input/keys_file.dart';
 import 'src/library/providers.dart';
 import 'src/providers.dart';
@@ -34,13 +35,17 @@ Future<void> main(List<String> args) async {
       book ??= args[i];
     }
   }
-  final cache = await getApplicationCacheDirectory();
+  // ~/Comics/.comicredr or the usual XDG folders; see appDirs.
+  final dirs = await appDirs();
+  await Directory(dirs.data).create(recursive: true);
+  final cache = await Directory(dirs.cache).create(recursive: true);
   final keys = await loadKeymap();
   runApp(
     ProviderScope(
       overrides: [
         coverDirProvider.overrideWithValue('${cache.path}/covers'),
         keymapLoadProvider.overrideWithValue(keys),
+        appDataDirProvider.overrideWithValue(dirs.data),
       ],
       child: ComicRedrApp(initialPath: book, addRoots: roots),
     ),

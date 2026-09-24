@@ -1,5 +1,6 @@
-# ComicRedr keys. Copy this file to ~/.config/comicredr/keys.toml
-# (on the phone: Android/data/org.snonux.comicredr/files/keys.toml)
+# ComicRedr keys. Copy this file to ~/.config/comicredr/keys.toml,
+# or ~/Comics/.comicredr/keys.toml when ComicRedr keeps its data there
+# (? says where; on the phone: Android/data/org.snonux.comicredr/files/keys.toml)
 # and keep only the lines you change: an action listed here replaces
 # all of its default keys, [] unbinds it, and actions left out keep
 # their defaults. Restart ComicRedr to load it; ? shows what is live.

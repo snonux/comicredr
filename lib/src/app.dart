@@ -673,6 +673,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     key: _overlay,
                     keymap: keymap,
                     keysFile: keysLoad.path,
+                    dataDir: ref.watch(appDataDirProvider),
                     warnings: keysLoad.load.warnings,
                     onDone: _keys.requestFocus,
                   ),
@@ -963,12 +964,22 @@ class _StatusLine extends StatelessWidget {
 /// cannot drift from the real keys. `/` searches it: fuzzy words, or a
 /// regular expression between slashes. Esc clears the search, then closes.
 class KeymapOverlay extends StatefulWidget {
-  const KeymapOverlay({super.key, required this.keymap, this.keysFile, this.warnings = const [], this.onDone});
+  const KeymapOverlay({
+    super.key,
+    required this.keymap,
+    this.keysFile,
+    this.dataDir,
+    this.warnings = const [],
+    this.onDone,
+  });
 
   final Keymap keymap;
 
   /// The `keys.toml` the keymap was read from, if there was one.
   final String? keysFile;
+
+  /// Where the app keeps its index, covers and thumbnails.
+  final String? dataDir;
 
   /// What was wrong in that file.
   final List<String> warnings;
@@ -1067,6 +1078,16 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: widget.warnings.isEmpty ? null : theme.colorScheme.error,
                     ),
+                  ),
+                ),
+              if (widget.dataDir case final dir?)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: Text(
+                    'Library, settings, covers and history are kept in $dir; '
+                    'everything else about a comic is in its sidecar.',
+                    key: const Key('app-data'),
+                    style: theme.textTheme.bodySmall,
                   ),
                 ),
               Expanded(

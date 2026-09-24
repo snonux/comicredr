@@ -47,7 +47,11 @@ failed=0
 check() { # check "what" actual expected
   if [[ "$2" == "$3" ]]; then echo "ok    $1: $2"; else echo "FAIL  $1: $2, expected $3"; failed=1; fi
 }
-db() { echo "$top/$out/$1/.local/share/org.snonux.comicredr/comicredr.sqlite"; }
+# A HOME that had ~/Comics at its first start keeps its database there.
+db() {
+  local c="$top/$out/$1/Comics/.comicredr/comicredr.sqlite"
+  [[ -f "$c" ]] && echo "$c" || echo "$top/$out/$1/.local/share/org.snonux.comicredr/comicredr.sqlite"
+}
 sql() { sqlite3 -batch -noheader "$(db "$1")" "$2"; }
 start() { # start home [args...]
   local home=$1; shift

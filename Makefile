@@ -6,7 +6,7 @@
 #   make install          per-user install under ~/.local, no sudo
 #   make uninstall        remove what make install put there
 #   make tarball          release build packed as build/comicredr-VERSION-linux-ARCH.tar.gz
-#   make keys             copy the default keymap to ~/.config/comicredr/keys.toml to edit
+#   make keys             copy the default keymap to keys.toml (KEYS below) to edit
 #   make fetch-model URL=url   download the detector model into the checkout
 #   make train-model      rebuild the detector model from free comics (hours, CPU)
 #   make model MODEL=path   put the detector model where the build packs it
@@ -37,7 +37,14 @@ EPOCHS  ?= 45
 BUNDLED_MODEL := assets/models/comicredr-panels.onnx
 # NO_MODEL=1 builds without it; the app then detects with classic CV.
 NO_MODEL ?=
-KEYS    ?= $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/comicredr/keys.toml
+# Where the app keeps its data (lib/src/data/data_dirs.dart): ~/Comics/.comicredr
+# when ~/Comics exists and there is no index database in the usual place yet.
+XDG_DATA := $(or $(XDG_DATA_HOME),$(HOME)/.local/share)
+APPDATA  ?= $(shell if [ ! -f "$(XDG_DATA)/$(APP_ID)/comicredr.sqlite" ] && [ ! -f "$(XDG_DATA)/comicredr/comicredr.sqlite" ] \
+              && [ -d "$(HOME)/Comics" ]; then echo "$(HOME)/Comics/.comicredr"; else echo "$(XDG_DATA)/$(APP_ID)"; fi)
+XDG_KEYS := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/comicredr/keys.toml
+# In ~/Comics/.comicredr unless only the old ~/.config one exists.
+KEYS    ?= $(if $(filter %/Comics/.comicredr,$(APPDATA)),$(if $(wildcard $(XDG_KEYS)),$(XDG_KEYS),$(APPDATA)/keys.toml),$(XDG_KEYS))
 
 ARCH := $(shell uname -m | sed -e 's/x86_64/x64/' -e 's/aarch64/arm64/')
 BUNDLE := build/linux/$(ARCH)/release/bundle
@@ -48,7 +55,7 @@ LIBDIR  := $(PREFIX)/lib/comicredr
 APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 ICON_SIZES := 16 24 32 48 64 128 256 512
-MODELDIR ?= $(HOME)/.local/share/$(APP_ID)/models
+MODELDIR ?= $(APPDATA)/models
 # Android. The release key lives outside the repository: same-key signing is
 # what lets a sideloaded update install over the old app and keep its data.
 KEYSTORE ?= $(HOME)/.config/comicredr/release.jks
@@ -118,7 +125,7 @@ uninstall:
 	rm -f $(DESTDIR)$(ICONDIR)/scalable/apps/$(APP_ID).svg
 	for s in $(ICON_SIZES); do rm -f $(DESTDIR)$(ICONDIR)/$${s}x$${s}/apps/$(APP_ID).png; done
 	$(MAKE) --no-print-directory _refresh
-	@echo "Uninstalled. Your reading progress and the model in ~/.local/share/$(APP_ID) are kept."
+	@echo "Uninstalled. Your reading progress and the model in $(APPDATA) are kept."
 
 # Let GNOME pick up the launcher, the icon and the "Open with" entries
 # straight away. Skipped when staging into DESTDIR; a package does it itself.

@@ -86,6 +86,17 @@ build internals, test scripts, detector work and conventions here.
   books are under it, the Folders tab opens at it (`HomeScreen._openPath`),
   adding it as a library folder unless one already holds it. `--add-root`
   only adds, so the e2e scripts start on the usual tab.
+- App data (`appDirs`, `lib/src/data/data_dirs.dart`): on Linux, when
+  `~/Comics` exists and there is no `comicredr.sqlite` in
+  `~/.local/share/org.snonux.comicredr` (or `$XDG_DATA_HOME`, or the old
+  executable-named folder), the index database, installed models,
+  `cache/` (covers, thumbnails) and `keys.toml` all go in
+  `~/Comics/.comicredr/`; otherwise the XDG folders as before. Decided at
+  every start from what is on disk, nothing migrated. `keys.toml` and
+  models in the XDG places are still read as a fallback, and the Makefile
+  (`APPDATA`, `MODELDIR`, `KEYS`) uses the same rule. The scanner skips
+  dot folders and the watcher ignores `.comicredr`. Android keeps its
+  private folders. `?` shows the folder (`appDataDirProvider`).
 - Every start, while the library has no folder at all, `~/Comics`
   (Android: `/storage/emulated/0/Comics`, once All files access is
   granted, also checked on resume) is added if it exists
@@ -108,7 +119,7 @@ build internals, test scripts, detector work and conventions here.
   puts it there). `make` and `make apk` refuse to build without it unless
   `NO_MODEL=1`. `findModel` (lib/src/reader/model_detector.dart) looks, in
   order, at `COMICREDR_MODEL=/path/to/file.onnx` (`none` forces classic
-  CV), a user-installed model in `~/.local/share/org.snonux.comicredr/models/`
+  CV), a user-installed model in the app data folder's `models/` (`~/Comics/.comicredr/models/` or `~/.local/share/org.snonux.comicredr/models/`)
   (`make install-model`; on the phone also
   `Android/data/org.snonux.comicredr/files/models/`, `make push-model`),
   then the built-in one. On Linux the built-in file is opened in place in
@@ -272,6 +283,7 @@ COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/We
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
+tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept; nothing else written, .comicredr not in the library; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 
