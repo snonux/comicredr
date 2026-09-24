@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 part 'app_database.g.dart';
 
@@ -23,6 +24,7 @@ class Books extends Table {
 }
 
 /// The same book can live at many paths, across roots.
+@DataClassName('BookFile')
 class Files extends Table {
   TextColumn get contentKey => text().references(Books, #contentKey)();
   IntColumn get rootId => integer()();
@@ -109,7 +111,16 @@ class ReadLog extends Table {
 
 @DriftDatabase(tables: [Books, Files, SeriesTable, Progress, Bookmarks, Panels, Overrides, ReadLog])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'comicredr'));
+  /// Lives in the app support directory (`~/.local/share/org.snonux.comicredr`
+  /// on Linux), not in Documents, which may not exist.
+  AppDatabase([QueryExecutor? executor])
+    : super(
+        executor ??
+            driftDatabase(
+              name: 'comicredr',
+              native: const DriftNativeOptions(databaseDirectory: getApplicationSupportDirectory),
+            ),
+      );
 
   @override
   int get schemaVersion => 1;

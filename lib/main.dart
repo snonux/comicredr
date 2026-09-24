@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'src/app.dart';
 
-void main() {
-  runApp(const ProviderScope(child: ComicRedrApp()));
+/// `comicredr [book.cbz]` opens the book straight away.
+void main(List<String> args) {
+  runApp(ProviderScope(child: ComicRedrApp(initialPath: args.isEmpty ? null : args.first)));
 }

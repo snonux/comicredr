@@ -7,10 +7,9 @@ decision here.
 
 ## Quick start on Fedora
 
-> **Current state (M2):** the app starts and the whole keymap is live, but it
-> cannot open a comic yet. Opening CBZ files arrives with the M3 reader. Until
-> then, every key you press shows up on screen as the command it resolved to,
-> which is how you can try the keymap today.
+> **Current state (M3):** CBZ files open and read in single-page or
+> two-page mode, with zoom, the full keymap, and resume. Guided view (M4),
+> PDF and folders (M6), and the library (M7) are still to come.
 
 ### 1. Install the build tools and Flutter
 
@@ -41,12 +40,34 @@ The `bundle/` directory is self-contained. Copy it anywhere, for example
 
 ### 3. Open a comic book
 
-*Arrives in M3.* The plan gives three ways to open a book without adding it
-to a library: press `o` for a file picker, drag a `.cbz` onto the window, or
-pass it on the command line (`comicredr ~/Comics/Daredevil\ 181.cbz`). PDFs
-and folders of page images follow in M6, and the browsable library in M7.
-To turn existing `.cbr` files into CBZ, see section 3 of the design plan.
-A `.cbr` that is really a ZIP will open as-is.
+Any of these opens a `.cbz` straight away, without adding it to a library:
+
+- pass it on the command line: `comicredr ~/Comics/Daredevil\ 181.cbz`
+- press `o`, or click **Open a comic**, for a file picker
+- drag the file onto the window
+
+The book reopens at the page where you left it, even after you rename or
+copy it, because progress is keyed on the file's content rather than its
+path. `]` and `[` open the next and previous book in the same folder. `Esc`
+closes the book.
+
+The file's first bytes decide how it is read, not its extension, so a `.cbr`
+that is really a ZIP opens as-is. PDFs and folders of images arrive in M6.
+
+#### The CBR files you already have
+
+A genuine RAR is refused with a message pointing here. Convert it once to
+CBZ. This takes a couple of seconds a book, and the CBZ opens faster:
+
+```sh
+sudo dnf install unar zip
+for f in *.cbr; do
+  d=$(mktemp -d)
+  unar -q -o "$d" "$f"
+  (cd "$d" && zip -qr0 "$OLDPWD/${f%.cbr}.cbz" .)
+  rm -rf "$d"
+done
+```
 
 ### 4. Navigate
 
@@ -61,27 +82,30 @@ table the app binds from.
 | Next / previous page, skipping panels | `PgDn` `PgUp` | `Ctrl+f` `Ctrl+b` |
 | Pan, or scroll in continuous mode | `↓` `↑` | `j` `k`, `Ctrl+d` `Ctrl+u` for half a screen |
 | First / last page | `Home` `End` | `gg` `G`, and `42G` goes to page 42 |
-| Guided view on and off (returns to the mode you left) | | `v` |
-| Cycle single, double, continuous and guided | `Tab` `Shift+Tab` | |
-| Spread on and off / shift the spread pairing | | `d` / `D` |
+| Guided view on and off (M4) | | `v` |
+| Switch between single page and spread | `Tab` `Shift+Tab` | `d` |
+| Shift the spread pairing by one page | | `D` |
 | Fit width, height or whole page | | `zw` `zh` `zz` |
 | Zoom in, out, reset | `+` `-` `=` | |
-| Fullscreen | `F11` | `f` |
-| Bookmark here / set mark a–z / jump to mark / jump back | | `mm` / `ma` / `'a` / `''` |
-| Search, next and previous match | | `/` `n` `N` |
-| Next / previous book in the series | | `]` `[` |
-| Back out one level, or cancel a half-typed key | `Esc` | |
+| Hide the status line (and system bars on Android) | `F11` | `f` |
+| Night filter | | `i` |
+| Set mark a–z / jump to mark / jump back | | `ma` / `'a` / `''` |
+| Next / previous book in the same folder (the series, once the library lands in M7) | | `]` `[` |
+| Close the book, or cancel a half-typed key | `Esc` | |
+| Open a file | | `o` |
 
-A count in front of a key repeats it: `5l` moves five panels, and
-`3 Ctrl+f` turns three pages. A half-typed sequence such as `g` or `4z`
+A count in front of a key repeats it: `5l` moves five pages (five panels
+once guided view lands), and `3 Ctrl+f` turns three pages. Marks last while
+the book is open for now; saved bookmarks arrive with sidecars in M8. A key
+whose feature has not landed yet says so on the status line. A half-typed sequence such as `g` or `4z`
 shows in the bottom-right corner. It is dropped if you don't finish it
 within 600 ms.
 
 ## Layout
 
 ```
-lib/                      Flutter app (M2 shell: keyboard layer, Riverpod, Drift index)
-packages/comic_formats    ComicDocument interface, magic-byte sniffing, natural sort
+lib/                      Flutter app: reader screen, page cache, keyboard layer, Drift index
+packages/comic_formats    ComicDocument, the CBZ adapter and its worker isolate, sniffing, sort
 packages/comic_analysis   Panel model, reading order, the guided-view confidence gate
 packages/reader_input     ReaderIntents, default keymap, vi key-sequence resolver
 spike/                    M1 throwaway: classic-CV panel detection and overlays
@@ -94,6 +118,7 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done
+tool/e2e_linux.sh        # release build under Xvfb, driven by real keys, screenshots in build/e2e/
 ```
 
 ## M1 detection spike
