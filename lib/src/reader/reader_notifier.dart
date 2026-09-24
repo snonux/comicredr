@@ -206,6 +206,7 @@ final sidecarSyncProvider = Provider<SidecarSync>((ref) {
     progress: ref.watch(progressStoreProvider),
     coverDir: ref.watch(coverDirProvider),
     writeAllowed: () async => await settings.loadBool(SettingsStore.writeSidecars).catchError((_) => null) ?? true,
+    storeDir: () => settings.loadString(SettingsStore.sidecarDir),
   );
   ref.onDispose(sync.flush);
   return sync;

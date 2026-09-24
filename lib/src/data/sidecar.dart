@@ -18,6 +18,50 @@ import 'app_database.dart';
 String sidecarPath(String bookPath, {required bool folder}) =>
     folder ? p.join(bookPath, folderSidecarName) : '$bookPath$sidecarExtension';
 
+/// Where the sidecar of the book at [bookPath] goes when the person keeps
+/// every sidecar in one folder, [dir], instead of beside the comics (the
+/// Settings choice). The folder is laid out like the library, as "Export
+/// sidecars" lays it out: `Comics/Marvel/Daredevil 181.cbz` under the root
+/// `/home/me/Comics` gets `dir/Comics/Marvel/Daredevil 181.cbz.crdb`. Each
+/// root is named by its folder's name, so a laptop and a phone with their
+/// comics in different places still agree; two roots with the same name
+/// get their id added. A book in no root (one opened from anywhere) goes
+/// under `dir/elsewhere/` by its full path.
+String storedSidecarPath(
+  String bookPath, {
+  required bool folder,
+  required String dir,
+  required List<({int id, String path})> roots,
+}) {
+  ({int id, String path})? root;
+  for (final r in roots) {
+    if (!(p.equals(r.path, bookPath) || p.isWithin(r.path, bookPath))) continue;
+    if (root == null || r.path.length > root.path.length) root = r;
+  }
+  final String at;
+  if (root == null) {
+    at = p.join(dir, 'elsewhere', p.relative(p.absolute(bookPath), from: p.rootPrefix(p.absolute(bookPath))));
+  } else {
+    final name = rootLabel(root, roots);
+    final rel = p.relative(bookPath, from: root.path);
+    at = rel == '.' ? p.join(dir, name) : p.join(dir, name, rel);
+  }
+  return sidecarPath(at, folder: folder);
+}
+
+/// The name a library root's folder has under a sidecar folder: its own
+/// name, with its id when another root shares it.
+String rootLabel(({int id, String path}) root, List<({int id, String path})> roots) {
+  String name(String path) {
+    final n = p.basename(p.normalize(path));
+    return n.isEmpty || n == p.separator ? 'root' : n;
+  }
+
+  final mine = name(root.path);
+  final shared = roots.where((r) => name(r.path) == mine).length > 1;
+  return shared ? '$mine-${root.id}' : mine;
+}
+
 const sidecarExtension = '.crdb';
 const folderSidecarName = '.comicredr.crdb';
 
@@ -435,19 +479,24 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
 /// without it: a `.crdb` in the same folder whose own book is gone and
 /// whose content key is [contentKey]. Renames it to go with the book and
 /// returns true. The comic is never touched.
-bool relinkOrphan(String bookPath, String contentKey) {
-  final want = sidecarPath(bookPath, folder: false);
+///
+/// With [sidecar], the book's sidecar lives there instead of beside it (a
+/// sidecar folder laid out like the library), and the orphan is looked for
+/// beside that: a sidecar there belongs to the book of the same name in
+/// [bookPath]'s folder.
+bool relinkOrphan(String bookPath, String contentKey, {String? sidecar}) {
+  final want = sidecar ?? sidecarPath(bookPath, folder: false);
   if (File(want).existsSync()) return false;
   final List<FileSystemEntity> entries;
   try {
-    entries = Directory(p.dirname(bookPath)).listSync(followLinks: false);
+    entries = Directory(p.dirname(want)).listSync(followLinks: false);
   } on FileSystemException {
     return false;
   }
   for (final e in entries) {
     final name = p.basename(e.path);
     if (e is! File || !name.endsWith(sidecarExtension) || name == folderSidecarName) continue;
-    final book = e.path.substring(0, e.path.length - sidecarExtension.length);
+    final book = p.join(p.dirname(bookPath), name.substring(0, name.length - sidecarExtension.length));
     if (FileSystemEntity.typeSync(book) != FileSystemEntityType.notFound) continue; // Not an orphan.
     if (readSidecar(e.path)?.contentKey != contentKey) continue;
     try {
@@ -458,4 +507,31 @@ bool relinkOrphan(String bookPath, String contentKey) {
     }
   }
   return false;
+}
+
+/// Moves the sidecar at [from] to [to], making [to]'s folder. A rename when
+/// both are on one disk, a copy and a delete otherwise. Leaves [from] alone
+/// when [to] is there already or cannot be written; returns whether it
+/// moved.
+bool moveSidecar(String from, String to) {
+  final src = File(from);
+  if (!src.existsSync() || File(to).existsSync() || p.equals(from, to)) return false;
+  try {
+    Directory(p.dirname(to)).createSync(recursive: true);
+    try {
+      src.renameSync(to);
+    } on FileSystemException {
+      final tmp = p.join(p.dirname(to), '.${p.basename(to)}.tmp');
+      src.copySync(tmp);
+      File(tmp).renameSync(to);
+      try {
+        src.deleteSync();
+      } on FileSystemException {
+        // A read-only folder: the copy is the one read first from now on.
+      }
+    }
+    return true;
+  } on FileSystemException {
+    return false;
+  }
 }

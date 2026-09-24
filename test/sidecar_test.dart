@@ -20,8 +20,11 @@ import 'support/fixtures.dart';
 class Device {
   Device() : db = AppDatabase(NativeDatabase.memory()) {
     progress = ProgressStore(db, debounce: Duration.zero);
-    sync = SidecarSync(db, progress: progress, debounce: Duration.zero);
+    sync = SidecarSync(db, progress: progress, debounce: Duration.zero, storeDir: () async => store);
   }
+
+  /// The sidecar folder setting: null keeps sidecars beside the comics.
+  String? store;
 
   final AppDatabase db;
   late final ProgressStore progress;
@@ -316,5 +319,123 @@ void main() {
     await laptop.sync.write(key);
     expect(side.lastModifiedSync(), stamp);
     expect(readSidecar(side.path)?.schemaVersion, 99);
+  });
+
+  test('a sidecar folder is laid out like the library, by root name', () {
+    const roots = [
+      (id: 1, path: '/home/me/Comics'),
+      (id: 2, path: '/home/me/Comics/Marvel'),
+      (id: 3, path: '/mnt/nas/Comics'),
+    ];
+    String at(String book, {bool folder = false}) =>
+        storedSidecarPath(book, folder: folder, dir: '/data/side', roots: roots);
+    // The deepest root holding the book names it; two roots called Comics
+    // are told apart by id.
+    expect(at('/home/me/Comics/Indie/Bride.cbz'), '/data/side/Comics-1/Indie/Bride.cbz.crdb');
+    expect(at('/home/me/Comics/Marvel/DD 181.cbz'), '/data/side/Marvel/DD 181.cbz.crdb');
+    expect(at('/mnt/nas/Comics/Pepper', folder: true), '/data/side/Comics-3/Pepper/.comicredr.crdb');
+    expect(at('/home/me/Comics/Marvel', folder: true), '/data/side/Marvel/.comicredr.crdb');
+    // A book opened from outside the library keeps its full path.
+    expect(at('/tmp/Loose.pdf'), '/data/side/elsewhere/tmp/Loose.pdf.crdb');
+    // One root: its own name, no id.
+    expect(
+      storedSidecarPath('/a/Comics/x.cbz', folder: false, dir: '/s', roots: const [(id: 7, path: '/a/Comics')]),
+      '/s/Comics/x.cbz.crdb',
+    );
+  });
+
+  test('with a sidecar folder nothing is written beside the comics, and another install reads it', () async {
+    final root = dir('Comics');
+    final path = writeBook(dir('Comics/Indie'), 'Barefoot Bride.cbz', 3);
+    final key = await contentKey(path);
+    await laptop.library.addRoot(root.path);
+    laptop.store = '${tmp.path}/side';
+    await laptop.sync.attach(path, key, folder: false);
+    await laptop.marks.addBookmark(key, 2, null);
+    expect(await laptop.sync.write(key), isTrue);
+    expect(File('$path.crdb').existsSync(), isFalse);
+    final stored = '${tmp.path}/side/Comics/Indie/Barefoot Bride.cbz.crdb';
+    expect(readSidecar(stored)?.contentKey, key);
+    expect(await laptop.sync.sidecarsOf(path, folder: false), [stored, '$path.crdb']);
+
+    // The phone keeps its comics elsewhere but syncs the same folder.
+    final there = writeBook(dir('phone/Comics/Indie'), 'Barefoot Bride.cbz', 3);
+    await phone.library.addRoot('${tmp.path}/phone/Comics');
+    phone.store = '${tmp.path}/side';
+    expect((await phone.sync.attach(there, key, folder: false)).found, isTrue);
+    expect((await phone.bookmarks(key)).single.page, 2);
+  });
+
+  test('with a sidecar folder, one left beside the comic is still read and merged', () async {
+    final root = dir('Comics');
+    final path = writeBook(root, 'Swamp Thing 21.cbz', 3);
+    final key = await contentKey(path);
+    // Written beside the comic first, as before the setting.
+    await laptop.sync.attach(path, key, folder: false);
+    await laptop.marks.addBookmark(key, 1, null);
+    await laptop.sync.write(key);
+    expect(File('$path.crdb').existsSync(), isTrue);
+
+    await phone.library.addRoot(root.path);
+    phone.store = '${tmp.path}/side';
+    await phone.sync.attach(path, key, folder: false);
+    expect((await phone.bookmarks(key)).single.page, 1);
+    await phone.marks.save(key, 'q', 2, 0);
+    expect(await phone.sync.write(key), isTrue);
+    final stored = readSidecar('${tmp.path}/side/Comics/Swamp Thing 21.cbz.crdb')!;
+    expect(stored.bookmarks.map((b) => (b.page, b.mark)).toSet(), {(1, null), (2, 'q')});
+  });
+
+  test('a comic renamed in the library finds its sidecar in the sidecar folder', () async {
+    final root = dir('Comics');
+    final path = writeBook(root, 'dd181.cbz', 3);
+    final key = await contentKey(path);
+    await laptop.library.addRoot(root.path);
+    laptop.store = '${tmp.path}/side';
+    await laptop.sync.attach(path, key, folder: false);
+    await laptop.marks.save(key, 'a', 2, 0);
+    await laptop.sync.write(key);
+
+    final renamed = '${root.path}/Daredevil 181.cbz';
+    File(path).renameSync(renamed);
+    await phone.library.addRoot(root.path);
+    phone.store = '${tmp.path}/side';
+    expect((await phone.sync.attach(renamed, key, folder: false)).found, isTrue);
+    expect(await phone.marks.load(key), {'a': (page: 2, panel: 0)});
+    expect(File('${tmp.path}/side/Comics/Daredevil 181.cbz.crdb').existsSync(), isTrue);
+    expect(File('${tmp.path}/side/Comics/dd181.cbz.crdb').existsSync(), isFalse);
+  });
+
+  test('switching places moves the sidecars there and back, when asked', () async {
+    final root = dir('Comics');
+    final cbz = writeBook(dir('Comics/Indie'), 'Barefoot Bride.cbz', 3);
+    final folder = dir('Comics/Pepper Carrot e06');
+    for (var i = 1; i <= 2; i++) {
+      File('${folder.path}/p$i.png').writeAsBytesSync([...png, i]);
+    }
+    await laptop.library.addRoot(root.path);
+    await LibraryScanner(
+      laptop.library,
+      coverDir: '${tmp.path}/covers',
+      workers: 1,
+      onBookRead: (path, key, {required folder}) => laptop.sync.attach(path, key, folder: folder),
+    ).scan();
+    for (final b in await laptop.library.books()) {
+      await laptop.marks.addBookmark(b.key, 1, null);
+      expect(await laptop.sync.write(b.key), isTrue);
+    }
+    final side = '${tmp.path}/side';
+    expect(await laptop.sync.countIn(null), 2);
+    expect(await laptop.sync.countIn(side), 0);
+
+    expect(await laptop.sync.moveAll(from: null, to: side), 2);
+    expect(File('$cbz.crdb').existsSync(), isFalse);
+    expect(File('${folder.path}/.comicredr.crdb').existsSync(), isFalse);
+    expect(File('$side/Comics/Indie/Barefoot Bride.cbz.crdb').existsSync(), isTrue);
+    expect(File('$side/Comics/Pepper Carrot e06/.comicredr.crdb').existsSync(), isTrue);
+
+    expect(await laptop.sync.moveAll(from: side, to: null), 2);
+    expect(readSidecar('$cbz.crdb')?.bookmarks, hasLength(1));
+    expect(await laptop.sync.countIn(side), 0);
   });
 }
