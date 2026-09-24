@@ -1,5 +1,8 @@
 import 'dart:typed_data';
 
+/// A part of a page, as fractions (0..1) of its width and height.
+typedef PageRegion = ({double left, double top, double width, double height});
+
 /// A page for the UI to decode: encoded image bytes (JPEG, PNG, WebP), or
 /// raw BGRA pixels when [bgra] is set.
 ///
@@ -7,7 +10,7 @@ import 'dart:typed_data';
 /// downscaling to Flutter's native decoder; PDF renders at the target size
 /// into raw pixels and fills in [width] and [height].
 class PageImage {
-  const PageImage(this.bytes, {this.width, this.height, this.bgra = false})
+  const PageImage(this.bytes, {this.width, this.height, this.bgra = false, this.region})
     : assert(!bgra || (width != null && height != null));
 
   final Uint8List bytes;
@@ -17,6 +20,10 @@ class PageImage {
   /// Whether [bytes] are raw pixels, 4 bytes each in B, G, R, A order, row
   /// after row, rather than an encoded image.
   final bool bgra;
+
+  /// The part of the page these pixels show, when a source was asked for a
+  /// region and drew only that; null for the whole page.
+  final PageRegion? region;
 }
 
 /// Metadata embedded in the book: ComicInfo.xml for archives and folders,
@@ -57,7 +64,12 @@ abstract interface class ComicDocument {
   /// Page [index] at roughly [targetWidth] x [targetHeight] device pixels.
   /// Sources that render (PDF) fit the page inside that box; sources that
   /// store images return them as stored.
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight});
+  ///
+  /// With a [region], sources that render may draw only that part of the
+  /// page, at the scale the whole page would have in the box, and say so in
+  /// [PageImage.region]; a zoomed-in view then never needs the whole page
+  /// at that scale. Other sources ignore it.
+  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region});
 
   /// The page's original encoded bytes, or null where there are none (PDF).
   Future<Uint8List?> rawPage(int index);

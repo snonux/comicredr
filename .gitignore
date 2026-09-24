@@ -67,3 +67,4 @@ __pycache__/
 # The detector model is packed into the app from here but not committed:
 # it starts from a Manga109-trained model (README, step 7).
 /assets/models/*.onnx
+packages/*/build/
