@@ -97,8 +97,9 @@ failed=0
 check() { # check "what" actual expected
   if [[ "$2" == "$3" ]]; then echo "ok    $1: $2"; else echo "FAIL  $1: $2, expected $3"; failed=1; fi
 }
-# The page area, without the status line whose title differs per file.
-page_of() { convert "$out/shot_$1.png" -crop 1280x820+0+0 +repage "$out/crop_$1.png"; }
+# The page area, above the status line whose title differs per file (the
+# window is 1280x720, the status line its bottom 55 pixels).
+page_of() { convert "$out/shot_$1.png" -crop 1280x660+0+0 +repage "$out/crop_$1.png"; }
 same() { # same "what" shotA shotB
   page_of "$2"; page_of "$3"
   local diff

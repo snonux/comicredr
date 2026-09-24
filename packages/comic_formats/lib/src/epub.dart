@@ -58,7 +58,7 @@ class EpubDocument implements ComicDocument {
         RegExp(r'''name\s*=\s*["']fixed-layout["']\s+content\s*=\s*["']true''').hasMatch(opf);
 
     final pages = <ArchiveFile>[];
-    var pageItems = 0, mixed = 0;
+    var pageItems = 0, mixed = 0, cut = 0;
     for (final item in spine) {
       if (item.mediaType.startsWith('image/') || isPageEntry(item.path)) {
         final f = files[item.path];
@@ -86,14 +86,17 @@ class EpubDocument implements ComicDocument {
       } else {
         // Paragraphs beside a picture, or a page cut into pictures.
         mixed++;
+        if (images.length > 1) cut++;
         continue;
       }
       pageItems++;
     }
     if (pages.isEmpty || pageItems * 2 < spine.length || mixed * 10 > pageItems + mixed) {
+      // The status line shows the start of this, so the reason comes first.
+      final what = cut * 2 > mixed ? 'text beside cut-out pictures' : 'a text ebook';
       throw FormatException(
-        'This EPUB is not made of page images, so it is not a comic ComicRedr can read '
-        '($pageItems of ${spine.length} parts are page images; $mixed mix text and pictures)',
+        'Not a comic EPUB, $what rather than page images '
+        '($pageItems of ${spine.length} parts are page images)',
       );
     }
 

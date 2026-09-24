@@ -188,7 +188,7 @@ void main() {
     });
     expect(
       () => openDocument(path),
-      throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('not made of page images'))),
+      throwsA(isA<FormatException>().having((e) => e.message, 'message', contains('Not a comic EPUB, a text ebook'))),
     );
     expect(() => BackgroundDocument.open(path), throwsA(isA<FormatException>()));
   });
