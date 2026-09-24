@@ -7,6 +7,7 @@ import 'package:reader_input/reader_input.dart';
 
 import '../data/panel_store.dart';
 import '../data/progress_store.dart';
+import '../data/read_log_store.dart';
 import '../data/settings_store.dart';
 import '../data/sidecar.dart';
 import '../data/sidecar_sync.dart';
@@ -183,10 +184,13 @@ final progressStoreProvider = Provider<ProgressStore>((ref) {
 /// The sidecars beside the books. Pending writes go out when the app is
 /// disposed.
 final sidecarSyncProvider = Provider<SidecarSync>((ref) {
+  final settings = ref.watch(settingsStoreProvider);
   final sync = SidecarSync(
     ref.watch(databaseProvider),
     progress: ref.watch(progressStoreProvider),
     coverDir: ref.watch(coverDirProvider),
+    writeAllowed: () async =>
+        await settings.loadBool(SettingsStore.writeSidecars).catchError((_) => null) ?? true,
   );
   ref.onDispose(sync.flush);
   return sync;
@@ -204,6 +208,8 @@ class PositionOfferNotifier extends Notifier<PositionOffer?> {
 
   void set(PositionOffer? offer) => state = offer;
 }
+
+final readLogStoreProvider = Provider<ReadLogStore>((ref) => ReadLogStore(ref.watch(databaseProvider)));
 
 final panelStoreProvider = Provider<PanelStore>((ref) => PanelStore(ref.watch(databaseProvider)));
 
@@ -230,6 +236,22 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// position; and the saved one for the screen to restore on open.
   ViewSpot? _view;
   ViewSpot? _restoreView;
+
+  /// The sitting under way, for reading history: when the book was opened
+  /// (or the app came back) and the pages shown since.
+  ({String key, DateTime start, Set<int> pages})? _sitting;
+
+  /// Ends the sitting under way and logs it.
+  Future<void> _endSitting() async {
+    final s = _sitting;
+    _sitting = null;
+    if (s == null) return;
+    try {
+      await ref.read(readLogStoreProvider).record(s.key, s.start, DateTime.now(), s.pages.length);
+    } catch (e) {
+      debugPrint('Could not log the sitting: $e');
+    }
+  }
 
   /// Pages waiting for detection, and whether the worker loop is running.
   final _wanted = <int>{};
@@ -304,6 +326,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         .set(
           at == null && side?.elsewhere != null ? (path: book.path, contentKey: book.key, at: side!.elsewhere!) : null,
         );
+    _sitting = (key: book.key, start: DateTime.now(), pages: <int>{});
     // Opening a book counts as reading it: the library's Reading tab lists
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
@@ -345,6 +368,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final book = state.book;
     if (book == null) return;
     await _progress.flush();
+    await _endSitting();
     _wanted.clear();
     _view = _restoreView = null;
     state = ReaderState(
@@ -375,6 +399,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   void _saveProgress(OpenBook book) {
+    if (_sitting case final s? when s.key == book.key) s.pages.addAll(state.unit);
     // The panel and balloon as asked for, not as resolved: detection may not
     // have reached the page yet, and they resolve the same way on reopen.
     _progress.save(
@@ -731,6 +756,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// Saves the position and writes pending sidecars: on pause and exit.
   Future<void> flush() async {
     await _progress.flush();
+    // The app may not come back: log the sitting, and start a new one that
+    // a quick return joins back onto.
+    if (_sitting case final s?) {
+      await _endSitting();
+      if (state.book?.key == s.key) _sitting = (key: s.key, start: DateTime.now(), pages: <int>{});
+    }
     await _sidecars.flush();
   }
 }

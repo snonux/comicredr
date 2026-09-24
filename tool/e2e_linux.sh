@@ -24,7 +24,10 @@ out=build/e2e
 rm -rf "$out" && mkdir -p "$out/Comics" "$out/home"
 
 if [[ $# -gt 0 ]]; then
-  book="$1"
+  # A copy, so a sidecar left beside the book by an earlier run never
+  # changes where it opens, and the original is never written to.
+  cp -r "$1" "$out/Comics/"
+  book="$PWD/$out/Comics/$(basename "$1")"
 else
   python3 spike/make_synthetic.py --out "$out/src" --per-kind 2 >/dev/null
   python3 - "$out" <<'EOF'

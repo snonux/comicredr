@@ -33,3 +33,5 @@ final rootsProvider = StreamProvider<List<RootInfo>>((ref) => ref.watch(libraryS
 final bookmarksProvider = StreamProvider.family<List<BookmarkInfo>, String>(
   (ref, key) => ref.watch(libraryStoreProvider).watchBookmarks(key),
 );
+
+final historyProvider = StreamProvider<List<HistoryEntry>>((ref) => ref.watch(libraryStoreProvider).watchHistory());
