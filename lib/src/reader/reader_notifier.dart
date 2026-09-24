@@ -37,6 +37,7 @@ class ReaderState {
     this.fullscreen = false,
     this.night = false,
     this.trim = false,
+    this.cleanUp = false,
     this.panels = const {},
     this.marks = const {},
     this.jumpedFrom,
@@ -78,6 +79,11 @@ class ReaderState {
   /// Auto-trim: scanned margins are cut off each page (`t`). A setting,
   /// like [night], remembered across books and restarts.
   final bool trim;
+
+  /// Scan clean-up (`c`): yellowed paper whitened, faded ink darkened, and
+  /// pages with fewer pixels than the screen enlarged and sharpened. A
+  /// setting like [trim]; detection still sees the page as scanned.
+  final bool cleanUp;
 
   /// Detection results for this book's pages; a page not in here has not
   /// been analysed yet.
@@ -163,6 +169,7 @@ class ReaderState {
     bool? fullscreen,
     bool? night,
     bool? trim,
+    bool? cleanUp,
     Map<int, PagePanels>? panels,
     Map<String, Place>? marks,
     Place? jumpedFrom,
@@ -182,6 +189,7 @@ class ReaderState {
     fullscreen: fullscreen ?? this.fullscreen,
     night: night ?? this.night,
     trim: trim ?? this.trim,
+    cleanUp: cleanUp ?? this.cleanUp,
     panels: panels ?? this.panels,
     marks: marks ?? this.marks,
     jumpedFrom: jumpedFrom ?? this.jumpedFrom,
@@ -309,6 +317,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         state.wholePageSteps;
     final night = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.night)) ?? state.night;
     final trim = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.autoTrim)) ?? state.trim;
+    final cleanUp =
+        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.cleanUp)) ?? state.cleanUp;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -334,6 +344,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       fullscreen: state.fullscreen,
       night: night,
       trim: trim,
+      cleanUp: cleanUp,
       panels: {
         for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons, value.trim),
       },
@@ -403,6 +414,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       fullscreen: state.fullscreen,
       night: state.night,
       trim: state.trim,
+      cleanUp: state.cleanUp,
     );
     await book.doc.close();
     // Off the way of whatever opens next; flush() on exit waits for it.
@@ -761,6 +773,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final on = !state.trim;
         state = state.copyWith(trim: on, message: on ? 'Auto-trim: margins cut' : 'Auto-trim off: whole pages');
         _saveSetting(SettingsStore.autoTrim, on);
+      case ReaderIntent.cleanUp:
+        final on = !state.cleanUp;
+        state = state.copyWith(
+          cleanUp: on,
+          message: on
+              ? 'Clean-up on: paper whitened, ink darkened, small pages sharpened'
+              : 'Clean-up off: pages as scanned',
+        );
+        _saveSetting(SettingsStore.cleanUp, on);
       case ReaderIntent.panDown:
       case ReaderIntent.panUp:
       case ReaderIntent.fitWidth:

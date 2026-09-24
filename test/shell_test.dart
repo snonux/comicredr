@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/progress_store.dart';
@@ -212,6 +213,44 @@ void main() {
     await open(tester, c, path);
     expect(c.read(readerProvider).trim, isTrue);
     expect(c.read(readerProvider).night, isTrue);
+  });
+
+  testWidgets('c cleans up an old scan: whiter paper, a sharper page, kept for the next book', (tester) async {
+    // A faded scan: grey paper, grey ink, and fewer pixels than the screen.
+    final px = Uint8List(200 * 300);
+    for (var i = 0; i < px.length; i++) {
+      px[i] = (i ~/ 200) % 6 == 0 ? 90 : 205;
+    }
+    final page = encodeGrayPng(200, 300, px);
+    final path = writeBookOf(tmp, 'Faded.cbz', [page, page]);
+    final c = await pumpApp(tester);
+    await open(tester, c, path);
+    CustomPaint shown() => tester.widget<CustomPaint>(find.byKey(const Key('page-image')));
+    expect((shown().painter! as dynamic).levels.isNone as bool, isTrue);
+    expect((shown().painter! as dynamic).image.width as int, 200);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC, character: 'c');
+    await settle(tester);
+    await settle(tester);
+    expect(c.read(readerProvider).cleanUp, isTrue);
+    expect(status(tester), contains('Clean-up on'));
+    final levels = (shown().painter! as dynamic).levels as Levels;
+    expect(levels.apply(205, 205, 205).$1, greaterThan(250), reason: 'the paper goes white');
+    expect(levels.apply(90, 90, 90).$1, lessThan(80), reason: 'the ink darker');
+    expect((shown().painter! as dynamic).image.width as int, 400, reason: 'enlarged twice over, no more');
+
+    await tester.runAsync(() => c.read(readerProvider.notifier).close());
+    await open(tester, c, path);
+    expect(c.read(readerProvider).cleanUp, isTrue);
+    await settle(tester);
+    expect((shown().painter! as dynamic).levels.isNone as bool, isFalse);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyC, character: 'c');
+    await settle(tester);
+    await settle(tester);
+    expect(status(tester), contains('Clean-up off'));
+    expect((shown().painter! as dynamic).levels.isNone as bool, isTrue);
+    expect((shown().painter! as dynamic).image.width as int, 200);
   });
 
   testWidgets('keys.toml remaps keys, and ? names the file and its problems', (tester) async {

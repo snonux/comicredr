@@ -73,6 +73,7 @@ class Keymap {
       Binding(['='], ReaderIntent.zoomReset, layer: s),
       Binding(['t'], ReaderIntent.autoTrim),
       Binding(['i'], ReaderIntent.nightFilter),
+      Binding(['c'], ReaderIntent.cleanUp),
       Binding(['f'], ReaderIntent.fullscreen),
       Binding(['F11'], ReaderIntent.fullscreen, layer: s),
       // Marks, search and getting out.

@@ -36,7 +36,58 @@ class LifoDoc implements ComicDocument {
   Future<void> close() async {}
 }
 
+/// Pages [width] px wide and half as tall again, served at once.
+class SmallDoc implements ComicDocument {
+  SmallDoc(this.width);
+
+  final int width;
+
+  @override
+  int get pageCount => 3;
+
+  @override
+  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight}) async {
+    final h = width * 3 ~/ 2;
+    final bytes = Uint8List(width * h * 4);
+    for (var p = 0; p < bytes.length; p += 4) {
+      bytes.setAll(p, [p % 7 * 30, 120, 200, 255]);
+    }
+    return PageImage(bytes, width: width, height: h, bgra: true);
+  }
+
+  @override
+  Future<Uint8List?> rawPage(int index) async => null;
+  @override
+  Future<ComicMeta?> embeddedMetadata() async => null;
+  @override
+  Future<void> close() async {}
+}
+
 void main() {
+  testWidgets('clean-up enlarges a page narrower than the screen, at most twice, and keeps both', (tester) async {
+    await tester.runAsync(() async {
+      final cache = PageCache(SmallDoc(100), budgetBytes: 64 << 20);
+      final plain = await cache.get(0, 512);
+      final sharp = await cache.get(0, 512, sharpen: true);
+      expect((plain.width, plain.height), (100, 150));
+      expect((sharp.width, sharp.height), (200, 300));
+      expect(cache.bytes, 100 * 150 * 4 + 200 * 300 * 4);
+      plain.dispose();
+      sharp.dispose();
+      cache.dispose();
+    });
+  });
+
+  testWidgets('clean-up leaves a page as wide as the screen as it is', (tester) async {
+    await tester.runAsync(() async {
+      final cache = PageCache(SmallDoc(480), budgetBytes: 64 << 20);
+      final sharp = await cache.get(0, 512, sharpen: true);
+      expect(sharp.width, 480, reason: '512 / 480 is too little to be worth it');
+      sharp.dispose();
+      cache.dispose();
+    });
+  });
+
   testWidgets('a page turned to is not stuck behind the requests queued after its prefetch', (tester) async {
     await tester.runAsync(() async {
       final doc = LifoDoc();
