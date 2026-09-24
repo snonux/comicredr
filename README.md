@@ -23,29 +23,36 @@ echo 'export PATH="$HOME/flutter/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 flutter doctor        # the "Linux toolchain" line should be green
 ```
 
-### 2. Build and start
+### 2. Build, start and install
 
 ```sh
 git clone https://github.com/snonux/comicredr.git && cd comicredr
-flutter pub get
-flutter run -d linux                  # debug build, hot reload with r
+make                  # release build, into build/linux/x64/release/bundle/
+make run              # build if needed, then start it
+make run BOOK=~/Comics/Daredevil\ 181.cbz    # start straight on a book
+make install          # add ComicRedr to the GNOME app grid, no sudo
 ```
 
-For a standalone release build:
+`make install` puts the app in `~/.local/lib/comicredr`, a `comicredr`
+command in `~/.local/bin`, and a launcher with its icon in
+`~/.local/share`. ComicRedr then shows up in Activities like any other app,
+with its own icon in the dash, and **Open With → ComicRedr** works on CBZ
+and PDF files in Files. Run `make install` again after `git pull && make`
+to update, and `make uninstall` to remove it; your reading progress and the
+detector model stay. For a system-wide install, run `make` first and then
+`sudo make install PREFIX=/usr/local`.
 
-```sh
-flutter build linux --release
-./build/linux/x64/release/bundle/comicredr
-```
-
-The `bundle/` directory is self-contained. Copy it anywhere, for example
-`~/.local/opt/comicredr`, and start the `comicredr` binary inside it.
+`make dev` starts a debug build with hot reload (`r` in the terminal),
+`make test` runs the analyzer and every test, and `make help` lists all
+targets.
 
 ### 3. Open a comic book
 
 A book is a `.cbz`, a `.pdf`, or a folder of page images. Any of these
 opens one straight away, without adding it to a library:
 
+- right-click it in Files and pick **Open With → ComicRedr** (after
+  `make install`)
 - pass it on the command line: `comicredr ~/Comics/Daredevil\ 181.cbz`,
   `comicredr ~/Comics/Swamp\ Thing\ 21.pdf` or `comicredr ~/Comics/Preacher\ 01/`
 - press `o`, or click **Open a comic**, for a file picker (CBZ and PDF)
@@ -173,9 +180,10 @@ starts from a model trained on Manga109, whose data is for research use.
 Copy it into the app's data folder once:
 
 ```sh
-mkdir -p ~/.local/share/org.snonux.comicredr/models
-cp comicredr-panels.onnx ~/.local/share/org.snonux.comicredr/models/
+make install-model MODEL=path/to/comicredr-panels.onnx
 ```
+
+This copies it to `~/.local/share/org.snonux.comicredr/models/`.
 
 On Android put it in `Android/data/org.snonux.comicredr/files/models/` on
 the phone's storage, for example with
@@ -221,7 +229,8 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 ```sh
 dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
-for p in packages/*; do (cd $p && dart test); done
+for p in packages/*; do (cd $p && dart test); done   # make test runs all three
+make icons                       # re-render linux/packaging/icons/*.png after editing the SVG
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs

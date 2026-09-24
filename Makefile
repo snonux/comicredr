@@ -1,0 +1,106 @@
+# Build, run and install ComicRedr on Linux.
+#
+#   make                  release build into build/linux/x64/release/bundle/
+#   make run [BOOK=path]  release build, then start it, optionally on a book
+#   make dev              debug build with hot reload (flutter run -d linux)
+#   make install          per-user install under ~/.local, no sudo
+#   make uninstall        remove what make install put there
+#   make install-model MODEL=comicredr-panels.onnx
+#   make test             flutter analyze + all tests
+#
+# PREFIX=/usr/local (with sudo) installs system-wide; DESTDIR stages a
+# package build. Run `make help` for the full list.
+
+APP_ID  := org.snonux.comicredr
+FLUTTER ?= flutter
+DART    ?= dart
+PREFIX  ?= $(HOME)/.local
+BOOK    ?=
+MODEL   ?= comicredr-panels.onnx
+
+ARCH := $(shell uname -m | sed -e 's/x86_64/x64/' -e 's/aarch64/arm64/')
+BUNDLE := build/linux/$(ARCH)/release/bundle
+PKG := linux/packaging
+
+BINDIR  := $(PREFIX)/bin
+LIBDIR  := $(PREFIX)/lib/comicredr
+APPSDIR := $(PREFIX)/share/applications
+ICONDIR := $(PREFIX)/share/icons/hicolor
+ICON_SIZES := 16 24 32 48 64 128 256 512
+MODELDIR ?= $(HOME)/.local/share/$(APP_ID)/models
+
+.PHONY: all build deps run dev test analyze install uninstall install-model icons clean help
+
+all: build
+
+help:
+	@sed -n '2,13p' Makefile | sed 's/^# \{0,1\}//'
+
+deps:
+	$(FLUTTER) pub get
+
+build: deps
+	$(FLUTTER) build linux --release
+
+run: build
+	$(BUNDLE)/comicredr $(if $(BOOK),"$(BOOK)")
+
+dev: deps
+	$(FLUTTER) run -d linux $(if $(BOOK),-a "$(BOOK)")
+
+analyze: deps
+	$(FLUTTER) analyze
+
+test: analyze
+	$(FLUTTER) test
+	for p in packages/*; do (cd $$p && $(DART) test) || exit 1; done
+
+# Install needs a finished build but does not start one, so that
+# `sudo make install PREFIX=/usr/local` never runs Flutter as root.
+install:
+	@test -x $(BUNDLE)/comicredr || { echo "No release build yet: run make first."; exit 1; }
+	rm -rf $(DESTDIR)$(LIBDIR)
+	mkdir -p $(DESTDIR)$(LIBDIR) $(DESTDIR)$(BINDIR) $(DESTDIR)$(APPSDIR)
+	cp -a $(BUNDLE)/. $(DESTDIR)$(LIBDIR)/
+	ln -sfn $(LIBDIR)/comicredr $(DESTDIR)$(BINDIR)/comicredr
+	sed 's|@BINDIR@|$(BINDIR)|g' $(PKG)/$(APP_ID).desktop.in > $(DESTDIR)$(APPSDIR)/$(APP_ID).desktop
+	install -Dm644 $(PKG)/$(APP_ID).svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(APP_ID).svg
+	for s in $(ICON_SIZES); do \
+	  install -Dm644 $(PKG)/icons/$${s}.png $(DESTDIR)$(ICONDIR)/$${s}x$${s}/apps/$(APP_ID).png || exit 1; \
+	done
+	$(MAKE) --no-print-directory _refresh
+	@echo "Installed. ComicRedr is in the app grid; $(BINDIR)/comicredr starts it from a shell."
+
+uninstall:
+	rm -rf $(DESTDIR)$(LIBDIR)
+	rm -f $(DESTDIR)$(BINDIR)/comicredr $(DESTDIR)$(APPSDIR)/$(APP_ID).desktop
+	rm -f $(DESTDIR)$(ICONDIR)/scalable/apps/$(APP_ID).svg
+	for s in $(ICON_SIZES); do rm -f $(DESTDIR)$(ICONDIR)/$${s}x$${s}/apps/$(APP_ID).png; done
+	$(MAKE) --no-print-directory _refresh
+	@echo "Uninstalled. Your reading progress and the model in ~/.local/share/$(APP_ID) are kept."
+
+# Let GNOME pick up the launcher, the icon and the "Open with" entries
+# straight away. Skipped when staging into DESTDIR; a package does it itself.
+.PHONY: _refresh
+_refresh:
+ifeq ($(DESTDIR),)
+	@if command -v update-desktop-database >/dev/null; then update-desktop-database -q $(APPSDIR) || true; fi
+	@# A cache GNOME already has is refreshed; none is created, since a stale
+	@# per-user cache would later hide other apps' icons.
+	@if test -f $(ICONDIR)/icon-theme.cache; then gtk-update-icon-cache -qtf $(ICONDIR) || true; \
+	 elif test -d $(ICONDIR); then touch $(ICONDIR); fi
+endif
+
+install-model:
+	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
+	install -Dm644 "$(MODEL)" $(MODELDIR)/comicredr-panels.onnx
+	@echo "Model installed in $(MODELDIR). Restart ComicRedr to use it."
+
+# Re-render the committed PNG icons after editing the SVG.
+# Needs rsvg-convert (dnf install librsvg2-tools).
+icons:
+	mkdir -p $(PKG)/icons
+	for s in $(ICON_SIZES); do rsvg-convert -w $$s -h $$s $(PKG)/$(APP_ID).svg -o $(PKG)/icons/$$s.png || exit 1; done
+
+clean:
+	$(FLUTTER) clean
