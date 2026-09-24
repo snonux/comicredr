@@ -17,9 +17,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-book="$1"
 out=build/e2e-resume
-rm -rf "$out" && mkdir -p "$out/home"
+rm -rf "$out" && mkdir -p "$out/home" "$out/Comics"
+# A copy, so a sidecar left beside the book by an earlier run never
+# changes where it opens, and the original is never written to.
+cp -r "$1" "$out/Comics/"
+book="$PWD/$out/Comics/$(basename "$1")"
 [[ -x build/linux/x64/release/bundle/comicredr ]] || flutter build linux --release
 cc -o "$out/close_window" tool/close_window.c -lX11
 

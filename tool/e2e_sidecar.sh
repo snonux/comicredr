@@ -146,7 +146,7 @@ done
 # A read-only shelf: opens, says so, writes nothing.
 if [[ $EUID -eq 0 ]]; then
   mkdir -p "$out/ro-src" "$out/ro"
-  cp "$1" "$out/ro-src/"
+  cp -r "$1" "$out/ro-src/"
   mount --bind "$out/ro-src" "$out/ro" && mount -o remount,bind,ro "$out/ro"
   start laptop "$PWD/$out/ro/$(basename "$1")"
   key 2 shift+g
