@@ -55,7 +55,7 @@ enum ReaderIntent {
   back('Back out one level, ending at the library'),
   up('Up to the folder above in the library'),
   activate('Open the selected book, series or folder in the library'),
-  addRoot('Add a folder to the library'),
+  addRoot('Add a folder to the library (~/Comics is in it by default, if it exists)'),
   rescan('Rescan the library folders'),
   resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),

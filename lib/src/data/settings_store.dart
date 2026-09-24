@@ -46,6 +46,10 @@ class SettingsStore {
   /// levels, kept across openings and restarts.
   static const gridZoom = 'grid.zoom';
 
+  /// The default library folder (~/Comics) was taken out of the library,
+  /// so starts no longer add it back.
+  static const defaultFolderRemoved = 'library.defaultFolderRemoved';
+
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
 
