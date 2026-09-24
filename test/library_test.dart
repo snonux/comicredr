@@ -10,6 +10,7 @@ import 'package:comicredr/src/library/scanner.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -291,6 +292,37 @@ void main() {
       await key(tester, LogicalKeyboardKey.escape);
       await key(tester, LogicalKeyboardKey.escape); // Clears the search.
       expect(find.text('Barefoot Bride'), findsOneWidget);
+    });
+
+    testWidgets('/ still reaches the search after a folder opens while it is typed in', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.slash, character: '/');
+      await tester.enterText(find.byKey(const Key('search')), 'spirit');
+      await settle(tester);
+      // A click on the folder while the cursor is in the search box.
+      await tester.tap(find.text('Comics'), kind: PointerDeviceKind.mouse);
+      await settle(tester);
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+      expect(find.text('Barefoot Bride'), findsNothing);
+
+      bool searching() => tester.widget<TextField>(find.byKey(const Key('search'))).focusNode!.hasFocus;
+      // The click took the cursor out of the box, and the keys still work.
+      expect(searching(), isFalse);
+      await key(tester, LogicalKeyboardKey.slash, character: '/');
+      expect(searching(), isTrue);
+      // The last search is selected, so typing replaces it.
+      final text = tester.widget<TextField>(find.byKey(const Key('search'))).controller!;
+      expect(text.selection, const TextSelection(baseOffset: 0, extentOffset: 6));
+      // Enter goes to the first result; the keys work again.
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester);
+      expect(searching(), isFalse);
+      await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
+      expect(c.read(readerProvider).book?.title, startsWith('The Spirit'));
     });
 
     testWidgets('the Folders tab walks into sub-folders and back out', (tester) async {
