@@ -7,12 +7,14 @@ import 'cbz.dart';
 import 'document.dart';
 import 'epub.dart';
 import 'folder.dart';
+import 'image.dart';
 import 'pdf.dart';
 import 'sniff.dart';
 
 /// What kind of book a path holds, decided by its content: a directory is a
-/// folder book, a file goes by its first bytes (design plan section 3).
-enum BookKind { cbz, cbt, epub, pdf, folder, rar, unknown }
+/// folder book, a file goes by its first bytes (design plan section 3). An
+/// [image] is a PNG, JPEG or WebP file read as a one-page comic.
+enum BookKind { cbz, cbt, epub, pdf, folder, image, rar, unknown }
 
 BookKind bookKind(String path) {
   if (FileSystemEntity.isDirectorySync(path)) return BookKind.folder;
@@ -21,6 +23,7 @@ BookKind bookKind(String path) {
     SourceFormat.epub => BookKind.epub,
     SourceFormat.tar => BookKind.cbt,
     SourceFormat.pdf => BookKind.pdf,
+    SourceFormat.image => BookKind.image,
     SourceFormat.rar => BookKind.rar,
     SourceFormat.unknown => BookKind.unknown,
   };
@@ -34,6 +37,7 @@ Future<ComicDocument> openDocument(String path) async => switch (bookKind(path))
   BookKind.cbt => CbtDocument.open(path),
   BookKind.pdf => await PdfComicDocument.open(path),
   BookKind.folder => FolderDocument.open(path),
+  BookKind.image => ImageDocument.open(path),
   BookKind.rar => throw FormatException('A RAR archive: $path'),
   BookKind.unknown => throw FormatException('Not a comic: $path'),
 };
