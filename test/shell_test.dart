@@ -63,7 +63,7 @@ void main() {
     await open(tester, c, path);
     expect(c.read(readerProvider).pageCount, 6);
     expect(status(tester), contains('page 1 / 6'));
-    expect(find.byType(RawImage), findsOneWidget);
+    expect(find.byKey(const Key('page-image')), findsOneWidget);
     double progress() => tester.widget<LinearProgressIndicator>(find.byKey(const Key('progress'))).value!;
     expect(progress(), closeTo(1 / 6, 1e-9));
 
@@ -182,14 +182,102 @@ void main() {
     expect(c.read(readerProvider).book?.path, second);
   });
 
+  testWidgets('t trims the scan margins and i dims the page, both kept for the next book', (tester) async {
+    // One panel with wide white margins, widest at the bottom.
+    final page = gridPage(400, 600, [(40, 60, 320, 340)]);
+    final path = writeBookOf(tmp, 'Margins.cbz', [page, page]);
+    final c = await pumpApp(tester);
+    await open(tester, c, path);
+    Size shown() => tester.getSize(find.byKey(const Key('page-image')));
+    expect(shown().width / shown().height, closeTo(400 / 600, 0.01));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyT, character: 't');
+    await settle(tester);
+    await settle(tester);
+    expect(c.read(readerProvider).trim, isTrue);
+    expect(status(tester), contains('Auto-trim'));
+    // Cut to the panel plus a 1% pad: 82% of the width, 71% of the height
+    // (the bottom margin is capped at 20%).
+    expect(shown().width / shown().height, closeTo((0.82 * 400) / (0.71 * 600), 0.02));
+
+    await key(tester, LogicalKeyboardKey.keyL);
+    await settle(tester);
+    expect(shown().width / shown().height, closeTo((0.82 * 400) / (0.71 * 600), 0.02));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyI, character: 'i');
+    await settle(tester);
+    expect(find.byType(ColorFiltered), findsOneWidget);
+
+    await tester.runAsync(() => c.read(readerProvider.notifier).close());
+    await open(tester, c, path);
+    expect(c.read(readerProvider).trim, isTrue);
+    expect(c.read(readerProvider).night, isTrue);
+  });
+
+  testWidgets('keys.toml remaps keys, and ? names the file and its problems', (tester) async {
+    final load = keymapFromToml('[keys]\nnextStep = "x"\nnoSuchAction = "q"\n');
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          classicCvOnly,
+          keymapLoadProvider.overrideWithValue((load: load, path: '/home/me/.config/comicredr/keys.toml')),
+        ],
+        child: const ComicRedrApp(),
+      ),
+    );
+    await tester.pump();
+    final c = ProviderScope.containerOf(tester.element(find.byType(ComicRedrApp)));
+    expect(find.textContaining('keys.toml: no action called "noSuchAction"'), findsOneWidget); // The snack bar.
+    await open(tester, c, writeBook(tmp, 'Remapped.cbz', 3));
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(c.read(readerProvider).page, 0);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyX, character: 'x');
+    await settle(tester);
+    expect(c.read(readerProvider).page, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, physicalKey: PhysicalKeyboardKey.slash, character: '?');
+    await tester.pump();
+    final file = tester.widget<Text>(find.byKey(const Key('keymap-file'))).data!;
+    expect(file, contains('Keys from /home/me/.config/comicredr/keys.toml'));
+    expect(file, contains('noSuchAction'));
+  });
+
   testWidgets('? shows the keymap generated from the bindings', (tester) async {
     await pumpApp(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.slash, physicalKey: PhysicalKeyboardKey.slash, character: '?');
     await tester.pump();
-    expect(find.text('Guided view, there and back'), findsOneWidget);
+    expect(find.text('Next page, ignoring panels'), findsOneWidget);
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();
-    expect(find.text('Guided view, there and back'), findsNothing);
+    expect(find.text('Next page, ignoring panels'), findsNothing);
+  });
+
+  testWidgets('/ searches the keymap overlay; Esc clears the search, then closes it', (tester) async {
+    await pumpApp(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, physicalKey: PhysicalKeyboardKey.slash, character: '?');
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, physicalKey: PhysicalKeyboardKey.slash, character: '/');
+    await tester.pump();
+    await tester.pump();
+    expect(find.byKey(const Key('keymap-search')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('keymap-search')), 'gided bak');
+    await tester.pump();
+    expect(find.text('Guided view, there and back'), findsOneWidget);
+    expect(find.text('Next page, ignoring panels'), findsNothing);
+
+    await tester.enterText(find.byKey(const Key('keymap-search')), '/^z[wh]/');
+    await tester.pump();
+    expect(find.text('Fit width'), findsOneWidget);
+    expect(find.text('Fit height'), findsOneWidget);
+    expect(find.text('Zoom in'), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.byKey(const Key('keymap-search')), findsNothing);
+    expect(find.text('Next page, ignoring panels'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.byType(KeymapOverlay), findsNothing);
   });
 
   test('the index schema opens in memory', () async {

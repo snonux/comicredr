@@ -73,6 +73,12 @@ to update, and `make uninstall` to remove it; your reading progress and the
 detector model stay. For a system-wide install, run `make` first and then
 `sudo make install PREFIX=/usr/local`.
 
+To put ComicRedr on another Fedora machine without Flutter, `make tarball`
+builds `build/comicredr-VERSION-linux-x64.tar.gz`. Copy it over, unpack
+it, and run `./install.sh` inside for the same per-user install as
+`make install` (`./install.sh --uninstall` removes it). Or start
+`bundle/comicredr` straight from the unpacked folder without installing.
+
 `comicredr --version` (or `make version` in the checkout) prints the
 version, which the library's status line and the `?` overlay also show. What each
 version brought is in [CHANGELOG.md](CHANGELOG.md).
@@ -197,7 +203,10 @@ done
 Two keymaps are live at the same time: standard keys, and a vi layer on top
 of them. You don't need to learn the vi layer to use the reader. Press `?`
 to see the full keymap in the app. The overlay is generated from the same
-table the app binds from.
+table the app binds from. With it open, `/` searches it: type a few words,
+fuzzily (`fulscr` finds fullscreen) or a key (`gg`), or a regular
+expression between slashes (`/^z/`). `Esc` clears the search, and a
+second `Esc` closes the overlay.
 
 | Do this | Standard | vi |
 |---|---|---|
@@ -215,11 +224,38 @@ table the app binds from.
 | Zoom in, out, reset | `+` `-` `=` | |
 | Hide the status line (and system bars on Android) | `F11` | `f` |
 | Night filter | | `i` |
+| Auto-trim: cut the white margins off scanned pages | | `t` |
 | Set mark a–z / jump to mark / jump back | | `ma` / `'a` / `''` |
 | Next / previous book in the series (in the same folder, outside the library) | | `]` `[` |
 | Bookmark this page (this panel in guided view) | | `mm` |
 | Leave guided view, go back to the library, or cancel a half-typed key | `Esc` | |
 | Open a CBZ or PDF / a folder of page images | | `o` / `O` |
+
+The night filter and auto-trim are settings: they stay on for every book,
+and across restarts, until you press the key again. Auto-trim finds each
+page's margins from its brightness, so it works on yellowed paper and on
+a black scanner bed alike, and leaves full-bleed art alone. Guided view
+works on the trimmed page too.
+
+#### Your own keys
+
+Any key can be changed in `~/.config/comicredr/keys.toml`.
+[docs/keys.toml](docs/keys.toml) lists every action with its default keys.
+`make keys` copies it there as a start; keep only the lines you change:
+
+```toml
+[keys]
+nextStep = ["x", "Right", "Space"]   # an action listed loses its default keys
+autoTrim = "T"                       # one key needs no list
+fullscreen = []                      # unbinds it
+```
+
+Restart ComicRedr to load it. A key you give to one action is taken off
+the action it had by default. A line the app cannot use is shown when the
+app starts and at the top of the `?` overlay, and the rest of the file
+still applies. On the phone the file goes in
+`Android/data/org.snonux.comicredr/files/keys.toml`; `make push-keys` puts
+yours there over USB.
 
 The status line shows the page you are on out of the total (`page 3 / 36`),
 and in guided view the panel too (`guided: panel 2 / 6`). A thin bar along

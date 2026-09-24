@@ -60,6 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   final _view = GlobalKey<ReaderViewState>();
   final _library = GlobalKey<LibraryScreenState>();
+  final _overlay = GlobalKey<KeymapOverlayState>();
   final _keys = FocusNode(debugLabel: 'keys');
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _watch;
@@ -87,6 +88,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _start() async {
+    final warnings = ref.read(keymapLoadProvider).load.warnings;
+    if (warnings.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            warnings.length == 1
+                ? '${warnings.first}. ? shows the keys in use.'
+                : '${warnings.length} problems in keys.toml; ? lists them with the keys in use.',
+          ),
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    }
     final path = widget.initialPath;
     if (path != null) unawaited(ref.read(readerProvider.notifier).open(path));
     final store = ref.read(libraryStoreProvider);
@@ -286,8 +300,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() => _showKeymap = !_showKeymap);
       return;
     }
+    if (_showKeymap && c.intent == ReaderIntent.search) {
+      _overlay.currentState?.startSearch();
+      return;
+    }
     if (_showKeymap && c.intent == ReaderIntent.back) {
-      setState(() => _showKeymap = false);
+      if (!(_overlay.currentState?.back() ?? false)) setState(() => _showKeymap = false);
       return;
     }
     if (c.intent == ReaderIntent.openFile) {
@@ -324,6 +342,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (offer != null) unawaited(_offer(offer));
     });
     final keymap = ref.watch(keymapProvider);
+    final keysLoad = ref.watch(keymapLoadProvider);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -381,7 +400,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _StatusLine(state: s, pending: _pending, onCommand: _onCommand),
                     ],
                   ),
-                if (_showKeymap) KeymapOverlay(keymap: keymap),
+                if (_showKeymap)
+                  KeymapOverlay(
+                    key: _overlay,
+                    keymap: keymap,
+                    keysFile: keysLoad.path,
+                    warnings: keysLoad.load.warnings,
+                    onDone: _keys.requestFocus,
+                  ),
               ],
             ),
           ),
@@ -450,7 +476,7 @@ class _StatusLine extends StatelessWidget {
     icon: Icon(icon),
     tooltip: tip,
     isSelected: on,
-    visualDensity: VisualDensity.compact,
+    // Full 48 px targets: the Fedora laptop has a touchscreen too.
     onPressed: () => onCommand(ReaderCommand(intent)),
   );
 
@@ -484,11 +510,16 @@ class _StatusLine extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  state.message ?? left,
-                  key: const Key('status'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                // A live region, so a screen reader reads out each notice
+                // and page turn as it happens.
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    state.message ?? left,
+                    key: const Key('status'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
               Text(
@@ -528,53 +559,157 @@ class _StatusLine extends StatelessWidget {
 }
 
 /// The `?` overlay, generated from the same table the app binds from, so it
-/// cannot drift from the real keys.
-class KeymapOverlay extends StatelessWidget {
-  const KeymapOverlay({super.key, required this.keymap});
+/// cannot drift from the real keys. `/` searches it: fuzzy words, or a
+/// regular expression between slashes. Esc clears the search, then closes.
+class KeymapOverlay extends StatefulWidget {
+  const KeymapOverlay({super.key, required this.keymap, this.keysFile, this.warnings = const [], this.onDone});
 
   final Keymap keymap;
 
+  /// The `keys.toml` the keymap was read from, if there was one.
+  final String? keysFile;
+
+  /// What was wrong in that file.
+  final List<String> warnings;
+
+  /// Called when the search field hands the keys back to the reader.
+  final VoidCallback? onDone;
+
+  @override
+  State<KeymapOverlay> createState() => KeymapOverlayState();
+}
+
+class KeymapOverlayState extends State<KeymapOverlay> {
+  final _query = TextEditingController();
+  final _field = FocusNode(debugLabel: 'keymap-search');
+  bool _searching = false;
+
+  @override
+  void dispose() {
+    _query.dispose();
+    _field.dispose();
+    super.dispose();
+  }
+
+  /// `/` while the overlay is open.
+  void startSearch() {
+    setState(() => _searching = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _field.requestFocus();
+    });
+  }
+
+  /// Esc: clears a search first. Returns false when there was none, and
+  /// the overlay should close.
+  bool back() {
+    if (!_searching && _query.text.isEmpty) return false;
+    _stopSearch(clear: true);
+    return true;
+  }
+
+  void _stopSearch({required bool clear}) {
+    setState(() {
+      if (clear) {
+        _query.clear();
+        _searching = false;
+      }
+    });
+    _field.unfocus();
+    widget.onDone?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final byIntent = <ReaderIntent, List<Binding>>{};
-    for (final b in keymap.bindings) {
-      byIntent.putIfAbsent(b.intent, () => []).add(b);
-    }
     final theme = Theme.of(context);
+    final found = searchKeymap(widget.keymap, _query.text);
+    final mono = const TextStyle(fontFamily: 'monospace');
     return Positioned.fill(
-      child: ColoredBox(
-        color: theme.colorScheme.surface.withValues(alpha: 0.96),
-        child: Stack(
-          children: [
-            ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                for (final MapEntry(key: intent, value: bindings) in byIntent.entries)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 200,
-                          child: Text(
-                            bindings.map(Keymap.describe).join('  '),
-                            style: const TextStyle(fontFamily: 'monospace'),
+      child: Semantics(
+        scopesRoute: true,
+        explicitChildNodes: true,
+        label: 'Keyboard shortcuts',
+        child: ColoredBox(
+          color: theme.colorScheme.surface.withValues(alpha: 0.96),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: _searching || _query.text.isNotEmpty
+                    ? CallbackShortcuts(
+                        bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => _stopSearch(clear: true)},
+                        child: TextField(
+                          key: const Key('keymap-search'),
+                          controller: _query,
+                          focusNode: _field,
+                          autofocus: true,
+                          style: mono,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search),
+                            hintText: 'Search: words, fuzzy (fulscr), or /regex/',
+                            errorText: found.error,
+                            isDense: true,
                           ),
+                          onChanged: (_) => setState(() {}),
+                          // Enter keeps the filter and hands the keys back.
+                          onSubmitted: (_) => _stopSearch(clear: false),
                         ),
-                        Expanded(child: Text(intent.description)),
-                      ],
+                      )
+                    : Text('Keys  ·  / searches  ·  Esc closes', style: theme.textTheme.titleMedium),
+              ),
+              if (widget.keysFile != null || widget.warnings.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: Text(
+                    [if (widget.keysFile != null) 'Keys from ${widget.keysFile}', ...widget.warnings].join('\n'),
+                    key: const Key('keymap-file'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: widget.warnings.isEmpty ? null : theme.colorScheme.error,
                     ),
                   ),
-              ],
-            ),
-            // In a corner, so the keymap list keeps its whole height.
-            Positioned(
-              right: 24,
-              bottom: 16,
-              child: Text('ComicRedr $appVersion', key: const Key('keymap-version'), style: theme.textTheme.titleSmall),
-            ),
-          ],
+                ),
+              Expanded(
+                child: Stack(
+                  children: [
+                    found.entries.isEmpty && found.error == null
+                        ? Center(child: Text('Nothing matches "${_query.text}"'))
+                        : ListView(
+                            padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+                            children: [
+                              for (final e in found.entries)
+                                MergeSemantics(
+                                  child: Padding(
+                                    key: ValueKey('keymap-${e.intent.name}'),
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(
+                                          width: 200,
+                                          child: Text(e.keys.isEmpty ? '(no key)' : e.keys.join('  '), style: mono),
+                                        ),
+                                        Expanded(child: Text(e.intent.description)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                    // In a corner, so the keymap list keeps its whole height.
+                    Positioned(
+                      right: 24,
+                      bottom: 16,
+                      child: Text(
+                        'ComicRedr $appVersion',
+                        key: const Key('keymap-version'),
+                        style: theme.textTheme.titleSmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

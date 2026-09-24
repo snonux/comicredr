@@ -1,0 +1,101 @@
+# ComicRedr keys. Copy this file to ~/.config/comicredr/keys.toml
+# (on the phone: Android/data/org.snonux.comicredr/files/keys.toml)
+# and keep only the lines you change: an action listed here replaces
+# all of its default keys, [] unbinds it, and actions left out keep
+# their defaults. Restart ComicRedr to load it; ? shows what is live.
+#
+# Spelling: gg and zw are two keys in a row, m<a-z> takes a mark
+# letter, C-f is Ctrl+f, and named keys (Left Right Up Down PageUp
+# PageDown Home End Space Tab Esc Enter Backspace Delete Insert F1-F12)
+# take S- for Shift. Put spaces between keys when a named key is in
+# a sequence: "g Home".
+
+[keys]
+# Next panel in guided view, next page or spread otherwise; next cover in the library
+nextStep = ["l", "Right", "Space"]
+# Previous panel in guided view, previous page or spread otherwise; previous cover in the library
+prevStep = ["h", "Left", "S-Space"]
+# Next page, ignoring panels
+nextPage = ["C-f", "PageDown"]
+# Previous page, ignoring panels
+prevPage = ["C-b", "PageUp"]
+# Pan down, or scroll in continuous mode; the cover below in the library
+panDown = ["j", "Down"]
+# Pan up, or scroll in continuous mode; the cover above in the library
+panUp = ["k", "Up"]
+# Half-screen scroll down in continuous mode
+halfPageDown = ["C-d"]
+# Half-screen scroll up in continuous mode
+halfPageUp = ["C-u"]
+# First page; first cover in the library
+firstPage = ["gg", "Home"]
+# Last page, or page N with a count; last cover in the library
+lastPage = ["G", "End"]
+# Next book in the series, or in the same folder
+nextBook = ["]"]
+# Previous book in the series, or in the same folder
+prevBook = ["["]
+# Guided view, there and back
+toggleGuided = ["v"]
+# Balloon by balloon inside each panel in guided view, on and off
+toggleBalloons = ["b"]
+# Whole page before and after its panels in guided view, on and off
+toggleWholePage = ["w"]
+# Cycle single, double, continuous, guided; next library tab
+cycleModeForward = ["Tab"]
+# Cycle modes backwards; previous library tab
+cycleModeBack = ["S-Tab"]
+# Single page or two-page spread
+toggleSpread = ["d"]
+# Shift the spread pairing by one
+shiftSpread = ["D"]
+# Continuous vertical scroll on or off
+toggleContinuous = ["s"]
+# Reading direction for this book
+toggleDirection = ["r"]
+# Fit width
+fitWidth = ["zw"]
+# Fit height
+fitHeight = ["zh"]
+# Fit whole page; re-centre the panel in guided view
+fitPage = ["zz"]
+# Zoom in
+zoomIn = ["+"]
+# Zoom out
+zoomOut = ["-"]
+# Reset zoom
+zoomReset = ["="]
+# Auto-trim scan margins
+autoTrim = ["t"]
+# Night filter
+nightFilter = ["i"]
+# Fullscreen
+fullscreen = ["f", "F11"]
+# Bookmark here
+bookmark = ["mm"]
+# Set mark a-z
+setMark = ["m<a-z>"]
+# Jump to mark a-z
+jumpMark = ["'<a-z>"]
+# Jump back to before the last jump
+jumpBack = ["''"]
+# Search the library; search the book text in the reader
+search = ["/"]
+# Next match
+searchNext = ["n"]
+# Previous match
+searchPrev = ["N"]
+# Open a file without adding it to the library
+openFile = ["o"]
+# Open a folder of page images as a book
+openFolder = ["O"]
+# Back out one level, ending at the library
+back = ["Esc"]
+# Open the selected book, series or folder in the library
+activate = ["Enter"]
+# Add a folder to the library
+addRoot = ["A"]
+# Rescan the library folders
+rescan = ["R"]
+# Show the keymap
+showKeymap = ["?"]
