@@ -247,3 +247,17 @@ cd spike && python3 evaluate.py eval_pages --out out/eval --pretrained ../test/c
 fine-tune on the same 100 labelled pages, none of them from a training
 book: panel and balloon F1 at IoU 0.5, and per page whether guided view
 would move the camera right, show the page whole, or move it wrong.
+
+Results on the 100 eval pages (2026-09-24, 4-core CPU):
+
+| Detector | Guided right | Whole page | Wrong camera | Panel F1 | Balloon F1 | ms/page |
+|---|---|---|---|---|---|---|
+| Classic CV | 29 | 12 | 59 | 0.55 | none | 73 |
+| Manga109 model as is | 59 | 34 | 7 | 0.83 | 0.53 | 511 |
+| Fine-tune, float ONNX (38 MB) | 64 | 25 | 11 | 0.87 | 0.81 | 103 |
+| Fine-tune, INT8 ONNX (10 MB) | 46 | 42 | 12 | 0.78 | 0.77 | 111 |
+
+The float model is the one to install: INT8 loses accuracy and is no
+faster here. Its wrong pages are mostly one missed narrow caption panel on
+dense golden-age pages, plus one page whose panels are all right but read
+in a debatable order. Black-and-white and modern indie art stay weakest.

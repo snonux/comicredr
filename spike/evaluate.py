@@ -209,7 +209,7 @@ class Onnx:
         for x0, y0, x1, y1, conf, c in out:
             kind = self.names.get(int(c))
             if kind in found and conf >= (PANEL_CONF if kind == "frame" else BALLOON_CONF):
-                found[kind][0].append([x0 / s / w, y0 / s / h, (x1 - x0) / s / w, (y1 - y0) / s / h])
+                found[kind][0].append([float(v) for v in (x0 / s / w, y0 / s / h, (x1 - x0) / s / w, (y1 - y0) / s / h)])
                 found[kind][1].append(float(conf))
         return dedupe(*found["frame"]), dedupe(*found["balloon"])
 
