@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:typed_data';
 
 import 'package:comic_analysis/comic_analysis.dart';
+import 'package:flutter/foundation.dart';
 import 'package:onnxruntime/onnxruntime.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -63,10 +63,13 @@ class ModelDetector {
   Future<SendPort>? _worker;
   int _next = 0;
   final _pending = <int, Completer<ModelDetection>>{};
+  Completer<void>? _closed;
+  bool _closing = false;
 
   /// Runs the model on an RGBA page of [w] x [h], its long side at most
   /// [inputSize]. Returns frames in reading order and balloons.
   Future<ModelDetection> detect(Uint8List rgba, int w, int h) async {
+    if (_closing) throw StateError('The model detector is closed');
     final port = await (_worker ??= _spawn());
     final id = _next++;
     final done = Completer<ModelDetection>();
@@ -83,9 +86,14 @@ class ModelDetector {
         case SendPort port:
           ready.complete(port);
         case (int id, List<double> frames, List<double> balloons):
-          _pending.remove(id)?.complete(ModelDetection(_panels(frames, PanelKind.frame), _panels(balloons, PanelKind.balloon)));
+          _pending
+              .remove(id)
+              ?.complete(ModelDetection(_panels(frames, PanelKind.frame), _panels(balloons, PanelKind.balloon)));
         case (int id, String error):
           _pending.remove(id)?.completeError(StateError(error));
+        case 'closed':
+          _closed?.complete();
+          replies.close();
         case (String error,):
           // The session could not load: fail everything, now and later.
           if (!ready.isCompleted) ready.completeError(StateError(error));
@@ -97,6 +105,28 @@ class ModelDetector {
     });
     await Isolate.spawn(_serve, (replies.sendPort, path, inputSize, threads), debugName: 'model-detector');
     return ready.future;
+  }
+
+  /// Lets the page being detected finish, then releases the session and
+  /// ONNX Runtime, before the app exits.
+  ///
+  /// Left running, the runtime's thread pool can still be inside a
+  /// detection while the process tears its native libraries down, and the
+  /// app crashes on its way out. Waits at most [timeout].
+  Future<void> close({Duration timeout = const Duration(seconds: 3)}) async {
+    if (_closing) return _closed?.future ?? Future.value();
+    _closing = true;
+    final worker = _worker;
+    if (worker == null) return;
+    final SendPort port;
+    try {
+      port = await worker;
+    } catch (_) {
+      return; // The session never loaded, so there is nothing to release.
+    }
+    final closed = _closed = Completer<void>();
+    port.send('close');
+    await closed.future.timeout(timeout, onTimeout: () => debugPrint('The model detector did not close in time'));
   }
 }
 
@@ -129,6 +159,14 @@ Future<void> _serve((SendPort, String, int, int) args) async {
   reply.send(requests.sendPort);
   final input = session.inputNames.first;
   await for (final msg in requests) {
+    if (msg == 'close') {
+      // Requests are served in order, so none is still running here.
+      session.release();
+      OrtEnv.instance.release();
+      requests.close();
+      reply.send('closed');
+      return;
+    }
     final (int id, TransferableTypedData data, int w, int h) = msg as (int, TransferableTypedData, int, int);
     OrtValueTensor? tensor;
     OrtRunOptions? run;
