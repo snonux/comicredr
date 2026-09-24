@@ -494,6 +494,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _ensurePanels();
   }
 
+  /// Goes to [page] from the page grid or the progress bar: a jump, so
+  /// `''` comes back.
+  void jumpTo(int page) {
+    if (state.book == null || page == state.page) return;
+    _goTo(page, jump: true);
+  }
+
   void _saveProgress(OpenBook book) {
     if (_sitting case final s? when s.key == book.key) s.pages.addAll(state.unit);
     // The panel and balloon as asked for, not as resolved: detection may not
@@ -830,6 +837,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.editBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:
+      case ReaderIntent.pageGrid:
         break; // Handled by the screen, or only mean something in the library.
     }
     // Mode switches (guided, balloons, spread, direction) are part of the

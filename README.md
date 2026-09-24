@@ -40,6 +40,8 @@ Potion Contest*, by David Revoy, licensed
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins. A scanned double-page
   spread stays whole, and the pages after it keep their sides.
+- **See before you jump**: `p` opens a grid of page thumbnails, and
+  dragging along the progress bar previews the page under your finger.
 - **Clean-up for old scans**: yellowed paper turns white, faded ink dark,
   and pages with fewer pixels than your screen are enlarged and sharpened.
 - **A library** of your comics folders: covers, series, search,
@@ -177,7 +179,9 @@ starts one from [docs/keys.toml](docs/keys.toml), which lists every action.
 ### Touch
 
 Tap or swipe at the left and right edges to turn, pinch or double-tap to
-zoom, drag to pan, and tap the middle to hide the status line. Android's
+zoom, drag to pan, and tap the middle to hide the status line. Drag along
+the progress bar to scrub through the book, or tap the grid button for
+every page at once. Android's
 back gesture leaves guided view, then the book.
 
 ### The CBR files you already have

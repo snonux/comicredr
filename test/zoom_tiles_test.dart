@@ -88,6 +88,10 @@ void main() {
     await settle(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyV, character: 'v');
     await settle(tester);
+    // Once the panels are found: before that, l would turn the page.
+    for (var i = 0; i < 20 && c.read(readerProvider).panels[0] == null; i++) {
+      await settle(tester);
+    }
     await tester.sendKeyEvent(LogicalKeyboardKey.keyL, character: 'l'); // Past the whole-page view.
     await settle(tester);
     final s = c.read(readerProvider);

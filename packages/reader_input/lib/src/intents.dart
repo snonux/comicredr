@@ -13,6 +13,7 @@ enum ReaderIntent {
   halfPageUp('Half-screen scroll up in continuous mode'),
   firstPage('First page; first cover in the library'),
   lastPage('Last page, or page N with a count; last cover in the library'),
+  pageGrid('Page thumbnails: pick a page to jump to'),
   nextBook('Next book in the series, or in the same folder'),
   prevBook('Previous book in the series, or in the same folder'),
   toggleGuided('Guided view, there and back'),
