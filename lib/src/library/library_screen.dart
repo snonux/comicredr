@@ -12,6 +12,7 @@ import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/reset_dialog.dart';
 import '../version.dart';
+import 'edit_dialog.dart';
 import 'library_detection.dart';
 import 'library_store.dart';
 import 'providers.dart';
@@ -106,6 +107,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   final _searchFocus = FocusNode();
   final _scroll = ScrollController();
   String? _selected;
+  Set<String> _selectedBooks = const {}; // The keys of the books it stands for.
   bool _detail = false; // The narrow layout's full-screen detail page.
 
   // Grid geometry from the last layout, for keyboard movement.
@@ -182,6 +184,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
           unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
         }
+      case ReaderIntent.editBook:
+        final done = widget.keysFocus?.requestFocus;
+        switch (_items.where((it) => it.id == _selected).firstOrNull) {
+          case _BookItem(:final book):
+            unawaited(editBook(context, ref, book).whenComplete(() => done?.call()));
+          case _SeriesItem(:final series) when tab == LibraryTab.series:
+            unawaited(renameSeries(context, ref, series).whenComplete(() => done?.call()));
+          default:
+        }
       default:
         return false;
     }
@@ -240,6 +251,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     setState(() => _selected = _items[i].id);
     _reveal();
   }
+
+  static Set<String> _books(_Item? item) => switch (item) {
+    _BookItem(:final book) => {book.key},
+    _SeriesItem(:final series) => {for (final b in series.books) b.key},
+    _ => const {},
+  };
 
   /// Scrolls the selected cover into view.
   void _reveal() {
@@ -352,8 +369,20 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     if (_folderRoot != null && roots != null && !roots.any((r) => r.path == _folderRoot)) {
       _folder = _folderRoot = null;
     }
+    // The folder shown was deleted or emptied on disk: up to the nearest
+    // folder above that still holds books, as a file manager would.
+    while (_folder != null && _folder != _folderRoot && !books.any((b) => p.isWithin(_folder!, b.path))) {
+      _folder = p.dirname(_folder!);
+      _selected = null;
+      _detail = false;
+    }
     _items = _itemsFor(books, roots ?? const []);
-    if (_selected != null && !_items.any((it) => it.id == _selected)) _selected = null;
+    if (_selected != null && !_items.any((it) => it.id == _selected)) {
+      // An edit moved the book to another series, or renamed its series:
+      // the selection follows the books.
+      _selected = _items.where((it) => _books(it).any(_selectedBooks.contains)).firstOrNull?.id;
+    }
+    _selectedBooks = _books(_items.where((it) => it.id == _selected).firstOrNull);
 
     final empty = roots != null && roots.isEmpty && books.isEmpty;
     return LayoutBuilder(
@@ -391,7 +420,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             ? null
             : switch (selectedItem) {
                 _BookItem(:final book) => BookDetail(book: book, onRead: read),
-                _SeriesItem(:final series) => _SeriesDetail(series: series, onRead: read),
+                _SeriesItem(:final series) => _SeriesDetail(
+                  series: series,
+                  onRead: read,
+                  canRename: tab == LibraryTab.series,
+                ),
                 _FolderItem(:final folder) => _FolderDetail(
                   folder: folder,
                   onOpen: () => _activate(selectedItem),
@@ -808,11 +841,23 @@ class BookDetail extends ConsumerWidget {
         Text(where, key: const Key('where')),
         if (book.inProgress) ...[const SizedBox(height: 6), LinearProgressIndicator(value: book.percent ?? 0)],
         const SizedBox(height: 12),
-        FilledButton.icon(
-          key: const Key('read'),
-          onPressed: () => onRead(book),
-          icon: const Icon(Icons.chrome_reader_mode),
-          label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              key: const Key('read'),
+              onPressed: () => onRead(book),
+              icon: const Icon(Icons.chrome_reader_mode),
+              label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
+            ),
+            OutlinedButton.icon(
+              key: const Key('editBook'),
+              onPressed: () => editBook(context, ref, book),
+              icon: const Icon(Icons.edit),
+              label: const Text('Edit (e)'),
+            ),
+          ],
         ),
         if (book.summary != null) ...[const SizedBox(height: 16), Text(book.summary!)],
         const SizedBox(height: 20),
@@ -1067,14 +1112,17 @@ class _History extends ConsumerWidget {
   }
 }
 
-class _SeriesDetail extends StatelessWidget {
-  const _SeriesDetail({required this.series, required this.onRead});
+class _SeriesDetail extends ConsumerWidget {
+  const _SeriesDetail({required this.series, required this.onRead, this.canRename = false});
 
   final LibrarySeries series;
   final void Function(LibraryBook, {Place? at}) onRead;
 
+  /// A series, not a collection.
+  final bool canRename;
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final next = series.next;
     return ListView(
@@ -1084,10 +1132,23 @@ class _SeriesDetail extends StatelessWidget {
         Text(series.name, style: theme.textTheme.headlineSmall),
         Text('${series.books.length} books · ${series.read} read'),
         const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: () => onRead(next),
-          icon: const Icon(Icons.chrome_reader_mode),
-          label: Text('${next.inProgress ? 'Continue' : 'Read'} ${next.name}'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: () => onRead(next),
+              icon: const Icon(Icons.chrome_reader_mode),
+              label: Text('${next.inProgress ? 'Continue' : 'Read'} ${next.name}'),
+            ),
+            if (canRename)
+              OutlinedButton.icon(
+                key: const Key('renameSeries'),
+                onPressed: () => renameSeries(context, ref, series),
+                icon: const Icon(Icons.edit),
+                label: const Text('Rename (e)'),
+              ),
+          ],
         ),
         const SizedBox(height: 12),
         Text('Enter or a tap shows the books', style: theme.textTheme.bodySmall),

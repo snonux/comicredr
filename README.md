@@ -40,7 +40,8 @@ Potion Contest*, by David Revoy, licensed
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins.
 - **A library** of your comics folders: covers, series, search,
-  collections, a folder view, bookmarks and a reading history.
+  collections, a folder view, bookmarks and a reading history. Fix a
+  book's title, series or issue in the app; the comic file stays as it is.
 - **Picks up where you left off**, on the same page, panel and zoom, even
   after you rename or copy the file.
 - **Keyboard first**, with a vi layer on top of the usual keys and your
@@ -48,7 +49,8 @@ Potion Contest*, by David Revoy, licensed
   touchscreen.
 - **Your data travels with the comic**: panels, bookmarks and your position
   live in a small `.crdb` file beside it, so a comic copied to the phone
-  opens there ready to read.
+  opens there ready to read. Settings can keep those files in one folder
+  instead.
 - **CBZ, CBT, comic EPUB, PDF and folders of page images**, on Fedora and
   Android. EPUBs made of page images open like any comic; text ebooks don't.
 
@@ -67,6 +69,7 @@ Then build and install ComicRedr:
 
 ```sh
 git clone https://github.com/snonux/comicredr.git && cd comicredr
+make model MODEL=path/to/comicredr-panels.onnx   # once, see The trained detector
 make                  # build it
 make run              # try it without installing
 make install          # add it to the GNOME app grid, no sudo needed
@@ -83,15 +86,33 @@ builds `build/comicredr-VERSION-linux-x64.tar.gz`; unpack it there and run
 
 ### The trained detector
 
-Guided view works out of the box with classic computer vision, but the
-trained model finds panels much more reliably and is the only way to get
-balloon mode. It is one file, `comicredr-panels.onnx`, kept out of this
-repository because it builds on a model trained on research-only data.
-Install it once and restart the app:
+The trained model finds panels much more reliably than classic computer
+vision and is the only way to get balloon mode. It is one file,
+`comicredr-panels.onnx`, kept out of this repository because it builds on
+a model trained on research-only data: get it from whoever gave you
+ComicRedr, or train it yourself (see [AGENTS.md](AGENTS.md)). With it in
+the checkout, `make` builds it into the Linux app and `make apk` into the
+Android APK, so an installed app needs nothing else.
+
+| Make target | What it does |
+|---|---|
+| `make model MODEL=path/to/comicredr-panels.onnx` | Puts the model in the checkout (`assets/models/`), once per checkout. |
+| `make && make install` | Builds and installs the Linux app with the model inside. |
+| `make apk && make install-apk` | Builds and installs the Android APK with the model inside. |
+| `make install-model MODEL=file.onnx` | Adds a model to the installed Linux app without rebuilding; it wins over the built-in one. |
+| `make push-model MODEL=file.onnx` | The same on the phone, over USB. |
+| `make NO_MODEL=1` | Builds without a model; the app uses classic computer vision. |
+
+For example, on a new laptop:
 
 ```sh
-make install-model MODEL=path/to/comicredr-panels.onnx
+make model MODEL=~/Downloads/comicredr-panels.onnx
+make && make install     # Linux
+make apk && make install-apk   # Android, phone on USB
 ```
+
+Without the model, `make` and `make apk` stop and say what to run. Restart
+the app after `install-model` or `push-model`.
 
 ## Install on an Android phone
 
@@ -116,7 +137,6 @@ Turn on **USB debugging** on the phone, plug it in, and from the checkout:
 make keystore       # once: creates your signing key
 make apk            # build the APK
 make install-apk    # install it, keeping the app's data
-make push-model MODEL=path/to/comicredr-panels.onnx   # optional, the detector
 ```
 
 > **Back up `~/.config/comicredr/release.jks` and `android/key.properties`.**

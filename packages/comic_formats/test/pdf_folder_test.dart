@@ -87,6 +87,25 @@ void main() {
       await expectLater(PdfComicDocument.open(path), throwsFormatException);
     });
 
+    test('renders only the region asked for, at the whole page scale', () async {
+      // Zoomed in on the bottom-right quarter of a page 2000 px wide:
+      // PDFium draws that quarter, 1000 px across, and nothing else.
+      final doc = await BackgroundDocument.open(writePdf('zoom.pdf', [(600, 900)]));
+      final p = await doc.page(
+        0,
+        targetWidth: 2000,
+        targetHeight: 1 << 16,
+        region: (left: 0.5, top: 0.5, width: 0.5, height: 0.5),
+      );
+      expect((p.width, p.height, p.bgra), (1000, 1500, true));
+      expect(p.bytes.length, 1000 * 1500 * 4);
+      expect(p.region, (left: 0.5, top: 0.5, width: 0.5, height: 0.5));
+      expect(p.bytes.sublist(0, 4), [0, 0, 255, 255]);
+      // No region: the whole page, and no region reported.
+      expect((await doc.page(0, targetWidth: 200, targetHeight: 1 << 16)).region, isNull);
+      await doc.close();
+    });
+
     test('renders on the background isolate', () async {
       final doc = await BackgroundDocument.open(writePdf('book.pdf', [(600, 900)]));
       expect(doc.pageCount, 1);

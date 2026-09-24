@@ -78,10 +78,17 @@ build internals, test scripts, detector work and conventions here.
 - A whole-library detection pass runs after each scan at low priority,
   resumes after a restart, and is off by default on Android. Settings turns
   it off.
-- The detector model is loaded from
-  `~/.local/share/org.snonux.comicredr/models/`
-  (`Android/data/org.snonux.comicredr/files/models/` on the phone), the app
-  bundle, or `COMICREDR_MODEL=/path/to/file.onnx`.
+- The detector model is built into the app from
+  `assets/models/comicredr-panels.onnx` (gitignored; `make model MODEL=...`
+  puts it there). `make` and `make apk` refuse to build without it unless
+  `NO_MODEL=1`. `findModel` (lib/src/reader/model_detector.dart) looks, in
+  order, at `COMICREDR_MODEL=/path/to/file.onnx` (`none` forces classic
+  CV), a user-installed model in `~/.local/share/org.snonux.comicredr/models/`
+  (`make install-model`; on the phone also
+  `Android/data/org.snonux.comicredr/files/models/`, `make push-model`),
+  then the built-in one. On Linux the built-in file is opened in place in
+  `bundle/data/flutter_assets/assets/models/`; on Android it is copied out
+  of the APK into `<app support>/bundled-model/` once per model version.
 - Sidecars: `book.cbz.crdb` beside the file, `.comicredr.crdb` inside a
   folder book. They hold metadata, panels and balloons, bookmarks, marks,
   collections and per-device positions. Removed bookmarks stay removed
@@ -90,6 +97,17 @@ build internals, test scripts, detector work and conventions here.
   `X` (or Reset in the book's details) resets a comic: `SidecarSync.reset`
   deletes its rows and rewrites every copy's sidecar without them, since a
   sidecar left alone would merge them straight back in.
+  Metadata edits (`e`, `lib/src/library/edit_dialog.dart`) are rows in
+  `overrides`, field to a JSON `MetaEdit` with a time; the later edit per
+  field wins a sidecar merge, and an undo is a row too, so it travels.
+  `LibraryStore.books()` lays them over the file's facts; the comic file is
+  never rewritten, since that would change its content key.
+  Settings → "In one folder" (`sidecars.dir`, per install) keeps them all
+  in one folder instead, laid out like the library by root folder name
+  (`storedSidecarPath`; books outside the library go under `elsewhere/`).
+  One left beside a comic is still read and merged; switching offers to
+  move them, merging into a sidecar already there. Anything that finds a
+  book's sidecar goes through `SidecarSync.sidecarsOf`/`sidecarFor`.
   Inspect one with
   `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
@@ -137,9 +155,11 @@ COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padd
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
+tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 
 ## Detection spike (M1)

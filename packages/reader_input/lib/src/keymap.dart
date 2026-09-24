@@ -92,6 +92,7 @@ class Keymap {
       Binding(['A'], ReaderIntent.addRoot),
       Binding(['R'], ReaderIntent.rescan),
       Binding(['X'], ReaderIntent.resetBook),
+      Binding(['e'], ReaderIntent.editBook),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
     ]);
   }
