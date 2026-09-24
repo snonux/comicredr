@@ -11,6 +11,11 @@ decision here.
 
 ## Screenshots
 
+![The library: series of covers, with the selected book's details beside them](docs/screenshots/library.webp)
+
+The library: every book in your comics folders as a cover, grouped by
+series, with the selected book's details beside them.
+
 | | |
 |---|---|
 | ![A page of All Top Comics in single-page view](docs/screenshots/page.webp) | ![A two-page spread of Pepper&Carrot](docs/screenshots/spread.webp) |
@@ -20,9 +25,10 @@ decision here.
 | ![Guided view on a painted modern page](docs/screenshots/guided-painted.webp) | ![The night filter on a page](docs/screenshots/night.webp) |
 | Guided view on painted art with no gutters | Night filter (`i`) |
 
-Taken from the release build on Linux. The books are *All Top Comics* 6
-(Norlen, 1959; public domain, its copyright was not renewed; from the
-Digital Comic Museum's archive.org mirror) and
+Taken from the release build on Linux. The comics are golden- and
+silver-age books that are in the public domain because their copyright
+was not renewed, from the Digital Comic Museum's archive.org mirror (the
+reader screenshots show *All Top Comics* 6, Norlen, 1959), and
 [Pepper&Carrot](https://www.peppercarrot.com) episode 6, *The Potion
 Contest*, by David Revoy, licensed
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
