@@ -80,7 +80,7 @@ key Escape; sleep 2
 check "the sitting is in the history" \
   test "$(q "$db" "select pages from read_log")" -ge 4
 check "the Reptisaurus sidecar carries the collection" \
-  test "$(q "$comics/reptisaurus-v2-005.cbz.crdb" "select name from collections where removed_at is null")" = Charlton
+  test "$(q "$comics/.reptisaurus-v2-005.cbz.crdb" "select name from collections where removed_at is null")" = Charlton
 click 43 290 # History
 shot 06_history
 

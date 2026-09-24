@@ -14,10 +14,50 @@ import 'meta_edits.dart';
 /// plain data in, plain data out, and a merge. Nothing here touches the app
 /// index or Flutter, so it runs on any isolate and from a shell tool.
 ///
-/// `Daredevil 181.cbz` gets `Daredevil 181.cbz.crdb`; a folder book keeps
-/// `.comicredr.crdb` inside itself.
-String sidecarPath(String bookPath, {required bool folder}) =>
-    folder ? p.join(bookPath, folderSidecarName) : '$bookPath$sidecarExtension';
+/// `Daredevil 181.cbz` gets `.Daredevil 181.cbz.crdb`; a folder book keeps
+/// `.comicredr.crdb` inside itself. Both start with a dot, so a file manager
+/// hides them.
+String sidecarPath(String bookPath, {required bool folder}) => folder
+    ? p.join(bookPath, folderSidecarName)
+    : p.join(p.dirname(bookPath), '.${p.basename(bookPath)}$sidecarExtension');
+
+/// Where the sidecar at [sidecar] was kept before sidecars were hidden: the
+/// same name without its leading dot (`Daredevil 181.cbz.crdb`). Null for a
+/// folder book's, whose name always started with a dot.
+String? legacySidecarPath(String sidecar) {
+  final name = p.basename(sidecar);
+  if (name == folderSidecarName || !name.startsWith('.')) return null;
+  return p.join(p.dirname(sidecar), name.substring(1));
+}
+
+/// Renames a sidecar still under its old, visible name to [sidecar], its
+/// hidden one. When both exist the two are merged into [sidecar], as
+/// [moveSidecar] does; when they cannot be merged (another book's, or one
+/// from a newer app) the newer file is kept. Returns whether one was taken
+/// over.
+bool adoptLegacySidecar(String sidecar, {required String device, String? appVersion}) {
+  final old = legacySidecarPath(sidecar);
+  if (old == null) return false;
+  final file = File(old);
+  if (!file.existsSync()) return false;
+  if (moveSidecar(old, sidecar, device: device, appVersion: appVersion)) return true;
+  try {
+    final hidden = File(sidecar);
+    if (!hidden.existsSync()) return false; // The folder refused the rename.
+    final a = readSidecar(old), b = readSidecar(sidecar);
+    if ((a?.schemaVersion ?? 0) > sidecarSchemaVersion || (b?.schemaVersion ?? 0) > sidecarSchemaVersion) return false;
+    if (file.lastModifiedSync().isAfter(hidden.lastModifiedSync())) {
+      file.renameSync(sidecar);
+      return true;
+    }
+    file.deleteSync();
+  } on FileSystemException {
+    // A read-only folder: the visible one stays and is read as it is.
+  } on SqliteException {
+    // Not a sidecar after all: left alone.
+  }
+  return false;
+}
 
 /// Where the sidecar of the book at [bookPath] goes when the person keeps
 /// every sidecar in one folder, [dir], instead of beside the comics (the
@@ -478,7 +518,8 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
 }
 
 /// Finds the sidecar of the book at [bookPath] when the book was renamed
-/// without it: a `.crdb` in the same folder whose own book is gone and
+/// without it: a `.crdb` in the same folder, under its hidden name or the
+/// old visible one, whose own book is gone and
 /// whose content key is [contentKey]. Renames it to go with the book and
 /// returns true. The comic is never touched.
 ///
@@ -498,8 +539,11 @@ bool relinkOrphan(String bookPath, String contentKey, {String? sidecar}) {
   for (final e in entries) {
     final name = p.basename(e.path);
     if (e is! File || !name.endsWith(sidecarExtension) || name == folderSidecarName) continue;
-    final book = p.join(p.dirname(bookPath), name.substring(0, name.length - sidecarExtension.length));
-    if (FileSystemEntity.typeSync(book) != FileSystemEntityType.notFound) continue; // Not an orphan.
+    final stem = name.substring(0, name.length - sidecarExtension.length);
+    final books = [if (stem.startsWith('.')) stem.substring(1), stem];
+    bool gone(String book) =>
+        FileSystemEntity.typeSync(p.join(p.dirname(bookPath), book)) == FileSystemEntityType.notFound;
+    if (!books.every(gone)) continue; // Not an orphan.
     if (readSidecar(e.path)?.contentKey != contentKey) continue;
     try {
       e.renameSync(want);

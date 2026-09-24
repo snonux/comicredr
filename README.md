@@ -63,7 +63,7 @@ Potion Contest*, by David Revoy, licensed
   own key bindings, plus full touch support on the phone and on a laptop
   touchscreen, with tap zones you can rearrange.
 - **Your data travels with the comic**: panels, bookmarks and your position
-  live in a small `.crdb` file beside it, so a comic copied to the phone
+  live in a small hidden `.crdb` file beside it, so a comic copied to the phone
   opens there ready to read. Settings can keep those files in one folder
   instead.
 - **CBZ, CBT, comic EPUB, PDF and folders of page images**, on Fedora and
@@ -217,8 +217,8 @@ keys as the laptop.
 
 A single file opens without the library too: `comicredr book.cbz`,
 **Open With → ComicRedr** in Files, `o` in the app, or drag it onto the
-window. To take a comic to the phone or another laptop, copy its `.crdb`
-file along with it.
+window. To take a comic to the phone or another laptop, copy its hidden
+`.crdb` file along with it (`.book.cbz.crdb` beside `book.cbz`).
 
 Any key can be changed in `~/.config/comicredr/keys.toml`: `make keys`
 starts one from [docs/keys.toml](docs/keys.toml), which lists every action.

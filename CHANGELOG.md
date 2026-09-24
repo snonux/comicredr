@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Hidden sidecars:** a comic's sidecar is now `.book.cbz.crdb`, a
+  hidden file, beside the comic and in the one sidecar folder alike (a
+  folder book's `.comicredr.crdb` already was). A sidecar under the old
+  visible name is renamed the next time the comic is opened or scanned,
+  keeping its panels, bookmarks and positions; when both names exist the
+  two are merged.
 - **Comic details (`I`, the info button on the status line, or Details
   in the library):** the file (format as its bytes say, size, content key,
   sidecar), the pages (pixel sizes, wide spreads, what they are stored as,

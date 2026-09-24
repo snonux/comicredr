@@ -18,7 +18,7 @@ rm -rf "$out" && mkdir -p "$out/home" "$out/Comics"
 # A copy, so the sidecar written here never lands beside the original.
 cp -r "$1" "$out/Comics/"
 book="$PWD/$out/Comics/$(basename "$1")"
-side="$book.crdb"
+side="$(dirname "$book")/.$(basename "$book").crdb"
 [[ -d "$book" ]] && side="$book/.comicredr.crdb"
 db="$PWD/$out/home/.local/share/org.snonux.comicredr/comicredr.sqlite"
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release

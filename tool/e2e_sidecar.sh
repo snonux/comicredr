@@ -83,7 +83,7 @@ for src in "$@"; do
   name=$(basename "$src")
   cp -r "$src" "$out/laptop/$name"
   book="$PWD/$out/laptop/$name"
-  if [[ -d $book ]]; then side="$book/.comicredr.crdb"; else side="$book.crdb"; fi
+  if [[ -d $book ]]; then side="$book/.comicredr.crdb"; else side="$(dirname "$book")/.$(basename "$book").crdb"; fi
   echo "== $name"
 
   # 1. The laptop: page 3, guided view, mark a, a bookmark, panel 2.
@@ -106,10 +106,11 @@ for src in "$@"; do
     cp -r "$book" "$out/phone/$name"
     copy="$PWD/$out/phone/$name"; copyside="$copy/.comicredr.crdb"
   elif [[ $name == *.cbz ]]; then
-    copy="$PWD/$out/phone/renamed-$name"; copyside="$copy.crdb"
+    copy="$PWD/$out/phone/renamed-$name"; copyside="$PWD/$out/phone/.renamed-$name.crdb"
+    # Under the old visible name, as an older install would have copied it.
     cp "$book" "$copy"; cp "$side" "$PWD/$out/phone/$name.crdb"
   else
-    copy="$PWD/$out/phone/$name"; copyside="$copy.crdb"
+    copy="$PWD/$out/phone/$name"; copyside="$PWD/$out/phone/.$name.crdb"
     cp "$book" "$copy"; cp "$side" "$copyside"
   fi
   start phone "$copy"

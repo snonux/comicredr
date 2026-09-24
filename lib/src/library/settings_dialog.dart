@@ -243,7 +243,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       key: const Key('setting-sidecars'),
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Save panels, bookmarks and position in a file for each comic'),
-                      subtitle: const Text('Sidecars already there are always read.'),
+                      subtitle: const Text('Hidden files, like .book.cbz.crdb. Sidecars already there are always read.'),
                       value: _sidecars!,
                       onChanged: (v) => _set(SettingsStore.writeSidecars, v),
                     ),

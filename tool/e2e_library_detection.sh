@@ -119,7 +119,7 @@ check "pages per book match" \
 check "frames found" "$(sql "select count(*) > $total from panels where kind = 'frame'")" 1
 sidecars=0
 for f in "$comics"/*.cbz "$comics"/*.pdf "$comics"/pepper-carrot-e06/.comicredr.crdb; do
-  s="$f"; [[ "$f" == *.crdb ]] || s="$f.crdb"
+  s="$f"; [[ "$f" == *.crdb ]] || s="$(dirname "$f")/.$(basename "$f").crdb"
   [[ -f "$s" ]] || { echo "no sidecar $s"; continue; }
   n=$(python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("select count(distinct page) from panels").fetchone()[0])' "$s")
   [[ "$n" -gt 0 ]] && sidecars=$((sidecars + 1))

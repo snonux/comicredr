@@ -73,7 +73,8 @@ differ() { # pixels that differ between two shots' page areas
   compare -metric AE "$out/crop_$1.png" "$out/crop_$2.png" /dev/null 2>&1 || true
 }
 # Panels detected on page 1, as the sidecar beside the image has them.
-panels() { [[ -f "$1.crdb" ]] && q "$1.crdb" 'select count(*) from panels where page = 0' 2>/dev/null || echo none; }
+side() { echo "$(dirname "$1")/.$(basename "$1").crdb"; }
+panels() { [[ -f "$(side "$1")" ]] && q "$(side "$1")" 'select count(*) from panels where page = 0' 2>/dev/null || echo none; }
 wait_for() { for _ in $(seq 1 60); do "$@" && return 0; sleep 0.5; done; return 1; }
 
 # 1. The library: three one-pagers, the CBZ and the folder book.
@@ -101,7 +102,7 @@ for img in "Pepper Carrot 6 page 1.jpg" "Pepper Carrot 6 page 3.png" "Pepper Car
   key l; sleep 1; shot "12_${tag}_panel_2"
   stop
   check "$img: guided view moved the camera" "$( (( $(differ "10_${tag}_page" "12_${tag}_panel_2") > 10000 )) && echo yes || echo no)" yes
-  wait_for test -f "$comics/$img.crdb" || true
+  wait_for test -f "$(side "$comics/$img")" || true
   check "$img: panels in its sidecar" "$( (( $(panels "$comics/$img") > 1 )) 2>/dev/null && echo yes || echo "$(panels "$comics/$img")")" yes
 done
 
@@ -117,7 +118,7 @@ start "$comics/Pages only/E06P05.jpg"; shot 30_folder_page_alone
 key l; sleep 1; shot 31_folder_page_next
 stop
 check "the next page key stays on a one-page comic" "$(differ 30_folder_page_alone 31_folder_page_next)" 0
-check "its sidecar beside the image" "$(ls "$comics/Pages only/" | grep -c 'E06P05.jpg.crdb')" 1
+check "its sidecar beside the image" "$(ls -A "$comics/Pages only/" | grep -cx '.E06P05.jpg.crdb')" 1
 
 # 5. The launcher offers ComicRedr for images, but not as their default:
 # (a) the system names a default viewer, as Fedora's GNOME does; (b) it
