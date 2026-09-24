@@ -67,6 +67,8 @@ zoomIn = ["+"]
 zoomOut = ["-"]
 # Reset zoom
 zoomReset = ["="]
+# Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view
+zoomToggle = ["Z"]
 # Auto-trim scan margins
 autoTrim = ["t"]
 # Night filter
@@ -75,8 +77,16 @@ nightFilter = ["i"]
 cleanUp = ["c"]
 # Fullscreen: only the comic, no title bar, border or status line; Esc leaves it too
 fullscreen = ["f", "F11"]
-# Bookmark here
+# Bookmark this page, or this panel in guided view; again to take the bookmark off
 bookmark = ["mm"]
+# Next bookmark in this book
+nextBookmark = ["}"]
+# Previous bookmark in this book
+prevBookmark = ["{"]
+# Bookmarks and marks in this book: jump, add a note, remove; the Bookmarks tab in the library
+bookmarkList = ["M"]
+# Remove the selected bookmark in a bookmark list
+remove = ["x", "Delete"]
 # Set mark a-z
 setMark = ["m<a-z>"]
 # Jump to mark a-z
@@ -109,3 +119,39 @@ resetBook = ["X"]
 editBook = ["e"]
 # Show the keymap
 showKeymap = ["?"]
+# Show the touch zones for a moment
+showTouchZones = ["gt"]
+
+[touch]
+# Touch gestures, on top of the preset picked in Settings (Standard,
+# Left-handed or One thumb). Uncomment a line to change that gesture.
+# Taps, double-taps and long presses take nine actions, one per zone
+# of a 3x3 grid read like a page: top row first, left to right. The
+# side columns are 30% of the width each. One action instead of a
+# list sets the whole view; "" does nothing. Actions are the names in
+# [keys] above. Pinch zoom and dragging a zoomed page always work.
+# gt shows the zones while reading.
+#
+# tap = [
+#   "prevStep", "fullscreen", "nextStep",
+#   "prevStep", "fullscreen", "nextStep",
+#   "prevStep", "fullscreen", "nextStep",
+# ]
+#
+# doubleTap = [
+#   "", "zoomToggle", "",
+#   "", "zoomToggle", "",
+#   "", "zoomToggle", "",
+# ]
+#
+# longPress = ""
+#
+# swipeLeft = "nextStep"
+#
+# swipeRight = "prevStep"
+#
+# swipeUp = ""
+#
+# swipeDown = ""
+#
+# twoFingerTap = ""

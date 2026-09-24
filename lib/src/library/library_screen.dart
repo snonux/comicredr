@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
+import '../reader/bookmark_list.dart';
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/reset_dialog.dart';
@@ -25,11 +26,15 @@ enum LibraryTab {
   books('Books', Icons.menu_book),
   collections('Collections', Icons.label_outline),
   history('History', Icons.history),
-  folders('Folders', Icons.folder);
+  folders('Folders', Icons.folder),
+  bookmarks('Bookmarks', Icons.bookmarks, short: 'Marks');
 
-  const LibraryTab(this.label, this.icon);
+  const LibraryTab(this.label, this.icon, {String? short}) : short = short ?? label;
 
   final String label;
+
+  /// The label under the phone's bottom tabs, where a long one wraps.
+  final String short;
   final IconData icon;
 }
 
@@ -50,6 +55,15 @@ class _SeriesItem extends _Item {
   final LibrarySeries series;
   @override
   String get id => 's:${series.id}';
+}
+
+/// A row on the Bookmarks tab: a bookmark or mark, with its book.
+class _BookmarkItem extends _Item {
+  _BookmarkItem(this.bookmark, this.book);
+  final BookmarkInfo bookmark;
+  final LibraryBook book;
+  @override
+  String get id => 'm:${bookmark.id}';
 }
 
 class _FolderItem extends _Item {
@@ -176,6 +190,16 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         _setTab(LibraryTab.values[(tab.index - 1) % LibraryTab.values.length]);
       case ReaderIntent.search:
         _searchFocus.requestFocus();
+      case ReaderIntent.bookmarkList:
+        _setTab(LibraryTab.bookmarks);
+      case ReaderIntent.remove:
+        if (_items.where((it) => it.id == _selected).firstOrNull case _BookmarkItem(:final bookmark, :final book)) {
+          final i = index()!;
+          unawaited(_bookmarkChanged(book, () => ref.read(libraryStoreProvider).deleteBookmark(bookmark.id)));
+          // The next one down takes the selection, as in the reader's list.
+          final next = i + 1 < n ? _items[i + 1] : (i > 0 ? _items[i - 1] : null);
+          setState(() => _selected = next?.id);
+        }
       case ReaderIntent.back:
         back();
       case ReaderIntent.up:
@@ -191,6 +215,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             unawaited(editBook(context, ref, book).whenComplete(() => done?.call()));
           case _SeriesItem(:final series) when tab == LibraryTab.series:
             unawaited(renameSeries(context, ref, series).whenComplete(() => done?.call()));
+          case _BookmarkItem(:final bookmark, :final book):
+            unawaited(_editNote(book, bookmark).whenComplete(() => done?.call()));
           default:
         }
       default:
@@ -287,7 +313,30 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         });
       case _BookItem(:final book):
         read(book);
+      case _BookmarkItem(:final bookmark, :final book):
+        // Without a panel, guided view shows the page whole.
+        read(book, at: (page: bookmark.page, panel: bookmark.panel ?? pageStart));
     }
+  }
+
+  /// Runs a change to a bookmark of [book] in the index, then writes the
+  /// book's sidecar, so it travels.
+  Future<void> _bookmarkChanged(LibraryBook book, Future<void> Function() change) async {
+    try {
+      await change();
+      await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+    } catch (e) {
+      debugPrint('Could not change the bookmark: $e');
+    }
+  }
+
+  Future<void> _editNote(LibraryBook book, BookmarkInfo bookmark) async {
+    final note = await askBookmarkNote(context, bookmark);
+    if (note == null) return;
+    String? fresh;
+    await _bookmarkChanged(book, () async => fresh = await ref.read(libraryStoreProvider).setNote(bookmark.id, note));
+    // The note gives the bookmark a new id: keep it selected.
+    if (fresh != null && mounted && _selected == 'm:${bookmark.id}') setState(() => _selected = 'm:$fresh');
   }
 
   void read(LibraryBook book, {Place? at}) => ref.read(readerProvider.notifier).open(book.path, at: at);
@@ -316,7 +365,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// Tabs that are lists of their own rather than cover grids.
   bool get _listTab => tab == LibraryTab.history;
 
-  List<_Item> _itemsFor(List<LibraryBook> books, List<RootInfo> roots) {
+  List<_Item> _itemsFor(List<LibraryBook> books, List<RootInfo> roots, List<BookmarkInfo> bookmarks) {
     final q = _query.trim();
     switch (tab) {
       case LibraryTab.reading:
@@ -356,6 +405,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         ];
       case LibraryTab.history:
         return const [];
+      case LibraryTab.bookmarks:
+        final byBook = <String, List<BookmarkInfo>>{};
+        for (final m in bookmarks) {
+          (byBook[m.contentKey] ??= []).add(m);
+        }
+        final lower = q.toLowerCase();
+        // Book by book in the order of the Books tab, each in reading order.
+        return [
+          for (final s in LibrarySeries.group(books))
+            for (final b in s.books)
+              for (final m in byBook[b.key] ?? const <BookmarkInfo>[])
+                if (b.matches(q) || (m.note?.toLowerCase().contains(lower) ?? false)) _BookmarkItem(m, b),
+        ];
     }
   }
 
@@ -376,7 +438,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       _selected = null;
       _detail = false;
     }
-    _items = _itemsFor(books, roots ?? const []);
+    final bookmarks = tab == LibraryTab.bookmarks
+        ? ref.watch(allBookmarksProvider).value ?? const <BookmarkInfo>[]
+        : const <BookmarkInfo>[];
+    _items = _itemsFor(books, roots ?? const [], bookmarks);
     if (_selected != null && !_items.any((it) => it.id == _selected)) {
       // An edit moved the book to another series, or renamed its series:
       // the selection follows the books.
@@ -411,6 +476,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                   Expanded(
                     child: switch (tab) {
                       LibraryTab.history => _History(books: books, query: _query.trim(), onRead: read),
+                      LibraryTab.bookmarks => _bookmarkRows(context),
                       _ => _grid(context, wide),
                     },
                   ),
@@ -430,6 +496,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                   onOpen: () => _activate(selectedItem),
                   onRead: read,
                 ),
+                _BookmarkItem(:final book) => BookDetail(book: book, onRead: read),
                 null => null,
               };
         final content = Column(
@@ -439,14 +506,25 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (rail && !empty)
-                    NavigationRail(
-                      selectedIndex: tab.index,
-                      labelType: NavigationRailLabelType.all,
-                      onDestinationSelected: (i) => _setTab(LibraryTab.values[i]),
-                      destinations: [
-                        for (final t in LibraryTab.values)
-                          NavigationRailDestination(icon: Icon(t.icon), label: Text(t.label)),
-                      ],
+                    // Scrolls when the tabs do not fit: a short window, or
+                    // large text.
+                    LayoutBuilder(
+                      builder: (context, box) => SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: box.maxHeight),
+                          child: IntrinsicHeight(
+                            child: NavigationRail(
+                              selectedIndex: tab.index,
+                              labelType: NavigationRailLabelType.all,
+                              onDestinationSelected: (i) => _setTab(LibraryTab.values[i]),
+                              destinations: [
+                                for (final t in LibraryTab.values)
+                                  NavigationRailDestination(icon: Icon(t.icon), label: Text(t.label)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   Expanded(child: body),
                   if (pane != null) ...[const VerticalDivider(width: 1), SizedBox(width: 380, child: pane)],
@@ -462,9 +540,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               ? null
               : NavigationBar(
                   selectedIndex: tab.index,
+                  // Seven tabs leave no room for every label on a phone.
+                  labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
                   onDestinationSelected: (i) => _setTab(LibraryTab.values[i]),
                   destinations: [
-                    for (final t in LibraryTab.values) NavigationDestination(icon: Icon(t.icon), label: t.label),
+                    for (final t in LibraryTab.values)
+                      NavigationDestination(icon: Icon(t.icon), label: t.short, tooltip: t.label),
                   ],
                 ),
         );
@@ -618,6 +699,90 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  static const _bookmarkRowHeight = 76.0;
+
+  /// The Bookmarks tab: every bookmark and mark in the library, book by
+  /// book. A tap opens the book there; `e` writes a note, `x` removes.
+  Widget _bookmarkRows(BuildContext context) {
+    final theme = Theme.of(context);
+    if (_items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            _query.isNotEmpty
+                ? 'Nothing matches "$_query".'
+                : 'No bookmarks yet. In the reader, mm or the bookmark button bookmarks the page, '
+                      'or the panel in guided view.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyLarge,
+          ),
+        ),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, box) {
+        _cols = 1;
+        _rowExtent = _bookmarkRowHeight;
+        _viewport = box.maxHeight;
+        return ListView.builder(
+          key: const Key('bookmarksTab'),
+          controller: _scroll,
+          itemExtent: _bookmarkRowHeight,
+          itemCount: _items.length,
+          itemBuilder: (context, i) {
+            final item = _items[i] as _BookmarkItem;
+            final m = item.bookmark;
+            final selected = item.id == _selected;
+            return Container(
+              decoration: BoxDecoration(
+                border: selected ? Border.all(color: Colors.amber, width: 3) : null,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              child: ListTile(
+                key: Key('bookmarkItem-$i'),
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: SizedBox(width: 36, height: 54, child: CoverImage(bookKey: item.book.key, width: 96)),
+                ),
+                title: Text(item.book.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  [
+                    '${m.mark == null ? '' : "Mark '${m.mark}, "}${describePlace(m)}',
+                    if (m.note != null) m.note!,
+                  ].join('  ·  '),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                onTap: () {
+                  setState(() => _selected = item.id);
+                  _activate(item);
+                },
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_note),
+                      tooltip: 'Note (e)',
+                      onPressed: () => _editNote(item.book, m),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      tooltip: 'Remove (x)',
+                      onPressed: () =>
+                          _bookmarkChanged(item.book, () => ref.read(libraryStoreProvider).deleteBookmark(m.id)),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _grid(BuildContext context, bool wide) {
     if (_items.isEmpty) {
       final text = _query.isNotEmpty
@@ -715,6 +880,8 @@ class _CoverCard extends StatelessWidget {
         series.books.length,
       ),
       _FolderItem(:final folder) => (folder.books.first, folder.name, _folderCount(folder), folder.books.length),
+      // Bookmarks are rows on their own tab, never covers.
+      _BookmarkItem(:final book, :final bookmark) => (book, book.name, describePlace(bookmark), null),
     };
     return InkWell(
       key: ValueKey(item.id),
@@ -901,14 +1068,29 @@ class BookDetail extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: m.mark == null ? const Icon(Icons.bookmark) : CircleAvatar(radius: 12, child: Text(m.mark!)),
-            title: Text('Page ${m.page + 1}${isPanel(m.panel) ? ', panel ${m.panel! + 1}' : ''}'),
-            subtitle: Text(m.mark == null ? 'Bookmark' : "Mark '${m.mark}"),
+            title: Text('P${describePlace(m).substring(1)}'),
+            subtitle: Text(
+              [m.mark == null ? 'Bookmark' : "Mark '${m.mark}", if (m.note != null) m.note!].join('  ·  '),
+            ),
             // Without a panel, guided view shows the page whole.
             onTap: () => onRead(book, at: (page: m.page, panel: m.panel ?? pageStart)),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Remove',
-              onPressed: () => _changed(ref, () => ref.read(libraryStoreProvider).deleteBookmark(m.id)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_note),
+                  tooltip: 'Note',
+                  onPressed: () async {
+                    final note = await askBookmarkNote(context, m);
+                    if (note != null) await _changed(ref, () => ref.read(libraryStoreProvider).setNote(m.id, note));
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Remove',
+                  onPressed: () => _changed(ref, () => ref.read(libraryStoreProvider).deleteBookmark(m.id)),
+                ),
+              ],
             ),
           ),
         const SizedBox(height: 16),

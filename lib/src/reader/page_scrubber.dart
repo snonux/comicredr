@@ -13,7 +13,8 @@ import 'thumbnails.dart';
 /// small picture of the page under the finger shows above it, with its
 /// number; let go, click or tap to jump there. In fullscreen it is [hidden]
 /// until the status line comes back, but still scrubs. In guided view it
-/// also moves panel by panel within the page.
+/// also moves panel by panel within the page. Bookmarked pages carry an
+/// amber notch.
 ///
 /// Lay it over the page with [Positioned.fill]: only the band along the
 /// bottom takes touches, the rest passes through to the page.
@@ -110,6 +111,12 @@ class _PageScrubberState extends ConsumerState<PageScrubber> {
     final within = stops == 0 || state.panel >= pageEnd ? 1.0 : (state.panelIndex + 1) / stops;
     final read = state.guided ? state.page + within : (state.unit.isEmpty ? 0 : state.unit.last + 1.0);
     final active = _at != null;
+    final bookmarked = n == 0
+        ? const <int>{}
+        : {
+            for (final b in state.bookmarks)
+              if (b.mark == null && b.page < n) b.page,
+          };
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -170,6 +177,16 @@ class _PageScrubberState extends ConsumerState<PageScrubber> {
                 ),
               ),
             ),
+            // A notch above the bar at each bookmarked page.
+            for (final page in bookmarked)
+              Positioned(
+                key: Key('bookmarkTick-$page'),
+                left: ((page + 0.5) / n * width - 1.5).clamp(0.0, width - 3).toDouble(),
+                bottom: active ? 6 : 3,
+                width: 3,
+                height: active ? 12 : 9,
+                child: IgnorePointer(child: ColoredBox(color: Colors.amber.withValues(alpha: 0.9))),
+              ),
             // After the band, so the band keeps its place in the stack and
             // a drag under way is not lost when the preview appears.
             if (at != null)

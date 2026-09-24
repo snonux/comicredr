@@ -72,6 +72,7 @@ class Keymap {
       Binding(['+'], ReaderIntent.zoomIn, layer: s),
       Binding(['-'], ReaderIntent.zoomOut, layer: s),
       Binding(['='], ReaderIntent.zoomReset, layer: s),
+      Binding(['Z'], ReaderIntent.zoomToggle),
       Binding(['t'], ReaderIntent.autoTrim),
       Binding(['i'], ReaderIntent.nightFilter),
       Binding(['c'], ReaderIntent.cleanUp),
@@ -79,6 +80,11 @@ class Keymap {
       Binding(['F11'], ReaderIntent.fullscreen, layer: s),
       // Marks, search and getting out.
       Binding(['m', 'm'], ReaderIntent.bookmark),
+      Binding(['}'], ReaderIntent.nextBookmark),
+      Binding(['{'], ReaderIntent.prevBookmark),
+      Binding(['M'], ReaderIntent.bookmarkList),
+      Binding(['x'], ReaderIntent.remove),
+      Binding(['Delete'], ReaderIntent.remove, layer: s),
       Binding(['m', letterSlot], ReaderIntent.setMark),
       Binding(["'", "'"], ReaderIntent.jumpBack),
       Binding(["'", letterSlot], ReaderIntent.jumpMark),
@@ -96,6 +102,7 @@ class Keymap {
       Binding(['X'], ReaderIntent.resetBook),
       Binding(['e'], ReaderIntent.editBook),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
+      Binding(['g', 't'], ReaderIntent.showTouchZones),
     ]);
   }
 

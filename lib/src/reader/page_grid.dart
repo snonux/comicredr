@@ -31,7 +31,6 @@ class PageGrid extends ConsumerStatefulWidget {
 class PageGridState extends ConsumerState<PageGrid> {
   final _scroll = ScrollController();
   late int _selected = ref.read(readerProvider).page;
-  Set<int> _bookmarked = const {};
   int _columns = 1;
   double _rowExtent = 1;
   double _tileWidth = 1;
@@ -39,23 +38,6 @@ class PageGridState extends ConsumerState<PageGrid> {
 
   static const _pad = 12.0;
   static const _gap = 8.0;
-
-  @override
-  void initState() {
-    super.initState();
-    final key = ref.read(readerProvider).book?.key;
-    if (key != null) {
-      unawaited(
-        ref
-            .read(markStoreProvider)
-            .bookmarkedPages(key)
-            .then((pages) {
-              if (mounted) setState(() => _bookmarked = pages);
-            })
-            .catchError((Object e) => debugPrint('Could not read bookmarks: $e')),
-      );
-    }
-  }
 
   @override
   void dispose() {
@@ -141,6 +123,10 @@ class PageGridState extends ConsumerState<PageGrid> {
     final thumbs = ref.watch(thumbnailsProvider);
     final theme = Theme.of(context);
     final n = s.pageCount;
+    final bookmarked = {
+      for (final b in s.bookmarks)
+        if (b.mark == null) b.page,
+    };
     final marks = <int, List<String>>{};
     for (final e in s.marks.entries) {
       (marks[e.value.page] ??= []).add(e.key);
@@ -205,7 +191,7 @@ class PageGridState extends ConsumerState<PageGrid> {
                       width: _tileWidth,
                       current: s.unit.contains(i),
                       selected: i == _selected,
-                      bookmarked: _bookmarked.contains(i),
+                      bookmarked: bookmarked.contains(i),
                       marks: marks[i] ?? const [],
                       onTap: () => widget.onPick(i),
                     ),

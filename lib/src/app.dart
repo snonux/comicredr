@@ -12,11 +12,14 @@ import 'package:reader_input/reader_input.dart';
 
 import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
+import 'input/touch_providers.dart';
+import 'input/touch_zones.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'providers.dart';
 import 'reader/guided.dart';
 import 'reader/layout.dart';
+import 'reader/bookmark_list.dart';
 import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
@@ -75,6 +78,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _library = GlobalKey<LibraryScreenState>();
   final _overlay = GlobalKey<KeymapOverlayState>();
   final _grid = GlobalKey<PageGridState>();
+  final _bookmarkList = GlobalKey<BookmarkListState>();
   final _keys = FocusNode(debugLabel: 'keys');
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _watch;
@@ -83,6 +87,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// The page grid (`p`) is open over the reader.
   bool _showPages = false;
+
+  /// The bookmark list (`M`) is open over the reader.
+  bool _showBookmarks = false;
   bool _picking = false;
 
   /// In fullscreen: the mouse moved lately, so the pointer shows; the
@@ -93,6 +100,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _mouseAtEdge = false;
   Timer? _pointerTimer;
   Timer? _chromeTimer;
+
+  /// The touch zones drawn over the reader for a moment.
+  bool _showZones = false;
+  Timer? _zonesTimer;
 
   @override
   void initState() {
@@ -221,6 +232,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _lifecycle.dispose();
+    _zonesTimer?.cancel();
     _keys.dispose();
     _pointerTimer?.cancel();
     _chromeTimer?.cancel();
@@ -366,7 +378,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final file = await openFile(
         acceptedTypeGroups: const [
-          XTypeGroup(label: 'Comics', extensions: ['cbz', 'cbr', 'cbt', 'zip', 'epub', 'pdf']),
+          XTypeGroup(
+            label: 'Comics',
+            extensions: ['cbz', 'cbr', 'cbt', 'zip', 'epub', 'pdf', 'png', 'jpg', 'jpeg', 'webp'],
+          ),
         ],
       );
       if (file != null) await ref.read(readerProvider.notifier).open(file.path);
@@ -397,7 +412,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// Shows the touch zones over the reader for a few seconds.
+  void _flashZones() {
+    _zonesTimer?.cancel();
+    setState(() => _showZones = true);
+    _zonesTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showZones = false);
+    });
+  }
+
   void _onCommand(ReaderCommand c) {
+    if (c.intent == ReaderIntent.showTouchZones) {
+      if (ref.read(readerProvider).book == null) {
+        _library.currentState?.handle(c);
+      } else {
+        _flashZones();
+      }
+      return;
+    }
     if (c.intent == ReaderIntent.showKeymap) {
       setState(() => _showKeymap = !_showKeymap);
       return;
@@ -414,8 +446,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _setShowPages(!_showPages);
       return;
     }
+    if (c.intent == ReaderIntent.bookmarkList && ref.read(readerProvider).book != null && !_showPages) {
+      _setShowBookmarks(!_showBookmarks);
+      return;
+    }
     if (_showPages) {
       _grid.currentState?.handle(c);
+      return;
+    }
+    if (_showBookmarks) {
+      _bookmarkList.currentState?.handle(c);
       return;
     }
     if (c.intent == ReaderIntent.openFile) {
@@ -451,7 +491,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _setShowPages(bool on) {
-    setState(() => _showPages = on);
+    setState(() {
+      _showPages = on;
+      if (on) _showBookmarks = false;
+    });
+    _keys.requestFocus();
+  }
+
+  void _setShowBookmarks(bool on) {
+    setState(() => _showBookmarks = on);
     _keys.requestFocus();
   }
 
@@ -465,7 +513,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(readerProvider);
     ref.listen(readerProvider.select((s) => s.book), (was, book) {
-      if (!identical(was, book) && _showPages) setState(() => _showPages = false);
+      if (!identical(was, book) && (_showPages || _showBookmarks)) {
+        setState(() => _showPages = _showBookmarks = false);
+      }
     });
     ref.listen(readerProvider.select((s) => s.fullscreen), (_, full) => _applyFullscreen(full));
     // A notice in fullscreen shows on the status line for a moment.
@@ -474,6 +524,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
     ref.listen(positionOfferProvider, (_, offer) {
       if (offer != null) unawaited(_offer(offer));
+    });
+    // The first book opened after picking a touch preset shows its zones.
+    ref.listen(readerProvider.select((s) => s.book != null && s.pageCount > 0), (_, open) {
+      if (open && ref.read(touchPresetProvider.notifier).takeNewPick()) _flashZones();
     });
     final keymap = ref.watch(keymapProvider);
     final keysLoad = ref.watch(keymapLoadProvider);
@@ -535,21 +589,66 @@ extension on _HomeScreenState {
     onCommand: _onCommand,
     viewTransform: () => _view.currentState?.transform,
     guided: () => ref.read(readerProvider).guided,
+    touchMap: () => ref.read(touchMapProvider),
     child: ReaderView(key: _view),
   );
 
-  List<Widget> _overPage({bool barHidden = false}) => [
+  /// What lies over the page: the progress bar, and whatever is open.
+  /// [chrome] false (fullscreen at rest) leaves out the bar and the ribbon.
+  List<Widget> _overPage(ReaderState s, {bool chrome = true}) => [
+    if (chrome && s.bookmarksHere.isNotEmpty && !_showPages && !_showBookmarks)
+      Positioned(
+        top: 0,
+        right: 20,
+        child: Semantics(
+          button: true,
+          label: 'Bookmarked. Opens the bookmark list',
+          child: GestureDetector(
+            key: const Key('bookmarkRibbon'),
+            onTap: () => _setShowBookmarks(true),
+            child: Icon(
+              Icons.bookmark,
+              size: 40,
+              color: Theme.of(context).colorScheme.primary,
+              shadows: const [Shadow(blurRadius: 4)],
+            ),
+          ),
+        ),
+      ),
     Positioned.fill(
-      child: PageScrubber(onPick: _jumpTo, hidden: barHidden),
+      child: PageScrubber(onPick: _jumpTo, hidden: !chrome),
     ),
+    if (_showBookmarks)
+      Positioned.fill(
+        child: BookmarkList(
+          key: _bookmarkList,
+          onClose: () => _setShowBookmarks(false),
+          onDialogDone: _keys.requestFocus,
+        ),
+      ),
     if (_showPages)
       Positioned.fill(
         child: PageGrid(key: _grid, onPick: _jumpTo, onClose: () => _setShowPages(false)),
       ),
+    if (_showZones)
+      Positioned.fill(
+        child: IgnorePointer(
+          child: TouchZonesView(
+            key: const Key('touch-zones'),
+            map: ref.watch(touchMapProvider),
+            rightToLeft: s.rightToLeft,
+          ),
+        ),
+      ),
   ];
 
-  Widget _statusLine(ReaderState s) =>
-      _StatusLine(state: s, pending: _pending, gridOpen: _showPages, onCommand: _onCommand);
+  Widget _statusLine(ReaderState s) => _StatusLine(
+    state: s,
+    pending: _pending,
+    gridOpen: _showPages,
+    bookmarksOpen: _showBookmarks,
+    onCommand: _onCommand,
+  );
 
   /// The page above the status line.
   Widget _windowedReader(ReaderState s) => Column(
@@ -558,7 +657,7 @@ extension on _HomeScreenState {
         child: Stack(
           children: [
             Positioned.fill(child: _page),
-            ..._overPage(),
+            ..._overPage(s),
           ],
         ),
       ),
@@ -571,7 +670,7 @@ extension on _HomeScreenState {
   /// while the mouse is along the bottom; the pointer hides when the mouse
   /// rests. The page keeps its size either way, so nothing reflows.
   Widget _fullscreenReader(ReaderState s) {
-    final chrome = _chromeShown || _pending.isNotEmpty || _showPages;
+    final chrome = _chromeShown || _pending.isNotEmpty || _showPages || _showBookmarks;
     return LayoutBuilder(
       builder: (context, constraints) => MouseRegion(
         cursor: _pointerShown ? MouseCursor.defer : SystemMouseCursors.none,
@@ -586,7 +685,7 @@ extension on _HomeScreenState {
                 child: Column(
                   children: [
                     Expanded(
-                      child: Stack(children: _overPage(barHidden: !chrome)),
+                      child: Stack(children: _overPage(s, chrome: chrome)),
                     ),
                     if (chrome) _statusLine(s),
                   ],
@@ -601,7 +700,13 @@ extension on _HomeScreenState {
 }
 
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.state, required this.pending, required this.onCommand, this.gridOpen = false});
+  const _StatusLine({
+    required this.state,
+    required this.pending,
+    required this.onCommand,
+    this.gridOpen = false,
+    this.bookmarksOpen = false,
+  });
 
   /// Where guided view is on the page, or why it shows the whole page.
   static String _guided(ReaderState s) {
@@ -628,6 +733,9 @@ class _StatusLine extends StatelessWidget {
 
   /// Whether the page grid is open.
   final bool gridOpen;
+
+  /// Whether the bookmark list is open.
+  final bool bookmarksOpen;
 
   /// For the buttons: a phone without a keyboard has no other way into
   /// guided view, balloons or bookmarks.
@@ -711,7 +819,23 @@ class _StatusLine extends StatelessWidget {
                   on: state.guided,
                 ),
                 _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
-                _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+                if (state.bookmarksHere.isNotEmpty)
+                  _button(
+                    'bookmarkButton',
+                    Icons.bookmark,
+                    'Remove the bookmark here (mm)',
+                    ReaderIntent.bookmark,
+                    on: true,
+                  )
+                else
+                  _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+                _button(
+                  'bookmarksButton',
+                  Icons.bookmarks_outlined,
+                  'Bookmarks (M)',
+                  ReaderIntent.bookmarkList,
+                  on: bookmarksOpen,
+                ),
                 _button(
                   'fullscreenButton',
                   state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,

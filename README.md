@@ -5,9 +5,9 @@
 <h1 align="center">ComicRedr</h1>
 
 A comic reader with Comixology-style guided view, for a Fedora laptop and
-an Android phone. It reads CBZ, CBT, comic EPUB, PDF and folders of page
-images, runs entirely on your own machine, and needs no account, sync or
-network.
+an Android phone. It reads CBZ, CBT, comic EPUB, PDF, folders of page
+images and one-page PNG, JPEG or WebP comics, runs entirely on your own
+machine, and needs no account, sync or network.
 
 ## Screenshots
 
@@ -44,22 +44,29 @@ Potion Contest*, by David Revoy, licensed
   status line; move the mouse to the bottom edge to see where you are.
 - **See before you jump**: `p` opens a grid of page thumbnails, and
   dragging along the progress bar previews the page under your finger.
+- **Bookmarks** on a page, or on a panel in guided view, with a short
+  note if you like. `mm` or the bookmark button sets one and takes it off
+  again, `M` lists them with a picture of each page, `}` and `{` jump
+  between them, and the library's Bookmarks tab gathers every book's.
 - **Clean-up for old scans**: yellowed paper turns white, faded ink dark,
   and pages with fewer pixels than your screen are enlarged and sharpened.
 - **A library** of your comics folders: covers, series, search,
-  collections, a folder view, bookmarks and a reading history. Fix a
+  collections, a folder view and a reading history. Fix a
   book's title, series or issue in the app; the comic file stays as it is.
 - **Picks up where you left off**, on the same page, panel and zoom, even
   after you rename or copy the file.
 - **Keyboard first**, with a vi layer on top of the usual keys and your
   own key bindings, plus full touch support on the phone and on a laptop
-  touchscreen.
+  touchscreen, with tap zones you can rearrange.
 - **Your data travels with the comic**: panels, bookmarks and your position
   live in a small `.crdb` file beside it, so a comic copied to the phone
   opens there ready to read. Settings can keep those files in one folder
   instead.
 - **CBZ, CBT, comic EPUB, PDF and folders of page images**, on Fedora and
   Android. EPUBs made of page images open like any comic; text ebooks don't.
+- **One-pagers**: a PNG, JPEG or WebP beside your other comics is a
+  one-page comic, with guided view like any other. A folder holding only
+  images is still one book.
 
 ## Install on Fedora
 
@@ -83,7 +90,8 @@ make install          # add it to the GNOME app grid, no sudo needed
 ```
 
 After `make install`, ComicRedr is in Activities with its own icon, and
-**Open With → ComicRedr** works on CBZ, CBT, EPUB and PDF files. To update, run
+**Open With → ComicRedr** works on CBZ, CBT, EPUB and PDF files, and on
+PNG, JPEG and WebP images without becoming your image viewer. To update, run
 `git pull && make && make install`; `make uninstall` removes it and keeps
 your reading progress. `make help` lists everything else.
 
@@ -160,8 +168,8 @@ keys as the laptop.
 ## Quick start
 
 1. **Add your comics.** Press `A`, or click **Add your comics folder**, and
-   pick the folder your comics are in. Every CBZ, CBT, EPUB, PDF and folder
-   of page images under it turns up as a cover, grouped into series.
+   pick the folder your comics are in. Every CBZ, CBT, EPUB, PDF, one-page image
+   and folder of page images under it turns up as a cover, grouped into series.
 2. **Read.** Pick a book and press `Enter`. `→` and `←` (or `Space`) turn
    pages; `Esc` goes back to the library.
 3. **Try guided view.** Press `v` to go panel by panel, and `b` to step
@@ -185,6 +193,11 @@ zoom, drag to pan, and tap the middle to hide the status line. Drag along
 the progress bar to scrub through the book, or tap the grid button for
 every page at once. Android's
 back gesture leaves guided view, then the book.
+
+Settings has a left-handed and a one-thumb layout, and `gt` shows the
+zones while reading. The `[touch]` section of `keys.toml` gives any action
+to a tap, double-tap or long press in each of nine zones, to a swipe, or
+to a two-finger tap.
 
 ### The CBR files you already have
 

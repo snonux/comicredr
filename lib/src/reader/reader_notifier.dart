@@ -11,6 +11,7 @@ import '../data/read_log_store.dart';
 import '../data/settings_store.dart';
 import '../data/sidecar.dart';
 import '../data/sidecar_sync.dart';
+import '../library/library_store.dart';
 import '../library/providers.dart';
 import '../providers.dart';
 import 'guided.dart';
@@ -41,6 +42,7 @@ class ReaderState {
     this.cleanUp = false,
     this.panels = const {},
     this.marks = const {},
+    this.bookmarks = const [],
     this.jumpedFrom,
     this.loading = false,
     this.message,
@@ -96,6 +98,10 @@ class ReaderState {
 
   /// vi-style marks a–z for this book.
   final Map<String, Place> marks;
+
+  /// This book's bookmarks and marks, in reading order, as the index has
+  /// them: the list (`M`), the markers and `}` `{` read them.
+  final List<BookmarkInfo> bookmarks;
 
   /// Where `''` goes back to: the place before the last jump.
   final Place? jumpedFrom;
@@ -157,6 +163,21 @@ class ReaderState {
     return n == 0 || panel < 0 || panel >= pageEnd ? -1 : panel.clamp(0, n - 1);
   }
 
+  /// The bookmarks on what is shown, which the marker on the page stands
+  /// for and `mm` takes off: in guided view on a panel, that panel's and
+  /// its page's own; otherwise every bookmark on the pages shown. Marks
+  /// a–z are not bookmarks here.
+  List<BookmarkInfo> get bookmarksHere {
+    if (book == null) return const [];
+    final i = guided ? panelIndex : -1;
+    final shown = unit;
+    return [
+      for (final b in bookmarks)
+        if (b.mark == null && (i >= 0 ? b.page == page && (b.panel == null || b.panel == i) : shown.contains(b.page)))
+          b,
+    ];
+  }
+
   /// Where guided view lands on arriving at a page.
   int get entryPanel => wholePageSteps ? pageStart : 0;
 
@@ -178,6 +199,7 @@ class ReaderState {
     bool? cleanUp,
     Map<int, PagePanels>? panels,
     Map<String, Place>? marks,
+    List<BookmarkInfo>? bookmarks,
     Place? jumpedFrom,
     bool? loading,
     String? message,
@@ -199,6 +221,7 @@ class ReaderState {
     cleanUp: cleanUp ?? this.cleanUp,
     panels: panels ?? this.panels,
     marks: marks ?? this.marks,
+    bookmarks: bookmarks ?? this.bookmarks,
     jumpedFrom: jumpedFrom ?? this.jumpedFrom,
     loading: loading ?? this.loading,
     message: message, // Notices never carry over to the next state.
@@ -379,8 +402,146 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
     _ensurePanels();
+    _watchBookmarks(book);
     unawaited(_readWidePages(book));
     unawaited(_writeSidecar(book));
+  }
+
+  StreamSubscription<List<BookmarkInfo>>? _bookmarkWatch;
+
+  /// Follows [book]'s bookmarks and marks in the index, so a change from
+  /// the list, the library or a sidecar shows at once.
+  void _watchBookmarks(OpenBook book) {
+    unawaited(_bookmarkWatch?.cancel());
+    _bookmarkWatch = ref.read(libraryStoreProvider).watchBookmarks(book.key).listen((all) {
+      if (!identical(state.book, book)) return;
+      state = state.copyWith(
+        bookmarks: all,
+        marks: {for (final b in all) ?b.mark: (page: b.page, panel: b.panel ?? 0)},
+        message: state.message,
+      );
+    }, onError: (Object e) => debugPrint('Could not read bookmarks: $e'));
+  }
+
+  /// Goes to bookmark [b]: its panel in guided view, its page otherwise. A
+  /// jump, so `''` comes back.
+  void jumpToBookmark(BookmarkInfo b) {
+    if (state.book == null) return;
+    // Without a panel, guided view shows the page whole.
+    _goTo(b.page, panel: b.panel ?? pageStart, jump: true);
+    _notice(
+      '${b.mark == null ? 'Bookmark' : "Mark '${b.mark}"}: ${describePlace(b)}'
+      '${b.note == null ? '' : '  ·  ${b.note}'}',
+    );
+  }
+
+  /// Removes bookmark [id] of the open book, from the list (`M`).
+  Future<void> removeBookmark(String id) async {
+    final key = state.book?.key;
+    if (key == null) return;
+    state = state.copyWith(bookmarks: [...state.bookmarks.where((b) => b.id != id)]);
+    try {
+      await ref.read(libraryStoreProvider).deleteBookmark(id);
+      _sidecars.touch(key);
+    } catch (e) {
+      debugPrint('Could not remove the bookmark: $e');
+    }
+  }
+
+  /// Gives bookmark [id] of the open book a note; empty takes it off.
+  Future<void> setBookmarkNote(String id, String note) async {
+    final key = state.book?.key;
+    if (key == null) return;
+    try {
+      await ref.read(libraryStoreProvider).setNote(id, note);
+      _sidecars.touch(key);
+    } catch (e) {
+      debugPrint('Could not save the note: $e');
+    }
+  }
+
+  /// `}` and `{`: the next or previous bookmark in reading order, from the
+  /// panel guided view is on, or from the pages shown.
+  void _stepBookmark(int by) {
+    final all = [...state.bookmarks.where((b) => b.mark == null)]..sort(BookmarkInfo.order);
+    if (all.isEmpty) {
+      _notice('No bookmarks in this book yet: mm adds one');
+      return;
+    }
+    // Where we are, in the same order: page, then panel, the whole page
+    // before its panels and after them once they are read.
+    final i = state.panelIndex;
+    final here = state.guided ? (page: state.page, panel: i >= 0 ? i : (state.panel >= pageEnd ? 1 << 30 : -1)) : null;
+    int compare(BookmarkInfo b, int page, int panel) =>
+        b.page != page ? b.page.compareTo(page) : (b.panel ?? -1).compareTo(panel);
+    BookmarkInfo? target;
+    if (by > 0) {
+      final after = [
+        for (final b in all)
+          if (here != null ? compare(b, here.page, here.panel) > 0 : b.page > state.unit.last) b,
+      ];
+      if (after.isNotEmpty) target = after[(by - 1).clamp(0, after.length - 1)];
+    } else {
+      final before = [
+        for (final b in all)
+          if (here != null ? compare(b, here.page, here.panel) < 0 : b.page < state.unit.first) b,
+      ];
+      if (before.isNotEmpty) target = before[(before.length + by).clamp(0, before.length - 1)];
+    }
+    if (target == null) {
+      _notice(by > 0 ? 'No bookmark after this one' : 'No bookmark before this one');
+      return;
+    }
+    jumpToBookmark(target);
+    final n = all.indexOf(target) + 1;
+    _notice(
+      'Bookmark $n of ${all.length}: ${describePlace(target)}'
+      '${target.note == null ? '' : '  ·  ${target.note}'}',
+    );
+  }
+
+  /// `mm`: bookmarks the page, or the panel in guided view; when what is
+  /// shown already has one ([ReaderState.bookmarksHere]), takes it off.
+  Future<void> _toggleBookmark() async {
+    final book = state.book!;
+    final here = state.bookmarksHere;
+    final store = ref.read(libraryStoreProvider);
+    if (here.isNotEmpty) {
+      final ids = {for (final b in here) b.id};
+      state = state.copyWith(
+        bookmarks: [...state.bookmarks.where((b) => !ids.contains(b.id))],
+        message: here.length == 1
+            ? 'Bookmark removed from ${describePlace(here.first)}'
+            : 'Removed ${here.length} bookmarks from page ${state.page + 1}',
+      );
+      try {
+        await store.deleteBookmarks(ids);
+        _sidecars.touch(book.key);
+      } catch (e) {
+        debugPrint('Could not remove the bookmark: $e');
+      }
+      return;
+    }
+    final i = state.panelIndex;
+    final panel = state.guided && i >= 0 ? i : null;
+    final page = state.page;
+    _notice('Bookmarked page ${page + 1}${panel != null ? ', panel ${panel + 1}' : ''}  ·  M lists them');
+    try {
+      final id = await ref.read(markStoreProvider).addBookmark(book.key, page, panel);
+      _sidecars.touch(book.key);
+      // Shown at once; the index's own update follows.
+      if (identical(state.book, book) && !state.bookmarks.any((b) => b.id == id)) {
+        state = state.copyWith(
+          bookmarks: [
+            ...state.bookmarks,
+            BookmarkInfo(id: id, contentKey: book.key, page: page, panel: panel, createdAt: DateTime.now()),
+          ]..sort(BookmarkInfo.order),
+          message: state.message,
+        );
+      }
+    } catch (e) {
+      debugPrint('Could not save bookmark: $e');
+    }
   }
 
   /// Writes the sidecar as the book opens, so a folder that refuses it says
@@ -416,6 +577,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
   Future<void> close() async {
     final book = state.book;
     if (book == null) return;
+    unawaited(_bookmarkWatch?.cancel());
+    _bookmarkWatch = null;
     await _progress.flush();
     await _endSitting();
     _wanted.clear();
@@ -808,17 +971,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.halfPageUp:
         _notice('Continuous scroll arrives in a later milestone');
       case ReaderIntent.bookmark:
-        final key = state.book!.key;
-        final i = state.panelIndex;
-        final panel = state.guided && i >= 0 ? i : null;
-        _notice('Bookmarked page ${state.page + 1}${panel != null ? ', panel ${panel + 1}' : ''}');
-        unawaited(
-          ref
-              .read(markStoreProvider)
-              .addBookmark(key, state.page, panel)
-              .then((_) => _sidecars.touch(key))
-              .catchError((Object e) => debugPrint('Could not save bookmark: $e')),
-        );
+        await _toggleBookmark();
+      case ReaderIntent.nextBookmark:
+        _stepBookmark(c.times);
+      case ReaderIntent.prevBookmark:
+        _stepBookmark(-c.times);
       case ReaderIntent.search:
       case ReaderIntent.searchNext:
       case ReaderIntent.searchPrev:
@@ -844,6 +1001,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.zoomIn:
       case ReaderIntent.zoomOut:
       case ReaderIntent.zoomReset:
+      case ReaderIntent.zoomToggle:
+      case ReaderIntent.showTouchZones:
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:
       case ReaderIntent.showKeymap:
@@ -854,6 +1013,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.activate:
       case ReaderIntent.up:
       case ReaderIntent.pageGrid:
+      case ReaderIntent.bookmarkList:
+      case ReaderIntent.remove:
         break; // Handled by the screen, or only mean something in the library.
     }
     // Mode switches (guided, balloons, spread, direction) are part of the
@@ -903,3 +1064,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
     await _sidecars.flush();
   }
 }
+
+/// "page 5" or "page 5, panel 2", for notices and lists.
+String describePlace(BookmarkInfo b) => 'page ${b.page + 1}${isPanel(b.panel) ? ', panel ${b.panel! + 1}' : ''}';

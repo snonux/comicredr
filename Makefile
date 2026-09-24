@@ -94,6 +94,7 @@ test: analyze
 # `sudo make install PREFIX=/usr/local` never runs Flutter as root.
 install:
 	@test -x $(BUNDLE)/comicredr || { echo "No release build yet: run make first."; exit 1; }
+	@if [ -z "$(DESTDIR)" ]; then $(PKG)/keep-viewer.sh save build/viewer-defaults $(APPSDIR); fi
 	rm -rf $(DESTDIR)$(LIBDIR)
 	mkdir -p $(DESTDIR)$(LIBDIR) $(DESTDIR)$(BINDIR) $(DESTDIR)$(APPSDIR)
 	cp -a $(BUNDLE)/. $(DESTDIR)$(LIBDIR)/
@@ -104,6 +105,7 @@ install:
 	  install -Dm644 $(PKG)/icons/$${s}.png $(DESTDIR)$(ICONDIR)/$${s}x$${s}/apps/$(APP_ID).png || exit 1; \
 	done
 	$(MAKE) --no-print-directory _refresh
+	@if [ -z "$(DESTDIR)" ]; then $(PKG)/keep-viewer.sh restore build/viewer-defaults $(APPSDIR); fi
 	@echo "Installed. ComicRedr is in the app grid; $(BINDIR)/comicredr starts it from a shell."
 
 uninstall:
@@ -132,7 +134,7 @@ tarball: build
 	rm -rf build/tarball
 	mkdir -p build/tarball/$(TARNAME)/packaging
 	cp -a $(BUNDLE) build/tarball/$(TARNAME)/bundle
-	cp -a $(PKG)/icons $(PKG)/$(APP_ID).desktop.in $(PKG)/$(APP_ID).svg build/tarball/$(TARNAME)/packaging/
+	cp -a $(PKG)/icons $(PKG)/$(APP_ID).desktop.in $(PKG)/$(APP_ID).svg $(PKG)/keep-viewer.sh build/tarball/$(TARNAME)/packaging/
 	install -m755 $(PKG)/install.sh build/tarball/$(TARNAME)/install.sh
 	cp README.md CHANGELOG.md docs/keys.toml build/tarball/$(TARNAME)/
 	tar -C build/tarball -czf $(TARBALL) $(TARNAME)
