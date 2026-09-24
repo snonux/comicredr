@@ -276,5 +276,8 @@ void main() {
     expect(info.meta.number, '6');
     expect(info.meta.title, 'Episode 6');
     expect(info.cover, isNotNull);
+    final doc = await openDocument(path);
+    expect(await doc.pageSizes(), [(8, 12)]);
+    await doc.close();
   });
 }

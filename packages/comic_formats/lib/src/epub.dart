@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
+import 'cbz.dart';
 import 'comic_info.dart';
 import 'document.dart';
 import 'natural_sort.dart';
@@ -132,6 +133,9 @@ class EpubDocument implements ComicDocument {
 
   @override
   Future<Uint8List?> rawPage(int index) async => _inflate(_pages[index]);
+
+  @override
+  Future<List<(int, int)?>> pageSizes() async => [for (final p in _pages) zipPageSize(p)];
 
   @override
   Future<ComicMeta?> embeddedMetadata() async => _meta;

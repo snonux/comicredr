@@ -65,7 +65,7 @@ class CbzDocument implements ComicDocument {
 
   @override
   Future<List<(int, int)?>> pageSizes() async => [
-    for (final p in _pages) imageSize(_head(p, headBytes)) ?? _fullSize(p),
+    for (final p in _pages) zipPageSize(p),
   ];
 
   @override
@@ -131,6 +131,10 @@ class CbzDocument implements ComicDocument {
     return out.getBytes();
   }
 }
+
+/// The pixel size of the page image in ZIP entry [f], read from as little
+/// of it as its header needs; null when it cannot be read.
+(int, int)? zipPageSize(ArchiveFile f) => imageSize(CbzDocument._head(f, headBytes)) ?? CbzDocument._fullSize(f);
 
 /// Reads [input]'s ZIP central directory. Throws [FormatException] when it
 /// is not a readable ZIP.

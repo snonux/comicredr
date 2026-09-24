@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'comic_info.dart';
 import 'document.dart';
+import 'image_size.dart';
 import 'natural_sort.dart';
 import 'sniff.dart';
 
@@ -50,6 +52,11 @@ class CbtDocument implements ComicDocument {
   Future<Uint8List?> rawPage(int index) async => _read(_pages[index]);
 
   @override
+  Future<List<(int, int)?>> pageSizes() async => [
+    for (final p in _pages) imageSize(_read(p, headBytes)) ?? (p.size > headBytes ? imageSize(_read(p)) : null),
+  ];
+
+  @override
   Future<ComicMeta?> embeddedMetadata() async {
     final info = _comicInfo;
     if (info == null) return null;
@@ -61,11 +68,13 @@ class CbtDocument implements ComicDocument {
 
   // Synchronous, so two page requests on one document can never interleave
   // their seek and read.
-  Uint8List _read(_Entry e) {
+  // [limit] reads only the start of the entry, for a page's size.
+  Uint8List _read(_Entry e, [int? limit]) {
+    final n = limit == null ? e.size : math.min(limit, e.size);
     _file.setPositionSync(e.offset);
-    final out = Uint8List(e.size);
+    final out = Uint8List(n);
     final got = _file.readIntoSync(out);
-    if (got != e.size) throw const FormatException('The tar ends inside a page');
+    if (got != n) throw const FormatException('The tar ends inside a page');
     return out;
   }
 }

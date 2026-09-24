@@ -126,4 +126,12 @@ void main() {
     expect(info.meta.number, '2');
     expect(info.cover, isNotNull);
   });
+
+  test('page sizes come from the image headers', () async {
+    final wide = img.encodePng(img.Image(width: 30, height: 12));
+    final path = write('sizes.cbt', [...tarEntry('1.png', wide), ...tarEntry('2.png', [1, 2, 3]), ...tarEnd()]);
+    final doc = CbtDocument.open(path);
+    expect(await doc.pageSizes(), [(30, 12), null]);
+    await doc.close();
+  });
 }

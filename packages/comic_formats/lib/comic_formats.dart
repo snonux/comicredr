@@ -7,7 +7,7 @@ import 'src/document.dart';
 export 'src/background.dart';
 export 'src/book_info.dart';
 export 'src/cbt.dart';
-export 'src/cbz.dart';
+export 'src/cbz.dart' hide zipPageSize;
 export 'src/comic_info.dart' hide unescapeXml;
 export 'src/content_key.dart';
 export 'src/document.dart';
