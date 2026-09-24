@@ -7,6 +7,13 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Hidden sidecars:** a comic's sidecar is now `.book.cbz.crdb`, a
+  hidden file, beside the comic and in the one sidecar folder alike (a
+  folder book's `.comicredr.crdb` already was). A sidecar under the old
+  visible name is renamed the next time the comic is opened or scanned,
+  keeping its panels, bookmarks and positions; when both names exist the
+  two are merged.
+
 - **Zoom the page grid:** in the `p` grid, `+` and `-` (or Ctrl and the
   scroll wheel, a pinch, or the header's buttons) go from many small
   thumbnails to one page a row, keeping the selected page in view. Bigger

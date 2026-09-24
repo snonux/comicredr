@@ -18,6 +18,7 @@ rm -rf "$out" && mkdir -p "$out/Comics/Indie" "$out/Comics/Folder Book" "$out/ho
 comics="$PWD/$out/Comics"
 side="$PWD/$out/Stash"
 cbz="$comics/Indie/Test Comic 1.cbz"
+cbzside="$comics/Indie/.Test Comic 1.cbz.crdb"
 book="$comics/Folder Book"
 for i in 1 2 3 4; do
   convert -size 800x1200 xc:white -fill none -stroke black -strokewidth 8 \
@@ -63,6 +64,9 @@ stop() {
   for _ in $(seq 1 30); do kill -0 "$app" 2>/dev/null || return 0; sleep 0.25; done
   echo "FAIL the app did not quit on close"; failed=1; kill "$app"
 }
+# The Sidecars section sits at the bottom of the Settings dialog, below the
+# fold in a 720 px window: scroll there first.
+settings_bottom() { xdotool mousemove 640 400 click --repeat 15 --delay 50 5; sleep 1; }
 bookmarks() { q "$1" "select count(*) from bookmarks where deleted_at is null"; }
 # Opens the selected book, turns a page, bookmarks it (m m) and goes back
 # to the library, which writes the sidecar.
@@ -81,7 +85,7 @@ read_and_mark
 click 390 200
 read_and_mark
 shot 01_beside
-check "the CBZ's sidecar is beside it" test "$(bookmarks "$cbz.crdb")" = 1
+check "the CBZ's sidecar is beside it" test "$(bookmarks "$cbzside")" = 1
 check "the folder book's sidecar is inside it" test "$(bookmarks "$book/.comicredr.crdb")" = 1
 [[ -n "${E2E_STOP:-}" ]] && { stop; exit; }
 
@@ -89,12 +93,15 @@ check "the folder book's sidecar is inside it" test "$(bookmarks "$book/.comicre
 # after Ctrl+L. With a book selected the gear sits left of its details.
 mkdir -p "$side"
 click 870 28
+settings_bottom
 shot 02_settings
-click "${PLACE_X:-660}" "${PLACE_Y:-500}"
+click "${PLACE_X:-660}" "${PLACE_Y:-146}"
 sleep 1.5
 click 150 59 # Home, out of Recent, which takes no path.
 shot 03_picker
 key ctrl+l
+# GTK completes a typed path inline: another build/e2e-* folder beside this
+# one turns "e" into "e2e-" and garbles the path, so run this one alone.
 xdotool type --delay 80 "$side" 2>/dev/null; sleep 0.5
 key Return # Into the folder; with the path field empty the picker takes it.
 key ctrl+a BackSpace
@@ -107,9 +114,9 @@ shot 05_moved
 check "the setting names the folder" \
   test "$(q "$(db home)" "select value from settings where key = 'sidecars.dir'")" = "\"$side\""
 check "nothing is left beside the comics" \
-  test ! -e "$cbz.crdb" -a ! -e "$book/.comicredr.crdb"
+  test ! -e "$cbzside" -a ! -e "$book/.comicredr.crdb"
 check "the CBZ's sidecar moved, laid out like the library" \
-  test "$(bookmarks "$side/Comics/Indie/Test Comic 1.cbz.crdb")" = 1
+  test "$(bookmarks "$side/Comics/Indie/.Test Comic 1.cbz.crdb")" = 1
 check "the folder book's sidecar moved" \
   test "$(bookmarks "$side/Comics/Folder Book/.comicredr.crdb")" = 1
 key Escape
@@ -118,8 +125,8 @@ key Escape
 click 390 200
 read_and_mark
 check "a new bookmark lands in the folder" \
-  test "$(bookmarks "$side/Comics/Indie/Test Comic 1.cbz.crdb")" = 2
-check "still nothing beside the comics" test ! -e "$cbz.crdb"
+  test "$(bookmarks "$side/Comics/Indie/.Test Comic 1.cbz.crdb")" = 2
+check "still nothing beside the comics" test ! -e "$cbzside"
 stop
 
 # A fresh install pointed at the same folder before its first scan gets
@@ -137,7 +144,8 @@ start home
 click 43 100
 click 390 200
 click 870 28
-click "${BESIDE_X:-473}" "${PLACE_Y:-500}"
+settings_bottom
+click "${BESIDE_X:-473}" "${PLACE_Y:-146}"
 sleep 1
 shot 07_move_back_offer
 click 1047 406 # Move
@@ -146,8 +154,8 @@ shot 08_moved_back
 check "the setting is cleared" \
   test -z "$(q "$(db home)" "select value from settings where key = 'sidecars.dir'")"
 check "the sidecars are beside the comics again" \
-  test "$(bookmarks "$cbz.crdb")" = 2 -a "$(bookmarks "$book/.comicredr.crdb")" = 1
-check "the folder no longer holds them" test ! -e "$side/Comics/Indie/Test Comic 1.cbz.crdb"
+  test "$(bookmarks "$cbzside")" = 2 -a "$(bookmarks "$book/.comicredr.crdb")" = 1
+check "the folder no longer holds them" test ! -e "$side/Comics/Indie/.Test Comic 1.cbz.crdb"
 check "and nothing is written there any more" test -z "$(find "$side" -name '*.crdb')"
 key Escape
 stop

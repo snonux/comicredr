@@ -23,7 +23,7 @@ cp "$src" "$cbz"
 (cd "$out/lib/tmp" && unzip -qj "$cbz" && ls | sort | head -6 | zip -q ../short.cbz -@)
 rm -rf "$out/lib/tmp"
 db="$PWD/$out/home/.local/share/org.snonux.comicredr/comicredr.sqlite"
-side="$cbz.crdb"
+side="$(dirname "$cbz")/.$(basename "$cbz").crdb"
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
 cc -o "$out/close_window" tool/close_window.c -lX11
 
