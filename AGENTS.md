@@ -148,6 +148,13 @@ build internals, test scripts, detector work and conventions here.
   Detection decodes its own copy, so it never sees the clean-up.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
+- A page guided view shows whole (no panels that pass the gate) holds
+  for one step: the first step onward stays and plays a zoom cue (the
+  status line explains the first three; with reduced motion only the hint,
+  every time), the next one turns, however soon. Mirrored going back. A
+  page arrived on from the other side, a count (`3l`) and pages whose
+  panels are not known yet are not held (`_pauseOnWhole` in
+  `reader_notifier.dart`). `W` or Settings turns it off (`guided.pauseWhole`).
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -208,6 +215,7 @@ tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the 
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the zoom cue, keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 

@@ -121,9 +121,17 @@ void main() {
     expect(at(c), (1, 'E'));
     await key(tester, LogicalKeyboardKey.keyL);
     expect(at(c), (2, 'W'));
+    // It holds for one step first (the pause on whole pages, on by default).
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(c), (2, 'W'));
     await key(tester, LogicalKeyboardKey.keyL);
     expect(at(c), (3, 'S'));
-    await key(tester, LogicalKeyboardKey.keyH, times: 2);
+    await key(tester, LogicalKeyboardKey.keyH, times: 3);
+    expect(at(c), (1, 'E'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(c), (3, 'S'), reason: 'a count does not hold');
+    await key(tester, LogicalKeyboardKey.keyH, times: 3);
     expect(at(c), (1, 'E'));
 
     // Ctrl+f turns the page and lands on it whole.
