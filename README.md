@@ -65,7 +65,7 @@ Then build and install ComicRedr:
 
 ```sh
 git clone https://github.com/snonux/comicredr.git && cd comicredr
-make model MODEL=path/to/comicredr-panels.onnx   # once, see below
+make model MODEL=path/to/comicredr-panels.onnx   # once, see The trained detector
 make                  # build it
 make run              # try it without installing
 make install          # add it to the GNOME app grid, no sudo needed
@@ -83,18 +83,32 @@ builds `build/comicredr-VERSION-linux-x64.tar.gz`; unpack it there and run
 ### The trained detector
 
 The trained model finds panels much more reliably than classic computer
-vision and is the only way to get balloon mode. `make` builds it into the
-app, and `make apk` into the APK, so there is nothing to install
-separately. It is one file, `comicredr-panels.onnx`, kept out of this
-repository because it builds on a model trained on research-only data, so
-put it in the checkout once before the first `make`:
+vision and is the only way to get balloon mode. It is one file,
+`comicredr-panels.onnx`, kept out of this repository because it builds on
+a model trained on research-only data: get it from whoever gave you
+ComicRedr, or train it yourself (see [AGENTS.md](AGENTS.md)). With it in
+the checkout, `make` builds it into the Linux app and `make apk` into the
+Android APK, so an installed app needs nothing else.
+
+| Make target | What it does |
+|---|---|
+| `make model MODEL=path/to/comicredr-panels.onnx` | Puts the model in the checkout (`assets/models/`), once per checkout. |
+| `make && make install` | Builds and installs the Linux app with the model inside. |
+| `make apk && make install-apk` | Builds and installs the Android APK with the model inside. |
+| `make install-model MODEL=file.onnx` | Adds a model to the installed Linux app without rebuilding; it wins over the built-in one. |
+| `make push-model MODEL=file.onnx` | The same on the phone, over USB. |
+| `make NO_MODEL=1` | Builds without a model; the app uses classic computer vision. |
+
+For example, on a new laptop:
 
 ```sh
-make model MODEL=path/to/comicredr-panels.onnx
+make model MODEL=~/Downloads/comicredr-panels.onnx
+make && make install     # Linux
+make apk && make install-apk   # Android, phone on USB
 ```
 
-Without it `make` stops and says so; `make NO_MODEL=1` builds an app that
-uses classic computer vision only.
+Without the model, `make` and `make apk` stop and say what to run. Restart
+the app after `install-model` or `push-model`.
 
 ## Install on an Android phone
 

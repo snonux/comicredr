@@ -48,7 +48,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       _sidecars = sidecars ?? true;
       _detectLibrary = detectLibrary ?? detectLibraryByDefault;
       _detector = detector.model == null
-          ? 'Classic computer vision. Install the trained model for balloons and better panels (see the README).'
+          ? 'Classic computer vision. Build with the trained model for balloons and better panels (see "The trained detector" in the README).'
           : 'The trained model: ${detector.model!.path}';
     });
   }
