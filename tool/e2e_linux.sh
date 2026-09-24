@@ -8,6 +8,10 @@
 #
 #   tool/e2e_linux.sh [book.cbz]   # default: a generated 12-page fixture
 #
+# With COMICREDR_MODEL naming the trained .onnx file the app detects with
+# the model (the log says which detector ran), and the balloon-mode steps
+# at the end have balloons to step through; without it, classic CV.
+#
 # Needs: Xvfb, xdotool, ImageMagick (import, montage), python3 + Pillow, a C
 # compiler and GTK 3 headers.
 # Output: build/e2e/shot_*.png and build/e2e/contact.png.
@@ -134,6 +138,14 @@ swipe 400 340 900 20; settle;     shot 38_touch_guided_swipe_right
 tap 80 340; settle;               shot 39_touch_guided_tap_left
 pinch 640 340 60 160; settle;     shot 40_touch_guided_pinch
 tap 640 340; sleep 0.1; tap 640 340; settle; shot 41_touch_guided_recentred
+# Balloon mode: b, then keys and taps step the panel whole, then each balloon.
+key z z; key b; sleep 1;          shot 42_balloons_on
+key l;                            shot 43_balloons_key_step
+key l;                            shot 44_balloons_key_step
+tap 1200 340; settle;             shot 45_balloons_tap_right
+tap 1200 340; settle;             shot 46_balloons_tap_right
+swipe 400 340 900 20; settle;     shot 47_balloons_swipe_back
+key b;                            shot 48_balloons_off
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"
 if grep -v XGetInputFocus "$out/app.log" | grep -q 'Unhandled Exception\|\[ERROR'; then

@@ -10,6 +10,7 @@ import '../data/progress_store.dart';
 import '../providers.dart';
 import 'guided.dart';
 import 'layout.dart';
+import 'model_detector.dart';
 import 'open_book.dart';
 import 'panel_detector.dart';
 
@@ -20,8 +21,10 @@ class ReaderState {
     this.book,
     this.page = 0,
     this.panel = 0,
+    this.balloon = -1,
     this.mode = PageMode.single,
     this.guided = false,
+    this.balloons = false,
     this.coverAlone = true,
     this.rightToLeft = false,
     this.fullscreen = false,
@@ -40,10 +43,19 @@ class ReaderState {
   /// while guided view is off, so `v` comes back to the same panel.
   final int panel;
 
+  /// The balloon inside [panel] balloon mode is showing, in reading order;
+  /// -1 for the panel as a whole, which comes first.
+  final int balloon;
+
   /// Single page or spread: what shows outside guided view, and what `v`
   /// returns to.
   final PageMode mode;
   final bool guided;
+
+  /// Balloon mode: guided view also steps through the balloons inside each
+  /// panel, after showing the panel whole. Off by default, and remembered
+  /// while guided view is off.
+  final bool balloons;
   final bool coverAlone;
   final bool rightToLeft;
   final bool fullscreen;
@@ -76,11 +88,28 @@ class ReaderState {
   /// failed.
   List<Panel> stopsOn(int p) => panels[p]?.stops(rightToLeft: rightToLeft) ?? const [];
 
-  /// The panel guided view frames right now, or null for the whole page.
+  /// The balloons inside stop [stop] on page [p], in reading order.
+  List<Panel> balloonsOn(int p, int stop) => panels[p]?.balloonsIn(stop, rightToLeft: rightToLeft) ?? const [];
+
+  /// The panel, or in balloon mode the balloon, guided view frames right
+  /// now; null for the whole page.
   Panel? get focus {
     if (!guided) return null;
     final stops = stopsOn(page);
-    return stops.isEmpty ? null : stops[panel.clamp(0, stops.length - 1)];
+    if (stops.isEmpty) return null;
+    final frame = stops[panel.clamp(0, stops.length - 1)];
+    final b = balloonIndex;
+    return b < 0 ? frame : balloonFocus(frame, balloonsOn(page, panelIndex)[b]);
+  }
+
+  /// [balloon] resolved against what is known: -1 for the panel as a whole,
+  /// always so outside balloon mode.
+  int get balloonIndex {
+    if (!guided || !balloons) return -1;
+    final i = panelIndex;
+    if (i < 0) return -1;
+    final n = balloonsOn(page, i).length;
+    return n == 0 ? -1 : balloon.clamp(-1, n - 1);
   }
 
   /// [panel] resolved against what is known: -1 for the whole page.
@@ -93,8 +122,10 @@ class ReaderState {
     OpenBook? book,
     int? page,
     int? panel,
+    int? balloon,
     PageMode? mode,
     bool? guided,
+    bool? balloons,
     bool? coverAlone,
     bool? rightToLeft,
     bool? fullscreen,
@@ -108,8 +139,10 @@ class ReaderState {
     book: book ?? this.book,
     page: page ?? this.page,
     panel: panel ?? this.panel,
+    balloon: balloon ?? this.balloon,
     mode: mode ?? this.mode,
     guided: guided ?? this.guided,
+    balloons: balloons ?? this.balloons,
     coverAlone: coverAlone ?? this.coverAlone,
     rightToLeft: rightToLeft ?? this.rightToLeft,
     fullscreen: fullscreen ?? this.fullscreen,
@@ -134,7 +167,13 @@ final panelStoreProvider = Provider<PanelStore>((ref) => PanelStore(ref.watch(da
 
 final markStoreProvider = Provider<MarkStore>((ref) => MarkStore(ref.watch(databaseProvider)));
 
-final panelDetectorProvider = Provider<PanelDetector>((ref) => const PanelDetector());
+/// The trained model when one is installed (see [findModel]), classic CV
+/// otherwise.
+final panelDetectorProvider = FutureProvider<PanelDetector>((ref) async {
+  final path = await findModel();
+  debugPrint(path == null ? 'Panel detector: classic CV (no model installed)' : 'Panel detector: model $path');
+  return PanelDetector(model: path == null ? null : ModelDetector(path));
+});
 
 class ReaderNotifier extends Notifier<ReaderState> {
   @override
@@ -163,7 +202,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // A broken index must not keep a book from opening: each of these falls
     // back to nothing saved.
     final saved = await _orNull(() => _progress.load(book.key));
-    final cached = await _orNull(() => ref.read(panelStoreProvider).load(book.key)) ?? const {};
+    final detector = await ref.read(panelDetectorProvider.future);
+    final cached =
+        await _orNull(
+          () => ref.read(panelStoreProvider).load(book.key, source: detector.source, version: detector.version),
+        ) ??
+        const {};
     final marks = await _orNull(() => ref.read(markStoreProvider).load(book.key)) ?? const {};
     final page = (saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     state = ReaderState(
@@ -172,11 +216,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
       panel: saved?.panel ?? 0,
       mode: state.mode,
       guided: state.guided,
+      balloons: state.balloons,
       coverAlone: state.coverAlone,
       rightToLeft: book.meta?.rightToLeft ?? false,
       fullscreen: state.fullscreen,
       night: state.night,
-      panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value)},
+      panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons)},
       marks: marks,
       message: saved != null && saved.page > 0 ? 'Resumed at page ${page + 1}' : null,
     );
@@ -197,16 +242,23 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (book == null) return;
     await _progress.flush();
     _wanted.clear();
-    state = ReaderState(mode: state.mode, guided: state.guided, fullscreen: state.fullscreen, night: state.night);
+    state = ReaderState(
+      mode: state.mode,
+      guided: state.guided,
+      balloons: state.balloons,
+      fullscreen: state.fullscreen,
+      night: state.night,
+    );
     await book.doc.close();
   }
 
-  void _goTo(int page, {int panel = 0, bool jump = false}) {
+  void _goTo(int page, {int panel = 0, int balloon = -1, bool jump = false}) {
     final book = state.book!;
     final target = page.clamp(0, state.pageCount - 1);
     state = state.copyWith(
       page: target,
       panel: panel,
+      balloon: balloon,
       jumpedFrom: jump ? (page: state.page, panel: state.panel) : null,
     );
     _saveProgress(book);
@@ -222,34 +274,47 @@ class ReaderNotifier extends Notifier<ReaderState> {
       _goTo(stepFrom(state.page, steps, state.pageCount, state.mode, coverAlone: state.coverAlone));
 
   /// Guided view's step: the next or previous panel, crossing onto the
-  /// neighbouring page at either end. A page shown whole is one step.
+  /// neighbouring page at either end. A page shown whole is one step. In
+  /// balloon mode a panel is shown whole first, then balloon by balloon;
+  /// a panel without balloons is one step as before.
   void _stepGuided(int steps) {
     var page = state.page;
     var panel = state.panel;
+    var balloon = state.balloons ? state.balloon : -1;
     for (var i = 0; i < steps.abs(); i++) {
       final n = state.stopsOn(page).length;
       if (n > 0) panel = panel.clamp(0, n - 1);
+      final nb = state.balloons && n > 0 ? state.balloonsOn(page, panel).length : 0;
+      balloon = nb == 0 ? -1 : balloon.clamp(-1, nb - 1);
       if (steps > 0) {
-        if (n > 0 && panel < n - 1) {
+        if (balloon < nb - 1) {
+          balloon++;
+        } else if (n > 0 && panel < n - 1) {
           panel++;
+          balloon = -1;
         } else if (page < state.pageCount - 1) {
           page++;
           panel = 0;
+          balloon = -1;
         } else {
           break;
         }
       } else {
-        if (n > 0 && panel > 0) {
+        if (balloon > -1) {
+          balloon--;
+        } else if (n > 0 && panel > 0) {
           panel--;
+          balloon = lastBalloon;
         } else if (page > 0) {
           page--;
           panel = lastPanel;
+          balloon = lastBalloon;
         } else {
           break;
         }
       }
     }
-    _goTo(page, panel: panel);
+    _goTo(page, panel: panel, balloon: state.balloons ? balloon : -1);
   }
 
   void _setGuided(bool on, {PageMode? mode}) {
@@ -267,11 +332,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
   void notice(String message) => _notice(message);
 
   /// Queues detection for the pages guided view needs next: this one first,
-  /// then the two ahead and the one behind, one page at a time.
+  /// then the two ahead and the one behind, one page at a time. On the
+  /// laptop the rest of the book follows in the background, nearest first,
+  /// so the whole book is analysed once while you read (design plan
+  /// section 9); on the phone only the pages around the reader are.
   void _ensurePanels() {
     final book = state.book;
     if (book == null || !state.guided) return;
-    for (final p in [state.page, state.page + 1, state.page + 2, state.page - 1]) {
+    final pages = defaultTargetPlatform == TargetPlatform.android
+        ? [state.page, state.page + 1, state.page + 2, state.page - 1]
+        : [for (var p = 0; p < state.pageCount; p++) p];
+    for (final p in pages) {
       if (p >= 0 && p < state.pageCount && !state.panels.containsKey(p)) _wanted.add(p);
     }
     if (!_detecting) unawaited(_drain(book));
@@ -288,23 +359,24 @@ class ReaderNotifier extends Notifier<ReaderState> {
         });
         _wanted.remove(page);
         if (state.panels.containsKey(page)) continue;
-        List<Panel> frames;
+        PagePanels found;
         try {
-          final (found, millis) = await ref.read(panelDetectorProvider).detect(book.doc, page);
-          frames = found;
+          final detector = await ref.read(panelDetectorProvider.future);
+          final result = await detector.detect(book.doc, page);
+          found = PagePanels(result.frames, result.balloons);
           unawaited(
             ref
                 .read(panelStoreProvider)
-                .save(book.key, page, frames, millis: millis)
+                .save(book.key, page, result)
                 .catchError((Object e) => debugPrint('Could not cache panels: $e')),
           );
         } catch (e) {
           // An undecodable page is shown whole, like one the gate rejects.
           debugPrint('Panel detection failed on page ${page + 1}: $e');
-          frames = const [];
+          found = PagePanels(const []);
         }
         if (!identical(state.book, book)) return;
-        state = state.copyWith(panels: {...state.panels, page: PagePanels(frames)}, message: state.message);
+        state = state.copyWith(panels: {...state.panels, page: found}, message: state.message);
       }
     } finally {
       _detecting = false;
@@ -350,6 +422,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
         }
       case ReaderIntent.toggleGuided:
         _setGuided(!state.guided);
+      case ReaderIntent.toggleBalloons:
+        // b from outside guided view goes straight into it, balloons on.
+        final on = !state.guided || !state.balloons;
+        state = state.copyWith(balloons: on, balloon: -1, message: on ? 'Balloons on' : 'Balloons off');
+        if (!state.guided) _setGuided(true);
       case ReaderIntent.toggleSpread:
         // Guided view shows one page, so d from there goes to the spread.
         state.guided

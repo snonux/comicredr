@@ -1,35 +1,88 @@
 import 'dart:isolate';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
+import 'package:flutter/foundation.dart';
 
-/// Finds the frames on a page, off the UI isolate (design plan section 1).
+import 'model_detector.dart';
+
+/// What one detector found on one page.
+class DetectedPage {
+  const DetectedPage(
+    this.frames,
+    this.balloons, {
+    required this.source,
+    required this.version,
+    required this.millis,
+  });
+
+  /// Frames in left-to-right reading order.
+  final List<Panel> frames;
+
+  /// Balloons and captions, in no particular order. Classic CV finds none.
+  final List<Panel> balloons;
+  final PanelSource source;
+  final int version;
+  final int millis;
+}
+
+/// Finds the frames, and with the trained model the balloons, on a page,
+/// off the UI isolate (design plan section 1).
 ///
-/// The page decodes straight to detection size through Flutter's native
-/// codec, which runs on the engine's threads; the classic-CV pass then runs
-/// on a short-lived worker isolate. The UI isolate only moves bytes.
+/// With a model installed it runs the model and falls back to classic CV
+/// only when the model fails on a page; without one it is classic CV, as in
+/// M4. The page decodes straight to detection size through Flutter's native
+/// codec, which runs on the engine's threads; the UI isolate only moves
+/// bytes.
 class PanelDetector {
-  const PanelDetector();
+  const PanelDetector({this.model});
 
-  /// Frames in left-to-right reading order, and how long detection took.
-  Future<(List<Panel>, int)> detect(ComicDocument doc, int page) async {
+  final ModelDetector? model;
+
+  /// Which detector's cached results this detector would reproduce.
+  PanelSource get source => model != null ? PanelSource.model : PanelSource.classicCv;
+  int get version => model != null ? modelDetectorVersion : classicCvVersion;
+
+  Future<DetectedPage> detect(ComicDocument doc, int page) async {
     final bytes = await doc.rawPage(page) ?? (await doc.page(page, targetWidth: 1200, targetHeight: 1200)).encoded;
+    final model = this.model;
+    if (model != null) {
+      try {
+        final sw = Stopwatch()..start();
+        final (rgba, w, h) = await decodeSmall(bytes, model.inputSize);
+        final found = await model.detect(rgba, w, h);
+        return DetectedPage(
+          found.frames,
+          found.balloons,
+          source: PanelSource.model,
+          version: modelDetectorVersion,
+          millis: sw.elapsedMilliseconds,
+        );
+      } catch (e) {
+        debugPrint('Model detection failed on page ${page + 1}, using classic CV: $e');
+      }
+    }
     final sw = Stopwatch()..start();
-    final (rgba, w, h) = await _decodeSmall(bytes);
+    final (rgba, w, h) = await decodeSmall(bytes, detectionLongSide);
     final frames = await _detectOnWorker(TransferableTypedData.fromList([rgba]), w, h);
-    return (frames, sw.elapsedMilliseconds);
+    return DetectedPage(
+      frames,
+      const [],
+      source: PanelSource.classicCv,
+      version: classicCvVersion,
+      millis: sw.elapsedMilliseconds,
+    );
   }
 }
 
-/// Decodes [bytes] with the long side at [detectionLongSide] and returns
-/// raw RGBA.
-Future<(Uint8List, int, int)> _decodeSmall(Uint8List bytes) async {
+/// Decodes [bytes] with the long side at most [longSide] and returns raw
+/// RGBA.
+Future<(Uint8List, int, int)> decodeSmall(Uint8List bytes, int longSide) async {
   final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
   final descriptor = await ui.ImageDescriptor.encoded(buffer);
-  final scale = detectionLongSide / math.max(descriptor.width, descriptor.height);
+  final scale = longSide / math.max(descriptor.width, descriptor.height);
   final codec = await descriptor.instantiateCodec(
     targetWidth: scale < 1 ? (descriptor.width * scale).round() : null,
     targetHeight: scale < 1 ? (descriptor.height * scale).round() : null,

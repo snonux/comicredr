@@ -10,19 +10,54 @@ typedef Place = ({int page, int panel});
 /// stepping back onto a page lands on its last panel once they arrive.
 const lastPanel = 1 << 20;
 
-/// What detection found on one page: frames in left-to-right reading order
-/// and the confidence gate's verdict. Guided view only moves the camera on
+/// Stands for "the last balloon" in a panel whose balloons are not known
+/// yet, like [lastPanel].
+const lastBalloon = 1 << 20;
+
+/// What detection found on one page: frames in reading order, balloons, and
+/// the confidence gate's verdict. Guided view only moves the camera on
 /// pages that pass; the rest are shown whole.
 class PagePanels {
-  PagePanels(this.frames) : gate = confidenceGate(frames);
+  PagePanels(List<Panel> frames, [this.balloons = const []])
+    : frames = readingOrder(frames),
+      gate = confidenceGate(frames);
 
   final List<Panel> frames;
+
+  /// Speech, thought and caption balloons on the page; the trained detector
+  /// finds them, classic CV does not.
+  final List<Panel> balloons;
   final GateResult gate;
+
+  final _byFrame = <bool, List<List<Panel>>>{};
 
   /// The camera stops, in reading order for the book's direction; empty
   /// when the gate failed and the page is shown whole.
   List<Panel> stops({required bool rightToLeft}) =>
       gate.passed ? (rightToLeft ? readingOrder(frames, rightToLeft: true) : frames) : const [];
+
+  /// The balloons inside stop [stop], in reading order.
+  List<Panel> balloonsIn(int stop, {required bool rightToLeft}) {
+    final groups = _byFrame[rightToLeft] ??= balloonsByFrame(stops(rightToLeft: rightToLeft), balloons, rightToLeft: rightToLeft);
+    return stop >= 0 && stop < groups.length ? groups[stop] : const [];
+  }
+}
+
+/// What the camera frames for [balloon] in [frame]: the balloon with half
+/// its size again of the art around it on every side, kept inside the
+/// frame, so the reader sees who is speaking without losing the words.
+Panel balloonFocus(Panel frame, Panel balloon) {
+  final pad = 0.5 * (balloon.w > balloon.h ? balloon.w : balloon.h);
+  double lo(double v, double min) => v < min ? min : v;
+  double hi(double v, double max) => v > max ? max : v;
+  final x0 = lo(balloon.x - pad, frame.x);
+  final y0 = lo(balloon.y - pad, frame.y);
+  final x1 = hi(balloon.right + pad, frame.right);
+  final y1 = hi(balloon.bottom + pad, frame.bottom);
+  // A balloon hanging over the frame's edge stays wholly in view.
+  final l = x0 < balloon.x ? x0 : balloon.x, t = y0 < balloon.y ? y0 : balloon.y;
+  final r = x1 > balloon.right ? x1 : balloon.right, b = y1 > balloon.bottom ? y1 : balloon.bottom;
+  return Panel(l, t, r - l, b - t, kind: PanelKind.balloon, confidence: balloon.confidence);
 }
 
 /// Share of the viewport left free around a panel, so art is not clipped

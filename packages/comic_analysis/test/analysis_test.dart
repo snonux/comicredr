@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:comic_analysis/comic_analysis.dart';
 import 'package:test/test.dart';
 
@@ -26,6 +28,82 @@ void main() {
       const a = Panel(0.5, 0.05, 0.45, 0.44);
       const b = Panel(0.5, 0.51, 0.45, 0.44);
       expect(readingOrder([b, a, tall]), [tall, a, b]);
+    });
+
+    test('a tall panel beside a 2x2 grid reads first, then the grid by rows', () {
+      // The M4 row rule put all five in one row and read the grid by columns.
+      const tall = Panel(0.05, 0.10, 0.37, 0.87);
+      const tl = Panel(0.44, 0.10, 0.24, 0.41);
+      const tr = Panel(0.70, 0.10, 0.25, 0.42);
+      const bl = Panel(0.44, 0.52, 0.24, 0.45);
+      const br = Panel(0.69, 0.53, 0.25, 0.45);
+      expect(readingOrder([br, bl, tr, tl, tall]), [tall, tl, tr, bl, br]);
+    });
+
+    test('two columns without an aligned gutter read column by column', () {
+      const a = Panel(0.05, 0.05, 0.4, 0.3);
+      const b = Panel(0.05, 0.37, 0.4, 0.58);
+      const c = Panel(0.5, 0.05, 0.45, 0.5);
+      const d = Panel(0.5, 0.57, 0.45, 0.38);
+      expect(readingOrder([d, c, b, a]), [a, b, c, d]);
+    });
+
+    test('boxes overlapping a gutter by a hair still cut', () {
+      const a = Panel(0.05, 0.05, 0.9, 0.305);
+      const b = Panel(0.05, 0.35, 0.44, 0.6);
+      const c = Panel(0.51, 0.35, 0.44, 0.6);
+      expect(readingOrder([c, b, a]), [a, b, c]);
+    });
+  });
+
+  group('balloonsByFrame', () {
+    test('balloons go to the frame they overlap most, in reading order', () {
+      const left = Panel(0.05, 0.05, 0.44, 0.4);
+      const right = Panel(0.51, 0.05, 0.44, 0.4);
+      const b1 = Panel(0.10, 0.08, 0.15, 0.06, kind: PanelKind.balloon);
+      const b2 = Panel(0.30, 0.20, 0.15, 0.06, kind: PanelKind.balloon);
+      const crossing = Panel(0.45, 0.10, 0.2, 0.05, kind: PanelKind.balloon); // mostly over right
+      const gutter = Panel(0.2, 0.46, 0.1, 0.03, kind: PanelKind.balloon); // over no frame
+      final got = balloonsByFrame([left, right], [b2, crossing, gutter, b1]);
+      expect(got[0], [b1, b2, gutter]);
+      expect(got[1], [crossing]);
+    });
+
+    test('no frames, no groups', () {
+      expect(balloonsByFrame(const [], const [Panel(0.1, 0.1, 0.1, 0.1)]), isEmpty);
+    });
+  });
+
+  group('model input and output', () {
+    test('letterbox puts the page top-left on grey, as RGB planes', () {
+      // 2x1 page: a red and a blue pixel, in a 3x3 input.
+      final rgba = Uint8List.fromList([255, 0, 0, 255, 0, 0, 255, 255]);
+      final t = letterboxTensor(rgba, 2, 1, 3);
+      expect(t.length, 27);
+      expect(t[0], 1.0); // R plane, pixel (0,0)
+      expect(t[9 + 0], 0.0); // G plane
+      expect(t[18 + 1], 1.0); // B plane, pixel (1,0)
+      expect(t[4], closeTo(114 / 255, 1e-6)); // padding
+    });
+
+    test('decode thresholds per class, clips, folds duplicates and orders frames', () {
+      // Page is 400x600 inside an 800x800 input.
+      final rows = <double>[
+        210, 10, 390, 290, 0.9, 0, // right frame
+        10, 10, 190, 290, 0.8, 0, // left frame
+        12, 12, 188, 288, 0.6, 0, // duplicate of the left frame
+        10, 310, 420, 590, 0.7, 0, // bottom frame, spills past the page
+        20, 20, 80, 60, 0.9, 2, // balloon
+        30, 30, 60, 50, 0.3, 2, // balloon below threshold
+        50, 50, 90, 90, 0.9, 1, // text class: ignored
+      ];
+      final d = decodeDetections(rows, 400, 600);
+      expect(d.frames.length, 3);
+      expect(d.frames[0].x, closeTo(10 / 400, 1e-9));
+      expect(d.frames[0].confidence, 0.8);
+      expect(d.frames[1].x, closeTo(210 / 400, 1e-9));
+      expect(d.frames[2].right, 1.0);
+      expect(d.balloons.single.kind, PanelKind.balloon);
     });
   });
 

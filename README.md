@@ -7,10 +7,12 @@ decision here.
 
 ## Quick start on Fedora
 
-> **Current state (M4):** CBZ files open and read in single-page or
-> two-page mode or in guided view, panel by panel, with zoom, the full
-> keymap, touch gestures, and resume. The learned panel detector (M5), PDF
-> and folders (M6), and the library (M7) are still to come.
+> **Current state (M5):** CBZ files open and read in single-page or
+> two-page mode or in guided view, panel by panel or balloon by balloon,
+> with zoom, the full keymap, touch gestures, and resume. Guided view uses
+> the trained panel and balloon detector when it is installed (step 6) and
+> classic computer vision otherwise. PDF and folders (M6) and the library
+> (M7) are still to come.
 
 ### 1. Install the build tools and Flutter
 
@@ -84,6 +86,7 @@ table the app binds from.
 | Pan, or scroll in continuous mode | `↓` `↑` | `j` `k`, `Ctrl+d` `Ctrl+u` for half a screen |
 | First / last page | `Home` `End` | `gg` `G`, and `42G` goes to page 42 |
 | Guided view on and off | | `v` |
+| Balloon by balloon inside each panel, on and off | | `b` |
 | Cycle single page, spread, guided view | `Tab` `Shift+Tab` | |
 | Switch between single page and spread | | `d` |
 | Shift the spread pairing by one page | | `D` |
@@ -128,10 +131,41 @@ once. While a page is still being analysed the status line says
 A page whose panels don't look like a real layout is shown whole rather
 than guessed at: a splash, a cover, a text page and many ads. The status
 line says why, for example `guided: whole page (1 panel(s): nothing to
-guide through)`. Pages without gutters between panels, and some ads, still
-trip it up; the trained detector in M5 is meant for those.
+guide through)`. Without the trained detector (step 6), pages without
+gutters between panels, and many ads, still trip it up.
 
-### 6. Touch
+**Balloon by balloon.** Press `b` for balloon mode, from guided view or
+straight from the page. Each panel is shown whole first, then every speech
+balloon and caption in it, one step at a time, in reading order, with a
+little of the art around it so you see who is talking. A panel with no
+balloons is one step, as before. The status line reads
+`guided: panel 2 / 6  ·  balloon 1 / 3`. Keys, taps and swipes all step the
+same way, and `b` again goes back to panel by panel at the same panel.
+Balloons come from the trained detector; with classic CV the status line
+says `no balloons found` and balloon mode steps panels only.
+
+### 6. Install the trained detector
+
+The trained model finds panels on pages classic CV gets wrong (borderless
+art, ads, captions) and is the only source of balloons. It is one file,
+`comicredr-panels.onnx`, kept out of this public repository because it
+starts from a model trained on Manga109, whose data is for research use.
+Copy it into the app's data folder once:
+
+```sh
+mkdir -p ~/.local/share/org.snonux.comicredr/models
+cp comicredr-panels.onnx ~/.local/share/org.snonux.comicredr/models/
+```
+
+On Android put it in `Android/data/org.snonux.comicredr/files/models/` on
+the phone's storage, for example with
+`adb push comicredr-panels.onnx /sdcard/Android/data/org.snonux.comicredr/files/models/`.
+Restart the app. `COMICREDR_MODEL=/path/to/file.onnx` points at a model
+anywhere else. Pages analysed by classic CV are analysed again with the
+model the next time you read them. To build the file yourself, see
+[Train the detector](#m5-train-the-detector).
+
+### 7. Touch
 
 A touchscreen works the same on the Fedora laptop as on the phone, and every
 gesture does what the matching key does. A mouse click never turns a page,
@@ -139,7 +173,7 @@ so clicking into the window is safe.
 
 | Do this | Touch | Same as |
 |---|---|---|
-| Next / previous step (a panel in guided view, a page otherwise) | tap the right or left edge, or swipe left or right | `→` `←` |
+| Next / previous step (a panel or balloon in guided view, a page otherwise) | tap the right or left edge, or swipe left or right | `→` `←` |
 | Zoom | pinch with two fingers, or double-tap the middle to zoom in on that spot | `+` `-` |
 | Back to the whole page, or re-centre the panel in guided view | double-tap the middle again | `=`, `zz` |
 | Move around a zoomed page | drag with one finger | `↓` `↑` |
@@ -188,3 +222,28 @@ frames, magenta its balloons. Pages are sampled into one folder per style
 (from the manifest's `style` field), `out/contact-<style>.jpg` puts classic
 CV and the pretrained model side by side for each style, and `results.json`
 carries a per-style summary.
+
+## M5: train the detector
+
+Everything runs on the CPU; a 40-epoch fine-tune takes about an hour and a
+half on 4 cores. The labels are committed in `spike/labels/` (how they were
+drawn: `spike/LABELLING.md`); the comics are fetched.
+
+```sh
+pip install opencv-python-headless numpy pillow pypdfium2 huggingface_hub ultralytics onnx onnxruntime onnxslim
+python3 spike/fetch_corpus.py                                   # eval comics + the Manga109 model
+python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train
+python3 spike/extract_pages.py test/corpus spike/eval_pages --per-book 10
+python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 12 --manifest test/train.manifest.toml
+python3 spike/labelkit.py import spike/labels/eval spike/eval_pages
+python3 spike/labelkit.py import spike/labels/train spike/train_pages
+python3 spike/train.py spike/train_pages --out spike/out/train  # -> spike/out/train/run/weights/best.pt
+python3 spike/export_onnx.py spike/out/train/run/weights/best.pt --out spike/out/comicredr-panels.onnx --int8 spike/train_pages
+cd spike && python3 evaluate.py eval_pages --out out/eval --pretrained ../test/corpus/models/best.pt \
+    --trained out/comicredr-panels.onnx                          # out/eval/report.md
+```
+
+`evaluate.py` scores classic CV, the downloaded Manga109 model and the
+fine-tune on the same 100 labelled pages, none of them from a training
+book: panel and balloon F1 at IoU 0.5, and per page whether guided view
+would move the camera right, show the page whole, or move it wrong.
