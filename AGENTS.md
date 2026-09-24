@@ -99,9 +99,10 @@ build internals, test scripts, detector work and conventions here.
   the paper colour off the 240 px copy auto-trim also measures, and the
   page is drawn through that colour matrix, so it costs nothing to show.
   `upscaleSharpen` (unsharp mask, then Catmull-Rom) runs in an isolate
-  from `PageCache` when a page is narrower than its decode width; the
+  from `PageCache` when a page is smaller than its box, or a zoom tile
+  asks for more than the stored page has (up to twice its width); the
   sharpened copy is cached under its own key. About 40 ms per output
-  megapixel on one core, 250 to 350 ms a golden-age page in the app.
+  megapixel on one core: 40 to 110 ms a zoom tile of a 1000 px scan.
   Detection decodes its own copy, so it never sees the clean-up.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
