@@ -67,6 +67,8 @@ zoomIn = ["+"]
 zoomOut = ["-"]
 # Reset zoom
 zoomReset = ["="]
+# Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view
+zoomToggle = ["Z"]
 # Auto-trim scan margins
 autoTrim = ["t"]
 # Night filter
@@ -109,3 +111,39 @@ resetBook = ["X"]
 editBook = ["e"]
 # Show the keymap
 showKeymap = ["?"]
+# Show the touch zones for a moment
+showTouchZones = ["gt"]
+
+[touch]
+# Touch gestures, on top of the preset picked in Settings (Standard,
+# Left-handed or One thumb). Uncomment a line to change that gesture.
+# Taps, double-taps and long presses take nine actions, one per zone
+# of a 3x3 grid read like a page: top row first, left to right. The
+# side columns are 30% of the width each. One action instead of a
+# list sets the whole view; "" does nothing. Actions are the names in
+# [keys] above. Pinch zoom and dragging a zoomed page always work.
+# gt shows the zones while reading.
+#
+# tap = [
+#   "prevStep", "fullscreen", "nextStep",
+#   "prevStep", "fullscreen", "nextStep",
+#   "prevStep", "fullscreen", "nextStep",
+# ]
+#
+# doubleTap = [
+#   "", "zoomToggle", "",
+#   "", "zoomToggle", "",
+#   "", "zoomToggle", "",
+# ]
+#
+# longPress = ""
+#
+# swipeLeft = "nextStep"
+#
+# swipeRight = "prevStep"
+#
+# swipeUp = ""
+#
+# swipeDown = ""
+#
+# twoFingerTap = ""

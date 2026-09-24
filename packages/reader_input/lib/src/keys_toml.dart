@@ -1,5 +1,6 @@
 import 'intents.dart';
 import 'keymap.dart';
+import 'touch_map.dart';
 
 /// Named keys a binding may use, as `reader_input` tokens spell them.
 const namedKeys = {
@@ -12,10 +13,14 @@ const namedKeys = {
 /// line that cannot be used is skipped and named here; the rest still
 /// applies, so one typo never costs the whole keymap.
 class KeymapLoad {
-  const KeymapLoad(this.keymap, this.warnings);
+  const KeymapLoad(this.keymap, this.warnings, {this.touch = const {}});
 
   final Keymap keymap;
   final List<String> warnings;
+
+  /// The gestures the `[touch]` section sets, to lay over the touch preset
+  /// picked in Settings. Gestures not listed keep the preset's.
+  final Map<TouchGesture, List<ReaderIntent?>> touch;
 }
 
 /// Reads a `keys.toml` over [base] (the defaults when left out).
@@ -25,6 +30,15 @@ class KeymapLoad {
 /// nextStep = ["l", "Right", "Space"]   # replaces all of nextStep's keys
 /// autoTrim = "T"                       # one key needs no list
 /// fullscreen = []                      # unbinds it
+///
+/// [touch]
+/// tap = [
+///   "prevStep", "fullscreen", "nextStep",
+///   "prevStep", "fullscreen", "nextStep",
+///   "prevStep", "bookmark",   "nextStep",
+/// ]
+/// longPress = "showKeymap"             # one action for the whole view
+/// twoFingerTap = "toggleGuided"
 /// ```
 ///
 /// Each action named replaces all of its default keys; actions not named
@@ -36,10 +50,23 @@ KeymapLoad keymapFromToml(String text, {Keymap? base}) {
   base ??= Keymap.defaults();
   final warnings = <String>[];
   final Map<String, Object> table;
+  final Map<String, Object> touchTable;
   try {
-    table = _parseToml(text, warnings);
+    final tables = _parseToml(text, warnings);
+    table = tables['keys'] ?? const {};
+    touchTable = tables['touch'] ?? const {};
   } on FormatException catch (e) {
-    return KeymapLoad(base, ['keys.toml: ${e.message}; using the default keys']);
+    return KeymapLoad(base, ['keys.toml: ${e.message}; using the default keys and touch']);
+  }
+  final gestures = TouchGesture.values.asNameMap();
+  final touch = <TouchGesture, List<ReaderIntent?>>{};
+  for (final MapEntry(key: name, value: value) in touchTable.entries) {
+    final g = gestures[name];
+    if (g == null) {
+      warnings.add('keys.toml: [touch] has no gesture called "$name"');
+      continue;
+    }
+    if (parseTouchLine(g, value, warnings) case final actions?) touch[g] = actions;
   }
   final byName = ReaderIntent.values.asNameMap();
   final replaced = <ReaderIntent, List<Binding>>{};
@@ -97,7 +124,7 @@ KeymapLoad keymapFromToml(String text, {Keymap? base}) {
       }
     }
   }
-  return KeymapLoad(Keymap(out), warnings);
+  return KeymapLoad(Keymap(out), warnings, touch: touch);
 }
 
 /// Turns a key spelling (`gg`, `C-f`, `m<a-z>`, `g Home`, `S-Tab`) into
@@ -160,6 +187,9 @@ String keymapToToml(Keymap keymap) {
       ..writeln('# ${intent.description}')
       ..writeln('${intent.name} = [${bindings.map((b) => _quote(Keymap.describe(b))).join(', ')}]');
   }
+  out
+    ..writeln()
+    ..write(touchMapToToml(TouchMap.preset(TouchPreset.standard)));
   return out.toString();
 }
 
@@ -186,11 +216,12 @@ Layer _layerOf(ReaderIntent intent, List<String> keys, Keymap base) {
       : Layer.vi;
 }
 
-/// The small part of TOML a keys file needs: comments, a `[keys]` table,
-/// and `name = "string"` or `name = ["string", ...]` (lists may span
-/// lines). Basic and literal strings are both read.
-Map<String, Object> _parseToml(String text, List<String> warnings) {
-  final out = <String, Object>{};
+/// The small part of TOML a keys file needs: comments, the `[keys]` and
+/// `[touch]` tables, and `name = "string"` or `name = ["string", ...]`
+/// (lists may span lines). Basic and literal strings are both read.
+Map<String, Map<String, Object>> _parseToml(String text, List<String> warnings) {
+  const known = {'keys', 'touch'};
+  final out = <String, Map<String, Object>>{};
   var i = 0;
   var line = 1;
   String? table;
@@ -259,7 +290,7 @@ Map<String, Object> _parseToml(String text, List<String> warnings) {
           i++;
           return items;
         }
-        if (text[i] != '"' && text[i] != "'") fail('a list holds key strings in quotes');
+        if (text[i] != '"' && text[i] != "'") fail('a list holds names in quotes');
         items.add(readString());
         skipSpace(newlines: true);
         if (i < text.length && text[i] == ',') {
@@ -279,10 +310,12 @@ Map<String, Object> _parseToml(String text, List<String> warnings) {
       final end = text.indexOf(']', i);
       if (end < 0) fail('a [table] header is not closed');
       table = text.substring(i + 1, end).trim();
-      if (table != 'keys') warnings.add('keys.toml: ignoring the [$table] table; only [keys] is read');
+      if (!known.contains(table)) {
+        warnings.add('keys.toml: ignoring the [$table] table; only [keys] and [touch] are read');
+      }
       i = end + 1;
     } else {
-      final m = RegExp(r'[A-Za-z0-9_-]+').matchAsPrefix(text, i) ?? fail('expected an action name');
+      final m = RegExp(r'[A-Za-z0-9_-]+').matchAsPrefix(text, i) ?? fail('expected an action or gesture name');
       final name = m.group(0)!;
       i = m.end;
       skipSpace();
@@ -290,9 +323,10 @@ Map<String, Object> _parseToml(String text, List<String> warnings) {
       i++;
       skipSpace();
       final value = readValue();
-      if (table == 'keys') {
-        if (out.containsKey(name)) warnings.add('keys.toml: $name is listed twice; the last one counts');
-        out[name] = value;
+      if (known.contains(table)) {
+        final t = out.putIfAbsent(table!, () => {});
+        if (t.containsKey(name)) warnings.add('keys.toml: $name is listed twice; the last one counts');
+        t[name] = value;
       } else if (table == null) {
         warnings.add('keys.toml: $name is outside [keys], so it is ignored');
       }

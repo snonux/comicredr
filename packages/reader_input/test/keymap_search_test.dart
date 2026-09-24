@@ -10,7 +10,7 @@ void main() {
 
   test('words match the description and the keys', () {
     expect(find('zoom'), containsAll([ReaderIntent.zoomIn, ReaderIntent.zoomOut, ReaderIntent.zoomReset]));
-    expect(find('zoom in'), [ReaderIntent.zoomIn]);
+    expect(find('zoom in').first, ReaderIntent.zoomIn);
     expect(find('night'), [ReaderIntent.nightFilter]);
   });
 

@@ -1,15 +1,22 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/settings_store.dart';
+import 'package:comicredr/src/input/touch_providers.dart';
+import 'package:comicredr/src/library/library_screen.dart';
+import 'package:comicredr/src/library/settings_dialog.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:reader_input/reader_input.dart';
 
 import 'support/fixtures.dart';
 
@@ -33,9 +40,17 @@ void main() {
   }
 
   /// The app with a six-page book open, on page 1.
-  Future<ProviderContainer> openBook(WidgetTester tester) async {
+  Future<ProviderContainer> openBook(WidgetTester tester, {String? keysToml}) async {
     await tester.pumpWidget(
-      ProviderScope(overrides: [databaseProvider.overrideWithValue(db), classicCvOnly], child: const ComicRedrApp()),
+      ProviderScope(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          classicCvOnly,
+          if (keysToml != null)
+            keymapLoadProvider.overrideWithValue((load: keymapFromToml(keysToml), path: 'keys.toml')),
+        ],
+        child: const ComicRedrApp(),
+      ),
     );
     await tester.pump();
     final c = ProviderScope.containerOf(tester.element(find.byType(ComicRedrApp)));
@@ -177,5 +192,132 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(c.read(readerProvider).page, 0);
     expect(c.read(readerProvider).fullscreen, isFalse);
+  });
+
+  testWidgets('the left-handed preset turns the edges round', (tester) async {
+    final c = await openBook(tester);
+    await tester.runAsync(() => c.read(touchPresetProvider.notifier).pick(TouchPreset.leftHanded));
+    final r = view(tester);
+    await touch(tester, Offset(r.left + 40, r.center.dy));
+    await touch(tester, Offset(r.left + 40, r.top + 40));
+    expect(c.read(readerProvider).page, 2);
+    await touch(tester, Offset(r.right - 40, r.bottom - 40));
+    expect(c.read(readerProvider).page, 1);
+    // Swipes stay as they were.
+    await swipe(tester, r.center + const Offset(200, 0), const Offset(-400, 0));
+    expect(c.read(readerProvider).page, 2);
+    final saved = await tester.runAsync(() => c.read(settingsStoreProvider).loadString(SettingsStore.touchPreset));
+    expect(saved, 'leftHanded');
+  });
+
+  testWidgets('keys.toml [touch] lines: a zone, a long press, vertical swipes and a two-finger tap', (tester) async {
+    final c = await openBook(
+      tester,
+      keysToml: """
+[touch]
+tap = [
+  "lastPage", "fullscreen", "nextStep",
+  "prevStep", "fullscreen", "nextStep",
+  "prevStep", "fullscreen", "nextStep",
+]
+longPress = "nightFilter"
+swipeUp = "nextPage"
+swipeDown = "firstPage"
+twoFingerTap = "autoTrim"
+""",
+    );
+    final r = view(tester);
+    await touch(tester, Offset(r.left + 40, r.top + 40));
+    expect(c.read(readerProvider).page, 5, reason: 'the top-left zone now goes to the last page');
+    await swipe(tester, r.center, const Offset(10, 300));
+    expect(c.read(readerProvider).page, 0);
+    await swipe(tester, r.center, const Offset(-10, -300));
+    expect(c.read(readerProvider).page, 1);
+
+    // Hold without moving: the long press fires while the finger is down.
+    final hold = await tester.startGesture(r.center, kind: PointerDeviceKind.touch);
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(c.read(readerProvider).night, isTrue);
+    await hold.up();
+    await settle(tester);
+    expect(c.read(readerProvider).fullscreen, isFalse, reason: 'a long press is not also a tap');
+
+    final trim = c.read(readerProvider).trim;
+    final a = await tester.startGesture(r.center - const Offset(60, 0), kind: PointerDeviceKind.touch);
+    final b = await tester.startGesture(r.center + const Offset(60, 0), kind: PointerDeviceKind.touch, pointer: 9);
+    await tester.pump(const Duration(milliseconds: 80));
+    await a.up();
+    await b.up();
+    await settle(tester);
+    expect(c.read(readerProvider).trim, !trim);
+    expect(c.read(readerProvider).page, 1);
+    expect(c.read(readerProvider).fullscreen, isFalse);
+    expect(scale(tester), 1);
+  });
+
+  testWidgets('a double-tap only waits in zones that have one', (tester) async {
+    final c = await openBook(tester, keysToml: '[touch]\ndoubleTap = ["zoomToggle", "", "", "", "", "", "", "", ""]\n');
+    final r = view(tester);
+    // The middle has no double-tap now, so its tap acts at once.
+    await tester.tapAt(r.center, kind: PointerDeviceKind.touch);
+    await tester.pump();
+    expect(c.read(readerProvider).fullscreen, isTrue);
+    await tester.tapAt(r.center, kind: PointerDeviceKind.touch);
+    await tester.pump();
+    expect(c.read(readerProvider).fullscreen, isFalse);
+    // The top-left zone waits: two taps zoom instead of going back twice.
+    final corner = Offset(r.left + 40, r.top + 40);
+    await tester.tapAt(corner, kind: PointerDeviceKind.touch);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tapAt(corner, kind: PointerDeviceKind.touch);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(scale(tester), closeTo(2.44, 0.01));
+    expect(c.read(readerProvider).page, 0);
+  });
+
+  testWidgets('gt shows the touch zones for a moment', (tester) async {
+    final c = await openBook(tester);
+    await tester.runAsync(() => c.read(touchPresetProvider.notifier).pick(TouchPreset.oneThumb));
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+    await tester.pump();
+    expect(find.byKey(const Key('touch-zones')), findsOneWidget);
+    expect(find.text('Next'), findsNWidgets(5));
+    expect(find.text('Back'), findsNWidgets(3));
+    expect(find.text('Double-tap: Zoom'), findsNWidgets(3));
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.byKey(const Key('touch-zones')), findsNothing);
+  });
+
+  testWidgets('picking a preset in Settings shows its zones on the next book opened', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(overrides: [databaseProvider.overrideWithValue(db), classicCvOnly], child: const ComicRedrApp()),
+    );
+    await settle(tester);
+    final c = ProviderScope.containerOf(tester.element(find.byType(ComicRedrApp)));
+    // An empty library has no toolbar, so open the dialog straight away.
+    unawaited(showSettings(tester.element(find.byType(LibraryScreen))));
+    await settle(tester);
+    await tester.ensureVisible(find.byKey(const Key('setting-touch-leftHanded')));
+    await tester.tap(find.byKey(const Key('setting-touch-leftHanded')));
+    await settle(tester);
+    expect(c.read(touchPresetProvider), TouchPreset.leftHanded);
+    expect(find.textContaining('Mirrored for the left thumb'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('setting-close')));
+    await settle(tester);
+    final path = writeBook(tmp, 'Zones.cbz', 3);
+    // Opened under the fake clock, where the settings dialog already used
+    // the database: under runAsync this open never finished.
+    unawaited(c.read(readerProvider.notifier).open(path));
+    for (var i = 0; i < 40 && find.byKey(const Key('touch-zones')).evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    expect(find.byKey(const Key('touch-zones')), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.byKey(const Key('touch-zones')), findsNothing);
   });
 }

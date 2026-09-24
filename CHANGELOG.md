@@ -12,6 +12,13 @@ the `?` overlay.
   your own copy; both check the file before the build packs it. The
   README says why the model can't be in the repository.
 
+- **One-page image comics:** a PNG, JPEG or WebP file opens as a comic of
+  one page, from the command line, Open With or the open dialog, with
+  guided view, balloons and its own sidecar. In the library, an image
+  beside comic files is a one-pager of its own; a folder holding only page
+  images (and folders of them) is still one folder book. The Linux
+  launcher lists the image types under Open With, and the install keeps
+  the image viewer you had as the default.
 - **Page thumbnails:** `p` (or the grid button on the status line) opens
   a grid of the book's pages, the current one outlined and bookmarked or
   marked pages flagged; arrows, `hjkl`, `G` with a count, a click or a tap
