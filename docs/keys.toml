@@ -91,7 +91,7 @@ openFile = ["o"]
 openFolder = ["O"]
 # Back out one level, ending at the library
 back = ["Esc"]
-# Open the selected book or series in the library
+# Open the selected book, series or folder in the library
 activate = ["Enter"]
 # Add a folder to the library
 addRoot = ["A"]
