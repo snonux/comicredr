@@ -12,6 +12,8 @@ import 'package:reader_input/reader_input.dart';
 
 import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
+import 'input/touch_providers.dart';
+import 'input/touch_zones.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'providers.dart';
@@ -74,6 +76,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// The page grid (`p`) is open over the reader.
   bool _showPages = false;
   bool _picking = false;
+
+  /// The touch zones drawn over the reader for a moment.
+  bool _showZones = false;
+  Timer? _zonesTimer;
 
   @override
   void initState() {
@@ -138,6 +144,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _lifecycle.dispose();
+    _zonesTimer?.cancel();
     _keys.dispose();
     unawaited(_watch?.cancel());
     super.dispose();
@@ -311,7 +318,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// Shows the touch zones over the reader for a few seconds.
+  void _flashZones() {
+    _zonesTimer?.cancel();
+    setState(() => _showZones = true);
+    _zonesTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showZones = false);
+    });
+  }
+
   void _onCommand(ReaderCommand c) {
+    if (c.intent == ReaderIntent.showTouchZones) {
+      if (ref.read(readerProvider).book == null) {
+        _library.currentState?.handle(c);
+      } else {
+        _flashZones();
+      }
+      return;
+    }
     if (c.intent == ReaderIntent.showKeymap) {
       setState(() => _showKeymap = !_showKeymap);
       return;
@@ -387,6 +411,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.listen(positionOfferProvider, (_, offer) {
       if (offer != null) unawaited(_offer(offer));
     });
+    // The first book opened after picking a touch preset shows its zones.
+    ref.listen(readerProvider.select((s) => s.book != null && s.pageCount > 0), (_, open) {
+      if (open && ref.read(touchPresetProvider.notifier).takeNewPick()) _flashZones();
+    });
     final keymap = ref.watch(keymapProvider);
     final keysLoad = ref.watch(keymapLoadProvider);
     return PopScope(
@@ -435,6 +463,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 onCommand: _onCommand,
                                 viewTransform: () => _view.currentState?.transform,
                                 guided: () => ref.read(readerProvider).guided,
+                                touchMap: () => ref.read(touchMapProvider),
                                 child: ReaderView(key: _view),
                               ),
                             ),
@@ -442,6 +471,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             if (_showPages)
                               Positioned.fill(
                                 child: PageGrid(key: _grid, onPick: _jumpTo, onClose: () => _setShowPages(false)),
+                              ),
+                            if (_showZones)
+                              Positioned.fill(
+                                child: IgnorePointer(
+                                  child: TouchZonesView(
+                                    key: const Key('touch-zones'),
+                                    map: ref.watch(touchMapProvider),
+                                    rightToLeft: s.rightToLeft,
+                                  ),
+                                ),
                               ),
                           ],
                         ),
