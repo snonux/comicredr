@@ -2,12 +2,12 @@
 Type=Application
 Name=ComicRedr
 GenericName=Comic Book Reader
-Comment=Read CBZ, PDF and folder comics, panel by panel
+Comment=Read CBZ, CBT, EPUB, PDF and folder comics, panel by panel
 Exec=@BINDIR@/comicredr %f
 TryExec=@BINDIR@/comicredr
 Icon=org.snonux.comicredr
 Terminal=false
 StartupWMClass=org.snonux.comicredr
 Categories=Graphics;Viewer;
-MimeType=application/vnd.comicbook+zip;application/x-cbz;application/pdf;
-Keywords=comic;comics;cbz;pdf;reader;guided;panel;
+MimeType=application/vnd.comicbook+zip;application/x-cbz;application/x-cbt;application/epub+zip;application/pdf;
+Keywords=comic;comics;cbz;cbt;epub;pdf;reader;guided;panel;

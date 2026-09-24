@@ -39,7 +39,10 @@ ComicMeta parseComicInfo(String xml) {
   );
 }
 
-String _unescape(String s) => s.contains('&') ? const _XmlUnescape().convert(s) : s;
+String _unescape(String s) => s.contains('&') ? unescapeXml(s) : s;
+
+/// Replaces XML's predefined entities and numeric references in [s].
+String unescapeXml(String s) => const _XmlUnescape().convert(s);
 
 /// The five predefined XML entities plus numeric references.
 class _XmlUnescape extends Converter<String, String> {

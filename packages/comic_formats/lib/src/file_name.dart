@@ -8,7 +8,7 @@ import 'document.dart';
 /// [name] is a file or folder name, with or without its extension. The
 /// series is never null: a name without a number is a series of one.
 ComicMeta parseFileName(String name) {
-  var s = name.replaceFirst(RegExp(r'\.(cbz|cbr|zip|pdf)$', caseSensitive: false), '');
+  var s = name.replaceFirst(RegExp(r'\.(cbz|cbr|cbt|zip|tar|epub|pdf)$', caseSensitive: false), '');
   s = s.replaceAll('_', ' ');
   // Names with no spaces use hyphens as spaces: `reptisaurus-v2-005`.
   if (!s.contains(' ')) s = s.replaceAll('-', ' ');

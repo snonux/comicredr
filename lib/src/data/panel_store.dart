@@ -179,6 +179,14 @@ class MarkStore {
         ),
       );
 
+  /// The pages with a bookmark (`mm`) on them, for the page grid.
+  Future<Set<int>> bookmarkedPages(String contentKey) async {
+    final rows = await (_db.select(
+      _db.bookmarks,
+    )..where((b) => b.contentKey.equals(contentKey) & b.mark.isNull() & b.deletedAt.isNull())).get();
+    return {for (final r in rows) r.page};
+  }
+
   /// A random (version 4) UUID, so two devices never collide (section 6).
   String _uuid() {
     final b = List<int>.generate(16, (_) => _random.nextInt(256));

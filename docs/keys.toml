@@ -31,6 +31,8 @@ halfPageUp = ["C-u"]
 firstPage = ["gg", "Home"]
 # Last page, or page N with a count; last cover in the library
 lastPage = ["G", "End"]
+# Page thumbnails: pick a page to jump to
+pageGrid = ["p"]
 # Next book in the series, or in the same folder
 nextBook = ["]"]
 # Previous book in the series, or in the same folder

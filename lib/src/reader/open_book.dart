@@ -70,7 +70,8 @@ class OpenBookException implements Exception {
   String toString() => message;
 }
 
-/// Opens [path] as a book: a CBZ, a PDF or a folder of page images.
+/// Opens [path] as a book: a CBZ, a CBT, a comic EPUB, a PDF or a folder
+/// of page images.
 /// Dispatches on the file's first bytes, not its extension, so a `.cbr`
 /// that is really a ZIP opens as the ZIP it is.
 Future<OpenBook> openBook(String path) async {
@@ -78,7 +79,7 @@ Future<OpenBook> openBook(String path) async {
   final isDir = await FileSystemEntity.isDirectory(path);
   if (!isDir && !await File(path).exists()) throw OpenBookException('File not found: $path');
   switch (bookKind(path)) {
-    case BookKind.cbz || BookKind.pdf || BookKind.folder:
+    case BookKind.cbz || BookKind.cbt || BookKind.epub || BookKind.pdf || BookKind.folder:
       break;
     case BookKind.rar:
       throw const OpenBookException(
@@ -104,11 +105,11 @@ Future<OpenBook> openBook(String path) async {
   return OpenBook(path: path, key: key, doc: doc, meta: meta, folder: isDir);
 }
 
-const _bookExtensions = {'.cbz', '.cbr', '.zip', '.pdf'};
+const _bookExtensions = {'.cbz', '.cbr', '.cbt', '.zip', '.epub', '.pdf'};
 
 /// The next or previous book beside [path] in its folder, in natural order,
 /// for `]` and `[`. Books are comic files and folders of page images, so a
-/// folder of scans sits in line with the CBZs and PDFs around it. Null at
+/// folder of scans sits in line with the CBZs, EPUBs and PDFs around it. Null at
 /// either end.
 Future<String?> siblingBook(String path, {required bool next}) async {
   path = p.normalize(path);
