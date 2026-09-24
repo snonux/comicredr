@@ -83,6 +83,25 @@ void main() {
 
   String status(WidgetTester tester) => tester.widget<Text>(find.byKey(const Key('status'))).data!;
 
+  testWidgets('the camera zooms in on a balloon and settles there', (tester) async {
+    final path = writeBookOf(tmp, 'Balloons 01.cbz', [grid4Page(), grid4Page()]);
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
+    await settle(tester);
+    ReaderViewState view() => tester.state<ReaderViewState>(find.byType(ReaderView));
+
+    await key(tester, LogicalKeyboardKey.keyB);
+    final onPanel = view().transform.getMaxScaleOnAxis();
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(c.read(readerProvider).balloonIndex, 0);
+    final onBalloon = view().transform;
+    expect(onBalloon.getMaxScaleOnAxis(), greaterThan(onPanel * 1.3), reason: 'the balloon is framed, not the panel');
+    // The glide has finished: more frames move nothing.
+    await tester.pump(const Duration(seconds: 1));
+    expect(view().transform, onBalloon);
+    expect(tester.binding.hasScheduledFrame, isFalse, reason: 'no camera animation left running');
+  });
+
   testWidgets('b steps through the balloons inside each panel', (tester) async {
     final path = writeBookOf(tmp, 'Balloons 01.cbz', [grid4Page(), grid4Page()]);
     final c = await pumpApp(tester);

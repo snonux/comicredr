@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:comic_analysis/comic_analysis.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,7 +42,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
 
   /// What the camera last aimed at. A change moves the camera; null makes
   /// it cut to its target on the next frame.
-  ({bool guided, int page, Panel? focus, Size viewport, Size content})? _cameraKey;
+  /// The focus is kept as a Rect, compared by value: a balloon's framing is a
+  /// new Panel on every build, and comparing those by identity restarted the
+  /// glide each frame, so the camera never reached the balloon.
+  ({bool guided, int page, Rect? focus, Size viewport, Size content})? _cameraKey;
   PageCache? _cache;
   Object? _cacheBook;
   List<ui.Image> _images = const [];
@@ -234,7 +236,13 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
   /// or when the system asks for reduced motion, it cuts.
   void _aimCamera(ReaderState s) {
     final focus = s.focus;
-    final key = (guided: s.guided, page: s.page, focus: focus, viewport: _viewport, content: _content);
+    final key = (
+      guided: s.guided,
+      page: s.page,
+      focus: focus == null ? null : Rect.fromLTWH(focus.x, focus.y, focus.w, focus.h),
+      viewport: _viewport,
+      content: _content,
+    );
     final last = _cameraKey;
     if (key == last) return;
     final glide =
