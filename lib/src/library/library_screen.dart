@@ -8,6 +8,7 @@ import 'package:reader_input/reader_input.dart';
 
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
+import '../version.dart';
 import 'library_store.dart';
 import 'providers.dart';
 import 'scanner.dart';
@@ -57,6 +58,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
     required this.onAddRoot,
     required this.onOpenFile,
     required this.onOpenFolder,
+    this.onExportSidecars,
     this.keysFocus,
     this.pending = '',
   });
@@ -67,6 +69,9 @@ class LibraryScreen extends ConsumerStatefulWidget {
   final VoidCallback onAddRoot;
   final VoidCallback onOpenFile;
   final VoidCallback onOpenFolder;
+
+  /// Writes every book's sidecar to a folder of the person's choosing.
+  final VoidCallback? onExportSidecars;
 
   /// The half-typed key sequence, for the status line.
   final String pending;
@@ -392,6 +397,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Open a comic without adding it (o)',
             onPressed: widget.onOpenFile,
           ),
+          if (widget.onExportSidecars case final export?)
+            IconButton(
+              key: const Key('exportSidecars'),
+              icon: const Icon(Icons.drive_file_move_outline),
+              tooltip: 'Export sidecars to another folder',
+              onPressed: export,
+            ),
         ],
       ),
     );
@@ -624,13 +636,17 @@ class BookDetail extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: m.mark == null ? const Icon(Icons.bookmark) : CircleAvatar(radius: 12, child: Text(m.mark!)),
-            title: Text('Page ${m.page + 1}${m.panel != null ? ', panel ${m.panel! + 1}' : ''}'),
+            title: Text('Page ${m.page + 1}${isPanel(m.panel) ? ', panel ${m.panel! + 1}' : ''}'),
             subtitle: Text(m.mark == null ? 'Bookmark' : "Mark '${m.mark}"),
-            onTap: () => onRead(book, at: (page: m.page, panel: m.panel ?? 0)),
+            // Without a panel, guided view shows the page whole.
+            onTap: () => onRead(book, at: (page: m.page, panel: m.panel ?? pageStart)),
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Remove',
-              onPressed: () => ref.read(libraryStoreProvider).deleteBookmark(m.id),
+              onPressed: () async {
+                await ref.read(libraryStoreProvider).deleteBookmark(m.id);
+                await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+              },
             ),
           ),
         const SizedBox(height: 16),
@@ -834,6 +850,8 @@ class _LibraryStatus extends ConsumerWidget {
                     key: const Key('pending'),
                     style: const TextStyle(fontFamily: 'monospace'),
                   ),
+                  const SizedBox(width: 12),
+                  Text('ComicRedr $appVersion', key: const Key('version'), style: theme.textTheme.bodySmall),
                 ],
               ),
             ),

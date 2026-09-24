@@ -35,7 +35,7 @@ void main() {
   /// The app with a six-page book open, on page 1.
   Future<ProviderContainer> openBook(WidgetTester tester) async {
     await tester.pumpWidget(
-      ProviderScope(overrides: [databaseProvider.overrideWithValue(db)], child: const ComicRedrApp()),
+      ProviderScope(overrides: [databaseProvider.overrideWithValue(db), classicCvOnly], child: const ComicRedrApp()),
     );
     await tester.pump();
     final c = ProviderScope.containerOf(tester.element(find.byType(ComicRedrApp)));

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/layout.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
@@ -21,9 +22,11 @@ void main() {
   late Directory tmp;
   late AppDatabase db;
 
-  setUp(() {
+  setUp(() async {
     tmp = Directory.systemTemp.createTempSync('resume_test');
     db = AppDatabase(NativeDatabase.memory());
+    // These tests step panel to panel; whole_page_test covers the default.
+    await SettingsStore(db).saveBool(SettingsStore.wholePageSteps, false);
   });
   tearDown(() => tmp.deleteSync(recursive: true));
 
@@ -31,7 +34,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         key: UniqueKey(), // A new scope each time: a fresh app, same index.
-        overrides: [databaseProvider.overrideWithValue(db)],
+        overrides: [databaseProvider.overrideWithValue(db), classicCvOnly, noSidecars(db)],
         child: const ComicRedrApp(),
       ),
     );

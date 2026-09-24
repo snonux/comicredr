@@ -7,6 +7,9 @@ import 'package:reader_input/reader_input.dart';
 
 import '../data/panel_store.dart';
 import '../data/progress_store.dart';
+import '../data/settings_store.dart';
+import '../data/sidecar.dart';
+import '../data/sidecar_sync.dart';
 import '../library/providers.dart';
 import '../providers.dart';
 import 'guided.dart';
@@ -26,6 +29,7 @@ class ReaderState {
     this.mode = PageMode.single,
     this.guided = false,
     this.balloons = false,
+    this.wholePageSteps = true,
     this.coverAlone = true,
     this.rightToLeft = false,
     this.fullscreen = false,
@@ -40,8 +44,9 @@ class ReaderState {
   final OpenBook? book;
   final int page;
 
-  /// The panel on [page] guided view is showing, in reading order. Kept
-  /// while guided view is off, so `v` comes back to the same panel.
+  /// The panel on [page] guided view is showing, in reading order, or
+  /// [pageStart] or [pageEnd] for the whole page before or after the
+  /// panels. Kept while guided view is off, so `v` comes back to it.
   final int panel;
 
   /// The balloon inside [panel] balloon mode is showing, in reading order;
@@ -57,6 +62,11 @@ class ReaderState {
   /// panel, after showing the panel whole. Off by default, and remembered
   /// while guided view is off.
   final bool balloons;
+
+  /// Guided view shows each page whole on arrival, before its first panel,
+  /// and again after its last one, before moving on. A setting, on by
+  /// default; `w` toggles it.
+  final bool wholePageSteps;
   final bool coverAlone;
   final bool rightToLeft;
   final bool fullscreen;
@@ -96,11 +106,11 @@ class ReaderState {
   /// now; null for the whole page.
   Panel? get focus {
     if (!guided) return null;
-    final stops = stopsOn(page);
-    if (stops.isEmpty) return null;
-    final frame = stops[panel.clamp(0, stops.length - 1)];
+    final i = panelIndex;
+    if (i < 0) return null;
+    final frame = stopsOn(page)[i];
     final b = balloonIndex;
-    return b < 0 ? frame : balloonFocus(frame, balloonsOn(page, panelIndex)[b]);
+    return b < 0 ? frame : balloonFocus(frame, balloonsOn(page, i)[b]);
   }
 
   /// [balloon] resolved against what is known: -1 for the panel as a whole,
@@ -113,11 +123,15 @@ class ReaderState {
     return n == 0 ? -1 : balloon.clamp(-1, n - 1);
   }
 
-  /// [panel] resolved against what is known: -1 for the whole page.
+  /// [panel] resolved against what is known: -1 for the whole page, which
+  /// is also what [pageStart] and [pageEnd] show.
   int get panelIndex {
     final n = stopsOn(page).length;
-    return n == 0 ? -1 : panel.clamp(0, n - 1);
+    return n == 0 || panel < 0 || panel >= pageEnd ? -1 : panel.clamp(0, n - 1);
   }
+
+  /// Where guided view lands on arriving at a page.
+  int get entryPanel => wholePageSteps ? pageStart : 0;
 
   ReaderState copyWith({
     OpenBook? book,
@@ -127,6 +141,7 @@ class ReaderState {
     PageMode? mode,
     bool? guided,
     bool? balloons,
+    bool? wholePageSteps,
     bool? coverAlone,
     bool? rightToLeft,
     bool? fullscreen,
@@ -144,6 +159,7 @@ class ReaderState {
     mode: mode ?? this.mode,
     guided: guided ?? this.guided,
     balloons: balloons ?? this.balloons,
+    wholePageSteps: wholePageSteps ?? this.wholePageSteps,
     coverAlone: coverAlone ?? this.coverAlone,
     rightToLeft: rightToLeft ?? this.rightToLeft,
     fullscreen: fullscreen ?? this.fullscreen,
@@ -164,7 +180,34 @@ final progressStoreProvider = Provider<ProgressStore>((ref) {
   return store;
 });
 
+/// The sidecars beside the books. Pending writes go out when the app is
+/// disposed.
+final sidecarSyncProvider = Provider<SidecarSync>((ref) {
+  final sync = SidecarSync(
+    ref.watch(databaseProvider),
+    progress: ref.watch(progressStoreProvider),
+    coverDir: ref.watch(coverDirProvider),
+  );
+  ref.onDispose(sync.flush);
+  return sync;
+});
+
+/// Another device's later position in the book just opened, which the
+/// reader offers rather than jumps to (design plan section 7).
+typedef PositionOffer = ({String path, String contentKey, SidecarProgress at});
+
+final positionOfferProvider = NotifierProvider<PositionOfferNotifier, PositionOffer?>(PositionOfferNotifier.new);
+
+class PositionOfferNotifier extends Notifier<PositionOffer?> {
+  @override
+  PositionOffer? build() => null;
+
+  void set(PositionOffer? offer) => state = offer;
+}
+
 final panelStoreProvider = Provider<PanelStore>((ref) => PanelStore(ref.watch(databaseProvider)));
+
+final settingsStoreProvider = Provider<SettingsStore>((ref) => SettingsStore(ref.watch(databaseProvider)));
 
 final markStoreProvider = Provider<MarkStore>((ref) => MarkStore(ref.watch(databaseProvider)));
 
@@ -181,6 +224,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   ReaderState build() => const ReaderState();
 
   ProgressStore get _progress => ref.read(progressStoreProvider);
+  SidecarSync get _sidecars => ref.read(sidecarSyncProvider);
 
   /// Zoom and scroll as the reader screen last reported them, saved with the
   /// position; and the saved one for the screen to restore on open.
@@ -206,6 +250,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       return;
     }
     await close();
+    // The sidecar first, so what it brings (panels from the laptop, a
+    // position from the phone) is in the index before the reads below.
+    final side = await _orNull(() => _sidecars.attach(book.path, book.key, folder: book.folder));
     // A broken index must not keep a book from opening: each of these falls
     // back to nothing saved.
     final saved = await _orNull(() => _progress.load(book.key));
@@ -216,11 +263,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
         ) ??
         const {};
     final marks = await _orNull(() => ref.read(markStoreProvider).load(book.key)) ?? const {};
+    final whole =
+        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.wholePageSteps)) ??
+        state.wholePageSteps;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
     final guided = saved?.guided ?? state.guided;
-    final panel = at?.panel ?? saved?.panel ?? 0;
+    final panel = at?.panel ?? saved?.panel ?? (whole ? pageStart : 0);
+    final onPanel = guided && isPanel(panel);
     _view = _restoreView = at == null ? saved?.view : null;
     state = ReaderState(
       book: book,
@@ -234,6 +285,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       },
       guided: guided,
       balloons: saved?.balloons ?? state.balloons,
+      wholePageSteps: whole,
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
       fullscreen: state.fullscreen,
@@ -241,15 +293,43 @@ class ReaderNotifier extends Notifier<ReaderState> {
       panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons)},
       marks: marks,
       message: at != null
-          ? 'Bookmark: page ${page + 1}${guided ? ', panel ${panel + 1}' : ''}'
+          ? 'Bookmark: page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'
           : saved == null || (page == 0 && !guided)
           ? null
-          : 'Resumed at page ${page + 1}${guided ? ', panel ${panel + 1}' : ''}',
+          : 'Resumed at page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'
+                '${side?.adopted != null ? ' (read on ${side!.adopted!.deviceName})' : ''}',
     );
+    ref
+        .read(positionOfferProvider.notifier)
+        .set(
+          at == null && side?.elsewhere != null ? (path: book.path, contentKey: book.key, at: side!.elsewhere!) : null,
+        );
     // Opening a book counts as reading it: the library's Reading tab lists
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
     _ensurePanels();
+    unawaited(_writeSidecar(book));
+  }
+
+  /// Writes the sidecar as the book opens, so a folder that refuses it says
+  /// so now rather than silently later.
+  Future<void> _writeSidecar(OpenBook book) async {
+    try {
+      await _progress.flush();
+      if (await _sidecars.write(book.key) || !identical(state.book, book)) return;
+      _notice("Can't write beside this comic, so its panels and bookmarks stay in this app only");
+    } catch (e) {
+      debugPrint('Sidecar write failed: $e');
+    }
+  }
+
+  /// Takes the offered position from another device: saves it as this
+  /// device's and reopens the book there, view and all.
+  Future<void> acceptOffer(PositionOffer offer) async {
+    ref.read(positionOfferProvider.notifier).set(null);
+    await close();
+    await _sidecars.adopt(offer.contentKey, offer.at);
+    await open(offer.path);
   }
 
   Future<T?> _orNull<T>(Future<T> Function() f) async {
@@ -271,18 +351,22 @@ class ReaderNotifier extends Notifier<ReaderState> {
       mode: state.mode,
       guided: state.guided,
       balloons: state.balloons,
+      wholePageSteps: state.wholePageSteps,
       fullscreen: state.fullscreen,
       night: state.night,
     );
     await book.doc.close();
+    // Off the way of whatever opens next; flush() on exit waits for it.
+    unawaited(_sidecars.flush().catchError((Object e) => debugPrint('Sidecar write failed: $e')));
   }
 
-  void _goTo(int page, {int panel = 0, int balloon = -1, bool jump = false}) {
+  /// Goes to [page], at [panel] or where guided view enters a page.
+  void _goTo(int page, {int? panel, int balloon = -1, bool jump = false}) {
     final book = state.book!;
     final target = page.clamp(0, state.pageCount - 1);
     state = state.copyWith(
       page: target,
-      panel: panel,
+      panel: panel ?? state.entryPanel,
       balloon: balloon,
       jumpedFrom: jump ? (page: state.page, panel: state.panel) : null,
     );
@@ -308,6 +392,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       ),
       state.pageCount,
     );
+    _sidecars.touch(book.key);
   }
 
   /// The reader screen's zoom and scroll changed; saved with the position.
@@ -330,21 +415,38 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// Guided view's step: the next or previous panel, crossing onto the
   /// neighbouring page at either end. A page shown whole is one step. In
   /// balloon mode a panel is shown whole first, then balloon by balloon;
-  /// a panel without balloons is one step as before.
+  /// a panel without balloons is one step as before. With whole-page steps
+  /// on, a page with panels is shown whole on arrival and again after its
+  /// last panel, in both directions.
   void _stepGuided(int steps) {
+    final whole = state.wholePageSteps;
     var page = state.page;
     var panel = state.panel;
     var balloon = state.balloons ? state.balloon : -1;
     for (var i = 0; i < steps.abs(); i++) {
       final n = state.stopsOn(page).length;
-      if (n > 0) panel = panel.clamp(0, n - 1);
-      final nb = state.balloons && n > 0 ? state.balloonsOn(page, panel).length : 0;
+      // A page without panels is one step, whatever [panel] says.
+      final atStart = n == 0 || panel < 0;
+      final atEnd = n == 0 || panel >= pageEnd;
+      if (!atStart && !atEnd) panel = panel.clamp(0, n - 1);
+      final nb = state.balloons && !atStart && !atEnd ? state.balloonsOn(page, panel).length : 0;
       balloon = nb == 0 ? -1 : balloon.clamp(-1, nb - 1);
       if (steps > 0) {
-        if (balloon < nb - 1) {
+        if (atEnd) {
+          if (page >= state.pageCount - 1) break;
+          page++;
+          panel = whole ? pageStart : 0;
+          balloon = -1;
+        } else if (atStart) {
+          panel = 0;
+          balloon = -1;
+        } else if (balloon < nb - 1) {
           balloon++;
-        } else if (n > 0 && panel < n - 1) {
+        } else if (panel < n - 1) {
           panel++;
+          balloon = -1;
+        } else if (whole) {
+          panel = pageEnd;
           balloon = -1;
         } else if (page < state.pageCount - 1) {
           page++;
@@ -354,11 +456,22 @@ class ReaderNotifier extends Notifier<ReaderState> {
           break;
         }
       } else {
-        if (balloon > -1) {
+        if (atStart) {
+          if (page <= 0) break;
+          page--;
+          panel = whole ? pageEnd : lastPanel;
+          balloon = whole ? -1 : lastBalloon;
+        } else if (atEnd) {
+          panel = n - 1;
+          balloon = lastBalloon;
+        } else if (balloon > -1) {
           balloon--;
-        } else if (n > 0 && panel > 0) {
+        } else if (panel > 0) {
           panel--;
           balloon = lastBalloon;
+        } else if (whole) {
+          panel = pageStart;
+          balloon = -1;
         } else if (page > 0) {
           page--;
           panel = lastPanel;
@@ -422,6 +535,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
             ref
                 .read(panelStoreProvider)
                 .save(book.key, page, result)
+                .then((_) => _sidecars.touch(book.key))
                 .catchError((Object e) => debugPrint('Could not cache panels: $e')),
           );
         } catch (e) {
@@ -476,6 +590,18 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final on = !state.guided || !state.balloons;
         state = state.copyWith(balloons: on, balloon: -1, message: on ? 'Balloons on' : 'Balloons off');
         if (!state.guided) _setGuided(true);
+      case ReaderIntent.toggleWholePage:
+        final on = !state.wholePageSteps;
+        state = state.copyWith(
+          wholePageSteps: on,
+          message: on ? 'Whole page before and after the panels' : 'Straight from panel to panel across pages',
+        );
+        unawaited(
+          ref
+              .read(settingsStoreProvider)
+              .saveBool(SettingsStore.wholePageSteps, on)
+              .catchError((Object e) => debugPrint('Could not save setting: $e')),
+        );
       case ReaderIntent.toggleSpread:
         // Guided view shows one page, so d from there goes to the spread.
         state.guided
@@ -510,8 +636,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.nightFilter:
         state = state.copyWith(night: !state.night);
       case ReaderIntent.setMark:
+        final key = state.book!.key;
         final i = state.panelIndex;
-        final place = (page: state.page, panel: state.guided && i >= 0 ? i : 0);
+        // A whole-page step is a place too, so the mark keeps it.
+        final place = (page: state.page, panel: state.guided ? (i >= 0 ? i : state.panel) : 0);
         state = state.copyWith(
           marks: {...state.marks, c.register!: place},
           message:
@@ -521,7 +649,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         unawaited(
           ref
               .read(markStoreProvider)
-              .save(state.book!.key, c.register!, place.page, place.panel)
+              .save(key, c.register!, place.page, place.panel)
+              .then((_) => _sidecars.touch(key))
               .catchError((Object e) => debugPrint('Could not save mark: $e')),
         );
       case ReaderIntent.jumpMark:
@@ -538,13 +667,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.halfPageUp:
         _notice('Continuous scroll arrives in a later milestone');
       case ReaderIntent.bookmark:
+        final key = state.book!.key;
         final i = state.panelIndex;
         final panel = state.guided && i >= 0 ? i : null;
         _notice('Bookmarked page ${state.page + 1}${panel != null ? ', panel ${panel + 1}' : ''}');
         unawaited(
           ref
               .read(markStoreProvider)
-              .addBookmark(state.book!.key, state.page, panel)
+              .addBookmark(key, state.page, panel)
+              .then((_) => _sidecars.touch(key))
               .catchError((Object e) => debugPrint('Could not save bookmark: $e')),
         );
       case ReaderIntent.search:
@@ -597,5 +728,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
-  Future<void> flush() => _progress.flush();
+  /// Saves the position and writes pending sidecars: on pause and exit.
+  Future<void> flush() async {
+    await _progress.flush();
+    await _sidecars.flush();
+  }
 }

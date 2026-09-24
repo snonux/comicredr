@@ -15,9 +15,11 @@ import 'input/reader_touch.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'providers.dart';
+import 'reader/guided.dart';
 import 'reader/layout.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
+import 'version.dart';
 
 class ComicRedrApp extends StatelessWidget {
   const ComicRedrApp({super.key, this.initialPath, this.addRoots = const []});
@@ -34,11 +36,7 @@ class ComicRedrApp extends StatelessWidget {
       title: 'ComicRedr',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(colorSchemeSeed: const Color(0xFF0B6FB4), useMaterial3: true),
-      darkTheme: ThemeData(
-        colorSchemeSeed: const Color(0xFF0B6FB4),
-        brightness: Brightness.dark,
-        useMaterial3: true,
-      ),
+      darkTheme: ThemeData(colorSchemeSeed: const Color(0xFF0B6FB4), brightness: Brightness.dark, useMaterial3: true),
       themeMode: ThemeMode.dark,
       home: HomeScreen(initialPath: initialPath, addRoots: addRoots),
     );
@@ -167,20 +165,83 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (go == true) await _storage.invokeMethod<void>('requestAllFilesAccess');
       return null;
     }
+    return _askPath('Add a folder to the library', 'Add');
+  }
+
+  /// A folder typed as a path: Android has no folder picker that gives one.
+  Future<String?> _askPath(String title, String action) async {
     final field = TextEditingController(text: '/storage/emulated/0/Comics');
     final dir = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Add a folder to the library'),
-        content: TextField(controller: field, autofocus: true, decoration: const InputDecoration(labelText: 'Folder')),
+        title: Text(title),
+        content: TextField(
+          controller: field,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Folder'),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, field.text.trim()), child: const Text('Add')),
+          FilledButton(onPressed: () => Navigator.pop(context, field.text.trim()), child: Text(action)),
         ],
       ),
     );
     field.dispose();
     return dir;
+  }
+
+  /// "Export sidecars": every book's sidecar, written under a folder of the
+  /// person's choosing and laid out like the library, for books whose own
+  /// folder cannot be written to (design plan section 7).
+  Future<void> _exportSidecars() async {
+    if (_picking) return;
+    _picking = true;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final dir = Platform.isAndroid
+          ? await _askPath('Export sidecars to', 'Export')
+          : await getDirectoryPath(confirmButtonText: 'Export sidecars here');
+      if (dir == null || dir.isEmpty) return;
+      final n = await ref.read(sidecarSyncProvider).exportAll(dir);
+      messenger.showSnackBar(SnackBar(content: Text('Wrote $n sidecar${n == 1 ? '' : 's'} to $dir')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not export sidecars: $e')));
+    } finally {
+      _picking = false;
+    }
+  }
+
+  /// Another device read further in the book just opened: ask, don't jump.
+  Future<void> _offer(PositionOffer offer) async {
+    final at = offer.at;
+    final where = 'page ${at.page + 1}${at.panel != null && at.panel! > 0 ? ', panel ${at.panel! + 1}' : ''}';
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Read further on ${at.deviceName}'),
+        content: Text('This comic was last read on ${at.deviceName}, up to $where. Go there?'),
+        actions: [
+          TextButton(
+            key: const Key('offerStay'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Stay here'),
+          ),
+          FilledButton(
+            key: const Key('offerGo'),
+            autofocus: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Go to $where'),
+          ),
+        ],
+      ),
+    );
+    _keys.requestFocus();
+    final reader = ref.read(readerProvider.notifier);
+    if (go == true && ref.read(readerProvider).book?.key == offer.contentKey) {
+      await reader.acceptOffer(offer);
+    } else {
+      ref.read(positionOfferProvider.notifier).set(null);
+    }
   }
 
   Future<void> _pickFile() async {
@@ -248,6 +309,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.listen(readerProvider.select((s) => s.fullscreen), (_, full) {
       SystemChrome.setEnabledSystemUIMode(full ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
     });
+    ref.listen(positionOfferProvider, (_, offer) {
+      if (offer != null) unawaited(_offer(offer));
+    });
     final keymap = ref.watch(keymapProvider);
     return ReaderKeyboard(
       keymap: keymap,
@@ -271,6 +335,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: LibraryScreen(
                     key: _library,
                     onAddRoot: _addRoot,
+                    onExportSidecars: _exportSidecars,
                     onOpenFile: _pickFile,
                     onOpenFolder: _pickFolder,
                     keysFocus: _keys,
@@ -321,7 +386,7 @@ class _ProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final n = state.pageCount;
     final stops = state.guided ? state.stopsOn(state.page).length : 0;
-    final within = stops > 0 ? (state.panelIndex + 1) / stops : 1.0;
+    final within = stops == 0 || state.panel >= pageEnd ? 1.0 : (state.panelIndex + 1) / stops;
     final read = state.guided ? state.page + within : state.unit.last + 1.0;
     return LinearProgressIndicator(
       key: const Key('progress'),
@@ -342,6 +407,11 @@ class _StatusLine extends StatelessWidget {
     if (found == null) return 'guided: finding panels…';
     final stops = s.stopsOn(s.page);
     if (stops.isEmpty) return 'guided: whole page (${found.gate.reasons.first})';
+    if (s.panelIndex < 0) {
+      return s.panel >= pageEnd
+          ? 'guided: whole page, ${stops.length} panels read'
+          : 'guided: whole page, then ${stops.length} panels';
+    }
     final panel = 'guided: panel ${s.panelIndex + 1} / ${stops.length}';
     if (!s.balloons) return panel;
     final n = s.balloonsOn(s.page, s.panelIndex).length;
@@ -411,26 +481,36 @@ class KeymapOverlay extends StatelessWidget {
     return Positioned.fill(
       child: ColoredBox(
         color: theme.colorScheme.surface.withValues(alpha: 0.96),
-        child: ListView(
-          padding: const EdgeInsets.all(24),
+        child: Stack(
           children: [
-            for (final MapEntry(key: intent, value: bindings) in byIntent.entries)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 200,
-                      child: Text(
-                        bindings.map(Keymap.describe).join('  '),
-                        style: const TextStyle(fontFamily: 'monospace'),
-                      ),
+            ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                for (final MapEntry(key: intent, value: bindings) in byIntent.entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 200,
+                          child: Text(
+                            bindings.map(Keymap.describe).join('  '),
+                            style: const TextStyle(fontFamily: 'monospace'),
+                          ),
+                        ),
+                        Expanded(child: Text(intent.description)),
+                      ],
                     ),
-                    Expanded(child: Text(intent.description)),
-                  ],
-                ),
-              ),
+                  ),
+              ],
+            ),
+            // In a corner, so the keymap list keeps its whole height.
+            Positioned(
+              right: 24,
+              bottom: 16,
+              child: Text('ComicRedr $appVersion', key: const Key('keymap-version'), style: theme.textTheme.titleSmall),
+            ),
           ],
         ),
       ),

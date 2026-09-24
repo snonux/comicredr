@@ -7,7 +7,11 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../data/sidecar.dart';
 import 'library_store.dart';
+
+/// Called for each book a scan reads, to merge its sidecar into the index.
+typedef OnBookRead = Future<void> Function(String path, String contentKey, {required bool folder});
 
 /// Where a scan is, for the library's status line.
 class ScanStatus {
@@ -33,11 +37,12 @@ typedef Candidate = ({String relPath, int size, int mtimeMs});
 /// each. Books land in the index one by one, so the library fills in while
 /// the scan runs.
 class LibraryScanner {
-  LibraryScanner(this.store, {required this.coverDir, int? workers})
+  LibraryScanner(this.store, {required this.coverDir, this.onBookRead, int? workers})
     : workers = workers ?? math.max(1, math.min(3, Platform.numberOfProcessors - 2));
 
   final LibraryStore store;
   final String coverDir;
+  final OnBookRead? onBookRead;
   final int workers;
 
   final _status = StreamController<ScanStatus>.broadcast();
@@ -108,6 +113,11 @@ class LibraryScanner {
         try {
           final info = await _read(path, coverDir);
           await store.putBook(rootId, c.relPath, c.size, DateTime.fromMillisecondsSinceEpoch(c.mtimeMs), info);
+          try {
+            await onBookRead?.call(path, info.contentKey, folder: info.kind == BookKind.folder);
+          } catch (e) {
+            debugPrint('Could not read the sidecar of $path: $e');
+          }
         } catch (e) {
           failed.add((path, e is FormatException ? e.message : '$e'));
         }
@@ -143,7 +153,13 @@ class LibraryScanner {
         if (closed) return;
         for (final dir in await _folders(root.path)) {
           try {
-            subs.add(Directory(dir).watch().listen((_) => events.add(null), onError: (_) {}));
+            // The app's own sidecar writes are not library changes.
+            subs.add(
+              Directory(dir)
+                  .watch()
+                  .where((e) => !isSidecarFile(e.path))
+                  .listen((_) => events.add(null), onError: (_) {}),
+            );
           } catch (e) {
             debugPrint('Cannot watch $dir: $e');
           }
@@ -212,10 +228,11 @@ List<Candidate> findBooks(String root) {
     }
     final images = entries.whereType<File>().where((f) => isPageEntry(p.basename(f.path))).toList();
     if (images.isNotEmpty) {
-      // A folder book: size is its pages' total, mtime the newest of them
-      // and the folder, so an added or replaced page counts as a change.
+      // A folder book: size is its pages' total, mtime the newest of them,
+      // so an added or replaced page counts as a change. Not the folder's
+      // own mtime: writing the sidecar inside it changes that.
       var size = 0;
-      var mtime = dir.statSync().modified.millisecondsSinceEpoch;
+      var mtime = 0;
       for (final f in images) {
         final s = f.statSync();
         size += s.size;
