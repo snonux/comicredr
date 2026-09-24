@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # End-to-end check of the pause on whole pages in guided view, on the Linux
 # build: on a page guided view shows whole (no panels that pass the gate),
-# the first step onward stays on the page and plays a short zoom cue with a
-# hint on the status line; the next step turns. Mirrored going back, the
-# same from taps, not on pages with panels, skipped by a count, and `W`
-# turns it off, which survives a restart.
+# the first step onward stays on the page and turns the background wine red
+# until the page is left, with a hint on the status line; the next step
+# turns. Mirrored going back, the same from taps, not on pages with panels,
+# skipped by a count. `gw` switches to the zoom cue (the page zooms out and
+# back) and `W` turns it off, which survives a restart.
 #
 #   tool/e2e_pause_whole.sh book.cbz [page]   # page: 1-based, default 3
 #
@@ -97,6 +98,23 @@ moving() {
   if [[ "${d%.*}" -ge 4000 ]]; then echo "ok    $1: mid-cue ($d px off $2)"
   else echo "FAIL  $1: expected the page mid-cue, only $d px off $2"; failed=1; fi
 }
+# background shot: the colour of the screen beside the page.
+background() { convert "$out/$1.png" -format '%[pixel:p{60,340}]' info:; }
+wine='srgb(58,13,22)'
+# held shot ref: still the page of ref, on a wine-red background.
+held() {
+  local d bg; bg=$(background "$1")
+  d=$(compare -metric AE -fuzz 10% <(convert "$out/$1.png" -crop 300x500+490+100 png:-) \
+    <(convert "$out/$2.png" -crop 300x500+490+100 png:-) null: 2>&1 | cut -d' ' -f1 || true)
+  if [[ "${d%.*}" -lt 2000 && "$bg" == "$wine" ]]; then echo "ok    $1: held on the page, background $bg ($d px off $2)"
+  else echo "FAIL  $1: expected the page held on $wine, background $bg, $d px off $2"; failed=1; fi
+}
+# black shot: the background is black again.
+black() {
+  local bg; bg=$(background "$1")
+  if [[ "$bg" == 'srgb(0,0,0)' ]]; then echo "ok    $1: black background"
+  else echo "FAIL  $1: expected a black background, got $bg"; failed=1; fi
+}
 # hint shot before: the status line changed (the hint is up).
 hint() {
   local d
@@ -115,20 +133,18 @@ key $prev shift+g;   shot ref_prev
 key $page shift+g;   shot ref_a
 key l;               shot ref_b
 
-# On, the default. Right holds once with the cue, then turns.
+# On, the default, with the colour cue. Right holds once, then turns.
 key $page shift+g; key v; sleep 4
-shot k01_enter;      whole k01_enter ref_a
-xdotool key Right; sleep 0.15
-shot k02_cue;        moving k02_cue ref_a
-sleep "$step"
-shot k03_held;       whole k03_held ref_a;  hint k03_held k01_enter
-key Right;           shot k04_turned;       whole k04_turned ref_b
+shot k01_enter;      whole k01_enter ref_a; black k01_enter
+key Right;           shot k03_held;         held k03_held ref_a;  hint k03_held k01_enter
+sleep 2;             shot k03b_still_held;  held k03b_still_held ref_a
+key Right;           shot k04_turned;       whole k04_turned ref_b; black k04_turned
 key Right;           shot k05_panel;        zoomed k05_panel ref_b
 
 # Back: onto the page from ahead, held once, then the page before.
 key Left;            shot k06_back_next;    whole k06_back_next ref_b
 key Left;            shot k07_back_on;      whole k07_back_on ref_a
-key Left;            shot k08_back_held;    whole k08_back_held ref_a
+key Left;            shot k08_back_held;    held k08_back_held ref_a
 key Left;            shot k09_back_turned;  whole k09_back_turned ref_prev
 # Arrived from behind: back leaves at once, then from ahead forward does.
 key $page shift+g;   shot k10_jump;         whole k10_jump ref_a
@@ -143,10 +159,19 @@ shot k14_count;      zoomed k14_count ref_b
 
 # Touch: the right tap zone holds the same way.
 key $page shift+g
-tap 1200 340;        shot t01_tap_held;     whole t01_tap_held ref_a
+tap 1200 340;        shot t01_tap_held;     held t01_tap_held ref_a
 tap 1200 340;        shot t02_tap_turned;   whole t02_tap_turned ref_b
 swipe 400 340 900;   shot t03_swipe_back;   whole t03_swipe_back ref_a
-swipe 400 340 900;   shot t04_swipe_held;   whole t04_swipe_held ref_a
+swipe 400 340 900;   shot t04_swipe_held;   held t04_swipe_held ref_a
+
+# gw: the zoom cue instead; the background stays black.
+key $page shift+g; key g w
+xdotool key Right; sleep 0.15
+shot z01_cue;        moving z01_cue ref_a
+sleep "$step"
+shot z02_held;       whole z02_held ref_a;  black z02_held
+key Right;           shot z03_turned;       whole z03_turned ref_b
+key g w
 
 # Off (W): the page turns at once, and stays off after a restart.
 key $page shift+g; key shift+w
@@ -156,7 +181,7 @@ start
 key $page shift+g;   shot o02_restarted;    whole o02_restarted ref_a
 key Right;           shot o03_still_off;    whole o03_still_off ref_b
 key $page shift+g; key shift+w
-key Right;           shot o04_on_again;     whole o04_on_again ref_a
+key Right;           shot o04_on_again;     held o04_on_again ref_a
 
 close_gracefully
 montage -label '%t' "$out"/*.png -tile 5x -geometry 384x270+4+14 "$out/contact.png"
