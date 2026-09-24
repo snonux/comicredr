@@ -83,8 +83,8 @@ check() { # check "what" actual expected
 touch_() { echo "$@" >>"$touches"; sleep 0.016; }
 tap() { touch_ down 0 "$1" "$2"; touch_ up 0 "$1" "$2"; sleep 0.8; }
 
-# 4 golden age CBZ + Reptisaurus + 3 PDFs + 3 Pepper&Carrot folders + 2 Spirit.
-expected=13
+# 4 golden age CBZ + Reptisaurus + 4 PDFs + 3 Pepper&Carrot folders + 2 Spirit.
+expected=14
 t0=$(date +%s.%N)
 start --add-root "$comics"
 for _ in $(seq 1 120); do
@@ -96,7 +96,7 @@ sleep 1.5 # The last cover lands on screen.
 echo "first scan: $(python3 -c "print(round($t1 - $t0, 1))") s from launch to $expected books indexed"
 shot 01_series
 check "books indexed" "$(sql 'select count(*) from books')" $expected
-check "series" "$(sql 'select count(*) from series')" 10
+check "series" "$(sql 'select count(*) from series')" 11
 check "Spirit #1 is spirit-b.cbz" "$(sql "select f.rel_path from books b join files f using (content_key) where b.title = 'The Spirit #1'")" spirit-b.cbz
 check "covers" "$(ls "$out"/home/.cache/org.snonux.comicredr/covers/*.jpg 2>/dev/null | wc -l)" $expected
 
@@ -128,9 +128,19 @@ key slash; type spirit; key Return; key Return; key Return; sleep 2; shot 18_spi
 key bracketright; sleep 2; shot 19_spirit_2
 key bracketright;        shot 20_spirit_last_in_series
 key Escape; key Escape; key Escape
-# The Reading tab shows what was opened, the last one first.
-key Tab Tab Tab;         shot 21_reading_tab
-key Tab Tab Tab;         shot 22_folders_tab
+# The Reading tab shows what was opened, the last one first. Six tabs:
+# Reading, Series, Books, Collections, History, Folders.
+key Tab Tab Tab Tab Tab; shot 21_reading_tab
+key Tab Tab Tab Tab Tab; shot 22_folders_tab
+# Folders: walk into the comics folder and its sub-folders and back out.
+key l;                   shot 22a_folders_root_selected
+key Return;              shot 22b_in_comics
+key Return;              shot 22c_in_golden_age
+key Escape;              shot 22d_back_in_comics
+key l Return;            shot 22e_in_pepper_carrot
+key Return; sleep 2;     shot 22f_reading_from_folder
+key Escape; sleep 1;     shot 22g_back_in_pepper_carrot
+key Escape Escape;       shot 22h_folders_top
 # Mouse, on the Series tab: click a cover to select it, click again to read.
 key Tab Tab; sleep 0.5
 xdotool mousemove 190 200 click 1; sleep 1; shot 23_click_selects

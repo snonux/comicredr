@@ -139,6 +139,52 @@ List<LibrarySeries> collectionGroups(List<LibraryBook> books) {
   return [for (final (i, n) in names.indexed) LibrarySeries(-1 - i, n, by[n]!..sort(bySeries))];
 }
 
+/// A folder in the Folders tab: a library folder or one somewhere under it,
+/// with every book beneath it at any depth. A folder of page images is a
+/// book, never a folder here.
+class LibraryFolder {
+  const LibraryFolder(this.path, this.books, {this.root});
+
+  final String path;
+
+  /// Every book under the folder, in file order.
+  final List<LibraryBook> books;
+
+  /// The library folder itself, for one added with `A`.
+  final RootInfo? root;
+
+  String get name => p.basename(path);
+
+  bool matches(String query) => name.toLowerCase().contains(query.toLowerCase()) || books.any((b) => b.matches(query));
+
+  /// What is directly in [dir]: its sub-folders that hold books, in name
+  /// order, then its books, in file-name order.
+  static ({List<LibraryFolder> folders, List<LibraryBook> books}) children(String dir, List<LibraryBook> all) {
+    final sub = <String, List<LibraryBook>>{};
+    final here = <LibraryBook>[];
+    for (final b in all) {
+      if (!p.isWithin(dir, b.path)) continue;
+      final parts = p.split(p.relative(b.path, from: dir));
+      if (parts.length == 1) {
+        here.add(b);
+      } else {
+        sub.putIfAbsent(p.join(dir, parts.first), () => []).add(b);
+      }
+    }
+    final names = sub.keys.toList()..sort((a, b) => naturalCompare(p.basename(a), p.basename(b)));
+    return (folders: [for (final d in names) LibraryFolder(d, sub[d]!..sort(fileOrder))], books: here..sort(fileOrder));
+  }
+
+  /// The library folders, each with its books.
+  static List<LibraryFolder> roots(List<RootInfo> roots, List<LibraryBook> all) => [
+    for (final r in roots)
+      LibraryFolder(r.path, all.where((b) => p.isWithin(r.path, b.path)).toList()..sort(fileOrder), root: r),
+  ];
+
+  /// File order: by path, numbers compared as numbers.
+  static int fileOrder(LibraryBook a, LibraryBook b) => naturalCompare(a.path, b.path);
+}
+
 /// A watched folder, with how many books were found in it.
 class RootInfo {
   const RootInfo(this.id, this.path, this.books);
