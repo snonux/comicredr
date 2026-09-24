@@ -54,7 +54,13 @@ stop() {
   echo "FAIL the app did not quit on close"; failed=1; kill "$app"
 }
 page_of() { sleep 2; q "select page from progress order by updated_at desc limit 1"; }
-live() { q "select page || ':' || ifnull(panel, '-') || ':' || ifnull(note, '') from bookmarks where deleted_at is null and mark is null order by page, panel"; }
+# The first book's live bookmarks, as page:panel:note.
+live() {
+  q "select page || ':' || ifnull(panel, '-') || ':' || ifnull(note, '') from bookmarks
+     where deleted_at is null and mark is null
+       and content_key = (select content_key from files where rel_path = '$(basename "$cbz")' limit 1)
+     order by page, panel"
+}
 # The ribbon is drawn in the theme's primary colour at the page's top
 # right; a bookmarked page has it, others show the page there.
 ribbon() {
@@ -77,14 +83,15 @@ key m m
 check "mm again takes it off" test -z "$(live)"
 check "kept as a removal for the sidecar" test "$(q 'select count(*) from bookmarks where deleted_at is not null')" = 1
 
-# Page 1 whole, page 10 panel 2 in guided view.
+# Page 1 whole; page 10 in guided view, which enters on the whole page,
+# so l goes to panel 1.
 key m m
 key 1 0 shift+g
 key v; sleep 6
 key l
 key m m
 shot 04_guided_panel_bookmark
-check "a guided-view bookmark keeps its panel" test "$(live | tr '\n' ' ')" = "0:-: 9:1: "
+check "a guided-view bookmark keeps its panel" test "$(live | tr '\n' ' ')" = "0:-: 9:0: "
 key v
 
 # } and { step between them.
@@ -102,10 +109,10 @@ shot 06_list
 key j e; sleep 1
 xdotool type --delay 60 'Space battle starts'; key Return; sleep 1
 shot 07_list_with_note
-check "the note is saved" test "$(live | tr '\n' ' ')" = "0:-: 9:1:Space battle starts "
+check "the note is saved" test "$(live | tr '\n' ' ')" = "0:-: 9:0:Space battle starts "
 key Return; sleep 2
 check "Enter in the list jumps to the bookmark" test "$(page_of)" = 9
-check "on its panel" test "$(q 'select panel from progress order by updated_at desc limit 1')" = 1
+check "on its panel" test "$(q 'select panel from progress order by updated_at desc limit 1')" = 0
 shot 08_jumped_from_list
 # The progress bar's notches.
 shot 09_progress_bar_notches 1280x720
@@ -132,19 +139,20 @@ stop
 # The sidecar beside the book carries the bookmarks, the note and the removal.
 check "the sidecar has both bookmarks and the note" test \
   "$(sqlite3 "$side" "select page || ':' || ifnull(panel, '-') || ':' || ifnull(note, '') from bookmarks where deleted_at is null order by page" | tr '\n' ' ')" \
-  = "0:-: 9:1:Space battle starts "
+  = "0:-: 9:0:Space battle starts "
 check "and the removed ones as removals" test "$(sqlite3 "$side" 'select count(*) from bookmarks where deleted_at is not null')" -ge 2
 
 # A fresh install (another laptop) reads them from the sidecar.
 mv "$out/home" "$out/home-first"; mkdir -p "$out/home"
 start --add-root "$lib" "$cbz"
-check "a fresh install reads the bookmarks from the sidecar" test "$(live | tr '\n' ' ')" = "0:-: 9:1:Space battle starts "
+check "a fresh install reads the bookmarks from the sidecar" test "$(live | tr '\n' ' ')" = "0:-: 9:0:Space battle starts "
 key shift+m; sleep 3
 shot 13_fresh_install_list
 
 # Phone-sized: the status line's buttons and the library's tabs.
 key Escape
 xdotool windowsize "$win" 420 860; sleep 2
+xdotool windowactivate --sync "$win" 2>/dev/null || xdotool windowfocus "$win"; sleep 0.5
 key Home; sleep 1
 shot 14_phone_reader 420x860
 key Escape; sleep 1

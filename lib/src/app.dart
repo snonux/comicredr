@@ -644,7 +644,13 @@ class _StatusLine extends StatelessWidget {
                 ),
                 _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
                 if (state.bookmarksHere.isNotEmpty)
-                  _button('bookmarkButton', Icons.bookmark, 'Remove the bookmark here (mm)', ReaderIntent.bookmark, on: true)
+                  _button(
+                    'bookmarkButton',
+                    Icons.bookmark,
+                    'Remove the bookmark here (mm)',
+                    ReaderIntent.bookmark,
+                    on: true,
+                  )
                 else
                   _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
                 _button(

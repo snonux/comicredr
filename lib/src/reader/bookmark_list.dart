@@ -109,7 +109,9 @@ class BookmarkListState extends ConsumerState<BookmarkList> {
 
   void _remove(BookmarkInfo b) {
     unawaited(ref.read(readerProvider.notifier).removeBookmark(b.id));
-    ref.read(readerProvider.notifier).notice('Removed the ${b.mark == null ? 'bookmark' : "mark '${b.mark}"} on ${describePlace(b)}');
+    ref
+        .read(readerProvider.notifier)
+        .notice('Removed the ${b.mark == null ? 'bookmark' : "mark '${b.mark}"} on ${describePlace(b)}');
   }
 
   Future<void> _note(BookmarkInfo b) async {
@@ -346,8 +348,10 @@ class _RowState extends State<_Row> {
 
 /// Asks for a short note on bookmark [b]; null when cancelled, empty to
 /// take the note off.
-Future<String?> askBookmarkNote(BuildContext context, BookmarkInfo b) =>
-    showDialog<String>(context: context, builder: (_) => _NoteDialog(bookmark: b));
+Future<String?> askBookmarkNote(BuildContext context, BookmarkInfo b) => showDialog<String>(
+  context: context,
+  builder: (_) => _NoteDialog(bookmark: b),
+);
 
 class _NoteDialog extends StatefulWidget {
   const _NoteDialog({required this.bookmark});

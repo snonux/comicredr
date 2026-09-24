@@ -512,9 +512,9 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
   Stream<List<BookmarkInfo>> watchAllBookmarks() => _live({db.bookmarks}, () => _bookmarks(null));
 
   Future<List<BookmarkInfo>> _bookmarks(Expression<bool> Function($BookmarksTable)? where) async {
-    final rows =
-        await (db.select(db.bookmarks)..where((b) => b.deletedAt.isNull() & (where?.call(b) ?? const Constant(true))))
-            .get();
+    final rows = await (db.select(
+      db.bookmarks,
+    )..where((b) => b.deletedAt.isNull() & (where?.call(b) ?? const Constant(true)))).get();
     return [for (final r in rows) BookmarkInfo.of(r)]..sort(BookmarkInfo.order);
   }
 

@@ -27,11 +27,14 @@ enum LibraryTab {
   collections('Collections', Icons.label_outline),
   history('History', Icons.history),
   folders('Folders', Icons.folder),
-  bookmarks('Bookmarks', Icons.bookmarks);
+  bookmarks('Bookmarks', Icons.bookmarks, short: 'Marks');
 
-  const LibraryTab(this.label, this.icon);
+  const LibraryTab(this.label, this.icon, {String? short}) : short = short ?? label;
 
   final String label;
+
+  /// The label under the phone's bottom tabs, where a long one wraps.
+  final String short;
   final IconData icon;
 }
 
@@ -541,7 +544,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                   labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
                   onDestinationSelected: (i) => _setTab(LibraryTab.values[i]),
                   destinations: [
-                    for (final t in LibraryTab.values) NavigationDestination(icon: Icon(t.icon), label: t.label),
+                    for (final t in LibraryTab.values)
+                      NavigationDestination(icon: Icon(t.icon), label: t.short, tooltip: t.label),
                   ],
                 ),
         );

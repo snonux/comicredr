@@ -242,7 +242,13 @@ void main() {
     final first = await db
         .into(db.bookmarks)
         .insertReturning(
-          BookmarksCompanion.insert(id: 'b1', contentKey: 'k', page: 3, panel: const Value(1), createdAt: DateTime(2026)),
+          BookmarksCompanion.insert(
+            id: 'b1',
+            contentKey: 'k',
+            page: 3,
+            panel: const Value(1),
+            createdAt: DateTime(2026),
+          ),
         );
     final old = SidecarData(contentKey: 'k', bookmarks: [first]);
     final id = await store.setNote('b1', 'Look here');

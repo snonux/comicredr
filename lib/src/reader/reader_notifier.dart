@@ -411,22 +411,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// the list, the library or a sidecar shows at once.
   void _watchBookmarks(OpenBook book) {
     unawaited(_bookmarkWatch?.cancel());
-    _bookmarkWatch = ref
-        .read(libraryStoreProvider)
-        .watchBookmarks(book.key)
-        .listen(
-          (all) {
-            if (!identical(state.book, book)) return;
-            state = state.copyWith(
-              bookmarks: all,
-              marks: {
-                for (final b in all) ?b.mark: (page: b.page, panel: b.panel ?? 0),
-              },
-              message: state.message,
-            );
-          },
-          onError: (Object e) => debugPrint('Could not read bookmarks: $e'),
-        );
+    _bookmarkWatch = ref.read(libraryStoreProvider).watchBookmarks(book.key).listen((all) {
+      if (!identical(state.book, book)) return;
+      state = state.copyWith(
+        bookmarks: all,
+        marks: {for (final b in all) ?b.mark: (page: b.page, panel: b.panel ?? 0)},
+        message: state.message,
+      );
+    }, onError: (Object e) => debugPrint('Could not read bookmarks: $e'));
   }
 
   /// Goes to bookmark [b]: its panel in guided view, its page otherwise. A
@@ -477,9 +469,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // Where we are, in the same order: page, then panel, the whole page
     // before its panels and after them once they are read.
     final i = state.panelIndex;
-    final here = state.guided
-        ? (page: state.page, panel: i >= 0 ? i : (state.panel >= pageEnd ? 1 << 30 : -1))
-        : null;
+    final here = state.guided ? (page: state.page, panel: i >= 0 ? i : (state.panel >= pageEnd ? 1 << 30 : -1)) : null;
     int compare(BookmarkInfo b, int page, int panel) =>
         b.page != page ? b.page.compareTo(page) : (b.panel ?? -1).compareTo(panel);
     BookmarkInfo? target;
