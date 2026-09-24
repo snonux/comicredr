@@ -5,7 +5,9 @@ import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/layout.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:comicredr/src/reader/reader_view.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -166,5 +168,38 @@ void main() {
     expect(c.read(readerProvider).guided, isTrue);
     await key(tester, LogicalKeyboardKey.tab);
     expect((c.read(readerProvider).guided, c.read(readerProvider).mode), (false, PageMode.single));
+  });
+
+  testWidgets('taps and swipes step through panels in guided view', (tester) async {
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(writeGuidedBook()));
+    await settle(tester);
+    await key(tester, LogicalKeyboardKey.keyV);
+    ReaderState s() => c.read(readerProvider);
+    expect((s().page, s().panelIndex), (0, 0));
+    final r = tester.getRect(find.byType(ReaderView));
+
+    Future<void> swipe(double dx) async {
+      final g = await tester.startGesture(r.center - Offset(dx / 2, 0), kind: PointerDeviceKind.touch);
+      for (var i = 1; i <= 10; i++) {
+        await g.moveBy(Offset(dx / 10, 0), timeStamp: Duration(milliseconds: 30 * i));
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+      await g.up(timeStamp: const Duration(milliseconds: 300));
+      await settle(tester);
+    }
+
+    await tester.tapAt(Offset(r.right - 40, r.center.dy), kind: PointerDeviceKind.touch);
+    await settle(tester);
+    expect((s().page, s().panelIndex), (0, 1));
+    // The camera is zoomed on the panel, but a swipe steps rather than pans.
+    await swipe(-300);
+    expect((s().page, s().panelIndex), (0, 2));
+    await swipe(300);
+    expect((s().page, s().panelIndex), (0, 1));
+    await tester.tapAt(Offset(r.left + 40, r.center.dy), kind: PointerDeviceKind.touch);
+    await settle(tester);
+    expect((s().page, s().panelIndex), (0, 0));
+    expect(s().guided, isTrue);
   });
 }

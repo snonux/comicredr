@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
 import 'input/reader_keyboard.dart';
+import 'input/reader_touch.dart';
 import 'providers.dart';
 import 'reader/layout.dart';
 import 'reader/reader_notifier.dart';
@@ -134,7 +135,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 child: Stack(
                   children: [
                     if (s.book != null)
-                      Positioned.fill(child: ReaderView(key: _view))
+                      Positioned.fill(
+                        child: ReaderTouch(
+                          onCommand: _onCommand,
+                          viewTransform: () => _view.currentState?.transform,
+                          guided: () => ref.read(readerProvider).guided,
+                          child: ReaderView(key: _view),
+                        ),
+                      )
                     else
                       _EmptyState(loading: s.loading, onOpen: _pickFile),
                     if (s.book != null)

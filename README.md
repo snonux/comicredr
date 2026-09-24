@@ -9,8 +9,8 @@ decision here.
 
 > **Current state (M4):** CBZ files open and read in single-page or
 > two-page mode or in guided view, panel by panel, with zoom, the full
-> keymap, and resume. The learned panel detector (M5), PDF and folders (M6),
-> the library (M7) and touch gestures are still to come.
+> keymap, touch gestures, and resume. The learned panel detector (M5), PDF
+> and folders (M6), and the library (M7) are still to come.
 
 ### 1. Install the build tools and Flutter
 
@@ -131,6 +131,26 @@ line says why, for example `guided: whole page (1 panel(s): nothing to
 guide through)`. Pages without gutters between panels, and some ads, still
 trip it up; the trained detector in M5 is meant for those.
 
+### 6. Touch
+
+A touchscreen works the same on the Fedora laptop as on the phone, and every
+gesture does what the matching key does. A mouse click never turns a page,
+so clicking into the window is safe.
+
+| Do this | Touch | Same as |
+|---|---|---|
+| Next / previous step (a panel in guided view, a page otherwise) | tap the right or left edge, or swipe left or right | `→` `←` |
+| Zoom | pinch with two fingers, or double-tap the middle to zoom in on that spot | `+` `-` |
+| Back to the whole page, or re-centre the panel in guided view | double-tap the middle again | `=`, `zz` |
+| Move around a zoomed page | drag with one finger | `↓` `↑` |
+| Hide or show the status line | tap the middle | `F11` |
+
+The edges are the outer 30% of the screen on each side. A swipe on a
+zoomed page pans it instead of turning; swipe again once it stops at the
+edge of the page to turn. In guided view a swipe always moves to the
+next or previous panel, and one finger does not pan there. Right to left books mirror taps and swipes just
+as they mirror the arrow keys. A touchpad pinch zooms too.
+
 ## Layout
 
 ```
@@ -149,7 +169,7 @@ dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
-tool/e2e_linux.sh [book.cbz]  # release build under Xvfb, driven by real keys incl. guided view, screenshots in build/e2e/
+tool/e2e_linux.sh [book.cbz]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
 ```
 
 ## M1 detection spike

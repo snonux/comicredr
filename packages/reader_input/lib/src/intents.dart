@@ -1,3 +1,5 @@
+import 'dart:math';
+
 /// Every action the reader can take. Keys, gestures and menus all dispatch
 /// one of these, never a function directly (design plan section 5).
 enum ReaderIntent {
@@ -45,28 +47,38 @@ enum ReaderIntent {
   final String description;
 }
 
-/// One resolved key sequence: the intent, plus the count typed before it
-/// (`5l`) and the register letter for marks (`ma`, `'a`).
+/// One resolved key sequence or gesture: the intent, plus the count typed
+/// before it (`5l`), the register letter for marks (`ma`, `'a`), and for a
+/// gesture the point on the reader it happened at, in logical pixels.
 class ReaderCommand {
-  const ReaderCommand(this.intent, {this.count, this.register});
+  const ReaderCommand(this.intent, {this.count, this.register, this.at});
 
   final ReaderIntent intent;
   final int? count;
   final String? register;
+
+  /// Where a touch landed, so a double-tap zooms in on that spot rather
+  /// than the middle of the screen. Keys leave it null.
+  final Point<double>? at;
 
   /// The count to act on: a missing count means once.
   int get times => count ?? 1;
 
   @override
   bool operator ==(Object other) =>
-      other is ReaderCommand && other.intent == intent && other.count == count && other.register == register;
+      other is ReaderCommand &&
+      other.intent == intent &&
+      other.count == count &&
+      other.register == register &&
+      other.at == at;
 
   @override
-  int get hashCode => Object.hash(intent, count, register);
+  int get hashCode => Object.hash(intent, count, register, at);
 
   @override
   String toString() =>
       'ReaderCommand(${intent.name}'
       '${count != null ? ', count: $count' : ''}'
-      '${register != null ? ', register: $register' : ''})';
+      '${register != null ? ', register: $register' : ''}'
+      '${at != null ? ', at: (${at!.x}, ${at!.y})' : ''})';
 }

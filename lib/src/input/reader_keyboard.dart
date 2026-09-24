@@ -6,7 +6,8 @@ import 'key_tokens.dart';
 
 /// Sits at the top of the reader, turns key presses into [ReaderCommand]s
 /// through a [KeySequenceResolver], and hands each one to [onCommand].
-/// Gestures on the phone call the same [onCommand] with the same intents.
+/// Touch gestures (ReaderTouch) call the same [onCommand] with the same
+/// intents.
 class ReaderKeyboard extends StatefulWidget {
   const ReaderKeyboard({
     super.key,
