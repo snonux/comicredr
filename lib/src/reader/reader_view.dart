@@ -121,9 +121,9 @@ class ReaderViewState extends ConsumerState<ReaderView> {
       case ReaderIntent.fitPage:
         _setFit(Fit.page);
       case ReaderIntent.zoomIn:
-        _zoom(math.pow(1.25, c.times).toDouble());
+        _zoom(math.pow(1.25, c.times).toDouble(), at: c.at);
       case ReaderIntent.zoomOut:
-        _zoom(math.pow(0.8, c.times).toDouble());
+        _zoom(math.pow(0.8, c.times).toDouble(), at: c.at);
       case ReaderIntent.zoomReset:
         _transform.value = Matrix4.identity();
       case ReaderIntent.panDown:
@@ -143,10 +143,16 @@ class ReaderViewState extends ConsumerState<ReaderView> {
 
   double get _scale => _transform.value.getMaxScaleOnAxis();
 
-  void _zoom(double factor) {
+  /// Zoom and pan as they are now, for the touch layer to tell a swipe that
+  /// panned the page from one that could not move it.
+  Matrix4 get transform => _transform.value.clone();
+
+  /// Zooms by [factor] keeping the point [at] still, or the middle of the
+  /// viewport when a key asked.
+  void _zoom(double factor, {math.Point<double>? at}) {
     final s = (_scale * factor).clamp(1.0, 8.0);
     final f = s / _scale;
-    final c = _viewport.center(Offset.zero);
+    final c = at != null ? Offset(at.x, at.y) : _viewport.center(Offset.zero);
     final m = Matrix4.translationValues(c.dx, c.dy, 0)
       ..multiply(Matrix4.diagonal3Values(f, f, 1))
       ..multiply(Matrix4.translationValues(-c.dx, -c.dy, 0))

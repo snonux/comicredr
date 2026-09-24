@@ -8,7 +8,7 @@ decision here.
 ## Quick start on Fedora
 
 > **Current state (M3):** CBZ files open and read in single-page or
-> two-page mode, with zoom, the full keymap, and resume. Guided view (M4),
+> two-page mode, with zoom, the full keymap, touch gestures, and resume. Guided view (M4),
 > PDF and folders (M6), and the library (M7) are still to come.
 
 ### 1. Install the build tools and Flutter
@@ -101,6 +101,25 @@ whose feature has not landed yet says so on the status line. A half-typed sequen
 shows in the bottom-right corner. It is dropped if you don't finish it
 within 600 ms.
 
+### 5. Touch
+
+A touchscreen works the same on the Fedora laptop as on the phone, and every
+gesture does what the matching key does. A mouse click never turns a page,
+so clicking into the window is safe.
+
+| Do this | Touch | Same as |
+|---|---|---|
+| Next / previous step (a panel in guided view, a page otherwise) | tap the right or left edge, or swipe left or right | `→` `←` |
+| Zoom | pinch with two fingers, or double-tap the middle to zoom in on that spot | `+` `-` |
+| Back to the whole page | double-tap the middle again | `=` |
+| Move around a zoomed page | drag with one finger | `↓` `↑` |
+| Hide or show the status line | tap the middle | `F11` |
+
+The edges are the outer 30% of the screen on each side. A swipe on a
+zoomed page pans it instead of turning; swipe again once it stops at the
+edge of the page to turn. Right to left books mirror taps and swipes just
+as they mirror the arrow keys. A touchpad pinch zooms too.
+
 ## Layout
 
 ```
@@ -118,7 +137,7 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done
-tool/e2e_linux.sh        # release build under Xvfb, driven by real keys, screenshots in build/e2e/
+tool/e2e_linux.sh        # release build under Xvfb, driven by real keys and injected GTK touches, screenshots in build/e2e/
 ```
 
 ## M1 detection spike
