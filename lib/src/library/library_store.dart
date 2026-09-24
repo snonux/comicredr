@@ -58,6 +58,9 @@ class LibraryBook {
   /// The hand-made collections the book is in, by name.
   final List<String> collections;
 
+  /// In the [favouritesCollection].
+  bool get favourite => collections.contains(favouritesCollection);
+
   /// The facts edited by hand, each with what the file itself says (null
   /// where it says nothing). The edited values are the ones above.
   final Map<MetaField, String?> fromFile;
@@ -143,6 +146,11 @@ class LibrarySeries {
 /// renaming `spirit` to `The Spirit` shows, else as the first book has it.
 String _name(List<LibraryBook> books) =>
     books.where((b) => b.fromFile.containsKey(MetaField.series)).firstOrNull?.series ?? books.first.series;
+
+/// The collection `*` and the star put a book in: an ordinary collection,
+/// shown with the others. Renamed or emptied, the next favourite makes it
+/// again.
+const favouritesCollection = 'Favourites';
 
 /// The hand-made collections among [books], as groups the library shows
 /// like series: collections in name order, books in series order. Ids are
@@ -468,6 +476,7 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
 
     // A series cannot be blank: clearing it shows the file's again.
     final series = get(MetaField.series) ?? file[MetaField.series]!;
+    final collections = r.readNullable<String>('collections')?.split('\x1f') ?? const <String>[];
     return LibraryBook(
       key: r.read<String>('content_key'),
       series: series,
@@ -488,7 +497,7 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       percent: r.readNullable<double>('p_percent'),
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,
       readAt: time('p_updated'),
-      collections: (r.readNullable<String>('collections')?.split('\x1f') ?? <String>[])..sort(naturalCompare),
+      collections: [...collections]..sort(naturalCompare),
     );
   }
 
@@ -560,6 +569,20 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       (db.update(db.collectionBooks)..where((c) => c.contentKey.equals(contentKey) & c.name.equals(name))).write(
         CollectionBooksCompanion(removedAt: Value(DateTime.now())),
       );
+
+  /// Whether the book [contentKey] is a favourite.
+  Future<bool> isFavourite(String contentKey) async =>
+      await (db.select(
+            db.collectionBooks,
+          )..where((c) => c.contentKey.equals(contentKey) & c.name.equals(favouritesCollection) & c.removedAt.isNull()))
+          .getSingleOrNull() !=
+      null;
+
+  /// Makes the book [contentKey] a favourite, or takes it out of the
+  /// favourites. Favourites is a collection, so it travels in the sidecar
+  /// the same way: the later of adding and taking out wins.
+  Future<void> setFavourite(String contentKey, bool on) =>
+      on ? addToCollection(contentKey, favouritesCollection) : removeFromCollection(contentKey, favouritesCollection);
 
   /// Sittings with books, newest first, for the History tab.
   Stream<List<HistoryEntry>> watchHistory({int limit = 300}) => _live(

@@ -117,6 +117,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
 class LibraryScreenState extends ConsumerState<LibraryScreen> {
   LibraryTab? _tab;
   int? _series; // The series drilled into on the Series tab.
+  bool _favourites = false; // The Favourites collection open on the Collections tab.
   String? _seriesSelected; // The series to select again when backing out.
   String? _folder; // The folder walked into on the Folders tab, null at the top.
   String? _folderRoot; // The library folder it is under.
@@ -152,6 +153,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     _tab = t;
     _autoFirst = false;
     _series = null;
+    _favourites = false;
     _selected = null;
     _detail = false;
     if (_scroll.hasClients) _scroll.jumpTo(0);
@@ -200,6 +202,16 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         _searchFocus.requestFocus();
       case ReaderIntent.bookmarkList:
         _setTab(LibraryTab.bookmarks);
+      case ReaderIntent.showFavourites:
+        showFavourites();
+      case ReaderIntent.toggleFavourite:
+        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+          unawaited(_toggleFavourite(book));
+        }
+      case ReaderIntent.remove when _favourites:
+        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+          unawaited(_toggleFavourite(book));
+        }
       case ReaderIntent.remove:
         if (_items.where((it) => it.id == _selected).firstOrNull case _BookmarkItem(:final bookmark, :final book)) {
           final i = index()!;
@@ -246,9 +258,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     } else if (_query.isNotEmpty) {
       _search.clear();
       setState(() => _query = '');
-    } else if (_series != null) {
+    } else if (_series != null || _favourites) {
       setState(() {
         _series = null;
+        _favourites = false;
         _selected = _seriesSelected;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
@@ -272,6 +285,46 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       _upTo(p.dirname(_folder!));
     }
     return true;
+  }
+
+  /// `gf`, or the star in the header: the Favourites collection, open on
+  /// the Collections tab, with its first comic selected.
+  void showFavourites() {
+    _setTab(LibraryTab.collections);
+    _search.clear();
+    // Esc comes back out to the Favourites cover.
+    final books = ref.read(booksProvider).value ?? const <LibraryBook>[];
+    final group = collectionGroups(books).where((s) => s.name == favouritesCollection).firstOrNull;
+    setState(() {
+      _query = '';
+      _favourites = true;
+      _seriesSelected = group == null ? null : _SeriesItem(group).id;
+    });
+    _autoFirst = true;
+  }
+
+  /// `*` on a cover or the star in the details: in the Favourites or out.
+  /// Taken out in the Favourites view, the comic leaves it at once, the
+  /// next one is selected, and a notice offers it back.
+  Future<void> _toggleFavourite(LibraryBook book) async {
+    final on = !book.favourite;
+    if (!on && _favourites) {
+      final i = _items.indexWhere((it) => it.id == _selected);
+      if (i >= 0 && _items[i].id == _BookItem(book).id) {
+        final next = i + 1 < _items.length ? _items[i + 1] : (i > 0 ? _items[i - 1] : null);
+        setState(() => _selected = next?.id);
+      }
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    await setFavourite(ref, book, on);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(on ? '${book.name} added to Favourites' : '${book.name} taken out of Favourites'),
+          action: on ? null : SnackBarAction(label: 'Undo', onPressed: () => setFavourite(ref, book, true)),
+        ),
+      );
   }
 
   /// Shows [dir], under the library folder [root], on the Folders tab: for a
@@ -322,6 +375,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   void _activate(_Item item) {
     switch (item) {
+      case _SeriesItem(:final series) when tab == LibraryTab.collections && series.name == favouritesCollection:
+        showFavourites();
       case _SeriesItem(:final series):
         setState(() {
           _seriesSelected = item.id;
@@ -397,6 +452,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             return (b.readAt ?? DateTime(0)).compareTo(a.readAt ?? DateTime(0));
           });
         return [for (final b in started) _BookItem(b)];
+      case LibraryTab.collections when _favourites:
+        final favourites = collectionGroups(books).where((s) => s.name == favouritesCollection).firstOrNull;
+        return [
+          for (final b in favourites?.books ?? const <LibraryBook>[])
+            if (b.matches(q)) _BookItem(b),
+        ];
       case LibraryTab.series || LibraryTab.collections:
         final all = _groups(books);
         final open = all.where((s) => s.id == _series).firstOrNull;
@@ -505,7 +566,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               )
             : Column(
                 children: [
-                  _header(context, books),
+                  _header(context, books, narrow: !rail),
                   Expanded(
                     child: switch (tab) {
                       LibraryTab.history => _History(books: books, query: _query.trim(), onRead: read),
@@ -586,7 +647,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  Widget _header(BuildContext context, List<LibraryBook> books) {
+  Widget _header(BuildContext context, List<LibraryBook> books, {required bool narrow}) {
     final theme = Theme.of(context);
     final series = _series == null ? null : _groups(books).where((s) => s.id == _series).firstOrNull;
     return Padding(
@@ -603,6 +664,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               child: Text(series.name, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 12),
+          ] else if (tab == LibraryTab.collections && _favourites) ...[
+            IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back to collections', onPressed: back),
+            Flexible(
+              child: Text(favouritesCollection, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 12),
           ] else if (tab == LibraryTab.folders && _folder != null) ...[
             IconButton(
               key: const Key('folderUp'),
@@ -612,7 +679,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             ),
             Flexible(flex: 2, child: _breadcrumb(theme)),
             const SizedBox(width: 12),
-          ] else ...[
+          ] else if (!narrow) ...[
+            // A phone's bottom tabs name the tab already.
             Text(tab.label, style: theme.textTheme.titleLarge),
             const SizedBox(width: 16),
           ],
@@ -637,6 +705,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 if (_items.isNotEmpty) _select(0);
               },
             ),
+          ),
+          IconButton(
+            key: const Key('favourites'),
+            icon: Icon(_favourites && tab == LibraryTab.collections ? Icons.star : Icons.star_outline),
+            tooltip: 'Favourites (gf)',
+            onPressed: showFavourites,
           ),
           IconButton(
             key: const Key('addRoot'),
@@ -824,10 +898,17 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           ? (_folder == null ? 'No library folders yet. A adds one.' : 'No books in this folder any more.')
           : tab == LibraryTab.reading
           ? 'Books you start reading show up here.'
+          : tab == LibraryTab.collections && _favourites
+          ? 'No favourites yet. * on a comic, in the reader or on its cover here, adds it; so does the star in its details.'
           : tab == LibraryTab.collections
           ? 'No collections yet. Open a book\'s details and add it to one.'
           : 'No books found yet.';
-      return Center(child: Text(text, style: Theme.of(context).textTheme.bodyLarge));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(text, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
+        ),
+      );
     }
     return LayoutBuilder(
       builder: (context, box) {
@@ -963,6 +1044,17 @@ class _CoverCard extends StatelessWidget {
                           child: Text('$count', style: theme.textTheme.labelMedium),
                         ),
                       ),
+                    if (item is _BookItem && book.favourite)
+                      const Positioned(
+                        left: 6,
+                        top: 6,
+                        child: Icon(
+                          Icons.star,
+                          key: Key('favouriteBadge'),
+                          color: Colors.amber,
+                          shadows: [Shadow(blurRadius: 3)],
+                        ),
+                      ),
                     if (item is _BookItem && book.finished)
                       const Positioned(right: 6, top: 6, child: Icon(Icons.check_circle, color: Colors.greenAccent)),
                     if (item is _BookItem && book.inProgress)
@@ -1050,6 +1142,12 @@ class BookDetail extends ConsumerWidget {
               onPressed: () => onRead(book),
               icon: const Icon(Icons.chrome_reader_mode),
               label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
+            ),
+            IconButton.outlined(
+              key: const Key('favourite'),
+              onPressed: () => setFavourite(ref, book, !book.favourite),
+              icon: Icon(book.favourite ? Icons.star : Icons.star_outline, color: book.favourite ? Colors.amber : null),
+              tooltip: book.favourite ? 'Take out of Favourites (*)' : 'Add to Favourites (*)',
             ),
             OutlinedButton.icon(
               key: const Key('editBook'),
@@ -1157,6 +1255,17 @@ extension on BookDetail {
   Future<void> _changed(WidgetRef ref, Future<void> Function() change) async {
     await change();
     await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+  }
+}
+
+/// Puts [book] in the Favourites collection or takes it out, then writes
+/// its sidecar, so it travels.
+Future<void> setFavourite(WidgetRef ref, LibraryBook book, bool on) async {
+  try {
+    await ref.read(libraryStoreProvider).setFavourite(book.key, on);
+    await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+  } catch (e) {
+    debugPrint('Could not change the favourites: $e');
   }
 }
 

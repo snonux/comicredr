@@ -86,6 +86,8 @@ class Keymap {
       Binding(['}'], ReaderIntent.nextBookmark),
       Binding(['{'], ReaderIntent.prevBookmark),
       Binding(['M'], ReaderIntent.bookmarkList),
+      Binding(['*'], ReaderIntent.toggleFavourite),
+      Binding(['g', 'f'], ReaderIntent.showFavourites),
       Binding(['x'], ReaderIntent.remove),
       Binding(['Delete'], ReaderIntent.remove, layer: s),
       Binding(['m', letterSlot], ReaderIntent.setMark),

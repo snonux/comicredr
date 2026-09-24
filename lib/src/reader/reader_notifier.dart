@@ -594,6 +594,22 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
+  /// `*`: puts the book in the Favourites collection, or takes it out.
+  Future<void> _toggleFavourite() async {
+    final book = state.book!;
+    final store = ref.read(libraryStoreProvider);
+    try {
+      final on = !await store.isFavourite(book.key);
+      await store.setFavourite(book.key, on);
+      _sidecars.touch(book.key);
+      if (identical(state.book, book)) {
+        _notice(on ? 'Added to Favourites  ·  gf lists them' : 'Taken out of Favourites');
+      }
+    } catch (e) {
+      _notice('Could not change the favourites: $e');
+    }
+  }
+
   /// Writes the sidecar as the book opens, so a folder that refuses it says
   /// so now rather than silently later.
   Future<void> _writeSidecar(OpenBook book) async {
@@ -1090,6 +1106,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         _notice('Continuous scroll arrives in a later milestone');
       case ReaderIntent.bookmark:
         await _toggleBookmark();
+      case ReaderIntent.toggleFavourite:
+        await _toggleFavourite();
       case ReaderIntent.nextBookmark:
         _stepBookmark(c.times);
       case ReaderIntent.prevBookmark:
@@ -1134,6 +1152,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.showDetails:
       case ReaderIntent.bookmarkList:
       case ReaderIntent.remove:
+      case ReaderIntent.showFavourites:
         break; // Handled by the screen, or only mean something in the library.
     }
     // Mode switches (guided, balloons, spread, direction) are part of the

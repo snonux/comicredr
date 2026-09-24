@@ -147,6 +147,14 @@ build internals, test scripts, detector work and conventions here.
   (`LibraryStore.setNote`) replaces the row with a new id and removes the
   old one, which the sidecar merge's "union by id, removal wins" carries
   to every copy.
+- Favourites are the ordinary collection named `Favourites`
+  (`favouritesCollection` in `library_store.dart`), so they travel in the
+  sidecar under the collection rule. `*` (`toggleFavourite`) adds or takes
+  out the open book or the selected cover; `gf` (`showFavourites`), or the
+  header's star, opens that collection on the Collections tab
+  (`LibraryScreenState._favourites`), where `*`, `x` and the details' star
+  take a comic out with an Undo notice. Renamed or emptied, the next
+  favourite makes the collection again.
 - Touch: `ReaderTouch` looks every gesture up in a `TouchMap`
   (`reader_input` touch_map.dart): taps, double-taps and long presses on a
   3x3 grid (30% side columns, rows in thirds), four swipes and a
@@ -272,6 +280,7 @@ COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/We
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
+tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 

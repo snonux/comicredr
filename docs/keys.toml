@@ -91,7 +91,11 @@ nextBookmark = ["}"]
 prevBookmark = ["{"]
 # Bookmarks and marks in this book: jump, add a note, remove; the Bookmarks tab in the library
 bookmarkList = ["M"]
-# Remove the selected bookmark in a bookmark list
+# Add this comic to the Favourites collection, or take it out; the selected book in the library
+toggleFavourite = ["*"]
+# The Favourites collection in the library
+showFavourites = ["gf"]
+# Remove the selected bookmark in a bookmark list; take the selected comic out of the Favourites
 remove = ["x", "Delete"]
 # Set mark a-z
 setMark = ["m<a-z>"]
