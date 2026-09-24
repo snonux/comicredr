@@ -7,6 +7,8 @@
 #   make uninstall        remove what make install put there
 #   make tarball          release build packed as build/comicredr-VERSION-linux-ARCH.tar.gz
 #   make keys             copy the default keymap to ~/.config/comicredr/keys.toml to edit
+#   make fetch-model URL=url   download the detector model into the checkout
+#   make train-model      rebuild the detector model from free comics (hours, CPU)
 #   make model MODEL=path   put the detector model where the build packs it
 #   make install-model MODEL=comicredr-panels.onnx   override it per user
 #   make keystore         create the Android release key (once, back it up)
@@ -29,6 +31,8 @@ DART    ?= dart
 PREFIX  ?= $(HOME)/.local
 BOOK    ?=
 MODEL   ?= comicredr-panels.onnx
+URL     ?=
+EPOCHS  ?= 45
 # The detector model the build packs into the app (pubspec.yaml assets).
 BUNDLED_MODEL := assets/models/comicredr-panels.onnx
 # NO_MODEL=1 builds without it; the app then detects with classic CV.
@@ -60,13 +64,13 @@ VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
 TARNAME := comicredr-$(VERSION)-linux-$(ARCH)
 TARBALL := build/$(TARNAME).tar.gz
 
-.PHONY: all build deps run dev test analyze install uninstall model install-model check-model icons clean help version \
+.PHONY: all build deps run dev test analyze install uninstall model fetch-model train-model install-model check-model icons clean help version \
 	keystore apk install-apk push-model push-keys tarball keys
 
 all: build
 
 help:
-	@sed -n '2,25p' Makefile | sed 's/^# \{0,1\}//'
+	@sed -n '2,27p' Makefile | sed 's/^# \{0,1\}//'
 
 version:
 	@echo $(VERSION)
@@ -153,6 +157,15 @@ ifeq ($(NO_MODEL),)
 	  echo "Copy it there with: make model MODEL=/path/to/comicredr-panels.onnx"; \
 	  echo "or build without it (classic CV only) with: make NO_MODEL=1"; exit 1; }
 endif
+
+fetch-model:
+	@test -n "$(URL)" || { echo "Pass the model's location: make fetch-model URL=https://.../comicredr-panels.onnx (or a path)"; exit 1; }
+	tool/fetch_model.sh "$(URL)"
+
+# EPOCHS=1 for a quick run through the pipeline; 45 matches the shipped model.
+train-model:
+	EPOCHS=$(EPOCHS) tool/train_model.sh
+	tool/fetch_model.sh spike/out/comicredr-panels.onnx
 
 model:
 	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }

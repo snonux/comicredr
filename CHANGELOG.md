@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Getting the detector:** `make train-model` rebuilds the model from the
+  free training comics on the CPU, and `make fetch-model URL=...` downloads
+  your own copy; both check the file before the build packs it. The
+  README says why the model can't be in the repository.
+
 - **Page thumbnails:** `p` (or the grid button on the status line) opens
   a grid of the book's pages, the current one outlined and bookmarked or
   marked pages flagged; arrows, `hjkl`, `G` with a count, a click or a tap
