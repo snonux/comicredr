@@ -7,6 +7,16 @@ the `?` overlay.
 
 ## Unreleased
 
+- **M9, polish and ship:** `t` auto-trims the white margins off scanned
+  pages, and it and the night filter (`i`) are now remembered across books
+  and restarts. Any key can be remapped in
+  `~/.config/comicredr/keys.toml` ([docs/keys.toml](docs/keys.toml) has the
+  defaults; `make keys` starts one). `/` in the `?` overlay searches it,
+  fuzzily or with a `/regex/`. `make tarball` packs the Linux release with
+  an `install.sh`. Accessibility: 48 px status-line buttons, pages and the
+  overlay labelled for screen readers, notices read out as they appear, and
+  the layout holds at double text size.
+
 - **Android:** the APK builds and has been tested on an Android 14
   emulator. `make keystore`, `make apk`, `make install-apk` and
   `make push-model` build, sign and sideload it; the README has the steps.
