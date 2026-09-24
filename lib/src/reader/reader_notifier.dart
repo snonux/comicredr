@@ -495,7 +495,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.search:
       case ReaderIntent.searchNext:
       case ReaderIntent.searchPrev:
-        _notice('Search needs a text layer, which arrives with PDF in M6');
+        _notice('In-book search is not built yet');
       case ReaderIntent.autoTrim:
         _notice('Auto-trim arrives in M9');
       case ReaderIntent.panDown:
