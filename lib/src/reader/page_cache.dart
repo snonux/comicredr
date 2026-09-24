@@ -20,13 +20,19 @@ class PageCache {
 
   final _images = <(int, int), ui.Image>{}; // Insertion-ordered: oldest first.
   final _inFlight = <(int, int), Future<ui.Image>>{};
+
+  /// In-flight pages only a prefetch asked for. The shared PDF worker
+  /// serves newest first, so a prefetch sent before other requests (the
+  /// next prefetches, detection) waits behind all of them; a page turned to
+  /// must not inherit that wait.
+  final _prefetching = <(int, int)>{};
   int _bytes = 0;
   bool _disposed = false;
 
   int get bytes => _bytes;
 
   Future<ui.Image> get(int index, int targetWidth) async {
-    final image = await _load(index, _bucket(targetWidth));
+    final image = await _load(index, _bucket(targetWidth), urgent: true);
     return image.clone();
   }
 
@@ -39,18 +45,28 @@ class PageCache {
     }
   }
 
-  Future<ui.Image> _load(int index, int width) {
+  Future<ui.Image> _load(int index, int width, {bool urgent = false}) {
     final key = (index, width);
     final hit = _images.remove(key);
     if (hit != null) {
       _images[key] = hit; // Move to the most recently used end.
       return Future.value(hit);
     }
+    final pending = _inFlight[key];
+    if (pending != null && !(urgent && _prefetching.remove(key))) return pending;
+    // Asked for again as the newest request, so it goes to the front; the
+    // prefetch still lands, and _decode keeps only one copy.
+    if (!urgent) _prefetching.add(key);
+    late final Future<ui.Image> f;
     // A block body matters here: an arrow would return the removed future,
     // and whenComplete would then wait on the very future it completes.
-    return _inFlight[key] ??= _decode(index, width).whenComplete(() {
-      _inFlight.remove(key);
+    f = _decode(index, width).whenComplete(() {
+      if (identical(_inFlight[key], f)) {
+        _inFlight.remove(key);
+        _prefetching.remove(key);
+      }
     });
+    return _inFlight[key] = f;
   }
 
   Future<ui.Image> _decode(int index, int width) async {
@@ -71,6 +87,13 @@ class PageCache {
       final clone = image.clone();
       image.dispose();
       return clone;
+    }
+    // A page asked for twice (a prefetch overtaken by a page turn) is kept
+    // once.
+    final have = _images[(index, width)];
+    if (have != null) {
+      image.dispose();
+      return have;
     }
     _images[(index, width)] = image;
     _bytes += _size(image);

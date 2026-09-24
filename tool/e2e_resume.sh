@@ -38,7 +38,11 @@ start() {
   xdotool windowactivate --sync "$win" mousemove 640 400 click 1 2>/dev/null || true
   sleep 1
 }
-key() { xdotool key "$@" 2>/dev/null; sleep 0.8; }
+# A PDF page renders for a second or more at guided view's width while
+# detection shares the CPU, and the old page stays up until it is ready,
+# so PDFs get longer between steps. E2E_STEP overrides.
+case "$book" in *.pdf|*.PDF) step=${E2E_STEP:-3} ;; *) step=${E2E_STEP:-0.8} ;; esac
+key() { xdotool key "$@" 2>/dev/null; sleep "$step"; }
 shot() { import -window root "$out/$1.png"; }
 # The status line says "Resumed at …" after a restart; crop it off, so the
 # pair compares only the page. The fuzz absorbs resampling: a book reopened
