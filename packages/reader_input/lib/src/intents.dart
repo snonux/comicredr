@@ -47,6 +47,7 @@ enum ReaderIntent {
   activate('Open the selected book, series or folder in the library'),
   addRoot('Add a folder to the library'),
   rescan('Rescan the library folders'),
+  resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
   showKeymap('Show the keymap');
 
   const ReaderIntent(this.description);
