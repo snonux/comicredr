@@ -213,11 +213,11 @@ Future<List<String>> _folders(String root) => Isolate.run(() {
 
 Future<BookInfo> _read(String path, String coverDir) => readBookInfoInBackground(path, coverDir: coverDir);
 
-const _bookExtensions = {'.cbz', '.cbr', '.cbt', '.zip', '.epub', '.pdf'};
-
 /// Phase one for one root: every comic file under [root], and every folder
-/// that holds page images directly, with size and mtime. A folder book is
-/// not searched further, so its chapter subfolders are pages, not books.
+/// book ([isFolderBook]: page images directly, no comic file anywhere under
+/// it), with size and mtime. A folder book is not searched further, so its
+/// chapter subfolders are pages, not books. A PNG, JPEG or WebP outside a
+/// folder book, such as one beside CBZs, is a one-page comic of its own.
 /// Hidden files and folders are skipped. Runs on a worker isolate.
 List<Candidate> findBooks(String root) {
   final out = <Candidate>[];
@@ -229,7 +229,7 @@ List<Candidate> findBooks(String root) {
       return; // Unreadable folder: skip it, keep going.
     }
     final images = entries.whereType<File>().where((f) => isPageEntry(p.basename(f.path))).toList();
-    if (images.isNotEmpty) {
+    if (images.isNotEmpty && !holdsComicFiles(entries)) {
       // A folder book: size is its pages' total, mtime the newest of them,
       // so an added or replaced page counts as a change. Not the folder's
       // own mtime: writing the sidecar inside it changes that.
@@ -249,7 +249,7 @@ List<Candidate> findBooks(String root) {
       final childRel = rel.isEmpty ? name : '$rel/$name';
       if (e is Directory) {
         walk(e, childRel);
-      } else if (e is File && _bookExtensions.contains(p.extension(name).toLowerCase())) {
+      } else if (e is File && (isComicFileName(name) || isSingleImageName(name))) {
         final s = e.statSync();
         out.add((relPath: childRel, size: s.size, mtimeMs: s.modified.millisecondsSinceEpoch));
       }

@@ -70,8 +70,8 @@ class OpenBookException implements Exception {
   String toString() => message;
 }
 
-/// Opens [path] as a book: a CBZ, a CBT, a comic EPUB, a PDF or a folder
-/// of page images.
+/// Opens [path] as a book: a CBZ, a CBT, a comic EPUB, a PDF, a folder
+/// of page images, or one PNG, JPEG or WebP image as a one-page comic.
 /// Dispatches on the file's first bytes, not its extension, so a `.cbr`
 /// that is really a ZIP opens as the ZIP it is.
 Future<OpenBook> openBook(String path) async {
@@ -79,7 +79,7 @@ Future<OpenBook> openBook(String path) async {
   final isDir = await FileSystemEntity.isDirectory(path);
   if (!isDir && !await File(path).exists()) throw OpenBookException('File not found: $path');
   switch (bookKind(path)) {
-    case BookKind.cbz || BookKind.cbt || BookKind.epub || BookKind.pdf || BookKind.folder:
+    case BookKind.cbz || BookKind.cbt || BookKind.epub || BookKind.pdf || BookKind.folder || BookKind.image:
       break;
     case BookKind.rar:
       throw const OpenBookException(
@@ -105,19 +105,20 @@ Future<OpenBook> openBook(String path) async {
   return OpenBook(path: path, key: key, doc: doc, meta: meta, folder: isDir);
 }
 
-const _bookExtensions = {'.cbz', '.cbr', '.cbt', '.zip', '.epub', '.pdf'};
-
 /// The next or previous book beside [path] in its folder, in natural order,
 /// for `]` and `[`. Books are comic files and folders of page images, so a
-/// folder of scans sits in line with the CBZs, EPUBs and PDFs around it. Null at
-/// either end.
+/// folder of scans sits in line with the CBZs, EPUBs and PDFs around it, and
+/// loose PNG, JPEG and WebP one-pagers, unless the folder is a folder book
+/// whose pages they are. Null at either end.
 Future<String?> siblingBook(String path, {required bool next}) async {
   path = p.normalize(path);
   final dir = Directory(p.dirname(path));
+  final images = isSingleImageName(p.basename(path)) || !isFolderBook(dir.path);
   final books = <String>[];
   await for (final e in dir.list(followLinks: false)) {
-    if (p.basename(e.path).startsWith('.')) continue;
-    if (e is File && _bookExtensions.contains(p.extension(e.path).toLowerCase())) books.add(p.normalize(e.path));
+    final name = p.basename(e.path);
+    if (name.startsWith('.')) continue;
+    if (e is File && (isComicFileName(name) || (images && isSingleImageName(name)))) books.add(p.normalize(e.path));
     if (e is Directory && isFolderBook(e.path)) books.add(p.normalize(e.path));
   }
   books.sort((a, b) => naturalCompare(p.basename(a), p.basename(b)));
