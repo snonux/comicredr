@@ -126,6 +126,8 @@ check "its sidecar beside the image" "$(ls "$comics/Pages only/" | grep -c 'E06P
 mkdir -p "$out/sys/applications"
 printf '[Desktop Entry]\nType=Application\nName=Image Viewer\nExec=true %%U\nMimeType=image/png;image/jpeg;image/webp;\n' \
   >"$out/sys/applications/org.gnome.Loupe.desktop"
+printf '[Desktop Entry]\nType=Application\nName=Files\nExec=true %%U\nMimeType=inode/directory;\n' \
+  >"$out/sys/applications/org.gnome.Nautilus.desktop"
 update-desktop-database -q "$out/sys/applications"
 env_of() { echo HOME="$1" XDG_CURRENT_DESKTOP=GNOME XDG_DATA_HOME="$1/.local/share" XDG_CONFIG_HOME="$1/.config" XDG_DATA_DIRS="$PWD/$out/sys"; }
 pick() { env $(env_of "$1") gio mime "$2" 2>/dev/null | sed -n 's/^Default application for .*: //p'; }
@@ -133,7 +135,7 @@ for case in a b; do
   home="$PWD/$out/install-home-$case"
   mkdir -p "$home/.local/share/applications" "$home/.config"
   if [[ $case == a ]]; then
-    printf '[Default Applications]\nimage/png=org.gnome.Loupe.desktop\nimage/jpeg=org.gnome.Loupe.desktop\nimage/webp=org.gnome.Loupe.desktop\n' \
+    printf '[Default Applications]\nimage/png=org.gnome.Loupe.desktop\nimage/jpeg=org.gnome.Loupe.desktop\nimage/webp=org.gnome.Loupe.desktop\ninode/directory=org.gnome.Nautilus.desktop\n' \
       >"$out/sys/applications/gnome-mimeapps.list"
   else
     rm -f "$out/sys/applications/gnome-mimeapps.list"
@@ -143,6 +145,9 @@ for case in a b; do
   check "$case: launcher validates" "$(desktop-file-validate "$desktop" && echo valid)" valid
   check "$case: launcher lists image types" "$(grep -o 'image/[a-z]*' "$desktop" | tr '\n' ' ')" "image/png image/jpeg image/webp "
   for t in image/png image/jpeg image/webp; do check "$case: default for $t" "$(pick "$home" "$t")" org.gnome.Loupe.desktop; done
+  check "$case: default for folders" "$(pick "$home" inode/directory)" org.gnome.Nautilus.desktop
+  check "$case: ComicRedr under Open With for folders" \
+    "$(env $(env_of "$home") gio mime inode/directory 2>/dev/null | grep -c 'org.snonux.comicredr.desktop')" 2
   check "$case: default for application/x-cbz" "$(pick "$home" application/x-cbz)" org.snonux.comicredr.desktop
   check "$case: ComicRedr under Open With for PNG" \
     "$(env $(env_of "$home") gio mime image/png 2>/dev/null | grep -c 'org.snonux.comicredr.desktop')" 2

@@ -153,7 +153,11 @@ void main() {
   });
 
   group('screen', () {
-    Future<ProviderContainer> pumpApp(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
+    Future<ProviderContainer> pumpApp(
+      WidgetTester tester, {
+      Size size = const Size(1280, 800),
+      String? initialPath,
+    }) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -164,7 +168,7 @@ void main() {
             coverDirProvider.overrideWithValue(covers),
             classicCvOnly,
           ],
-          child: const ComicRedrApp(),
+          child: ComicRedrApp(initialPath: initialPath),
         ),
       );
       await tester.pump();
@@ -361,6 +365,50 @@ void main() {
       expect(find.text('Old'), findsNothing);
       expect(find.text('The Spirit #1'), findsWidgets);
       expect(find.text('No books in this folder any more.'), findsNothing);
+    });
+
+    /// The app's own start: first frame, the start-up scan, the books.
+    Future<void> starting(WidgetTester tester) async {
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+        await tester.pump();
+      }
+    }
+
+    testWidgets('a folder of comics given at start opens on the Folders tab there', (tester) async {
+      writeShelf(root);
+      Directory('${root.path}/Indie/Old').createSync();
+      writeBook(Directory('${root.path}/Indie/Old'), 'Old One.cbz', 2);
+      await LibraryStore(db).addRoot(root.path);
+      final c = await pumpApp(tester, initialPath: '${root.path}/Indie');
+      await starting(tester);
+      // Inside the library folder Comics: walked to Indie, not added again.
+      expect(c.read(readerProvider).book, isNull);
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+      expect(find.text('Barefoot Bride'), findsWidgets);
+      expect(find.text('Old'), findsWidgets);
+      expect((await LibraryStore(db).roots()).length, 1);
+      await key(tester, LogicalKeyboardKey.backspace); // Up to Comics.
+      expect(find.text('Indie'), findsWidgets);
+      expect(find.text('The Spirit #1'), findsWidgets);
+    });
+
+    testWidgets('a folder outside the library given at start is added and shown', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester, initialPath: '${root.path}/Indie');
+      await starting(tester);
+      expect(c.read(readerProvider).book, isNull);
+      expect((await LibraryStore(db).roots()).map((r) => r.path), ['${root.path}/Indie']);
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+      expect(find.text('Barefoot Bride'), findsWidgets);
+    });
+
+    testWidgets('a folder of page images given at start opens as a book', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester, initialPath: '${root.path}/Pepper Carrot e06');
+      await starting(tester);
+      expect(c.read(readerProvider).book?.title, isNotNull);
+      expect(await LibraryStore(db).roots(), isEmpty);
     });
 
     testWidgets('on a phone-sized screen a tap goes into a folder, and back comes out', (tester) async {

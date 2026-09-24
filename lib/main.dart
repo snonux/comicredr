@@ -11,7 +11,8 @@ import 'src/input/keys_file.dart';
 import 'src/library/providers.dart';
 import 'src/providers.dart';
 
-/// `comicredr [book]` opens the book straight away.
+/// `comicredr [book]` opens the book straight away; `comicredr folder`
+/// shows a folder of comics on the library's Folders tab.
 /// `comicredr --add-root ~/Comics` adds a folder to the library first.
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();

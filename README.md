@@ -88,8 +88,9 @@ make install          # add it to the GNOME app grid, no sudo needed
 ```
 
 After `make install`, ComicRedr is in Activities with its own icon, and
-**Open With → ComicRedr** works on CBZ, CBT, EPUB and PDF files, and on
-PNG, JPEG and WebP images without becoming your image viewer. To update, run
+**Open With → ComicRedr** works on CBZ, CBT, EPUB and PDF files, on
+folders, and on PNG, JPEG and WebP images without becoming your image
+viewer or file manager. To update, run
 `git pull && make && make install`; `make uninstall` removes it and keeps
 your reading progress. `make help` lists everything else.
 
@@ -178,8 +179,10 @@ keys as the laptop.
 
 A single file opens without the library too: `comicredr book.cbz`,
 **Open With → ComicRedr** in Files, `o` in the app, or drag it onto the
-window. To take a comic to the phone or another laptop, copy its `.crdb`
-file along with it.
+window. A folder of comics, `comicredr ~/Comics/Marvel` or dropped on the
+window, opens the Folders tab there, and is added to the library if it
+isn't in it yet. To take a comic to the phone or another laptop, copy its
+`.crdb` file along with it.
 
 Any key can be changed in `~/.config/comicredr/keys.toml`: `make keys`
 starts one from [docs/keys.toml](docs/keys.toml), which lists every action.
