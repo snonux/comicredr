@@ -46,13 +46,14 @@ class BackgroundDocument implements ComicDocument {
       (await _host.call('raw', doc: _doc, args: (index, 0, 0)) as TransferableTypedData?)?.materialize().asUint8List();
 
   @override
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight}) async {
-    final (TransferableTypedData bytes, int? w, int? h, bool bgra) = await _host.call(
+  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async {
+    final (TransferableTypedData bytes, int? w, int? h, bool bgra, PageRegion? drawn) = await _host.call(
       'page',
       doc: _doc,
       args: (index, targetWidth, targetHeight),
-    ) as (TransferableTypedData, int?, int?, bool);
-    return PageImage(bytes.materialize().asUint8List(), width: w, height: h, bgra: bgra);
+      region: region,
+    ) as (TransferableTypedData, int?, int?, bool, PageRegion?);
+    return PageImage(bytes.materialize().asUint8List(), width: w, height: h, bgra: bgra, region: drawn);
   }
 
   @override
@@ -89,7 +90,15 @@ class _Failure {
   final String message;
 }
 
-typedef _Request = (int id, String op, int doc, (int, int, int) args, String? path, String? coverDir);
+typedef _Request = (
+  int id,
+  String op,
+  int doc,
+  (int, int, int) args,
+  String? path,
+  String? coverDir,
+  PageRegion? region,
+);
 
 /// A worker isolate holding open documents, serving one request at a time,
 /// newest first.
@@ -117,10 +126,17 @@ class _Host {
   final Map<int, Completer<Object?>> _pending = {};
   int _next = 0;
 
-  Future<Object?> call(String op, {int doc = -1, (int, int, int) args = (0, 0, 0), String? path, String? coverDir}) {
+  Future<Object?> call(
+    String op, {
+    int doc = -1,
+    (int, int, int) args = (0, 0, 0),
+    String? path,
+    String? coverDir,
+    PageRegion? region,
+  }) {
     final id = _next++;
     final c = _pending[id] = Completer<Object?>();
-    _send.send((id, op, doc, args, path, coverDir));
+    _send.send((id, op, doc, args, path, coverDir, region));
     return c.future;
   }
 
@@ -167,7 +183,7 @@ Future<void> _hostMain(SendPort reply) async {
   Future<void>? busy;
 
   Future<void> serve(_Request r) async {
-    final (id, op, doc, args, path, coverDir) = r;
+    final (id, op, doc, args, path, coverDir, region) = r;
     try {
       switch (op) {
         case 'open':
@@ -176,8 +192,8 @@ Future<void> _hostMain(SendPort reply) async {
           reply.send((id, (nextDoc++, d.pageCount)));
         case 'page':
           final (index, w, h) = args;
-          final p = await docs[doc]!.page(index, targetWidth: w, targetHeight: h);
-          reply.send((id, (TransferableTypedData.fromList([p.bytes]), p.width, p.height, p.bgra)));
+          final p = await docs[doc]!.page(index, targetWidth: w, targetHeight: h, region: region);
+          reply.send((id, (TransferableTypedData.fromList([p.bytes]), p.width, p.height, p.bgra, p.region)));
         case 'raw':
           final raw = await docs[doc]!.rawPage(args.$1);
           reply.send((id, raw == null ? null : TransferableTypedData.fromList([raw])));

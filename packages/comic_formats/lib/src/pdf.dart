@@ -39,17 +39,41 @@ class PdfComicDocument implements ComicDocument {
   int get pageCount => _doc.pages.length;
 
   /// The page fitted inside [targetWidth] x [targetHeight], as raw BGRA.
+  /// With a [region], only that part, at the scale the whole page has in
+  /// the box: a page zoomed into is never rendered whole at that scale.
   @override
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight}) async {
+  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async {
     final p = _doc.pages[index];
     // Page sizes are in points, 72 to the inch.
     final scale = math.min(math.min(targetWidth / p.width, targetHeight / p.height), maxDpi / 72);
     final w = math.max(1, (p.width * scale).round());
     final h = math.max(1, (p.height * scale).round());
-    final image = await p.render(fullWidth: w.toDouble(), fullHeight: h.toDouble(), backgroundColor: 0xffffffff);
+    var (x, y, rw, rh) = (0, 0, w, h);
+    if (region != null) {
+      x = (region.left * w).floor().clamp(0, w - 1);
+      y = (region.top * h).floor().clamp(0, h - 1);
+      rw = ((region.left + region.width) * w).ceil().clamp(x + 1, w) - x;
+      rh = ((region.top + region.height) * h).ceil().clamp(y + 1, h) - y;
+    }
+    final image = await p.render(
+      x: x,
+      y: y,
+      width: rw,
+      height: rh,
+      fullWidth: w.toDouble(),
+      fullHeight: h.toDouble(),
+      backgroundColor: 0xffffffff,
+    );
     if (image == null) throw FormatException('PDFium could not render page ${index + 1}');
     try {
-      return PageImage(Uint8List.fromList(image.pixels), width: image.width, height: image.height, bgra: true);
+      return PageImage(
+        Uint8List.fromList(image.pixels),
+        width: image.width,
+        height: image.height,
+        bgra: true,
+        // The pixels actually drawn, which rounding may have moved a little.
+        region: region == null ? null : (left: x / w, top: y / h, width: rw / w, height: rh / h),
+      );
     } finally {
       image.dispose();
     }
