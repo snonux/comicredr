@@ -1082,6 +1082,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
       case ReaderIntent.resetBook:
+      case ReaderIntent.deleteBook:
       case ReaderIntent.editBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:

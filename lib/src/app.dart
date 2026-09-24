@@ -15,6 +15,7 @@ import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
 import 'input/touch_providers.dart';
 import 'input/touch_zones.dart';
+import 'library/delete_book.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'library/scanner.dart';
@@ -407,6 +408,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (scope != null) await ref.read(readerProvider.notifier).reset(scope);
   }
 
+  /// `gd` or Shift+Delete in the reader: asks, then deletes the open comic
+  /// and goes back to the library with the cover next to it selected. When
+  /// the delete fails the comic opens again where it was.
+  Future<void> _delete(OpenBook book) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final reader = ref.read(readerProvider.notifier);
+    final facts = await deleteFacts(
+      book.title,
+      book.path,
+      folder: book.folder,
+      pages: ref.read(readerProvider).pageCount,
+    );
+    if (!mounted) return;
+    final go = await askDelete(context, facts);
+    _keys.requestFocus();
+    if (!go) return;
+    _library.currentState?.selectNeighbourOf(book.key);
+    await reader.close();
+    try {
+      final stuck = await deleteComic(
+        path: book.path,
+        contentKey: book.key,
+        folder: book.folder,
+        trash: facts.toTrash,
+        sidecars: ref.read(sidecarSyncProvider),
+        store: ref.read(libraryStoreProvider),
+        coverDir: ref.read(coverDirProvider),
+      );
+      messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.title, facts.toTrash, stuck))));
+    } on FileSystemException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not delete ${book.title}: ${e.message}')));
+      await reader.open(book.path);
+    }
+  }
+
   /// Another device read further in the book just opened: ask, don't jump.
   Future<void> _offer(PositionOffer offer) async {
     final at = offer.at;
@@ -556,6 +592,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (c.intent == ReaderIntent.resetBook) {
       if (ref.read(readerProvider).book case final book?) {
         unawaited(_reset(book.title));
+      } else {
+        _library.currentState?.handle(c);
+      }
+      return;
+    }
+    if (c.intent == ReaderIntent.deleteBook) {
+      if (ref.read(readerProvider).book case final book?) {
+        unawaited(_delete(book));
       } else {
         _library.currentState?.handle(c);
       }

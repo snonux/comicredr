@@ -57,6 +57,7 @@ enum ReaderIntent {
   addRoot('Add a folder to the library'),
   rescan('Rescan the library folders'),
   resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
+  deleteBook('Delete this comic and its sidecar, after asking; the selected book in the library'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),
   showKeymap('Show the keymap'),
   showTouchZones('Show the touch zones for a moment');

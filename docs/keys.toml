@@ -119,6 +119,8 @@ addRoot = ["A"]
 rescan = ["R"]
 # Reset this comic: find its panels again, or forget its bookmarks and position too
 resetBook = ["X"]
+# Delete this comic and its sidecar, after asking; the selected book in the library
+deleteBook = ["gd", "S-Delete"]
 # Edit the selected book's title, series, issue and creators in the library; on a series, rename it
 editBook = ["e"]
 # Show the keymap
