@@ -57,6 +57,7 @@ class Keymap {
       Binding(['['], ReaderIntent.prevBook),
       // Switching how the page is shown.
       Binding(['v'], ReaderIntent.toggleGuided),
+      Binding(['b'], ReaderIntent.toggleBalloons),
       Binding(['Tab'], ReaderIntent.cycleModeForward, layer: s),
       Binding(['S-Tab'], ReaderIntent.cycleModeBack, layer: s),
       Binding(['d'], ReaderIntent.toggleSpread),

@@ -24,6 +24,7 @@ dependencies:
   path: ^1.9.1
   file_selector: ^1.1.0
   desktop_drop: ^0.8.4
+  onnxruntime: ^1.4.1
 
 dev_dependencies:
   flutter_test:

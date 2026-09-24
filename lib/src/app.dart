@@ -225,7 +225,11 @@ class _StatusLine extends StatelessWidget {
     if (found == null) return 'guided: finding panels…';
     final stops = s.stopsOn(s.page);
     if (stops.isEmpty) return 'guided: whole page (${found.gate.reasons.first})';
-    return 'guided: panel ${s.panelIndex + 1} / ${stops.length}';
+    final panel = 'guided: panel ${s.panelIndex + 1} / ${stops.length}';
+    if (!s.balloons) return panel;
+    final n = s.balloonsOn(s.page, s.panelIndex).length;
+    if (found.balloons.isEmpty) return '$panel  ·  no balloons found';
+    return n == 0 ? '$panel  ·  no balloons' : '$panel  ·  balloon ${s.balloonIndex < 0 ? '–' : s.balloonIndex + 1} / $n';
   }
 
   final ReaderState state;
