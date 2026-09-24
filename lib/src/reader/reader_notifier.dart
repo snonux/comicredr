@@ -900,6 +900,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   void _notice(String message) => state = state.copyWith(message: message);
 
+  /// Takes up the fullscreen saved last time, at launch.
+  Future<void> loadFullscreen() async {
+    final on = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen));
+    if (on != null && on != state.fullscreen) state = state.copyWith(fullscreen: on);
+  }
+
   /// Fullscreen on or off, remembered for the next book and launch. The
   /// window follows it (HomeScreen); the window manager leaving fullscreen
   /// by itself comes back here too.
@@ -1093,13 +1099,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final back = state.jumpedFrom;
         back == null ? _notice('No jump to go back from') : _goTo(back.page, panel: back.panel, jump: true);
       case ReaderIntent.back:
-        // Esc leaves fullscreen first, as everywhere else, then guided view,
-        // then the book.
-        if (state.fullscreen) {
-          setFullscreen(false);
-        } else {
-          state.guided ? _setGuided(false) : await close();
-        }
+        // Esc leaves guided view before it means anything else. Fullscreen
+        // stays: the library is fullscreen too, and Esc at its top leaves it.
+        state.guided ? _setGuided(false) : await close();
       case ReaderIntent.toggleContinuous:
       case ReaderIntent.halfPageDown:
       case ReaderIntent.halfPageUp:
