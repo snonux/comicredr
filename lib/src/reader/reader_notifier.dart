@@ -7,6 +7,7 @@ import 'package:reader_input/reader_input.dart';
 
 import '../data/panel_store.dart';
 import '../data/progress_store.dart';
+import '../data/read_log_store.dart';
 import '../data/settings_store.dart';
 import '../data/sidecar.dart';
 import '../data/sidecar_sync.dart';
@@ -34,6 +35,7 @@ class ReaderState {
     this.rightToLeft = false,
     this.fullscreen = false,
     this.night = false,
+    this.trim = false,
     this.panels = const {},
     this.marks = const {},
     this.jumpedFrom,
@@ -71,6 +73,10 @@ class ReaderState {
   final bool rightToLeft;
   final bool fullscreen;
   final bool night;
+
+  /// Auto-trim: scanned margins are cut off each page (`t`). A setting,
+  /// like [night], remembered across books and restarts.
+  final bool trim;
 
   /// Detection results for this book's pages; a page not in here has not
   /// been analysed yet.
@@ -113,6 +119,15 @@ class ReaderState {
     return b < 0 ? frame : balloonFocus(frame, balloonsOn(page, i)[b]);
   }
 
+  /// The real outline of the frame guided view is on, in page coordinates,
+  /// when it is not its box (Panel.shape); null for a rectangle or the
+  /// whole page. In balloon mode it is the balloon's frame.
+  List<double>? get focusOutline {
+    if (!guided) return null;
+    final i = panelIndex;
+    return i < 0 ? null : stopsOn(page)[i].shape;
+  }
+
   /// [balloon] resolved against what is known: -1 for the panel as a whole,
   /// always so outside balloon mode.
   int get balloonIndex {
@@ -146,6 +161,7 @@ class ReaderState {
     bool? rightToLeft,
     bool? fullscreen,
     bool? night,
+    bool? trim,
     Map<int, PagePanels>? panels,
     Map<String, Place>? marks,
     Place? jumpedFrom,
@@ -164,6 +180,7 @@ class ReaderState {
     rightToLeft: rightToLeft ?? this.rightToLeft,
     fullscreen: fullscreen ?? this.fullscreen,
     night: night ?? this.night,
+    trim: trim ?? this.trim,
     panels: panels ?? this.panels,
     marks: marks ?? this.marks,
     jumpedFrom: jumpedFrom ?? this.jumpedFrom,
@@ -183,10 +200,12 @@ final progressStoreProvider = Provider<ProgressStore>((ref) {
 /// The sidecars beside the books. Pending writes go out when the app is
 /// disposed.
 final sidecarSyncProvider = Provider<SidecarSync>((ref) {
+  final settings = ref.watch(settingsStoreProvider);
   final sync = SidecarSync(
     ref.watch(databaseProvider),
     progress: ref.watch(progressStoreProvider),
     coverDir: ref.watch(coverDirProvider),
+    writeAllowed: () async => await settings.loadBool(SettingsStore.writeSidecars).catchError((_) => null) ?? true,
   );
   ref.onDispose(sync.flush);
   return sync;
@@ -204,6 +223,8 @@ class PositionOfferNotifier extends Notifier<PositionOffer?> {
 
   void set(PositionOffer? offer) => state = offer;
 }
+
+final readLogStoreProvider = Provider<ReadLogStore>((ref) => ReadLogStore(ref.watch(databaseProvider)));
 
 final panelStoreProvider = Provider<PanelStore>((ref) => PanelStore(ref.watch(databaseProvider)));
 
@@ -231,9 +252,28 @@ class ReaderNotifier extends Notifier<ReaderState> {
   ViewSpot? _view;
   ViewSpot? _restoreView;
 
+  /// The sitting under way, for reading history: when the book was opened
+  /// (or the app came back) and the pages shown since.
+  ({String key, DateTime start, Set<int> pages})? _sitting;
+
+  /// Ends the sitting under way and logs it.
+  Future<void> _endSitting() async {
+    final s = _sitting;
+    _sitting = null;
+    if (s == null) return;
+    try {
+      await ref.read(readLogStoreProvider).record(s.key, s.start, DateTime.now(), s.pages.length);
+    } catch (e) {
+      debugPrint('Could not log the sitting: $e');
+    }
+  }
+
   /// Pages waiting for detection, and whether the worker loop is running.
   final _wanted = <int>{};
   bool _detecting = false;
+
+  /// Finding panels for the open book: the library pass waits meanwhile.
+  bool get detecting => _detecting;
 
   /// Opens [path], closing any open book, and resumes where it was left, or
   /// goes to [at] when given (a bookmark picked in the library).
@@ -266,6 +306,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final whole =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.wholePageSteps)) ??
         state.wholePageSteps;
+    final night = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.night)) ?? state.night;
+    final trim = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.autoTrim)) ?? state.trim;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -289,8 +331,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
       fullscreen: state.fullscreen,
-      night: state.night,
-      panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons)},
+      night: night,
+      trim: trim,
+      panels: {
+        for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons, value.trim),
+      },
       marks: marks,
       message: at != null
           ? 'Bookmark: page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'
@@ -304,6 +349,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         .set(
           at == null && side?.elsewhere != null ? (path: book.path, contentKey: book.key, at: side!.elsewhere!) : null,
         );
+    _sitting = (key: book.key, start: DateTime.now(), pages: <int>{});
     // Opening a book counts as reading it: the library's Reading tab lists
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
@@ -345,6 +391,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final book = state.book;
     if (book == null) return;
     await _progress.flush();
+    await _endSitting();
     _wanted.clear();
     _view = _restoreView = null;
     state = ReaderState(
@@ -354,6 +401,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       wholePageSteps: state.wholePageSteps,
       fullscreen: state.fullscreen,
       night: state.night,
+      trim: state.trim,
     );
     await book.doc.close();
     // Off the way of whatever opens next; flush() on exit waits for it.
@@ -375,6 +423,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   void _saveProgress(OpenBook book) {
+    if (_sitting case final s? when s.key == book.key) s.pages.addAll(state.unit);
     // The panel and balloon as asked for, not as resolved: detection may not
     // have reached the page yet, and they resolve the same way on reopen.
     _progress.save(
@@ -530,7 +579,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         try {
           final detector = await ref.read(panelDetectorProvider.future);
           final result = await detector.detect(book.doc, page);
-          found = PagePanels(result.frames, result.balloons);
+          found = PagePanels(result.frames, result.balloons, result.trim);
           unawaited(
             ref
                 .read(panelStoreProvider)
@@ -596,12 +645,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
           wholePageSteps: on,
           message: on ? 'Whole page before and after the panels' : 'Straight from panel to panel across pages',
         );
-        unawaited(
-          ref
-              .read(settingsStoreProvider)
-              .saveBool(SettingsStore.wholePageSteps, on)
-              .catchError((Object e) => debugPrint('Could not save setting: $e')),
-        );
+        _saveSetting(SettingsStore.wholePageSteps, on);
       case ReaderIntent.toggleSpread:
         // Guided view shows one page, so d from there goes to the spread.
         state.guided
@@ -634,7 +678,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.fullscreen:
         state = state.copyWith(fullscreen: !state.fullscreen);
       case ReaderIntent.nightFilter:
-        state = state.copyWith(night: !state.night);
+        final on = !state.night;
+        state = state.copyWith(night: on, message: on ? 'Night filter on' : 'Night filter off');
+        _saveSetting(SettingsStore.night, on);
       case ReaderIntent.setMark:
         final key = state.book!.key;
         final i = state.panelIndex;
@@ -683,7 +729,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.searchPrev:
         _notice('In-book search is not built yet');
       case ReaderIntent.autoTrim:
-        _notice('Auto-trim arrives in M9');
+        final on = !state.trim;
+        state = state.copyWith(trim: on, message: on ? 'Auto-trim: margins cut' : 'Auto-trim off: whole pages');
+        _saveSetting(SettingsStore.autoTrim, on);
       case ReaderIntent.panDown:
       case ReaderIntent.panUp:
       case ReaderIntent.fitWidth:
@@ -698,12 +746,20 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
       case ReaderIntent.activate:
+      case ReaderIntent.up:
         break; // Handled by the screen, or only mean something in the library.
     }
     // Mode switches (guided, balloons, spread, direction) are part of the
     // spot too. Saves are debounced, so this costs nothing per key.
     if (state.book case final book?) _saveProgress(book);
   }
+
+  void _saveSetting(String key, bool on) => unawaited(
+    ref
+        .read(settingsStoreProvider)
+        .saveBool(key, on)
+        .catchError((Object e) => debugPrint('Could not save setting: $e')),
+  );
 
   /// `]` and `[`: the next or previous book in the series when the book is
   /// in the library with others in its series, the next or previous book in
@@ -731,6 +787,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// Saves the position and writes pending sidecars: on pause and exit.
   Future<void> flush() async {
     await _progress.flush();
+    // The app may not come back: log the sitting, and start a new one that
+    // a quick return joins back onto.
+    if (_sitting case final s?) {
+      await _endSitting();
+      if (state.book?.key == s.key) _sitting = (key: s.key, start: DateTime.now(), pages: <int>{});
+    }
     await _sidecars.flush();
   }
 }

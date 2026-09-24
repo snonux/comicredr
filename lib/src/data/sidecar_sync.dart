@@ -11,6 +11,7 @@ import 'package:sqlite3/sqlite3.dart' show SqliteException;
 
 import 'app_database.dart';
 import 'progress_store.dart';
+import '../version.dart';
 import 'sidecar.dart';
 
 /// This install, as sidecar positions name it.
@@ -44,11 +45,21 @@ class SidecarImport {
 /// costs the sidecar and nothing else: the book's data stays in the index,
 /// and [exportAll] writes sidecars elsewhere on request.
 class SidecarSync {
-  SidecarSync(this._db, {required this.progress, this.coverDir, this.debounce = const Duration(seconds: 2)});
+  SidecarSync(
+    this._db, {
+    required this.progress,
+    this.coverDir,
+    this.writeAllowed,
+    this.debounce = const Duration(seconds: 2),
+  });
 
   final AppDatabase _db;
   final ProgressStore progress;
   final String? coverDir;
+
+  /// Whether sidecars are written beside books (a setting); always when
+  /// null. Reading them, and [exportAll], do not ask.
+  final Future<bool> Function()? writeAllowed;
   final Duration debounce;
 
   Device? _device;
@@ -128,10 +139,12 @@ class SidecarSync {
       await (_db.delete(_db.analysedPages)..where((r) => r.contentKey.equals(key))).go();
       await (_db.delete(_db.panels)..where((r) => r.contentKey.equals(key))).go();
       await (_db.delete(_db.bookmarks)..where((r) => r.contentKey.equals(key))).go();
+      await (_db.delete(_db.collectionBooks)..where((r) => r.contentKey.equals(key))).go();
       await _db.batch((b) {
         b.insertAll(_db.analysedPages, merged.analysed);
         b.insertAll(_db.panels, merged.panels, mode: InsertMode.insertOrReplace);
         b.insertAll(_db.bookmarks, merged.bookmarks);
+        b.insertAll(_db.collectionBooks, [for (final c in merged.collections) c.copyWith(contentKey: key)]);
         b.insertAllOnConflictUpdate(_db.overrides, [
           for (final MapEntry(:key, :value) in merged.overrides.entries)
             OverridesCompanion.insert(contentKey: side.contentKey, field: key, value: value),
@@ -183,6 +196,7 @@ class SidecarSync {
     final bookmarks = await (_db.select(_db.bookmarks)..where((r) => r.contentKey.equals(contentKey))).get();
     final prog = await (_db.select(_db.progress)..where((r) => r.contentKey.equals(contentKey))).getSingleOrNull();
     final overrides = await (_db.select(_db.overrides)..where((r) => r.contentKey.equals(contentKey))).get();
+    final collections = await (_db.select(_db.collectionBooks)..where((r) => r.contentKey.equals(contentKey))).get();
     final book = await _db
         .customSelect(
           'SELECT b.*, s.name AS series_name FROM books b LEFT JOIN series s ON s.id = b.series_id '
@@ -226,6 +240,7 @@ class SidecarSync {
           ),
       ],
       overrides: {for (final o in overrides) o.field: o.value},
+      collections: collections,
       cover: cover,
     );
   }
@@ -279,6 +294,7 @@ class SidecarSync {
   Future<bool> write(String contentKey) async {
     final at = _where[contentKey];
     if (at == null) return false;
+    if (!await (writeAllowed?.call() ?? Future.value(true))) return true; // Nothing to do is not a failure.
     final ok = await _writeTo(sidecarPath(at.path, folder: at.folder), contentKey);
     if (!ok && _readOnly.add(contentKey)) {
       debugPrint('Cannot write a sidecar beside ${at.path}; its data stays in the app database');
@@ -334,7 +350,7 @@ class SidecarSync {
 
 // Top level, so the closures sent to the worker hold only their arguments.
 Future<void> _writeOnWorker(String target, SidecarData data, String device) =>
-    Isolate.run(() => writeSidecar(target, data, device: device));
+    Isolate.run(() => writeSidecar(target, data, device: device, appVersion: appVersion));
 
 Future<SidecarData?> _readBeside(String path, String contentKey, bool folder) => Isolate.run(() {
   if (!folder) relinkOrphan(path, contentKey);

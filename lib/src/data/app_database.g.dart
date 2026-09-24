@@ -2757,6 +2757,15 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _shapeMeta = const VerificationMeta('shape');
+  @override
+  late final GeneratedColumn<String> shape = GeneratedColumn<String>(
+    'shape',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -2770,6 +2779,7 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
     source,
     modelVer,
     confidence,
+    shape,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2859,6 +2869,12 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
     } else if (isInserting) {
       context.missing(_confidenceMeta);
     }
+    if (data.containsKey('shape')) {
+      context.handle(
+        _shapeMeta,
+        shape.isAcceptableOrUnknown(data['shape']!, _shapeMeta),
+      );
+    }
     return context;
   }
 
@@ -2912,6 +2928,10 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
         DriftSqlType.double,
         data['${effectivePrefix}confidence'],
       )!,
+      shape: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}shape'],
+      ),
     );
   }
 
@@ -2933,6 +2953,10 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
   final String source;
   final int modelVer;
   final double confidence;
+
+  /// A frame's outline when it is not its box (Panel.shape), as
+  /// "x,y,x,y,..." in page coordinates; null for a rectangle.
+  final String? shape;
   const PanelRow({
     required this.contentKey,
     required this.page,
@@ -2945,6 +2969,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     required this.source,
     required this.modelVer,
     required this.confidence,
+    this.shape,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2960,6 +2985,9 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     map['source'] = Variable<String>(source);
     map['model_ver'] = Variable<int>(modelVer);
     map['confidence'] = Variable<double>(confidence);
+    if (!nullToAbsent || shape != null) {
+      map['shape'] = Variable<String>(shape);
+    }
     return map;
   }
 
@@ -2976,6 +3004,9 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       source: Value(source),
       modelVer: Value(modelVer),
       confidence: Value(confidence),
+      shape: shape == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shape),
     );
   }
 
@@ -2996,6 +3027,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       source: serializer.fromJson<String>(json['source']),
       modelVer: serializer.fromJson<int>(json['modelVer']),
       confidence: serializer.fromJson<double>(json['confidence']),
+      shape: serializer.fromJson<String?>(json['shape']),
     );
   }
   @override
@@ -3013,6 +3045,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       'source': serializer.toJson<String>(source),
       'modelVer': serializer.toJson<int>(modelVer),
       'confidence': serializer.toJson<double>(confidence),
+      'shape': serializer.toJson<String?>(shape),
     };
   }
 
@@ -3028,6 +3061,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     String? source,
     int? modelVer,
     double? confidence,
+    Value<String?> shape = const Value.absent(),
   }) => PanelRow(
     contentKey: contentKey ?? this.contentKey,
     page: page ?? this.page,
@@ -3040,6 +3074,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     source: source ?? this.source,
     modelVer: modelVer ?? this.modelVer,
     confidence: confidence ?? this.confidence,
+    shape: shape.present ? shape.value : this.shape,
   );
   PanelRow copyWithCompanion(PanelsCompanion data) {
     return PanelRow(
@@ -3058,6 +3093,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       confidence: data.confidence.present
           ? data.confidence.value
           : this.confidence,
+      shape: data.shape.present ? data.shape.value : this.shape,
     );
   }
 
@@ -3074,7 +3110,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
           ..write('kind: $kind, ')
           ..write('source: $source, ')
           ..write('modelVer: $modelVer, ')
-          ..write('confidence: $confidence')
+          ..write('confidence: $confidence, ')
+          ..write('shape: $shape')
           ..write(')'))
         .toString();
   }
@@ -3092,6 +3129,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     source,
     modelVer,
     confidence,
+    shape,
   );
   @override
   bool operator ==(Object other) =>
@@ -3107,7 +3145,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
           other.kind == this.kind &&
           other.source == this.source &&
           other.modelVer == this.modelVer &&
-          other.confidence == this.confidence);
+          other.confidence == this.confidence &&
+          other.shape == this.shape);
 }
 
 class PanelsCompanion extends UpdateCompanion<PanelRow> {
@@ -3122,6 +3161,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
   final Value<String> source;
   final Value<int> modelVer;
   final Value<double> confidence;
+  final Value<String?> shape;
   final Value<int> rowid;
   const PanelsCompanion({
     this.contentKey = const Value.absent(),
@@ -3135,6 +3175,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     this.source = const Value.absent(),
     this.modelVer = const Value.absent(),
     this.confidence = const Value.absent(),
+    this.shape = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PanelsCompanion.insert({
@@ -3149,6 +3190,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     required String source,
     required int modelVer,
     required double confidence,
+    this.shape = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        page = Value(page),
@@ -3173,6 +3215,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     Expression<String>? source,
     Expression<int>? modelVer,
     Expression<double>? confidence,
+    Expression<String>? shape,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3187,6 +3230,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
       if (source != null) 'source': source,
       if (modelVer != null) 'model_ver': modelVer,
       if (confidence != null) 'confidence': confidence,
+      if (shape != null) 'shape': shape,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3203,6 +3247,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     Value<String>? source,
     Value<int>? modelVer,
     Value<double>? confidence,
+    Value<String?>? shape,
     Value<int>? rowid,
   }) {
     return PanelsCompanion(
@@ -3217,6 +3262,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
       source: source ?? this.source,
       modelVer: modelVer ?? this.modelVer,
       confidence: confidence ?? this.confidence,
+      shape: shape ?? this.shape,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3257,6 +3303,9 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     if (confidence.present) {
       map['confidence'] = Variable<double>(confidence.value);
     }
+    if (shape.present) {
+      map['shape'] = Variable<String>(shape.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3277,6 +3326,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
           ..write('source: $source, ')
           ..write('modelVer: $modelVer, ')
           ..write('confidence: $confidence, ')
+          ..write('shape: $shape, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3349,6 +3399,15 @@ class $AnalysedPagesTable extends AnalysedPages
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _trimMeta = const VerificationMeta('trim');
+  @override
+  late final GeneratedColumn<String> trim = GeneratedColumn<String>(
+    'trim',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -3357,6 +3416,7 @@ class $AnalysedPagesTable extends AnalysedPages
     modelVer,
     millis,
     analysedAt,
+    trim,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3418,6 +3478,12 @@ class $AnalysedPagesTable extends AnalysedPages
     } else if (isInserting) {
       context.missing(_analysedAtMeta);
     }
+    if (data.containsKey('trim')) {
+      context.handle(
+        _trimMeta,
+        trim.isAcceptableOrUnknown(data['trim']!, _trimMeta),
+      );
+    }
     return context;
   }
 
@@ -3451,6 +3517,10 @@ class $AnalysedPagesTable extends AnalysedPages
         DriftSqlType.dateTime,
         data['${effectivePrefix}analysed_at'],
       )!,
+      trim: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trim'],
+      ),
     );
   }
 
@@ -3467,6 +3537,11 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
   final int modelVer;
   final int millis;
   final DateTime analysedAt;
+
+  /// The part of the page the detector looked at once the scanned margins
+  /// were cut off, as "left,top,right,bottom" (encodeTrim); null for the
+  /// whole page. The confidence gate judges the frames against it.
+  final String? trim;
   const AnalysedPage({
     required this.contentKey,
     required this.page,
@@ -3474,6 +3549,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     required this.modelVer,
     required this.millis,
     required this.analysedAt,
+    this.trim,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3484,6 +3560,9 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     map['model_ver'] = Variable<int>(modelVer);
     map['millis'] = Variable<int>(millis);
     map['analysed_at'] = Variable<DateTime>(analysedAt);
+    if (!nullToAbsent || trim != null) {
+      map['trim'] = Variable<String>(trim);
+    }
     return map;
   }
 
@@ -3495,6 +3574,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       modelVer: Value(modelVer),
       millis: Value(millis),
       analysedAt: Value(analysedAt),
+      trim: trim == null && nullToAbsent ? const Value.absent() : Value(trim),
     );
   }
 
@@ -3510,6 +3590,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       modelVer: serializer.fromJson<int>(json['modelVer']),
       millis: serializer.fromJson<int>(json['millis']),
       analysedAt: serializer.fromJson<DateTime>(json['analysedAt']),
+      trim: serializer.fromJson<String?>(json['trim']),
     );
   }
   @override
@@ -3522,6 +3603,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       'modelVer': serializer.toJson<int>(modelVer),
       'millis': serializer.toJson<int>(millis),
       'analysedAt': serializer.toJson<DateTime>(analysedAt),
+      'trim': serializer.toJson<String?>(trim),
     };
   }
 
@@ -3532,6 +3614,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     int? modelVer,
     int? millis,
     DateTime? analysedAt,
+    Value<String?> trim = const Value.absent(),
   }) => AnalysedPage(
     contentKey: contentKey ?? this.contentKey,
     page: page ?? this.page,
@@ -3539,6 +3622,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     modelVer: modelVer ?? this.modelVer,
     millis: millis ?? this.millis,
     analysedAt: analysedAt ?? this.analysedAt,
+    trim: trim.present ? trim.value : this.trim,
   );
   AnalysedPage copyWithCompanion(AnalysedPagesCompanion data) {
     return AnalysedPage(
@@ -3552,6 +3636,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       analysedAt: data.analysedAt.present
           ? data.analysedAt.value
           : this.analysedAt,
+      trim: data.trim.present ? data.trim.value : this.trim,
     );
   }
 
@@ -3563,14 +3648,15 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
           ..write('source: $source, ')
           ..write('modelVer: $modelVer, ')
           ..write('millis: $millis, ')
-          ..write('analysedAt: $analysedAt')
+          ..write('analysedAt: $analysedAt, ')
+          ..write('trim: $trim')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(contentKey, page, source, modelVer, millis, analysedAt);
+      Object.hash(contentKey, page, source, modelVer, millis, analysedAt, trim);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3580,7 +3666,8 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
           other.source == this.source &&
           other.modelVer == this.modelVer &&
           other.millis == this.millis &&
-          other.analysedAt == this.analysedAt);
+          other.analysedAt == this.analysedAt &&
+          other.trim == this.trim);
 }
 
 class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
@@ -3590,6 +3677,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
   final Value<int> modelVer;
   final Value<int> millis;
   final Value<DateTime> analysedAt;
+  final Value<String?> trim;
   final Value<int> rowid;
   const AnalysedPagesCompanion({
     this.contentKey = const Value.absent(),
@@ -3598,6 +3686,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     this.modelVer = const Value.absent(),
     this.millis = const Value.absent(),
     this.analysedAt = const Value.absent(),
+    this.trim = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AnalysedPagesCompanion.insert({
@@ -3607,6 +3696,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     required int modelVer,
     required int millis,
     required DateTime analysedAt,
+    this.trim = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        page = Value(page),
@@ -3621,6 +3711,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     Expression<int>? modelVer,
     Expression<int>? millis,
     Expression<DateTime>? analysedAt,
+    Expression<String>? trim,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3630,6 +3721,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
       if (modelVer != null) 'model_ver': modelVer,
       if (millis != null) 'millis': millis,
       if (analysedAt != null) 'analysed_at': analysedAt,
+      if (trim != null) 'trim': trim,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3641,6 +3733,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     Value<int>? modelVer,
     Value<int>? millis,
     Value<DateTime>? analysedAt,
+    Value<String?>? trim,
     Value<int>? rowid,
   }) {
     return AnalysedPagesCompanion(
@@ -3650,6 +3743,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
       modelVer: modelVer ?? this.modelVer,
       millis: millis ?? this.millis,
       analysedAt: analysedAt ?? this.analysedAt,
+      trim: trim ?? this.trim,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3675,6 +3769,9 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     if (analysedAt.present) {
       map['analysed_at'] = Variable<DateTime>(analysedAt.value);
     }
+    if (trim.present) {
+      map['trim'] = Variable<String>(trim.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3690,6 +3787,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
           ..write('modelVer: $modelVer, ')
           ..write('millis: $millis, ')
           ..write('analysedAt: $analysedAt, ')
+          ..write('trim: $trim, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4482,6 +4580,322 @@ class SettingsCompanion extends UpdateCompanion<SettingRow> {
   }
 }
 
+class $CollectionBooksTable extends CollectionBooks
+    with TableInfo<$CollectionBooksTable, CollectionBook> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CollectionBooksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentKeyMeta = const VerificationMeta(
+    'contentKey',
+  );
+  @override
+  late final GeneratedColumn<String> contentKey = GeneratedColumn<String>(
+    'content_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _removedAtMeta = const VerificationMeta(
+    'removedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> removedAt = GeneratedColumn<DateTime>(
+    'removed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [name, contentKey, addedAt, removedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'collection_books';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CollectionBook> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('content_key')) {
+      context.handle(
+        _contentKeyMeta,
+        contentKey.isAcceptableOrUnknown(data['content_key']!, _contentKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentKeyMeta);
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_addedAtMeta);
+    }
+    if (data.containsKey('removed_at')) {
+      context.handle(
+        _removedAtMeta,
+        removedAt.isAcceptableOrUnknown(data['removed_at']!, _removedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {name, contentKey};
+  @override
+  CollectionBook map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CollectionBook(
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      contentKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_key'],
+      )!,
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}added_at'],
+      )!,
+      removedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}removed_at'],
+      ),
+    );
+  }
+
+  @override
+  $CollectionBooksTable createAlias(String alias) {
+    return $CollectionBooksTable(attachedDatabase, alias);
+  }
+}
+
+class CollectionBook extends DataClass implements Insertable<CollectionBook> {
+  final String name;
+  final String contentKey;
+  final DateTime addedAt;
+  final DateTime? removedAt;
+  const CollectionBook({
+    required this.name,
+    required this.contentKey,
+    required this.addedAt,
+    this.removedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['name'] = Variable<String>(name);
+    map['content_key'] = Variable<String>(contentKey);
+    map['added_at'] = Variable<DateTime>(addedAt);
+    if (!nullToAbsent || removedAt != null) {
+      map['removed_at'] = Variable<DateTime>(removedAt);
+    }
+    return map;
+  }
+
+  CollectionBooksCompanion toCompanion(bool nullToAbsent) {
+    return CollectionBooksCompanion(
+      name: Value(name),
+      contentKey: Value(contentKey),
+      addedAt: Value(addedAt),
+      removedAt: removedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(removedAt),
+    );
+  }
+
+  factory CollectionBook.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CollectionBook(
+      name: serializer.fromJson<String>(json['name']),
+      contentKey: serializer.fromJson<String>(json['contentKey']),
+      addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      removedAt: serializer.fromJson<DateTime?>(json['removedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'name': serializer.toJson<String>(name),
+      'contentKey': serializer.toJson<String>(contentKey),
+      'addedAt': serializer.toJson<DateTime>(addedAt),
+      'removedAt': serializer.toJson<DateTime?>(removedAt),
+    };
+  }
+
+  CollectionBook copyWith({
+    String? name,
+    String? contentKey,
+    DateTime? addedAt,
+    Value<DateTime?> removedAt = const Value.absent(),
+  }) => CollectionBook(
+    name: name ?? this.name,
+    contentKey: contentKey ?? this.contentKey,
+    addedAt: addedAt ?? this.addedAt,
+    removedAt: removedAt.present ? removedAt.value : this.removedAt,
+  );
+  CollectionBook copyWithCompanion(CollectionBooksCompanion data) {
+    return CollectionBook(
+      name: data.name.present ? data.name.value : this.name,
+      contentKey: data.contentKey.present
+          ? data.contentKey.value
+          : this.contentKey,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      removedAt: data.removedAt.present ? data.removedAt.value : this.removedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CollectionBook(')
+          ..write('name: $name, ')
+          ..write('contentKey: $contentKey, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('removedAt: $removedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(name, contentKey, addedAt, removedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CollectionBook &&
+          other.name == this.name &&
+          other.contentKey == this.contentKey &&
+          other.addedAt == this.addedAt &&
+          other.removedAt == this.removedAt);
+}
+
+class CollectionBooksCompanion extends UpdateCompanion<CollectionBook> {
+  final Value<String> name;
+  final Value<String> contentKey;
+  final Value<DateTime> addedAt;
+  final Value<DateTime?> removedAt;
+  final Value<int> rowid;
+  const CollectionBooksCompanion({
+    this.name = const Value.absent(),
+    this.contentKey = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.removedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CollectionBooksCompanion.insert({
+    required String name,
+    required String contentKey,
+    required DateTime addedAt,
+    this.removedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : name = Value(name),
+       contentKey = Value(contentKey),
+       addedAt = Value(addedAt);
+  static Insertable<CollectionBook> custom({
+    Expression<String>? name,
+    Expression<String>? contentKey,
+    Expression<DateTime>? addedAt,
+    Expression<DateTime>? removedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (name != null) 'name': name,
+      if (contentKey != null) 'content_key': contentKey,
+      if (addedAt != null) 'added_at': addedAt,
+      if (removedAt != null) 'removed_at': removedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CollectionBooksCompanion copyWith({
+    Value<String>? name,
+    Value<String>? contentKey,
+    Value<DateTime>? addedAt,
+    Value<DateTime?>? removedAt,
+    Value<int>? rowid,
+  }) {
+    return CollectionBooksCompanion(
+      name: name ?? this.name,
+      contentKey: contentKey ?? this.contentKey,
+      addedAt: addedAt ?? this.addedAt,
+      removedAt: removedAt ?? this.removedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (contentKey.present) {
+      map['content_key'] = Variable<String>(contentKey.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
+    if (removedAt.present) {
+      map['removed_at'] = Variable<DateTime>(removedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CollectionBooksCompanion(')
+          ..write('name: $name, ')
+          ..write('contentKey: $contentKey, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('removedAt: $removedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4496,6 +4910,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $OverridesTable overrides = $OverridesTable(this);
   late final $ReadLogTable readLog = $ReadLogTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
+  late final $CollectionBooksTable collectionBooks = $CollectionBooksTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4512,6 +4929,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     overrides,
     readLog,
     settings,
+    collectionBooks,
   ];
 }
 
@@ -6318,6 +6736,7 @@ typedef $$PanelsTableCreateCompanionBuilder = PanelsCompanion Function({
   required String source,
   required int modelVer,
   required double confidence,
+  Value<String?> shape,
   Value<int> rowid,
 });
 typedef $$PanelsTableUpdateCompanionBuilder = PanelsCompanion Function({
@@ -6332,6 +6751,7 @@ typedef $$PanelsTableUpdateCompanionBuilder = PanelsCompanion Function({
   Value<String> source,
   Value<int> modelVer,
   Value<double> confidence,
+  Value<String?> shape,
   Value<int> rowid,
 });
 
@@ -6396,6 +6816,11 @@ class $$PanelsTableFilterComposer
 
   ColumnFilters<double> get confidence => $composableBuilder(
     column: $table.confidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get shape => $composableBuilder(
+    column: $table.shape,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6463,6 +6888,11 @@ class $$PanelsTableOrderingComposer
     column: $table.confidence,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get shape => $composableBuilder(
+    column: $table.shape,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PanelsTableAnnotationComposer
@@ -6510,6 +6940,9 @@ class $$PanelsTableAnnotationComposer
     column: $table.confidence,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get shape =>
+      $composableBuilder(column: $table.shape, builder: (column) => column);
 }
 
 class $$PanelsTableTableManager
@@ -6551,6 +6984,7 @@ class $$PanelsTableTableManager
                 Value<String> source = const Value.absent(),
                 Value<int> modelVer = const Value.absent(),
                 Value<double> confidence = const Value.absent(),
+                Value<String?> shape = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PanelsCompanion(
                 contentKey: contentKey,
@@ -6564,6 +6998,7 @@ class $$PanelsTableTableManager
                 source: source,
                 modelVer: modelVer,
                 confidence: confidence,
+                shape: shape,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6579,6 +7014,7 @@ class $$PanelsTableTableManager
                 required String source,
                 required int modelVer,
                 required double confidence,
+                Value<String?> shape = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PanelsCompanion.insert(
                 contentKey: contentKey,
@@ -6592,6 +7028,7 @@ class $$PanelsTableTableManager
                 source: source,
                 modelVer: modelVer,
                 confidence: confidence,
+                shape: shape,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -6633,6 +7070,7 @@ typedef $$AnalysedPagesTableCreateCompanionBuilder =
       required int modelVer,
       required int millis,
       required DateTime analysedAt,
+      Value<String?> trim,
       Value<int> rowid,
     });
 typedef $$AnalysedPagesTableUpdateCompanionBuilder =
@@ -6643,6 +7081,7 @@ typedef $$AnalysedPagesTableUpdateCompanionBuilder =
       Value<int> modelVer,
       Value<int> millis,
       Value<DateTime> analysedAt,
+      Value<String?> trim,
       Value<int> rowid,
     });
 
@@ -6682,6 +7121,11 @@ class $$AnalysedPagesTableFilterComposer
 
   ColumnFilters<DateTime> get analysedAt => $composableBuilder(
     column: $table.analysedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trim => $composableBuilder(
+    column: $table.trim,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6724,6 +7168,11 @@ class $$AnalysedPagesTableOrderingComposer
     column: $table.analysedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get trim => $composableBuilder(
+    column: $table.trim,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AnalysedPagesTableAnnotationComposer
@@ -6756,6 +7205,9 @@ class $$AnalysedPagesTableAnnotationComposer
     column: $table.analysedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get trim =>
+      $composableBuilder(column: $table.trim, builder: (column) => column);
 }
 
 class $$AnalysedPagesTableTableManager
@@ -6795,6 +7247,7 @@ class $$AnalysedPagesTableTableManager
                 Value<int> modelVer = const Value.absent(),
                 Value<int> millis = const Value.absent(),
                 Value<DateTime> analysedAt = const Value.absent(),
+                Value<String?> trim = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AnalysedPagesCompanion(
                 contentKey: contentKey,
@@ -6803,6 +7256,7 @@ class $$AnalysedPagesTableTableManager
                 modelVer: modelVer,
                 millis: millis,
                 analysedAt: analysedAt,
+                trim: trim,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6813,6 +7267,7 @@ class $$AnalysedPagesTableTableManager
                 required int modelVer,
                 required int millis,
                 required DateTime analysedAt,
+                Value<String?> trim = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AnalysedPagesCompanion.insert(
                 contentKey: contentKey,
@@ -6821,6 +7276,7 @@ class $$AnalysedPagesTableTableManager
                 modelVer: modelVer,
                 millis: millis,
                 analysedAt: analysedAt,
+                trim: trim,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7346,6 +7802,204 @@ typedef $$SettingsTableProcessedTableManager =
       SettingRow,
       PrefetchHooks Function()
     >;
+typedef $$CollectionBooksTableCreateCompanionBuilder =
+    CollectionBooksCompanion Function({
+      required String name,
+      required String contentKey,
+      required DateTime addedAt,
+      Value<DateTime?> removedAt,
+      Value<int> rowid,
+    });
+typedef $$CollectionBooksTableUpdateCompanionBuilder =
+    CollectionBooksCompanion Function({
+      Value<String> name,
+      Value<String> contentKey,
+      Value<DateTime> addedAt,
+      Value<DateTime?> removedAt,
+      Value<int> rowid,
+    });
+
+class $$CollectionBooksTableFilterComposer
+    extends Composer<_$AppDatabase, $CollectionBooksTable> {
+  $$CollectionBooksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get removedAt => $composableBuilder(
+    column: $table.removedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CollectionBooksTableOrderingComposer
+    extends Composer<_$AppDatabase, $CollectionBooksTable> {
+  $$CollectionBooksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get removedAt => $composableBuilder(
+    column: $table.removedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CollectionBooksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CollectionBooksTable> {
+  $$CollectionBooksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get removedAt =>
+      $composableBuilder(column: $table.removedAt, builder: (column) => column);
+}
+
+class $$CollectionBooksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CollectionBooksTable,
+          CollectionBook,
+          $$CollectionBooksTableFilterComposer,
+          $$CollectionBooksTableOrderingComposer,
+          $$CollectionBooksTableAnnotationComposer,
+          $$CollectionBooksTableCreateCompanionBuilder,
+          $$CollectionBooksTableUpdateCompanionBuilder,
+          (
+            CollectionBook,
+            BaseReferences<
+              _$AppDatabase,
+              $CollectionBooksTable,
+              CollectionBook
+            >,
+          ),
+          CollectionBook,
+          PrefetchHooks Function()
+        > {
+  $$CollectionBooksTableTableManager(
+    _$AppDatabase db,
+    $CollectionBooksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CollectionBooksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CollectionBooksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CollectionBooksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> name = const Value.absent(),
+                Value<String> contentKey = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<DateTime?> removedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CollectionBooksCompanion(
+                name: name,
+                contentKey: contentKey,
+                addedAt: addedAt,
+                removedAt: removedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String name,
+                required String contentKey,
+                required DateTime addedAt,
+                Value<DateTime?> removedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CollectionBooksCompanion.insert(
+                name: name,
+                contentKey: contentKey,
+                addedAt: addedAt,
+                removedAt: removedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$CollectionBooksTable, CollectionBook>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $CollectionBooksTable,
+                    CollectionBook
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CollectionBooksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CollectionBooksTable,
+      CollectionBook,
+      $$CollectionBooksTableFilterComposer,
+      $$CollectionBooksTableOrderingComposer,
+      $$CollectionBooksTableAnnotationComposer,
+      $$CollectionBooksTableCreateCompanionBuilder,
+      $$CollectionBooksTableUpdateCompanionBuilder,
+      (
+        CollectionBook,
+        BaseReferences<_$AppDatabase, $CollectionBooksTable, CollectionBook>,
+      ),
+      CollectionBook,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7372,4 +8026,6 @@ class $AppDatabaseManager {
       $$ReadLogTableTableManager(_db, _db.readLog);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
+  $$CollectionBooksTableTableManager get collectionBooks =>
+      $$CollectionBooksTableTableManager(_db, _db.collectionBooks);
 }

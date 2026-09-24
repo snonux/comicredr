@@ -265,6 +265,90 @@ void main() {
       expect(find.text('Barefoot Bride'), findsOneWidget);
     });
 
+    testWidgets('the Folders tab walks into sub-folders and back out', (tester) async {
+      writeShelf(root);
+      final old = Directory('${root.path}/Indie/Old')..createSync();
+      writeBook(old, 'Old One.cbz', 2);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      // The top: the library folder, with every book under it.
+      expect(find.text('Comics'), findsOneWidget);
+      expect(find.text('5 books'), findsOneWidget);
+
+      await key(tester, LogicalKeyboardKey.keyL); // Selects it.
+      await key(tester, LogicalKeyboardKey.enter); // Into Comics.
+      // Sub-folders first, then the books; a folder of pages is a book.
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+      expect(find.text('Indie'), findsWidgets);
+      expect(find.text('2 books'), findsWidgets);
+      expect(find.text('Pepper Carrot #6'), findsWidgets);
+      expect(find.text('The Spirit #1'), findsWidgets);
+      expect(find.text('Barefoot Bride'), findsNothing, reason: 'it is inside Indie');
+
+      await key(tester, LogicalKeyboardKey.enter); // Indie is selected first.
+      expect(find.text('Barefoot Bride'), findsWidgets);
+      expect(find.text('Old'), findsWidgets);
+      await tester.tap(find.text('Old').first); // A tap goes straight in.
+      await settle(tester);
+      expect(find.text('Old One'), findsWidgets);
+
+      // The breadcrumb goes back to any folder above.
+      await tester.tap(find.descendant(of: find.byKey(const Key('breadcrumb')), matching: find.text('Comics')));
+      await settle(tester);
+      expect(find.text('Indie'), findsWidgets);
+      expect(find.text('Old One'), findsNothing);
+
+      // Esc goes up a folder, with the folder you left selected.
+      await key(tester, LogicalKeyboardKey.enter);
+      await key(tester, LogicalKeyboardKey.escape);
+      expect(find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Indie')), findsOneWidget);
+      // Backspace goes up a folder too, and does nothing at the top.
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(find.byKey(const Key('breadcrumb')), findsNothing);
+      expect(find.text('5 books'), findsWidgets);
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(find.text('5 books'), findsWidgets);
+
+      // A book opens from inside a folder.
+      await key(tester, LogicalKeyboardKey.enter);
+      await key(tester, LogicalKeyboardKey.enter);
+      await key(tester, LogicalKeyboardKey.keyL); // Barefoot Bride, after Old.
+      await key(tester, LogicalKeyboardKey.keyL);
+      await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
+      expect(c.read(readerProvider).book?.title, 'Barefoot Bride');
+      // Esc from the reader comes back to the same folder.
+      await key(tester, LogicalKeyboardKey.escape);
+      expect(find.text('Old'), findsWidgets);
+      // Backspace in the search field edits the text; it does not go up.
+      await key(tester, LogicalKeyboardKey.slash, character: '/');
+      await tester.enterText(find.byKey(const Key('search')), 'ol');
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+      expect(find.text('Old'), findsWidgets);
+    });
+
+    testWidgets('on a phone-sized screen a tap goes into a folder, and back comes out', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester, size: const Size(400, 800));
+      await scan(tester, c);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      await tester.tap(find.text('Comics'));
+      await settle(tester);
+      await tester.tap(find.text('Indie'));
+      await settle(tester);
+      expect(find.text('Barefoot Bride'), findsOneWidget);
+      // Android's back gesture goes up a folder at a time.
+      await tester.binding.handlePopRoute();
+      await settle(tester);
+      expect(find.text('Indie'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('folderUp')));
+      await settle(tester);
+      expect(find.byKey(const Key('breadcrumb')), findsNothing);
+    });
+
     testWidgets('on a phone-sized screen a tap shows the book, and Read opens it', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester, size: const Size(400, 800));

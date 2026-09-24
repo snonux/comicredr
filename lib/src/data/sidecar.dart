@@ -22,8 +22,11 @@ const sidecarExtension = '.crdb';
 const folderSidecarName = '.comicredr.crdb';
 
 /// The format this code writes. A sidecar from a newer app is read for the
-/// tables it shares with this one and never written over.
-const sidecarSchemaVersion = 1;
+/// tables it shares with this one and never written over. 2: collections,
+/// and the nullable `panels.shape` column (frame outlines), which a
+/// sidecar written before it lacks. 3: the nullable `analysed_pages.trim`
+/// column (the part of the page detection looked at).
+const sidecarSchemaVersion = 3;
 
 /// Whether [path] is a sidecar or one being written, which the library
 /// scanner and its folder watch ignore.
@@ -96,6 +99,7 @@ class SidecarData {
     this.bookmarks = const [],
     this.progress = const [],
     this.overrides = const {},
+    this.collections = const [],
     this.cover,
   });
 
@@ -110,9 +114,13 @@ class SidecarData {
   final List<Bookmark> bookmarks;
   final List<SidecarProgress> progress;
   final Map<String, String> overrides;
+
+  /// The collections the book is in, and was taken out of (removedAt set).
+  final List<CollectionBook> collections;
   final Uint8List? cover;
 
-  bool get isEmpty => analysed.isEmpty && bookmarks.isEmpty && progress.isEmpty && overrides.isEmpty;
+  bool get isEmpty =>
+      analysed.isEmpty && bookmarks.isEmpty && progress.isEmpty && overrides.isEmpty && collections.isEmpty;
 }
 
 const _schema = [
@@ -121,16 +129,17 @@ const _schema = [
   'CREATE TABLE book (title TEXT NOT NULL, series TEXT, number TEXT, volume INTEGER, year INTEGER, '
       'writers TEXT, artists TEXT, summary TEXT)',
   'CREATE TABLE analysed_pages (page INTEGER NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, '
-      'millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, PRIMARY KEY (page, source))',
+      'millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, trim TEXT, PRIMARY KEY (page, source))',
   'CREATE TABLE panels (page INTEGER NOT NULL, idx INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, '
       'w REAL NOT NULL, h REAL NOT NULL, kind TEXT NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, '
-      'confidence REAL NOT NULL, PRIMARY KEY (page, kind, idx, source))',
+      'confidence REAL NOT NULL, shape TEXT, PRIMARY KEY (page, kind, idx, source))',
   'CREATE TABLE bookmarks (id TEXT PRIMARY KEY, page INTEGER NOT NULL, panel INTEGER, mark TEXT, note TEXT, '
       'created_at INTEGER NOT NULL, deleted_at INTEGER)',
   'CREATE TABLE progress (device TEXT PRIMARY KEY, device_name TEXT NOT NULL, page INTEGER NOT NULL, '
       'panel INTEGER, percent REAL NOT NULL, finished INTEGER NOT NULL, updated_at INTEGER NOT NULL, view_json TEXT)',
   'CREATE TABLE overrides (field TEXT PRIMARY KEY, value TEXT NOT NULL)',
   'CREATE TABLE cover (image BLOB NOT NULL)',
+  'CREATE TABLE collections (name TEXT PRIMARY KEY, added_at INTEGER NOT NULL, removed_at INTEGER)',
 ];
 
 DateTime _time(Object? ms) => DateTime.fromMillisecondsSinceEpoch((ms as int?) ?? 0);
@@ -175,6 +184,7 @@ SidecarData? readSidecar(String path) {
             modelVer: r['model_ver'] as int,
             millis: r['millis'] as int,
             analysedAt: _time(r['analysed_at']),
+            trim: r.containsKey('trim') ? r['trim'] as String? : null,
           ),
       ],
       panels: [
@@ -191,6 +201,8 @@ SidecarData? readSidecar(String path) {
             source: r['source'] as String,
             modelVer: r['model_ver'] as int,
             confidence: (r['confidence'] as num).toDouble(),
+            // Sidecars from before frame outlines have no such column.
+            shape: r.containsKey('shape') ? r['shape'] as String? : null,
           ),
       ],
       bookmarks: [
@@ -222,6 +234,15 @@ SidecarData? readSidecar(String path) {
       overrides: {
         for (final r in rows('overrides', 'SELECT * FROM overrides')) r['field'] as String: r['value'] as String,
       },
+      collections: [
+        for (final r in rows('collections', 'SELECT * FROM collections'))
+          CollectionBook(
+            name: r['name'] as String,
+            contentKey: key,
+            addedAt: _time(r['added_at']),
+            removedAt: r['removed_at'] == null ? null : _time(r['removed_at']),
+          ),
+      ],
       cover: cover?['image'] as Uint8List?,
     );
   } on SqliteException {
@@ -276,14 +297,14 @@ void writeSidecar(String path, SidecarData data, {required String device, String
         b.summary,
       ]);
     }
-    final analysed = db.prepare('INSERT INTO analysed_pages VALUES (?, ?, ?, ?, ?)');
+    final analysed = db.prepare('INSERT INTO analysed_pages VALUES (?, ?, ?, ?, ?, ?)');
     for (final a in merged.analysed) {
-      analysed.execute([a.page, a.source, a.modelVer, a.millis, a.analysedAt.millisecondsSinceEpoch]);
+      analysed.execute([a.page, a.source, a.modelVer, a.millis, a.analysedAt.millisecondsSinceEpoch, a.trim]);
     }
     analysed.close();
-    final panels = db.prepare('INSERT OR REPLACE INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    final panels = db.prepare('INSERT OR REPLACE INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     for (final r in merged.panels) {
-      panels.execute([r.page, r.idx, r.x, r.y, r.w, r.h, r.kind, r.source, r.modelVer, r.confidence]);
+      panels.execute([r.page, r.idx, r.x, r.y, r.w, r.h, r.kind, r.source, r.modelVer, r.confidence, r.shape]);
     }
     panels.close();
     final marks = db.prepare('INSERT INTO bookmarks VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -316,6 +337,13 @@ void writeSidecar(String path, SidecarData data, {required String device, String
     for (final MapEntry(:key, :value) in merged.overrides.entries) {
       db.execute('INSERT INTO overrides VALUES (?, ?)', [key, value]);
     }
+    for (final c in merged.collections) {
+      db.execute('INSERT INTO collections VALUES (?, ?, ?)', [
+        c.name,
+        c.addedAt.millisecondsSinceEpoch,
+        c.removedAt?.millisecondsSinceEpoch,
+      ]);
+    }
     if (merged.cover case final c?) db.execute('INSERT INTO cover VALUES (?)', [c]);
     db.execute('COMMIT');
   } catch (_) {
@@ -341,6 +369,7 @@ void writeSidecar(String path, SidecarData data, {required String device, String
 /// * Bookmarks are a union by id, and a removal wins over the bookmark. A
 ///   vi mark a–z points at one place: the latest one set.
 /// * Each device's position is its own; the later one wins per device.
+/// * Per collection, the later of adding and taking out wins.
 /// * Book facts, overrides and the cover come from [b] when it has them.
 SidecarData mergeSidecars(SidecarData a, SidecarData b) {
   final analysed = <(int, String), AnalysedPage>{};
@@ -382,6 +411,13 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
     if (have == null || !r.updatedAt.isBefore(have.updatedAt)) progress[r.device] = r;
   }
 
+  final collections = <String, CollectionBook>{};
+  DateTime changed(CollectionBook c) => c.removedAt ?? c.addedAt;
+  for (final c in [...a.collections, ...b.collections]) {
+    final have = collections[c.name];
+    if (have == null || changed(c).isAfter(changed(have))) collections[c.name] = c;
+  }
+
   return SidecarData(
     contentKey: b.contentKey,
     book: b.book ?? a.book,
@@ -390,6 +426,7 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
     bookmarks: bookmarks.values.toList(),
     progress: progress.values.toList(),
     overrides: {...a.overrides, ...b.overrides},
+    collections: collections.values.toList(),
     cover: b.cover ?? a.cover,
   );
 }

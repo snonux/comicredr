@@ -116,6 +116,10 @@ class Panels extends Table {
   IntColumn get modelVer => integer()();
   RealColumn get confidence => real()();
 
+  /// A frame's outline when it is not its box (Panel.shape), as
+  /// "x,y,x,y,..." in page coordinates; null for a rectangle.
+  TextColumn get shape => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey, page, kind, idx, source};
 }
@@ -129,6 +133,11 @@ class AnalysedPages extends Table {
   IntColumn get modelVer => integer()();
   IntColumn get millis => integer()(); // detection time, for tuning
   DateTimeColumn get analysedAt => dateTime()();
+
+  /// The part of the page the detector looked at once the scanned margins
+  /// were cut off, as "left,top,right,bottom" (encodeTrim); null for the
+  /// whole page. The confidence gate judges the frames against it.
+  TextColumn get trim => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {contentKey, page, source};
@@ -144,6 +153,23 @@ class Overrides extends Table {
   Set<Column> get primaryKey => {contentKey, field};
 }
 
+/// Hand-made collections (design plan section 4): a book is in the
+/// collection [name] from [addedAt] until [removedAt]. A collection is its
+/// members, so it exists while it has one. Removal keeps the row, like a
+/// removed bookmark, so an older sidecar cannot put the book back (M8).
+@DataClassName('CollectionBook')
+class CollectionBooks extends Table {
+  TextColumn get name => text()();
+  TextColumn get contentKey => text()();
+  DateTimeColumn get addedAt => dateTime()();
+  DateTimeColumn get removedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {name, contentKey};
+}
+
+/// One sitting with a book: when it began and ended, and how many pages
+/// were shown. Kept on this device only (M8 reading history).
 class ReadLog extends Table {
   TextColumn get contentKey => text()();
   DateTimeColumn get startedAt => dateTime()();
@@ -163,7 +189,20 @@ class Settings extends Table {
 }
 
 @DriftDatabase(
-  tables: [Books, Roots, Files, SeriesTable, Progress, Bookmarks, Panels, AnalysedPages, Overrides, ReadLog, Settings],
+  tables: [
+    Books,
+    Roots,
+    Files,
+    SeriesTable,
+    Progress,
+    Bookmarks,
+    Panels,
+    AnalysedPages,
+    Overrides,
+    ReadLog,
+    Settings,
+    CollectionBooks,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Lives in the app support directory (`~/.local/share/org.snonux.comicredr`
@@ -178,7 +217,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -193,6 +232,10 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 5) await m.createTable(settings); // Whole-page steps in guided view
       if (from < 6) await m.addColumn(bookmarks, bookmarks.deletedAt); // M8: sidecars
+      if (from < 7) await m.createTable(collectionBooks); // M8: collections
+      if (from < 8) await m.addColumn(panels, panels.shape); // Non-rectangular frames
+      // Detection on trimmed pages; an index from before M4 got the column with the table.
+      if (from >= 2 && from < 9) await m.addColumn(analysedPages, analysedPages.trim);
     },
   );
 }

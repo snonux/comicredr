@@ -11,6 +11,18 @@ class SettingsStore {
   /// Guided view shows each page whole before and after its panels.
   static const wholePageSteps = 'guided.wholePageSteps';
 
+  /// The night filter (`i`) and auto-trim (`t`), kept across restarts.
+  static const night = 'reader.night';
+  static const autoTrim = 'reader.autoTrim';
+
+  /// Write each comic's sidecar beside it (M8). On by default; reading
+  /// sidecars that are there already never stops.
+  static const writeSidecars = 'sidecars.write';
+
+  /// Find the panels of the whole library in the background
+  /// (LibraryDetection). On by default on the laptop, off on the phone.
+  static const detectLibrary = 'detect.library';
+
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
     final v = row == null ? null : jsonDecode(row.value);

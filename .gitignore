@@ -58,6 +58,7 @@ app.*.map.json
 /spike/out/
 /spike/eval_pages/
 /spike/train_pages/
+/spike/modern_pages/
 __pycache__/
 # The release keystore must be backed up, never committed.
 *.jks
