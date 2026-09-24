@@ -8,6 +8,7 @@ import 'package:reader_input/reader_input.dart';
 
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
+import '../version.dart';
 import 'library_store.dart';
 import 'providers.dart';
 import 'scanner.dart';
@@ -834,6 +835,8 @@ class _LibraryStatus extends ConsumerWidget {
                     key: const Key('pending'),
                     style: const TextStyle(fontFamily: 'monospace'),
                   ),
+                  const SizedBox(width: 12),
+                  Text('ComicRedr $appVersion', key: const Key('version'), style: theme.textTheme.bodySmall),
                 ],
               ),
             ),
