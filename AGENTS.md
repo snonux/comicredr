@@ -80,6 +80,12 @@ build internals, test scripts, detector work and conventions here.
   `X` (or Reset in the book's details) resets a comic: `SidecarSync.reset`
   deletes its rows and rewrites every copy's sidecar without them, since a
   sidecar left alone would merge them straight back in.
+  Settings → "In one folder" (`sidecars.dir`, per install) keeps them all
+  in one folder instead, laid out like the library by root folder name
+  (`storedSidecarPath`; books outside the library go under `elsewhere/`).
+  One left beside a comic is still read and merged; switching offers to
+  move them, merging into a sidecar already there. Anything that finds a
+  book's sidecar goes through `SidecarSync.sidecarsOf`/`sidecarFor`.
   Inspect one with
   `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
@@ -127,6 +133,7 @@ COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padd
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 ```
 

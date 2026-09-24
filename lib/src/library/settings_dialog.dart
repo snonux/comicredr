@@ -242,7 +242,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                         ],
                       )
                     else
-                      Text('So they travel when you copy the comic.', style: theme.textTheme.bodySmall),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, bottom: 6),
+                        child: Text('So they travel when you copy the comic.', style: theme.textTheme.bodySmall),
+                      ),
                     if (widget.onExportSidecars case final export?)
                       Align(
                         alignment: Alignment.centerLeft,

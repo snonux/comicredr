@@ -499,4 +499,24 @@ void main() {
     expect(readSidecar('$cbz.crdb')?.bookmarks.map((b) => b.mark).toSet(), {null, 'z'});
     expect(await laptop.sync.countIn(side), 0);
   });
+
+  test('a reset clears the sidecar in the sidecar folder and the one beside the comic', () async {
+    final root = dir('Comics');
+    final path = writeBook(root, 'Swamp Thing 21.cbz', 3);
+    final key = await contentKey(path);
+    await laptop.library.addRoot(root.path);
+    await laptop.sync.attach(path, key, folder: false);
+    await laptop.marks.addBookmark(key, 1, null);
+    await laptop.sync.write(key); // Beside, before the setting.
+    laptop.store = '${tmp.path}/side';
+    await laptop.marks.addBookmark(key, 2, null);
+    await laptop.sync.write(key);
+    final stored = '${tmp.path}/side/Comics/Swamp Thing 21.cbz.crdb';
+    expect(readSidecar(stored)!.bookmarks, hasLength(2));
+
+    expect(await laptop.sync.reset(key, everything: true), isTrue);
+    for (final at in [stored, '$path.crdb']) {
+      expect(readSidecar(at)?.bookmarks.where((b) => b.deletedAt == null) ?? [], isEmpty, reason: at);
+    }
+  });
 }

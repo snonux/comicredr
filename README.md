@@ -47,7 +47,8 @@ Potion Contest*, by David Revoy, licensed
   touchscreen.
 - **Your data travels with the comic**: panels, bookmarks and your position
   live in a small `.crdb` file beside it, so a comic copied to the phone
-  opens there ready to read.
+  opens there ready to read. Settings can keep those files in one folder
+  instead.
 - **CBZ, PDF and folders of page images**, on Fedora and Android.
 
 ## Install on Fedora

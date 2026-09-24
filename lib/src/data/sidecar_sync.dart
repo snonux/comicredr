@@ -387,8 +387,7 @@ class SidecarSync {
         }
       });
       final places = {
-        if (_where[key] case final w?) sidecarPath(w.path, folder: w.folder),
-        for (final w in await _copies(key)) sidecarPath(w.path, folder: w.folder),
+        for (final w in [?_where[key], ...await _copies(key)]) ...await sidecarsOf(w.path, folder: w.folder),
       };
       if (places.isEmpty) return true;
       final me = await device();
@@ -411,13 +410,15 @@ class SidecarSync {
     });
   }
 
-  /// Every copy of [contentKey] the library knows, as full paths.
-  Future<List<({String path, bool folder})>> _copies(String contentKey) async {
+  /// Every copy of [contentKey] the library knows, as full paths; every
+  /// book in the library without one.
+  Future<List<({String path, bool folder})>> _copies([String? contentKey]) async {
     final rows = await _db
         .customSelect(
           'SELECT r.path AS root, f.rel_path, b.format FROM files f JOIN roots r ON r.id = f.root_id '
-          'JOIN books b ON b.content_key = f.content_key WHERE f.content_key = ?',
-          variables: [Variable(contentKey)],
+          'JOIN books b ON b.content_key = f.content_key '
+          '${contentKey == null ? '' : 'WHERE f.content_key = ? '}ORDER BY f.root_id, f.rel_path',
+          variables: [if (contentKey != null) Variable(contentKey)],
         )
         .get();
     return [
@@ -460,30 +461,11 @@ class SidecarSync {
     return n;
   }
 
-  /// Every book in the library as a path and whether it is a folder book.
-  Future<List<({String path, bool folder})>> _books() async {
-    final rows = await _db
-        .customSelect(
-          'SELECT r.path AS root, f.rel_path, b.format FROM files f JOIN roots r ON r.id = f.root_id '
-          'JOIN books b ON b.content_key = f.content_key ORDER BY f.root_id, f.rel_path',
-        )
-        .get();
-    return [
-      for (final r in rows)
-        (
-          path: r.read<String>('rel_path').isEmpty
-              ? r.read<String>('root')
-              : p.join(r.read<String>('root'), r.read<String>('rel_path')),
-          folder: r.read<String>('format') == 'folder',
-        ),
-    ];
-  }
-
   /// How many of the library's sidecars are kept at [dir] (null: beside the
   /// comics), to ask before moving them.
   Future<int> countIn(String? dir) async {
     var n = 0;
-    for (final b in await _books()) {
+    for (final b in await _copies()) {
       if (await File(await _placeIn(dir, b.path, b.folder)).exists()) n++;
     }
     return n;
@@ -497,7 +479,7 @@ class SidecarSync {
     await flush();
     final roots = await _roots();
     final moves = [
-      for (final b in await _books())
+      for (final b in await _copies())
         (
           from: from == null
               ? sidecarPath(b.path, folder: b.folder)
