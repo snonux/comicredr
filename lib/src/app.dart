@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:desktop_drop/desktop_drop.dart';
@@ -11,6 +12,8 @@ import 'package:reader_input/reader_input.dart';
 
 import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
+import 'library/library_screen.dart';
+import 'library/providers.dart';
 import 'providers.dart';
 import 'reader/layout.dart';
 import 'reader/reader_notifier.dart';
@@ -18,10 +21,13 @@ import 'reader/reader_view.dart';
 import 'version.dart';
 
 class ComicRedrApp extends StatelessWidget {
-  const ComicRedrApp({super.key, this.initialPath});
+  const ComicRedrApp({super.key, this.initialPath, this.addRoots = const []});
 
   /// A book to open at start, from the command line.
   final String? initialPath;
+
+  /// Folders to add to the library at start (`--add-root`).
+  final List<String> addRoots;
 
   @override
   Widget build(BuildContext context) {
@@ -35,25 +41,31 @@ class ComicRedrApp extends StatelessWidget {
         useMaterial3: true,
       ),
       themeMode: ThemeMode.dark,
-      home: ReaderScreen(initialPath: initialPath),
+      home: HomeScreen(initialPath: initialPath, addRoots: addRoots),
     );
   }
 }
 
-/// The one screen until the library arrives in M7: an empty state that
-/// opens files, and the reader once a book is open.
-class ReaderScreen extends ConsumerStatefulWidget {
-  const ReaderScreen({super.key, this.initialPath});
+/// The library, and the reader over it once a book is open. Esc out of the
+/// reader comes back to the library where you left it.
+class HomeScreen extends ConsumerStatefulWidget {
+  const HomeScreen({super.key, this.initialPath, this.addRoots = const []});
 
   final String? initialPath;
+  final List<String> addRoots;
 
   @override
-  ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _ReaderScreenState extends ConsumerState<ReaderScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  static const _storage = MethodChannel('org.snonux.comicredr/storage');
+
   final _view = GlobalKey<ReaderViewState>();
+  final _library = GlobalKey<LibraryScreenState>();
+  final _keys = FocusNode(debugLabel: 'keys');
   late final AppLifecycleListener _lifecycle;
+  StreamSubscription<void>? _watch;
   String _pending = '';
   bool _showKeymap = false;
   bool _picking = false;
@@ -64,21 +76,112 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     // Flush the reading position when the app is backgrounded or closed.
     _lifecycle = AppLifecycleListener(
       onPause: () => ref.read(readerProvider.notifier).flush(),
+      // Android has no change notifications for the library folders, so it
+      // rescans when the app comes back (design plan section 4).
+      onResume: () {
+        if (Platform.isAndroid) unawaited(ref.read(scannerProvider).scan());
+      },
       onExitRequested: () async {
         await ref.read(readerProvider.notifier).flush();
         return ui.AppExitResponse.exit;
       },
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+  }
+
+  Future<void> _start() async {
     final path = widget.initialPath;
-    if (path != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(readerProvider.notifier).open(path));
+    if (path != null) unawaited(ref.read(readerProvider.notifier).open(path));
+    final store = ref.read(libraryStoreProvider);
+    try {
+      for (final root in widget.addRoots) {
+        await store.addRoot(root);
+      }
+    } catch (e) {
+      debugPrint('Could not add a library folder: $e');
+    }
+    await _rescan();
+  }
+
+  /// Scans every library folder, then watches them for changes.
+  Future<void> _rescan() async {
+    final scanner = ref.read(scannerProvider);
+    try {
+      await _watch?.cancel();
+      _watch = await scanner.watch();
+      await scanner.scan();
+    } catch (e) {
+      debugPrint('Library scan failed: $e');
     }
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
+    _keys.dispose();
+    unawaited(_watch?.cancel());
     super.dispose();
+  }
+
+  Future<void> _addRoot() async {
+    if (_picking) return;
+    _picking = true;
+    try {
+      final String? dir;
+      if (Platform.isAndroid) {
+        dir = await _askAndroidFolder();
+      } else {
+        dir = await getDirectoryPath(confirmButtonText: 'Add to library');
+      }
+      if (dir == null || dir.isEmpty) return;
+      if (!await Directory(dir).exists()) {
+        ref.read(readerProvider.notifier).notice('No such folder: $dir');
+        return;
+      }
+      await ref.read(libraryStoreProvider).addRoot(dir);
+      await _rescan();
+    } finally {
+      _picking = false;
+    }
+  }
+
+  /// Android: All-files access first, explained in a sentence, then the
+  /// folder as a real path.
+  Future<String?> _askAndroidFolder() async {
+    final granted = await _storage.invokeMethod<bool>('hasAllFilesAccess').catchError((_) => true) ?? true;
+    if (!mounted) return null;
+    if (!granted) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Allow access to your comics'),
+          content: const Text(
+            'ComicRedr reads comics where they are on the phone. Android asks for that once, '
+            'as "All files access", on a settings page. Turn it on there, come back, and add the folder again.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Open settings')),
+          ],
+        ),
+      );
+      if (go == true) await _storage.invokeMethod<void>('requestAllFilesAccess');
+      return null;
+    }
+    final field = TextEditingController(text: '/storage/emulated/0/Comics');
+    final dir = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add a folder to the library'),
+        content: TextField(controller: field, autofocus: true, decoration: const InputDecoration(labelText: 'Folder')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, field.text.trim()), child: const Text('Add')),
+        ],
+      ),
+    );
+    field.dispose();
+    return dir;
   }
 
   Future<void> _pickFile() async {
@@ -124,6 +227,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       unawaited(_pickFolder());
       return;
     }
+    if (c.intent == ReaderIntent.addRoot) {
+      unawaited(_addRoot());
+      return;
+    }
+    if (c.intent == ReaderIntent.rescan) {
+      unawaited(_rescan());
+      return;
+    }
+    if (ref.read(readerProvider).book == null) {
+      _library.currentState?.handle(c);
+      return;
+    }
     if (_view.currentState?.handle(c) ?? false) return;
     unawaited(ref.read(readerProvider.notifier).handle(c));
   }
@@ -139,88 +254,57 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       keymap: keymap,
       onCommand: _onCommand,
       onPendingChanged: (p) => setState(() => _pending = p),
+      focusNode: _keys,
       child: Scaffold(
         backgroundColor: Colors.black,
         body: DropTarget(
           onDragDone: (d) {
             if (d.files.isNotEmpty) ref.read(readerProvider.notifier).open(d.files.first.path);
           },
-          child: Column(
+          child: Stack(
             children: [
-              Expanded(
-                child: Stack(
-                  children: [
-                    if (s.book != null)
-                      Positioned.fill(
-                        child: ReaderTouch(
-                          onCommand: _onCommand,
-                          viewTransform: () => _view.currentState?.transform,
-                          guided: () => ref.read(readerProvider).guided,
-                          child: ReaderView(key: _view),
-                        ),
-                      )
-                    else
-                      _EmptyState(loading: s.loading, onOpen: _pickFile, onOpenFolder: _pickFolder),
-                    if (s.book != null)
-                      Positioned(left: 0, right: 0, bottom: 0, child: _ProgressBar(state: s)),
-                    if (_showKeymap) KeymapOverlay(keymap: keymap),
-                  ],
+              // The library stays built under the reader, so Esc comes back
+              // to the same tab, search and cover.
+              Offstage(
+                offstage: s.book != null,
+                child: TickerMode(
+                  enabled: s.book == null,
+                  child: LibraryScreen(
+                    key: _library,
+                    onAddRoot: _addRoot,
+                    onOpenFile: _pickFile,
+                    onOpenFolder: _pickFolder,
+                    keysFocus: _keys,
+                    pending: s.book == null ? _pending : '',
+                  ),
                 ),
               ),
-              if (!s.fullscreen || s.message != null || _pending.isNotEmpty)
-                _StatusLine(state: s, pending: _pending),
+              if (s.book != null)
+                Column(
+                  children: [
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: ReaderTouch(
+                              onCommand: _onCommand,
+                              viewTransform: () => _view.currentState?.transform,
+                              guided: () => ref.read(readerProvider).guided,
+                              child: ReaderView(key: _view),
+                            ),
+                          ),
+                          Positioned(left: 0, right: 0, bottom: 0, child: _ProgressBar(state: s)),
+                        ],
+                      ),
+                    ),
+                    if (!s.fullscreen || s.message != null || _pending.isNotEmpty)
+                      _StatusLine(state: s, pending: _pending),
+                  ],
+                ),
+              if (_showKeymap) KeymapOverlay(keymap: keymap),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.loading, required this.onOpen, required this.onOpenFolder});
-
-  final bool loading;
-  final VoidCallback onOpen;
-  final VoidCallback onOpenFolder;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('ComicRedr', style: theme.textTheme.displaySmall),
-          Text('version $appVersion', key: const Key('version'), style: theme.textTheme.bodySmall),
-          const SizedBox(height: 24),
-          if (loading)
-            const CircularProgressIndicator()
-          else
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: [
-                FilledButton.icon(
-                  onPressed: onOpen,
-                  icon: const Icon(Icons.menu_book),
-                  label: const Text('Open a comic'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onOpenFolder,
-                  icon: const Icon(Icons.folder_open),
-                  label: const Text('Open a folder'),
-                ),
-              ],
-            ),
-          const SizedBox(height: 12),
-          Text(
-            'Press o for a CBZ or PDF, O for a folder of pages, or drop either here. Press ? for the keymap.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium,
-          ),
-        ],
       ),
     );
   }
