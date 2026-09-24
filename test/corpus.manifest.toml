@@ -1,0 +1,42 @@
+# Test corpus manifest (design plan section 10).
+#
+# Real comics are fetched into the git-ignored test/corpus/ by
+# spike/fetch_corpus.py and never committed or redistributed. Public-domain
+# status of golden-age scans rests on copyright non-renewal, curated by the
+# sources but not guaranteed per file. Pepper&Carrot is CC-BY 4.0 (David
+# Revoy) and needs attribution if a page appears in a screenshot or README.
+#
+# Search entries are the starting point; once a fetch has run, pin the files
+# that turned out useful as [[book]] entries with their sha256.
+
+[model]
+# YOLO26s-seg, classes frame/balloon/text, trained on Manga109 (academic-use
+# data). Fine for a personal spike; not for redistributed weights.
+repo = "ShadowB/Manga109-panel-balloon-text-yolov26-segmentation"
+
+[[search]]
+group = "golden-age"
+purpose = "regular grids, JPEG artefacts, skew: classic CV should ace these"
+licence = "public domain (copyright not renewed), Digital Comic Museum mirror"
+query = "collection:(DCMGoldenAge) AND mediatype:(texts)"
+formats = [".cbz"]
+count = 6
+max_mb = 120
+
+[[search]]
+group = "golden-age-pdf"
+purpose = "scanned PDFs, mixed page sizes, high dpi"
+licence = "public domain (copyright not renewed)"
+query = "title:(comics) AND subject:(golden age comics) AND mediatype:(texts) AND format:(PDF)"
+formats = [".pdf"]
+count = 2
+max_mb = 150
+
+[[search]]
+group = "modern"
+purpose = "modern full-colour full-bleed layouts, where classic CV is expected to struggle"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+query = "(title:(\"Pepper&Carrot\") OR title:(\"Pepper and Carrot\")) AND mediatype:(texts OR image)"
+formats = [".cbz", ".pdf", ".zip"]
+count = 3
+max_mb = 200
