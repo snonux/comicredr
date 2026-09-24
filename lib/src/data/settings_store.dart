@@ -11,6 +11,10 @@ class SettingsStore {
   /// Guided view shows each page whole before and after its panels.
   static const wholePageSteps = 'guided.wholePageSteps';
 
+  /// The night filter (`i`) and auto-trim (`t`), kept across restarts.
+  static const night = 'reader.night';
+  static const autoTrim = 'reader.autoTrim';
+
   /// Write each comic's sidecar beside it (M8). On by default; reading
   /// sidecars that are there already never stops.
   static const writeSidecars = 'sidecars.write';

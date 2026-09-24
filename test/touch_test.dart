@@ -42,7 +42,7 @@ void main() {
     final path = writeBook(tmp, 'Touch.cbz', 6);
     await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
     await settle(tester);
-    expect(find.byType(RawImage), findsOneWidget);
+    expect(find.byKey(const Key('page-image')), findsOneWidget);
     return c;
   }
 

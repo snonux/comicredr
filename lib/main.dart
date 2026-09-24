@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'src/app.dart';
+import 'src/input/keys_file.dart';
 import 'src/library/providers.dart';
+import 'src/providers.dart';
 
 /// `comicredr [book]` opens the book straight away.
 /// `comicredr --add-root ~/Comics` adds a folder to the library first.
@@ -19,9 +21,13 @@ Future<void> main(List<String> args) async {
     }
   }
   final cache = await getApplicationCacheDirectory();
+  final keys = await loadKeymap();
   runApp(
     ProviderScope(
-      overrides: [coverDirProvider.overrideWithValue('${cache.path}/covers')],
+      overrides: [
+        coverDirProvider.overrideWithValue('${cache.path}/covers'),
+        keymapLoadProvider.overrideWithValue(keys),
+      ],
       child: ComicRedrApp(initialPath: book, addRoots: roots),
     ),
   );

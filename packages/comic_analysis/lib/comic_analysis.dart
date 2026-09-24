@@ -9,3 +9,4 @@ export 'src/gate.dart';
 export 'src/model_io.dart';
 export 'src/panel.dart';
 export 'src/reading_order.dart';
+export 'src/trim.dart';
