@@ -31,16 +31,25 @@ class Thumbnails {
   final ComicDocument doc;
   final String dir;
 
-  /// Thumbnails are this many pixels wide; tiles decode them smaller still.
+  /// Thumbnails are this many pixels wide unless a bigger size is asked
+  /// for; tiles decode them smaller still.
   final int width;
   final int parallel;
 
-  /// Requests not started yet, oldest first: the newest is made next.
-  final _waiting = <int, Completer<String?>>{};
-  final _running = <int, Future<String?>>{};
+  /// The sizes made for zoomed-in grid tiles, each kept in its own folder.
+  static const sizes = [256, 512, 1024];
 
-  /// Pages whose thumbnail is known to be on disk.
-  final _known = <int>{};
+  /// The size for a tile [px] pixels wide: the smallest that needs
+  /// enlarging by no more than a third, capped at the largest. The default
+  /// grid on a phone (330 px tiles) stays on the 256 px thumbnails.
+  static int sizeFor(double px) => sizes.firstWhere((w) => w * 1.3 >= px, orElse: () => sizes.last);
+
+  /// Requests not started yet, oldest first: the newest is made next.
+  final _waiting = <(int, int), Completer<String?>>{};
+  final _running = <(int, int), Future<String?>>{};
+
+  /// Pages and sizes whose thumbnail is known to be on disk.
+  final _known = <(int, int)>{};
   int _busy = 0;
   bool _closed = false;
 
@@ -48,16 +57,27 @@ class Thumbnails {
   /// the preview that asked has moved on.
   static const _maxWaiting = 64;
 
-  String pathOf(int index) => '$dir/${index + 1}.jpg';
+  /// The file of page [index]'s thumbnail [size] pixels wide: the default
+  /// size beside the others, bigger ones in a folder per size.
+  String pathOf(int index, [int? size]) {
+    final w = size ?? width;
+    return w == width ? '$dir/${index + 1}.jpg' : '$dir/w$w/${index + 1}.jpg';
+  }
 
-  /// The file of page [index]'s thumbnail, made first if need be; null when
-  /// the page cannot be read or nothing wants it any more.
-  Future<String?> get(int index) {
-    if (_known.contains(index)) return Future.value(pathOf(index));
-    if (_running[index] case final running?) return running;
+  /// Whether page [index]'s thumbnail is on disk at [size], as far as this
+  /// book has seen.
+  bool has(int index, [int? size]) => _known.contains((index, size ?? width));
+
+  /// The file of page [index]'s thumbnail, [size] pixels wide (the default
+  /// size when null), made first if need be; null when the page cannot be
+  /// read or nothing wants it any more.
+  Future<String?> get(int index, {int? size}) {
+    final key = (index, size ?? width);
+    if (_known.contains(key)) return Future.value(pathOf(index, key.$2));
+    if (_running[key] case final running?) return running;
     // Asked for again: it moves to the newest end.
-    final c = _waiting.remove(index) ?? Completer<String?>();
-    _waiting[index] = c;
+    final c = _waiting.remove(key) ?? Completer<String?>();
+    _waiting[key] = c;
     while (_waiting.length > _maxWaiting) {
       _waiting.remove(_waiting.keys.first)!.complete(null);
     }
@@ -67,7 +87,7 @@ class Thumbnails {
 
   /// Page [index] is no longer shown (its tile scrolled away): forget it
   /// unless it is already being made.
-  void cancel(int index) => _waiting.remove(index)?.complete(null);
+  void cancel(int index, {int? size}) => _waiting.remove((index, size ?? width))?.complete(null);
 
   /// The book closed: nothing more is made.
   void close() {
@@ -80,33 +100,34 @@ class Thumbnails {
 
   void _pump() {
     while (!_closed && _busy < parallel && _waiting.isNotEmpty) {
-      final index = _waiting.keys.last;
-      final c = _waiting.remove(index)!;
+      final key = _waiting.keys.last;
+      final c = _waiting.remove(key)!;
       _busy++;
-      final made = _make(index).whenComplete(() {
+      final made = _make(key).whenComplete(() {
         _busy--;
-        _running.remove(index);
+        _running.remove(key);
         _pump();
       });
-      _running[index] = made;
+      _running[key] = made;
       c.complete(made);
     }
   }
 
-  Future<String?> _make(int index) async {
-    final path = pathOf(index);
+  Future<String?> _make((int, int) key) async {
+    final (index, w) = key;
+    final path = pathOf(index, w);
     try {
       if (await File(path).exists()) {
-        _known.add(index);
+        _known.add(key);
         return path;
       }
-      final jpeg = await thumbnailJpeg(doc, index, width);
+      final jpeg = await thumbnailJpeg(doc, index, w);
       if (_closed) return null;
-      await Directory(dir).create(recursive: true);
+      await File(path).parent.create(recursive: true);
       // Written aside and renamed, so a half-written thumbnail never shows.
       final tmp = await File('$path.$pid.tmp').writeAsBytes(jpeg, flush: true);
       await tmp.rename(path);
-      _known.add(index);
+      _known.add(key);
       return path;
     } catch (e) {
       if (!_closed) debugPrint('Could not make a thumbnail of page ${index + 1}: $e');

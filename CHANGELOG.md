@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Zoom the page grid:** in the `p` grid, `+` and `-` (or Ctrl and the
+  scroll wheel, a pinch, or the header's buttons) go from many small
+  thumbnails to one page a row, keeping the selected page in view. Bigger
+  tiles get sharper thumbnails (512 or 1024 px, made when first needed),
+  and the size is remembered.
+
 - **Comic details (`I`, the info button on the status line, or Details
   in the library):** the file (format as its bytes say, size, content key,
   sidecar), the pages (pixel sizes, wide spreads, what they are stored as,
