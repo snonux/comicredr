@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
+import '../data/settings_store.dart';
 import '../providers.dart';
 import '../reader/comic_details.dart';
 import '../reader/bookmark_list.dart';
@@ -22,6 +23,7 @@ import 'library_store.dart';
 import 'providers.dart';
 import 'scanner.dart';
 import 'settings_dialog.dart';
+import 'shuffle.dart';
 
 enum LibraryTab {
   reading('Reading', Icons.auto_stories),
@@ -135,6 +137,45 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   double _viewport = 600;
   List<_Item> _items = const [];
 
+  /// Shuffle on the Folders tab (`S`): random pages instead of covers,
+  /// picked by [_seed].
+  bool _shuffle = false;
+  int _seed = 0;
+  final _random = math.Random();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      ref
+          .read(settingsStoreProvider)
+          .loadBool(SettingsStore.shuffle)
+          .then((on) {
+            if (on == true && mounted) setState(() => _shuffle = true);
+          })
+          .catchError((Object e) => debugPrint('Could not read the shuffle setting: $e')),
+    );
+    _reshuffle();
+  }
+
+  bool get shuffle => _shuffle;
+
+  /// Turns shuffle on or off, remembered for the next start. On picks new
+  /// pages.
+  void setShuffle(bool on) {
+    if (on) _reshuffle();
+    setState(() => _shuffle = on);
+    unawaited(
+      ref
+          .read(settingsStoreProvider)
+          .saveBool(SettingsStore.shuffle, on)
+          .catchError((Object e) => debugPrint('Could not save the shuffle setting: $e')),
+    );
+  }
+
+  /// New random pages for every tile.
+  void _reshuffle() => _seed = _random.nextInt(1 << 32);
+
   @override
   void dispose() {
     _search.dispose();
@@ -211,6 +252,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         back();
       case ReaderIntent.up:
         _folderUp();
+      case ReaderIntent.toggleShuffle when tab == LibraryTab.folders:
+        setShuffle(!_shuffle);
+      case ReaderIntent.reshuffle when tab == LibraryTab.folders && _shuffle:
+        setState(_reshuffle);
       case ReaderIntent.resetBook:
         if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
           unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
@@ -290,6 +335,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       _autoFirst = false;
       _folder = dir;
       _folderRoot = dir == null ? null : root;
+      // Each folder walked into gets pages of its own.
+      _reshuffle();
       _selected = null;
       _detail = false;
     });
@@ -587,7 +634,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   Widget _header(BuildContext context, List<LibraryBook> books) {
     final theme = Theme.of(context);
     final series = _series == null ? null : _groups(books).where((s) => s.id == _series).firstOrNull;
-    return Padding(
+    // A phone's header is tight: smaller buttons, and gs alone reshuffles.
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final row = Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
       child: Row(
         children: [
@@ -642,6 +691,22 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Add a folder to the library (A)',
             onPressed: widget.onAddRoot,
           ),
+          if (tab == LibraryTab.folders) ...[
+            IconButton(
+              key: const Key('shuffle'),
+              icon: Icon(_shuffle ? Icons.shuffle_on_outlined : Icons.shuffle),
+              isSelected: _shuffle,
+              tooltip: _shuffle ? 'Show covers again (S)' : 'Shuffle: a random page of each comic (S)',
+              onPressed: () => setShuffle(!_shuffle),
+            ),
+            if (_shuffle && !narrow)
+              IconButton(
+                key: const Key('reshuffle'),
+                icon: const Icon(Icons.casino_outlined),
+                tooltip: 'Other random pages (gs)',
+                onPressed: () => setState(_reshuffle),
+              ),
+          ],
           if (tab == LibraryTab.folders)
             IconButton(
               key: const Key('rescan'),
@@ -662,6 +727,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           ),
         ],
       ),
+    );
+    if (!narrow) return row;
+    return IconButtonTheme(
+      data: IconButtonThemeData(style: IconButton.styleFrom(visualDensity: VisualDensity.compact)),
+      child: row,
     );
   }
 
@@ -835,6 +905,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         final extent = itemW * 1.5 + 48;
         _rowExtent = extent + gap;
         _viewport = box.maxHeight;
+        final shuffle = _shuffle && tab == LibraryTab.folders;
         return GridView.builder(
           key: const Key('grid'),
           controller: _scroll,
@@ -850,6 +921,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             final item = _items[i];
             return _CoverCard(
               item: item,
+              shufflePage: shuffle && item is _BookItem ? shufflePage(item.book.key, item.book.pageCount, _seed) : null,
               selected: item.id == _selected,
               onTap: () => _tap(item, wide: wide),
               onLongPress: () => setState(() {
@@ -892,9 +964,18 @@ class CoverImage extends StatelessWidget {
 }
 
 class _CoverCard extends StatelessWidget {
-  const _CoverCard({required this.item, required this.selected, required this.onTap, required this.onLongPress});
+  const _CoverCard({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+    required this.onLongPress,
+    this.shufflePage,
+  });
 
   final _Item item;
+
+  /// In shuffle, the page the tile shows instead of the cover.
+  final int? shufflePage;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
@@ -934,7 +1015,14 @@ class _CoverCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    CoverImage(bookKey: book.key),
+                    if (shufflePage case final page?)
+                      ShuffledPage(
+                        book: book,
+                        page: page,
+                        cover: CoverImage(bookKey: book.key),
+                      )
+                    else
+                      CoverImage(bookKey: book.key),
                     if (item is _FolderItem)
                       Positioned(
                         left: 6,
