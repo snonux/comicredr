@@ -9,5 +9,5 @@ Icon=org.snonux.comicredr
 Terminal=false
 StartupWMClass=org.snonux.comicredr
 Categories=Graphics;Viewer;
-MimeType=application/vnd.comicbook+zip;application/x-cbz;application/x-cbt;application/epub+zip;application/pdf;image/png;image/jpeg;image/webp;
+MimeType=application/vnd.comicbook+zip;application/x-cbz;application/x-cbt;application/epub+zip;application/pdf;image/png;image/jpeg;image/webp;inode/directory;
 Keywords=comic;comics;cbz;cbt;epub;pdf;reader;guided;panel;

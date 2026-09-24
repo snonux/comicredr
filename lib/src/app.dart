@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:ui' as ui;
 
 import 'package:desktop_drop/desktop_drop.dart';
@@ -16,6 +17,7 @@ import 'input/touch_providers.dart';
 import 'input/touch_zones.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
+import 'library/scanner.dart';
 import 'providers.dart';
 import 'reader/comic_details.dart';
 import 'reader/guided.dart';
@@ -207,8 +209,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     }
-    final path = widget.initialPath;
-    if (path != null) unawaited(ref.read(readerProvider.notifier).open(path));
     final store = ref.read(libraryStoreProvider);
     try {
       for (final root in widget.addRoots) {
@@ -217,6 +217,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (e) {
       debugPrint('Could not add a library folder: $e');
     }
+    final path = widget.initialPath;
+    // Before the scan, so a folder it adds to the library is scanned too.
+    if (path != null) await _openPath(path, scan: false);
     // Listens for the scan's end, so it is there before the first scan.
     ref.read(libraryDetectionProvider);
     await _rescan();
@@ -244,6 +247,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _window.setMethodCallHandler(null);
     unawaited(_watch?.cancel());
     super.dispose();
+  }
+
+  /// Opens [path] from the command line, Open With, a drop or `O`: a book
+  /// in the reader, or a folder of comics on the library's Folders tab,
+  /// walked to that folder. A folder outside the library is added to it
+  /// first. A folder of page images is a book, as the library counts it.
+  Future<void> _openPath(String path, {bool scan = true}) async {
+    final dir = p.normalize(p.absolute(path));
+    if (await FileSystemEntity.isDirectory(dir)) {
+      final found = await Isolate.run(() => findBooks(dir));
+      if (found.isNotEmpty && !(found.length == 1 && found.single.relPath.isEmpty)) {
+        await _browse(dir, scan: scan);
+        return;
+      }
+    }
+    // Not awaited: the library scan need not wait for the book.
+    unawaited(ref.read(readerProvider.notifier).open(path));
+  }
+
+  Future<void> _browse(String dir, {required bool scan}) async {
+    final store = ref.read(libraryStoreProvider);
+    // The innermost library folder holding it, if one does.
+    String? root;
+    for (final r in await store.roots()) {
+      if ((r.path == dir || p.isWithin(r.path, dir)) && (root == null || r.path.length > root.length)) root = r.path;
+    }
+    if (root == null) {
+      await store.addRoot(dir);
+      root = dir;
+      if (scan) unawaited(_rescan());
+    }
+    if (ref.read(readerProvider).book != null) await ref.read(readerProvider.notifier).close();
+    _library.currentState?.showFolder(dir, root: root);
   }
 
   Future<void> _addRoot() async {
@@ -427,7 +463,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _picking = true;
     try {
       final dir = await getDirectoryPath(confirmButtonText: 'Open as a book');
-      if (dir != null) await ref.read(readerProvider.notifier).open(dir);
+      if (dir != null) await _openPath(dir);
     } finally {
       _picking = false;
     }
@@ -588,7 +624,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           backgroundColor: Colors.black,
           body: DropTarget(
             onDragDone: (d) {
-              if (d.files.isNotEmpty) ref.read(readerProvider.notifier).open(d.files.first.path);
+              if (d.files.isNotEmpty) unawaited(_openPath(d.files.first.path));
             },
             child: Stack(
               children: [

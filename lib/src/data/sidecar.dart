@@ -63,7 +63,7 @@ bool adoptLegacySidecar(String sidecar, {required String device, String? appVers
 /// every sidecar in one folder, [dir], instead of beside the comics (the
 /// Settings choice). The folder is laid out like the library, as "Export
 /// sidecars" lays it out: `Comics/Marvel/Daredevil 181.cbz` under the root
-/// `/home/me/Comics` gets `dir/Comics/Marvel/Daredevil 181.cbz.crdb`. Each
+/// `/home/me/Comics` gets `dir/Comics/Marvel/.Daredevil 181.cbz.crdb`. Each
 /// root is named by its folder's name, so a laptop and a phone with their
 /// comics in different places still agree; two roots with the same name
 /// get their id added. A book in no root (one opened from anywhere) goes

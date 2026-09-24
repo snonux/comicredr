@@ -66,6 +66,11 @@ void main() {
     write('Shelf/Indie/issue 2.pdf', '%PDF'.codeUnits);
     expect(isFolderBook('${tmp.path}/Shelf'), isFalse, reason: 'a comic file anywhere under it');
 
+    write('Collection/cover.jpg', page(10, 10));
+    write('Collection/Issue 1/1.png', page(10, 10));
+    write('Collection/Issue 2/1.png', page(10, 10));
+    expect(isFolderBook('${tmp.path}/Collection'), isFalse, reason: 'a cover.jpg beside two image-folder comics');
+
     write('Hidden/p.png', page(10, 10));
     write('Hidden/.trash/old.cbz', [0]);
     expect(isFolderBook('${tmp.path}/Hidden'), isTrue, reason: 'hidden files are not books');

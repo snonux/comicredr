@@ -78,8 +78,14 @@ build internals, test scripts, detector work and conventions here.
   holds page images directly and no comic file anywhere under it
   (`isFolderBook`); otherwise each loose PNG/JPEG/WebP in it is its own
   book. GIF and BMP are only ever pages. The launcher lists the image types
-  for Open With; `linux/packaging/keep-viewer.sh` pins the previous default
-  viewer when installing into `~/.local` would otherwise take it over.
+  and `inode/directory` for Open With; `linux/packaging/keep-viewer.sh`
+  pins the previous default viewer and file manager when installing into
+  `~/.local` would otherwise take them over.
+- A folder given on the command line, by Open With, a drop or `O` opens as
+  a book when `findBooks` sees it as one folder book; otherwise, when
+  books are under it, the Folders tab opens at it (`HomeScreen._openPath`),
+  adding it as a library folder unless one already holds it. `--add-root`
+  only adds, so the e2e scripts start on the usual tab.
 - The library's first scan reads each book once in the background (about a
   third of a second a book); later starts only compare sizes and dates. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
@@ -240,13 +246,15 @@ tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with ke
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
 tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3
-tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart
+tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart, grid zoom with + and Ctrl+wheel kept across a restart
 tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
 tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
 tool/e2e_hidden_sidecars.sh   # sidecars written hidden; a fresh install renames old visible ones and merges a pair, keeping bookmarks and position; makes its own books
 tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
+tool/e2e_open_folder.sh       # comicredr FOLDER: inside the library, outside it (added), a folder book and a CBZ still read; Backspace up
+tool/e2e_folders_live.sh      # Folders tab open while comics, sub-folders and the shown folder are added, moved and deleted
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
