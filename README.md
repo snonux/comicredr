@@ -11,6 +11,11 @@ decision here.
 
 ## Screenshots
 
+![The library: series of covers, with the selected book's details beside them](docs/screenshots/library.webp)
+
+The library: every book in your comics folders as a cover, grouped by
+series, with the selected book's details beside them.
+
 | | |
 |---|---|
 | ![A page of All Top Comics in single-page view](docs/screenshots/page.webp) | ![A two-page spread of Pepper&Carrot](docs/screenshots/spread.webp) |
@@ -20,9 +25,10 @@ decision here.
 | ![Guided view on a painted modern page](docs/screenshots/guided-painted.webp) | ![The night filter on a page](docs/screenshots/night.webp) |
 | Guided view on painted art with no gutters | Night filter (`i`) |
 
-Taken from the release build on Linux. The books are *All Top Comics* 6
-(Norlen, 1959; public domain, its copyright was not renewed; from the
-Digital Comic Museum's archive.org mirror) and
+Taken from the release build on Linux. The comics are golden- and
+silver-age books that are in the public domain because their copyright
+was not renewed, from the Digital Comic Museum's archive.org mirror (the
+reader screenshots show *All Top Comics* 6, Norlen, 1959), and
 [Pepper&Carrot](https://www.peppercarrot.com) episode 6, *The Potion
 Contest*, by David Revoy, licensed
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
@@ -64,6 +70,10 @@ and PDF files in Files. Run `make install` again after `git pull && make`
 to update, and `make uninstall` to remove it; your reading progress and the
 detector model stay. For a system-wide install, run `make` first and then
 `sudo make install PREFIX=/usr/local`.
+
+`comicredr --version` (or `make version` in the checkout) prints the
+version, which the library's status line and the `?` overlay also show. What each
+version brought is in [CHANGELOG.md](CHANGELOG.md).
 
 `make dev` starts a debug build with hot reload (`r` in the terminal),
 `make test` runs the analyzer and every test, and `make help` lists all
@@ -316,6 +326,7 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done   # make test runs all three
+make version                     # the version in pubspec.yaml; bump lib/src/version.dart and CHANGELOG.md with it
 make icons                       # re-render linux/packaging/icons/*.png after editing the SVG
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/

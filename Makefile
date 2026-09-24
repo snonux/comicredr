@@ -10,6 +10,7 @@
 #   make analyze          flutter analyze only
 #   make icons            re-render the PNG icons from the SVG
 #   make clean            flutter clean
+#   make version          print the app version from pubspec.yaml
 #
 # PREFIX=/usr/local (with sudo) installs system-wide; DESTDIR stages a
 # package build.
@@ -31,13 +32,18 @@ APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 ICON_SIZES := 16 24 32 48 64 128 256 512
 MODELDIR ?= $(HOME)/.local/share/$(APP_ID)/models
+# pubspec.yaml's version without the +build suffix: 0.1.0+1 gives 0.1.0.
+VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
 
-.PHONY: all build deps run dev test analyze install uninstall install-model icons clean help
+.PHONY: all build deps run dev test analyze install uninstall install-model icons clean help version
 
 all: build
 
 help:
-	@sed -n '2,16p' Makefile | sed 's/^# \{0,1\}//'
+	@sed -n '2,17p' Makefile | sed 's/^# \{0,1\}//'
+
+version:
+	@echo $(VERSION)
 
 deps:
 	$(FLUTTER) pub get

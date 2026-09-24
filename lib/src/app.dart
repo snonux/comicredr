@@ -19,6 +19,7 @@ import 'reader/guided.dart';
 import 'reader/layout.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
+import 'version.dart';
 
 class ComicRedrApp extends StatelessWidget {
   const ComicRedrApp({super.key, this.initialPath, this.addRoots = const []});
@@ -417,26 +418,36 @@ class KeymapOverlay extends StatelessWidget {
     return Positioned.fill(
       child: ColoredBox(
         color: theme.colorScheme.surface.withValues(alpha: 0.96),
-        child: ListView(
-          padding: const EdgeInsets.all(24),
+        child: Stack(
           children: [
-            for (final MapEntry(key: intent, value: bindings) in byIntent.entries)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 200,
-                      child: Text(
-                        bindings.map(Keymap.describe).join('  '),
-                        style: const TextStyle(fontFamily: 'monospace'),
-                      ),
+            ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                for (final MapEntry(key: intent, value: bindings) in byIntent.entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 200,
+                          child: Text(
+                            bindings.map(Keymap.describe).join('  '),
+                            style: const TextStyle(fontFamily: 'monospace'),
+                          ),
+                        ),
+                        Expanded(child: Text(intent.description)),
+                      ],
                     ),
-                    Expanded(child: Text(intent.description)),
-                  ],
-                ),
-              ),
+                  ),
+              ],
+            ),
+            // In a corner, so the keymap list keeps its whole height.
+            Positioned(
+              right: 24,
+              bottom: 16,
+              child: Text('ComicRedr $appVersion', key: const Key('keymap-version'), style: theme.textTheme.titleSmall),
+            ),
           ],
         ),
       ),
