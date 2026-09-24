@@ -48,11 +48,19 @@ class _SeriesItem extends _Item {
   String get id => 's:${series.id}';
 }
 
+class _FolderItem extends _Item {
+  _FolderItem(this.folder);
+  final LibraryFolder folder;
+  @override
+  String get id => 'f:${folder.path}';
+}
+
 /// The library (design plan sections 4 and 8): what you are reading, your
 /// series, every book, and the folders they come from, as cover grids with a
 /// search field. Keys and touch drive it through the same intents as the
 /// reader: `hjkl` and the arrows move between covers, Enter opens, `/`
-/// searches, Tab changes tab, Esc backs out.
+/// searches, Tab changes tab, Esc backs out. The Folders tab walks the
+/// folders on disk: Enter goes into a folder, Esc back up.
 ///
 /// Layout follows the plan's breakpoints: bottom navigation under 600 dp, a
 /// navigation rail from 600, and a detail pane beside the grid over 1000.
@@ -88,6 +96,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   LibraryTab? _tab;
   int? _series; // The series drilled into on the Series tab.
   String? _seriesSelected; // The series to select again when backing out.
+  String? _folder; // The folder walked into on the Folders tab, null at the top.
+  String? _folderRoot; // The library folder it is under.
   String _query = '';
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
@@ -112,6 +122,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   LibraryTab get tab => _tab ?? LibraryTab.series;
 
   void _setTab(LibraryTab t) => setState(() {
+    // The Folders tab keeps its place; choosing it again goes to the top.
+    if (t == LibraryTab.folders && tab == LibraryTab.folders) _folder = _folderRoot = null;
     _tab = t;
     _series = null;
     _selected = null;
@@ -168,7 +180,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 
   /// Esc: closes the detail page, then clears the search, then leaves the
-  /// series. False when there is nothing left to back out of.
+  /// series or goes up a folder. False when there is nothing left to back
+  /// out of.
   bool back() {
     if (_detail) {
       setState(() => _detail = false);
@@ -181,10 +194,30 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         _selected = _seriesSelected;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+    } else if (tab == LibraryTab.folders && _folder != null) {
+      if (_folder == _folderRoot) {
+        final from = _folder!;
+        _openFolder(null);
+        setState(() => _selected = 'f:$from');
+        WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+      } else {
+        _upTo(p.dirname(_folder!));
+      }
     } else {
       return false;
     }
     return true;
+  }
+
+  /// Walks to [dir] under the library folder [root]; null goes to the top.
+  void _openFolder(String? dir, {String? root}) {
+    setState(() {
+      _folder = dir;
+      _folderRoot = dir == null ? null : root;
+      _selected = null;
+      _detail = false;
+    });
+    if (_scroll.hasClients) _scroll.jumpTo(0);
   }
 
   void _select(int i) {
@@ -213,6 +246,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           _selected = _BookItem(series.next).id;
         });
         WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+      case _FolderItem(:final folder):
+        _openFolder(folder.path, root: folder.root?.path ?? _folderRoot);
+        // Select the first thing inside, once the grid has it.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _selected == null && _items.isNotEmpty) setState(() => _selected = _items.first.id);
+        });
       case _BookItem(:final book):
         read(book);
     }
@@ -230,7 +269,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       });
       return;
     }
-    if (_selected == item.id || item is _SeriesItem) {
+    if (_selected == item.id || item is _SeriesItem || item is _FolderItem) {
       _activate(item);
     } else {
       setState(() => _selected = item.id);
@@ -242,9 +281,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       tab == LibraryTab.collections ? collectionGroups(books) : LibrarySeries.group(books);
 
   /// Tabs that are lists of their own rather than cover grids.
-  bool get _listTab => tab == LibraryTab.folders || tab == LibraryTab.history;
+  bool get _listTab => tab == LibraryTab.history;
 
-  List<_Item> _itemsFor(List<LibraryBook> books) {
+  List<_Item> _itemsFor(List<LibraryBook> books, List<RootInfo> roots) {
     final q = _query.trim();
     switch (tab) {
       case LibraryTab.reading:
@@ -268,7 +307,21 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             for (final b in s.books)
               if (b.matches(q)) _BookItem(b),
         ];
-      case LibraryTab.folders || LibraryTab.history:
+      case LibraryTab.folders:
+        if (_folder == null) {
+          return [
+            for (final f in LibraryFolder.roots(roots, books))
+              if (f.matches(q)) _FolderItem(f),
+          ];
+        }
+        final (:folders, books: here) = LibraryFolder.children(_folder!, books);
+        return [
+          for (final f in folders)
+            if (f.matches(q)) _FolderItem(f),
+          for (final b in here)
+            if (b.matches(q)) _BookItem(b),
+        ];
+      case LibraryTab.history:
         return const [];
     }
   }
@@ -279,7 +332,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     final roots = ref.watch(rootsProvider).value;
     // Open on what you are reading when there is something; else the series.
     _tab ??= roots == null ? null : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.series);
-    _items = _itemsFor(books);
+    // A library folder taken out of the library while we are in it.
+    if (_folderRoot != null && roots != null && !roots.any((r) => r.path == _folderRoot)) {
+      _folder = _folderRoot = null;
+    }
+    _items = _itemsFor(books, roots ?? const []);
     if (_selected != null && !_items.any((it) => it.id == _selected)) _selected = null;
 
     final empty = roots != null && roots.isEmpty && books.isEmpty;
@@ -287,24 +344,27 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       builder: (context, box) {
         final wide = box.maxWidth >= 1000;
         final rail = box.maxWidth >= 600;
-        final selectedBook = switch (_items.where((it) => it.id == _selected).firstOrNull) {
-          _BookItem(:final book) => book,
-          _ => null,
-        };
+        final selectedItem = _items.where((it) => it.id == _selected).firstOrNull;
         final Widget body = empty
             ? _EmptyLibrary(
                 onAddRoot: widget.onAddRoot,
                 onOpenFile: widget.onOpenFile,
                 onOpenFolder: widget.onOpenFolder,
               )
-            : _detail && selectedBook != null && !wide
-            ? BookDetail(book: selectedBook, onRead: read, onBack: back)
+            : _detail && !wide && selectedItem is _BookItem
+            ? BookDetail(book: selectedItem.book, onRead: read, onBack: back)
+            : _detail && !wide && selectedItem is _FolderItem
+            ? _FolderDetail(
+                folder: selectedItem.folder,
+                onOpen: () => _activate(selectedItem),
+                onRead: read,
+                onBack: back,
+              )
             : Column(
                 children: [
                   _header(context, books),
                   Expanded(
                     child: switch (tab) {
-                      LibraryTab.folders => _Folders(onAddRoot: widget.onAddRoot),
                       LibraryTab.history => _History(books: books, query: _query.trim(), onRead: read),
                       _ => _grid(context, wide),
                     },
@@ -313,9 +373,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               );
         final Widget? pane = !wide || empty || _listTab
             ? null
-            : switch (_items.where((it) => it.id == _selected).firstOrNull) {
+            : switch (selectedItem) {
                 _BookItem(:final book) => BookDetail(book: book, onRead: read),
                 _SeriesItem(:final series) => _SeriesDetail(series: series, onRead: read),
+                _FolderItem(:final folder) => _FolderDetail(
+                  folder: folder,
+                  onOpen: () => _activate(selectedItem),
+                  onRead: read,
+                ),
                 null => null,
               };
         final content = Column(
@@ -339,7 +404,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ],
               ),
             ),
-            _LibraryStatus(books: books, pending: widget.pending, onFailures: () => _setTab(LibraryTab.folders)),
+            _LibraryStatus(books: books, pending: widget.pending, onFailures: () => _showFailures(context)),
           ],
         );
         return Scaffold(
@@ -375,35 +440,40 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               child: Text(series.name, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 12),
+          ] else if (tab == LibraryTab.folders && _folder != null) ...[
+            IconButton(
+              key: const Key('folderUp'),
+              icon: const Icon(Icons.arrow_upward),
+              tooltip: 'Up a folder (Esc)',
+              onPressed: back,
+            ),
+            Flexible(flex: 2, child: _breadcrumb(theme)),
+            const SizedBox(width: 12),
           ] else ...[
             Text(tab.label, style: theme.textTheme.titleLarge),
             const SizedBox(width: 16),
           ],
           Expanded(
-            child: tab == LibraryTab.folders
-                ? const SizedBox()
-                : TextField(
-                    key: const Key('search'),
-                    controller: _search,
-                    focusNode: _searchFocus,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.search),
-                      hintText: 'Search titles, series, creators (/)',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(icon: const Icon(Icons.clear), onPressed: () => back()),
-                    ),
-                    onChanged: (q) => setState(() {
-                      _query = q;
-                      _selected = null;
-                    }),
-                    onSubmitted: (_) {
-                      widget.keysFocus?.requestFocus();
-                      if (_items.isNotEmpty) _select(0);
-                    },
-                  ),
+            child: TextField(
+              key: const Key('search'),
+              controller: _search,
+              focusNode: _searchFocus,
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Search titles, series, creators (/)',
+                border: const OutlineInputBorder(),
+                suffixIcon: _query.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () => back()),
+              ),
+              onChanged: (q) => setState(() {
+                _query = q;
+                _selected = null;
+              }),
+              onSubmitted: (_) {
+                widget.keysFocus?.requestFocus();
+                if (_items.isNotEmpty) _select(0);
+              },
+            ),
           ),
           IconButton(
             key: const Key('addRoot'),
@@ -411,6 +481,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Add a folder to the library (A)',
             onPressed: widget.onAddRoot,
           ),
+          if (tab == LibraryTab.folders)
+            IconButton(
+              key: const Key('rescan'),
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Rescan the library folders (R)',
+              onPressed: () => ref.read(scannerProvider).scan(),
+            ),
           IconButton(
             icon: const Icon(Icons.file_open_outlined),
             tooltip: 'Open a comic without adding it (o)',
@@ -427,10 +504,77 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// Where you are on the Folders tab: the library folder, then each
+  /// folder down to this one. A tap on one goes there.
+  Widget _breadcrumb(ThemeData theme) {
+    final root = _folderRoot!;
+    final crumbs = [
+      root,
+      for (final part in p.split(p.relative(_folder!, from: root)))
+        if (part != '.') part,
+    ];
+    final paths = <String>[];
+    for (final (i, c) in crumbs.indexed) {
+      paths.add(i == 0 ? c : p.join(paths.last, c));
+    }
+    return SingleChildScrollView(
+      key: const Key('breadcrumb'),
+      scrollDirection: Axis.horizontal,
+      reverse: true, // The folder you are in stays in view.
+      child: Row(
+        children: [
+          TextButton(onPressed: () => _openFolder(null), child: const Text('Folders')),
+          for (final (i, path) in paths.indexed) ...[
+            const Icon(Icons.chevron_right, size: 18),
+            i == paths.length - 1
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(p.basename(path), style: theme.textTheme.titleLarge),
+                  )
+                : TextButton(onPressed: () => _upTo(path), child: Text(p.basename(path))),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Goes up to [dir], one of the folders above this one, with the folder
+  /// on the way back down selected.
+  void _upTo(String dir) {
+    final from = p.join(dir, p.split(p.relative(_folder!, from: dir)).first);
+    _openFolder(dir, root: _folderRoot);
+    setState(() => _selected = 'f:$from');
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+  }
+
+  /// The files the last scan could not read, and why.
+  void _showFailures(BuildContext context) {
+    final failed = ref.read(scanStatusProvider).value?.failed ?? const [];
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Could not read'),
+        content: SizedBox(
+          width: 520,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final (path, why) in failed)
+                ListTile(dense: true, title: Text(p.basename(path)), subtitle: Text('$why\n$path')),
+            ],
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+
   Widget _grid(BuildContext context, bool wide) {
     if (_items.isEmpty) {
       final text = _query.isNotEmpty
           ? 'Nothing matches "$_query".'
+          : tab == LibraryTab.folders
+          ? (_folder == null ? 'No library folders yet. A adds one.' : 'No books in this folder any more.')
           : tab == LibraryTab.reading
           ? 'Books you start reading show up here.'
           : tab == LibraryTab.collections
@@ -465,7 +609,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               onTap: () => _tap(item, wide: wide),
               onLongPress: () => setState(() {
                 _selected = item.id;
-                _detail = item is _BookItem;
+                _detail = item is _BookItem || item is _FolderItem;
               }),
             );
           },
@@ -521,6 +665,7 @@ class _CoverCard extends StatelessWidget {
         '${series.books.length} books${series.read > 0 ? ' · ${series.read} read' : ''}',
         series.books.length,
       ),
+      _FolderItem(:final folder) => (folder.books.first, folder.name, _folderCount(folder), folder.books.length),
     };
     return InkWell(
       key: ValueKey(item.id),
@@ -543,6 +688,19 @@ class _CoverCard extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     CoverImage(bookKey: book.key),
+                    if (item is _FolderItem)
+                      Positioned(
+                        left: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondaryContainer,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(Icons.folder, size: 20, color: theme.colorScheme.onSecondaryContainer),
+                        ),
+                      ),
                     if (count != null)
                       Positioned(
                         right: 6,
@@ -899,54 +1057,89 @@ class _SeriesDetail extends StatelessWidget {
   }
 }
 
-class _Folders extends ConsumerWidget {
-  const _Folders({required this.onAddRoot});
+/// `12 books · 3 read` for a folder's cover.
+String _folderCount(LibraryFolder folder) {
+  final read = folder.books.where((b) => b.finished).length;
+  return '${folder.books.length} ${folder.books.length == 1 ? 'book' : 'books'}${read > 0 ? ' · $read read' : ''}';
+}
 
-  final VoidCallback onAddRoot;
+/// A folder's page: what is in it, a way in, and for a library folder a way
+/// to take it out of the library.
+class _FolderDetail extends ConsumerWidget {
+  const _FolderDetail({required this.folder, required this.onOpen, required this.onRead, this.onBack});
+
+  final LibraryFolder folder;
+  final VoidCallback onOpen;
+  final void Function(LibraryBook, {Place? at}) onRead;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final roots = ref.watch(rootsProvider).value ?? const [];
-    final status = ref.watch(scanStatusProvider).value ?? const ScanStatus();
     final theme = Theme.of(context);
+    final next = folder.books.where((b) => b.inProgress).firstOrNull;
+    final root = folder.root;
     return ListView(
-      padding: const EdgeInsets.all(12),
+      key: const Key('detail'),
+      padding: const EdgeInsets.all(16),
       children: [
-        for (final r in roots)
-          ListTile(
-            leading: const Icon(Icons.folder),
-            title: Text(r.path),
-            subtitle: Text('${r.books} books'),
-            trailing: IconButton(
-              icon: const Icon(Icons.remove_circle_outline),
-              tooltip: 'Remove from the library (the files stay)',
-              onPressed: () async {
-                await ref.read(libraryStoreProvider).removeRoot(r.id);
-              },
-            ),
+        if (onBack != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back (Esc)', onPressed: onBack),
           ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 12,
+        Center(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(width: 200, height: 300, child: CoverImage(bookKey: folder.books.first.key, width: 512)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
           children: [
-            FilledButton.icon(
-              onPressed: onAddRoot,
-              icon: const Icon(Icons.create_new_folder),
-              label: const Text('Add a folder (A)'),
-            ),
-            OutlinedButton.icon(
-              onPressed: status.running ? null : () => ref.read(scannerProvider).scan(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Rescan (R)'),
-            ),
+            const Icon(Icons.folder),
+            const SizedBox(width: 8),
+            Expanded(child: Text(folder.name, style: theme.textTheme.headlineSmall)),
           ],
         ),
-        if (status.failed.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('Could not read', style: theme.textTheme.titleMedium),
-          for (final (path, why) in status.failed)
-            ListTile(dense: true, title: Text(p.basename(path)), subtitle: Text(why)),
+        const SizedBox(height: 8),
+        Text(_folderCount(folder), style: theme.textTheme.bodyMedium),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              key: const Key('openFolder'),
+              onPressed: onOpen,
+              icon: const Icon(Icons.folder_open),
+              label: const Text('Open the folder'),
+            ),
+            if (next != null)
+              OutlinedButton.icon(
+                onPressed: () => onRead(next),
+                icon: const Icon(Icons.chrome_reader_mode),
+                label: Text('Continue ${next.name}'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text('Enter or a tap opens the folder', style: theme.textTheme.bodySmall),
+        if (root != null) ...[
+          const SizedBox(height: 20),
+          Text('A library folder', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('removeRoot'),
+              onPressed: () => ref.read(libraryStoreProvider).removeRoot(root.id),
+              icon: const Icon(Icons.remove_circle_outline),
+              label: const Text('Take out of the library (the files stay)'),
+            ),
+          ),
         ],
+        const SizedBox(height: 16),
+        SelectableText(folder.path, style: theme.textTheme.bodySmall),
       ],
     );
   }

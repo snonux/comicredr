@@ -103,7 +103,7 @@ the app only compares file sizes and dates, so a library that has not
 changed is ready at once. Files you add, rename or delete under a library
 folder show up by themselves a couple of seconds later. `R` rescans by
 hand. A file that looks like a comic but can't be read, such as a genuine
-RAR, is listed with the reason on the **Folders** tab.
+RAR, is counted on the status line; click it for the list and the reasons.
 
 Metadata comes from the `ComicInfo.xml` inside a CBZ or a folder when
 there is one, and from the file name otherwise:
@@ -111,20 +111,25 @@ there is one, and from the file name otherwise:
 `daredevil-181.cbz` all read as Daredevil, number 181. Books group into a
 series by that name, whatever folders they are in, and read in issue order.
 
-The library has four tabs: **Reading** (books you have started, the one
-you read last first), **Series**, **Books** (everything, series by series)
-and **Folders** (the folders in the library, to add, remove or rescan).
-Removing a folder leaves the files alone and keeps your reading progress
-for when they come back.
+The library has six tabs: **Reading** (books you have started, the one
+you read last first), **Series**, **Books** (everything, series by series),
+**Collections**, **History** and **Folders**. **Folders** walks your
+comics folders as they are on disk: open a library folder, then any
+sub-folder inside it, with sub-folders first and then the books in that
+folder. A breadcrumb at the top shows where you are and takes you back to
+any folder above; `Esc`, the up arrow or Android's back gesture goes up
+one folder. A folder of page images is a book here, not a folder to walk
+into. Select a library folder to take it out of the library; that leaves
+the files alone and keeps your reading progress for when they come back.
 
 | Do this | Keys | Touch or mouse |
 |---|---|---|
 | Move between covers | arrows, or `h` `j` `k` `l`; `gg` `G` for the first and last | |
-| Open a series, or read a book | `Enter` | tap a series; tap a selected book again |
+| Open a series or folder, or read a book | `Enter` | tap a series or folder; tap a selected book again |
 | See a book's details, progress and bookmarks | select it; on a narrow window `Enter` reads straight away | tap it on a narrow window, long-press anywhere |
 | Search titles, series, creators and years | `/`, type, `Enter` to go back to the covers | the search field |
 | Next / previous tab | `Tab` `Shift+Tab` | the tabs at the side or bottom |
-| Back out of the details, the search or a series | `Esc` | the back arrow |
+| Back out of the details, the search or a series, or up a folder | `Esc` | the back arrow, the breadcrumb, Android's back gesture |
 | Add a folder / rescan | `A` / `R` | the folder button, or the **Folders** tab |
 
 On a wide window the selected book or series shows beside the covers, with
