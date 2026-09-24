@@ -213,7 +213,7 @@ Future<List<String>> _folders(String root) => Isolate.run(() {
 
 Future<BookInfo> _read(String path, String coverDir) => readBookInfoInBackground(path, coverDir: coverDir);
 
-const _bookExtensions = {'.cbz', '.cbr', '.zip', '.pdf'};
+const _bookExtensions = {'.cbz', '.cbr', '.cbt', '.zip', '.epub', '.pdf'};
 
 /// Phase one for one root: every comic file under [root], and every folder
 /// that holds page images directly, with size and mtime. A folder book is
