@@ -272,6 +272,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
   final _wanted = <int>{};
   bool _detecting = false;
 
+  /// Finding panels for the open book: the library pass waits meanwhile.
+  bool get detecting => _detecting;
+
   /// Opens [path], closing any open book, and resumes where it was left, or
   /// goes to [at] when given (a bookmark picked in the library).
   Future<void> open(String path, {Place? at}) async {
@@ -330,7 +333,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       fullscreen: state.fullscreen,
       night: night,
       trim: trim,
-      panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons, value.trim)},
+      panels: {
+        for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons, value.trim),
+      },
       marks: marks,
       message: at != null
           ? 'Bookmark: page ${page + 1}${onPanel ? ', panel ${panel + 1}' : ''}'

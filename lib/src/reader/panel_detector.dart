@@ -147,24 +147,24 @@ Future<Trim> _measureOnWorker(TransferableTypedData rgba, int w, int h) =>
 
 /// The [trim] of a page, cut on whole pixels and kept within [longSide]:
 /// a source image smaller than asked for comes back at its own size.
-Future<(Uint8List, int, int, Trim)> _cropOnWorker(
-  TransferableTypedData rgba,
-  int w,
-  int h,
-  Trim trim,
-  int longSide,
-) => Isolate.run(() {
-  final (px, cw, ch, exact) = cropRgba(rgba.materialize().asUint8List(), w, h, trim);
-  if (math.max(cw, ch) <= longSide) return (px, cw, ch, exact);
-  // Rounding put a pixel over: drop it rather than scale.
-  final (fit, fw, fh, _) = cropRgba(px, cw, ch, Trim(0, 0, math.min(cw, longSide) / cw, math.min(ch, longSide) / ch));
-  return (
-    fit,
-    fw,
-    fh,
-    Trim(exact.left, exact.top, exact.left + exact.width * fw / cw, exact.top + exact.height * fh / ch),
-  );
-});
+Future<(Uint8List, int, int, Trim)> _cropOnWorker(TransferableTypedData rgba, int w, int h, Trim trim, int longSide) =>
+    Isolate.run(() {
+      final (px, cw, ch, exact) = cropRgba(rgba.materialize().asUint8List(), w, h, trim);
+      if (math.max(cw, ch) <= longSide) return (px, cw, ch, exact);
+      // Rounding put a pixel over: drop it rather than scale.
+      final (fit, fw, fh, _) = cropRgba(
+        px,
+        cw,
+        ch,
+        Trim(0, 0, math.min(cw, longSide) / cw, math.min(ch, longSide) / ch),
+      );
+      return (
+        fit,
+        fw,
+        fh,
+        Trim(exact.left, exact.top, exact.left + exact.width * fw / cw, exact.top + exact.height * fh / ch),
+      );
+    });
 
 Future<List<Panel>> _detectOnWorker(TransferableTypedData rgba, int w, int h) =>
     Isolate.run(() => detectPanels(GrayImage.fromRgba(rgba.materialize().asUint8List(), w, h)).frames);
