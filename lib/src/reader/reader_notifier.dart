@@ -281,7 +281,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// goes to [at] when given (a bookmark picked in the library).
   Future<void> open(String path, {Place? at}) async {
     state = state.copyWith(loading: true);
-    final OpenBook book;
+    OpenBook book;
     try {
       book = await openBook(path);
     } on OpenBookException catch (e) {
@@ -295,6 +295,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // The sidecar first, so what it brings (panels from the laptop, a
     // position from the phone) is in the index before the reads below.
     final side = await _orNull(() => _sidecars.attach(book.path, book.key, folder: book.folder));
+    // Titles edited in the library, some perhaps just now from the sidecar.
+    final edits = await _orNull(() => ref.read(libraryStoreProvider).edits(book.key));
+    if (edits != null) book = book.withEdits(edits);
     // A broken index must not keep a book from opening: each of these falls
     // back to nothing saved.
     final saved = await _orNull(() => _progress.load(book.key));
@@ -776,6 +779,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
       case ReaderIntent.resetBook:
+      case ReaderIntent.editBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:
         break; // Handled by the screen, or only mean something in the library.

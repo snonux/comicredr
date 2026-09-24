@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 import 'app_database.dart';
+import 'meta_edits.dart';
 
 /// The per-comic sidecar (design plan section 7): one small SQLite file
 /// beside the book holding what the app knows about it, so detection,
@@ -414,7 +415,8 @@ void writeSidecar(String path, SidecarData data, {required String device, String
 ///   vi mark a–z points at one place: the latest one set.
 /// * Each device's position is its own; the later one wins per device.
 /// * Per collection, the later of adding and taking out wins.
-/// * Book facts, overrides and the cover come from [b] when it has them.
+/// * Per metadata edit, the later one wins, an undo included (MetaEdit).
+/// * Book facts and the cover come from [b] when it has them.
 SidecarData mergeSidecars(SidecarData a, SidecarData b) {
   final analysed = <(int, String), AnalysedPage>{};
   for (final r in [...a.analysed, ...b.analysed]) {
@@ -469,7 +471,7 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
     panels: panels,
     bookmarks: bookmarks.values.toList(),
     progress: progress.values.toList(),
-    overrides: {...a.overrides, ...b.overrides},
+    overrides: mergeEdits(a.overrides, b.overrides),
     collections: collections.values.toList(),
     cover: b.cover ?? a.cover,
   );

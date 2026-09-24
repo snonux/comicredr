@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
 import '../data/app_database.dart';
+import '../data/meta_edits.dart';
 
 /// One book as the library shows it: what it is, where it is, and how far
 /// through it you are.
@@ -27,6 +28,7 @@ class LibraryBook {
     this.finished = false,
     this.readAt,
     this.collections = const [],
+    this.fromFile = const {},
   });
 
   final String key;
@@ -54,6 +56,22 @@ class LibraryBook {
 
   /// The hand-made collections the book is in, by name.
   final List<String> collections;
+
+  /// The facts edited by hand, each with what the file itself says (null
+  /// where it says nothing). The edited values are the ones above.
+  final Map<MetaField, String?> fromFile;
+
+  /// The book's value of [f] as the edit dialog shows it.
+  String? fact(MetaField f) => switch (f) {
+    MetaField.series => series,
+    MetaField.number => number,
+    MetaField.title => issueTitle,
+    MetaField.volume => volume?.toString(),
+    MetaField.year => year?.toString(),
+    MetaField.writers => writers.isEmpty ? null : writers.join(', '),
+    MetaField.artists => artists.isEmpty ? null : artists.join(', '),
+    MetaField.summary => summary,
+  };
 
   /// `Daredevil #181`, or the series alone for a book without a number.
   String get name => number == null ? series : '$series #$number';
@@ -115,10 +133,15 @@ class LibrarySeries {
     }
     return [
       for (final MapEntry(key: id, value: list) in by.entries)
-        LibrarySeries(id, list.first.series, list..sort(LibraryBook.seriesOrder)),
+        LibrarySeries(id, _name(list), list..sort(LibraryBook.seriesOrder)),
     ]..sort((a, b) => naturalCompare(seriesKey(a.name), seriesKey(b.name)));
   }
 }
+
+/// A series' name: as typed where a book's series was edited by hand, so
+/// renaming `spirit` to `The Spirit` shows, else as the first book has it.
+String _name(List<LibraryBook> books) =>
+    books.where((b) => b.fromFile.containsKey(MetaField.series)).firstOrNull?.series ?? books.first.series;
 
 /// The hand-made collections among [books], as groups the library shows
 /// like series: collections in name order, books in series order. Ids are
@@ -308,7 +331,13 @@ class LibraryStore {
   /// under the first name seen.
   Future<int> _seriesId(String name) async {
     final key = seriesKey(name);
-    final existing = await (db.select(db.seriesTable)..where((s) => s.sortName.equals(key))).getSingleOrNull();
+    // The first: two edits racing can each have made one.
+    final existing =
+        await (db.select(db.seriesTable)
+              ..where((s) => s.sortName.equals(key))
+              ..orderBy([(s) => OrderingTerm(expression: s.id)])
+              ..limit(1))
+            .getSingleOrNull();
     if (existing != null) return existing.id;
     return db.into(db.seriesTable).insert(SeriesTableCompanion.insert(name: name, sortName: key));
   }
@@ -330,28 +359,83 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
   /// Every book in the library, live: a scan adding a book or a page turn
   /// saving progress updates whoever watches.
   Stream<List<LibraryBook>> watchBooks() =>
-      _live({db.books, db.seriesTable, db.files, db.roots, db.progress, db.collectionBooks}, books);
+      _live({db.books, db.seriesTable, db.files, db.roots, db.progress, db.collectionBooks, db.overrides}, books);
 
-  Future<List<LibraryBook>> books() => db.customSelect(_booksSql).get().then((rows) => rows.map(_book).toList());
+  Future<List<LibraryBook>> books() async {
+    final rows = await db.customSelect(_booksSql).get();
+    final edits = <String, Map<MetaField, String?>>{};
+    for (final o in await db.select(db.overrides).get()) {
+      final active = activeEdits({o.field: o.value});
+      if (active.isNotEmpty) edits.putIfAbsent(o.contentKey, () => {}).addAll(active);
+    }
+    // An edited series groups with the series of that name, made here when
+    // the edit came in from another device's sidecar.
+    final names = {
+      for (final e in edits.values)
+        if (e[MetaField.series]?.trim() case final s? when s.isNotEmpty) seriesKey(s): s,
+    };
+    final ids = <String, int>{};
+    for (final MapEntry(:key, :value) in names.entries) {
+      ids[key] = await _seriesId(value);
+    }
+    return [for (final r in rows) _book(r, edits[r.read<String>('content_key')] ?? const {}, ids)];
+  }
 
-  LibraryBook _book(QueryRow r) {
+  /// Saves hand edits to the book [contentKey]'s facts. They stay in the
+  /// index and the book's sidecar, never in the comic file, and win over
+  /// what the file says until undone (MetaEdit.undo).
+  Future<void> editBook(String contentKey, Map<MetaField, MetaEdit> edits) => db.transaction(() async {
+    for (final MapEntry(key: f, value: e) in edits.entries) {
+      if (f == MetaField.series && !e.fromFile && e.value != null) await _seriesId(e.value!.trim());
+      await db
+          .into(db.overrides)
+          .insertOnConflictUpdate(OverridesCompanion.insert(contentKey: contentKey, field: f.name, value: e.encode()));
+    }
+  });
+
+  /// The hand edits in effect for [contentKey], for the reader's title.
+  Future<Map<MetaField, String?>> edits(String contentKey) async => activeEdits({
+    for (final o in await (db.select(db.overrides)..where((o) => o.contentKey.equals(contentKey))).get())
+      o.field: o.value,
+  });
+
+  LibraryBook _book(QueryRow r, Map<MetaField, String?> edits, Map<String, int> seriesIds) {
     List<String> list(String col) => r.readNullable<String>(col)?.split(', ') ?? const [];
     DateTime? time(String col) {
       final v = r.readNullable<int>(col);
       return v == null ? null : DateTime.fromMillisecondsSinceEpoch(v * 1000);
     }
 
+    final file = {
+      MetaField.series: r.read<String>('series_name'),
+      MetaField.number: r.readNullable<String>('number'),
+      MetaField.title: r.readNullable<String>('issue_title'),
+      MetaField.volume: r.readNullable<int>('volume')?.toString(),
+      MetaField.year: r.readNullable<int>('year')?.toString(),
+      MetaField.writers: r.readNullable<String>('writers'),
+      MetaField.artists: r.readNullable<String>('artists'),
+      MetaField.summary: r.readNullable<String>('summary'),
+    };
+    String? get(MetaField f) {
+      if (!edits.containsKey(f)) return file[f];
+      final v = edits[f]?.trim();
+      return v == null || v.isEmpty ? null : v;
+    }
+
+    // A series cannot be blank: clearing it shows the file's again.
+    final series = get(MetaField.series) ?? file[MetaField.series]!;
     return LibraryBook(
       key: r.read<String>('content_key'),
-      series: r.read<String>('series_name'),
-      seriesId: r.read<int>('series_id'),
-      number: r.readNullable<String>('number'),
-      volume: r.readNullable<int>('volume'),
-      year: r.readNullable<int>('year'),
-      issueTitle: r.readNullable<String>('issue_title'),
-      writers: list('writers'),
-      artists: list('artists'),
-      summary: r.readNullable<String>('summary'),
+      series: series,
+      seriesId: seriesIds[seriesKey(series)] ?? r.read<int>('series_id'),
+      number: get(MetaField.number),
+      volume: int.tryParse(get(MetaField.volume) ?? ''),
+      year: int.tryParse(get(MetaField.year) ?? ''),
+      issueTitle: get(MetaField.title),
+      writers: edits.containsKey(MetaField.writers) ? splitPeople(get(MetaField.writers)) : list('writers'),
+      artists: edits.containsKey(MetaField.artists) ? splitPeople(get(MetaField.artists)) : list('artists'),
+      summary: get(MetaField.summary),
+      fromFile: {for (final f in edits.keys) f: file[f]},
       pageCount: r.read<int>('page_count'),
       format: r.read<String>('format'),
       path: p.normalize(r.read<String>('path')),
