@@ -161,6 +161,16 @@ build internals, test scripts, detector work and conventions here.
   by Flutter's decoder, JPEG-encoded on a short isolate and kept in
   `<cache>/covers/pages/<content key>/<page>.jpg`. Newest request first,
   two at a time; tiles evict their images when they scroll away.
+- Shuffle (`S` on the Folders tab, `gs` picks again; setting
+  `library.shuffle`): each book tile shows page `shufflePage(key, pages,
+  seed)` instead of its cover, never page 1, from a seed made anew when
+  shuffle turns on, a folder is entered or `gs`, so scrolling keeps the
+  picks. `ShufflePages` (`lib/src/library/shuffle.dart`) makes them into
+  the page grid's thumbnail files (`<cache>/covers/pages/<key>/<n>.jpg`,
+  256 px) for tiles on screen only, newest first, two at a time; each opens
+  the book through `BackgroundDocument` and closes it straight after. The
+  cover shows until the page is ready. On a phone-wide header the
+  reshuffle button is left out; `gs` or `S` twice picks again.
 - The details view (`I`, `lib/src/reader/comic_details.dart`, gathered by
   `readComicReport` in `comic_report.dart`) reads no pixels: each page's
   format, size, bytes and JPEG quality come from `ComicDocument.pageFacts`
@@ -276,6 +286,7 @@ tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step wit
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
+tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 ```
 
