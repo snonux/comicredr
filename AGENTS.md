@@ -116,6 +116,15 @@ build internals, test scripts, detector work and conventions here.
   book's sidecar goes through `SidecarSync.sidecarsOf`/`sidecarFor`.
   Inspect one with
   `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
+- Bookmarks and vi marks are rows in `bookmarks` (mark null for a
+  bookmark, panel null for a whole page). The reader follows the open
+  book's rows through `LibraryStore.watchBookmarks`, so the list (`M`,
+  `lib/src/reader/bookmark_list.dart`), the ribbon, the progress bar's
+  notches and `}` `{` see changes from anywhere. `mm` takes off whatever
+  `ReaderState.bookmarksHere` holds, else adds one. A note
+  (`LibraryStore.setNote`) replaces the row with a new id and removes the
+  old one, which the sidecar merge's "union by id, removal wins" carries
+  to every copy.
 - Page thumbnails (the `p` grid and the progress bar's preview) come from
   `Thumbnails` in `lib/src/reader/thumbnails.dart`: made on demand through
   the book's own document (so PDFs use the shared PDFium isolate), scaled
@@ -191,6 +200,7 @@ tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned sprea
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
+tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 

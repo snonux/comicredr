@@ -83,10 +83,10 @@ setMark = "M"
     });
 
     test('mark keys need their letter slot', () {
-      final load = keymapFromToml('[keys]\nsetMark = "M<a-z>"\njumpMark = "`<a-z>"\n');
+      final load = keymapFromToml('[keys]\nsetMark = "Q<a-z>"\njumpMark = "`<a-z>"\n');
       expect(load.warnings, isEmpty);
       final r = KeySequenceResolver(load.keymap);
-      expect(r.feed('M', DateTime(2026)), isNull);
+      expect(r.feed('Q', DateTime(2026)), isNull);
       expect(r.feed('q', DateTime(2026)), const ReaderCommand(ReaderIntent.setMark, register: 'q'));
     });
   });

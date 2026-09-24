@@ -17,6 +17,7 @@ import 'library/providers.dart';
 import 'providers.dart';
 import 'reader/guided.dart';
 import 'reader/layout.dart';
+import 'reader/bookmark_list.dart';
 import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
@@ -65,6 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _library = GlobalKey<LibraryScreenState>();
   final _overlay = GlobalKey<KeymapOverlayState>();
   final _grid = GlobalKey<PageGridState>();
+  final _bookmarkList = GlobalKey<BookmarkListState>();
   final _keys = FocusNode(debugLabel: 'keys');
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _watch;
@@ -73,6 +75,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// The page grid (`p`) is open over the reader.
   bool _showPages = false;
+
+  /// The bookmark list (`M`) is open over the reader.
+  bool _showBookmarks = false;
   bool _picking = false;
 
   @override
@@ -328,8 +333,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _setShowPages(!_showPages);
       return;
     }
+    if (c.intent == ReaderIntent.bookmarkList && ref.read(readerProvider).book != null && !_showPages) {
+      _setShowBookmarks(!_showBookmarks);
+      return;
+    }
     if (_showPages) {
       _grid.currentState?.handle(c);
+      return;
+    }
+    if (_showBookmarks) {
+      _bookmarkList.currentState?.handle(c);
       return;
     }
     if (c.intent == ReaderIntent.openFile) {
@@ -365,7 +378,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _setShowPages(bool on) {
-    setState(() => _showPages = on);
+    setState(() {
+      _showPages = on;
+      if (on) _showBookmarks = false;
+    });
+    _keys.requestFocus();
+  }
+
+  void _setShowBookmarks(bool on) {
+    setState(() => _showBookmarks = on);
     _keys.requestFocus();
   }
 
@@ -379,7 +400,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(readerProvider);
     ref.listen(readerProvider.select((s) => s.book), (was, book) {
-      if (!identical(was, book) && _showPages) setState(() => _showPages = false);
+      if (!identical(was, book) && (_showPages || _showBookmarks)) {
+        setState(() => _showPages = _showBookmarks = false);
+      }
     });
     ref.listen(readerProvider.select((s) => s.fullscreen), (_, full) {
       SystemChrome.setEnabledSystemUIMode(full ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
@@ -438,7 +461,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: ReaderView(key: _view),
                               ),
                             ),
+                            if (s.bookmarksHere.isNotEmpty && !_showPages && !_showBookmarks)
+                              Positioned(
+                                top: 0,
+                                right: 20,
+                                child: Semantics(
+                                  button: true,
+                                  label: 'Bookmarked. Opens the bookmark list',
+                                  child: GestureDetector(
+                                    key: const Key('bookmarkRibbon'),
+                                    onTap: () => _setShowBookmarks(true),
+                                    child: Icon(
+                                      Icons.bookmark,
+                                      size: 40,
+                                      color: Theme.of(context).colorScheme.primary,
+                                      shadows: const [Shadow(blurRadius: 4)],
+                                    ),
+                                  ),
+                                ),
+                              ),
                             Positioned.fill(child: PageScrubber(onPick: _jumpTo)),
+                            if (_showBookmarks)
+                              Positioned.fill(
+                                child: BookmarkList(
+                                  key: _bookmarkList,
+                                  onClose: () => _setShowBookmarks(false),
+                                  onDialogDone: _keys.requestFocus,
+                                ),
+                              ),
                             if (_showPages)
                               Positioned.fill(
                                 child: PageGrid(key: _grid, onPick: _jumpTo, onClose: () => _setShowPages(false)),
@@ -447,7 +497,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                       if (!s.fullscreen || s.message != null || _pending.isNotEmpty)
-                        _StatusLine(state: s, pending: _pending, gridOpen: _showPages, onCommand: _onCommand),
+                        _StatusLine(
+                          state: s,
+                          pending: _pending,
+                          gridOpen: _showPages,
+                          bookmarksOpen: _showBookmarks,
+                          onCommand: _onCommand,
+                        ),
                     ],
                   ),
                 if (_showKeymap)
@@ -468,7 +524,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.state, required this.pending, required this.onCommand, this.gridOpen = false});
+  const _StatusLine({
+    required this.state,
+    required this.pending,
+    required this.onCommand,
+    this.gridOpen = false,
+    this.bookmarksOpen = false,
+  });
 
   /// Where guided view is on the page, or why it shows the whole page.
   static String _guided(ReaderState s) {
@@ -495,6 +557,9 @@ class _StatusLine extends StatelessWidget {
 
   /// Whether the page grid is open.
   final bool gridOpen;
+
+  /// Whether the bookmark list is open.
+  final bool bookmarksOpen;
 
   /// For the buttons: a phone without a keyboard has no other way into
   /// guided view, balloons or bookmarks.
@@ -578,7 +643,17 @@ class _StatusLine extends StatelessWidget {
                   on: state.guided,
                 ),
                 _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
-                _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+                if (state.bookmarksHere.isNotEmpty)
+                  _button('bookmarkButton', Icons.bookmark, 'Remove the bookmark here (mm)', ReaderIntent.bookmark, on: true)
+                else
+                  _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+                _button(
+                  'bookmarksButton',
+                  Icons.bookmarks_outlined,
+                  'Bookmarks (M)',
+                  ReaderIntent.bookmarkList,
+                  on: bookmarksOpen,
+                ),
               ],
             ],
           ),
