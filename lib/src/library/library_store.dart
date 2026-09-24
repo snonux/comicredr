@@ -57,7 +57,8 @@ class LibraryBook {
   /// A second line for the cover: the issue's own title, or its year.
   String? get subtitle => issueTitle ?? year?.toString();
 
-  bool get started => page != null && (page! > 0 || finished);
+  /// Opened at least once: a reading position is saved from the first open.
+  bool get started => page != null;
   bool get inProgress => started && !finished;
 
   /// Every word of [query] appears in the name, title, creators, year or
@@ -65,7 +66,14 @@ class LibraryBook {
   bool matches(String query) {
     final words = query.toLowerCase().split(RegExp(r'\s+')).where((w) => w.isNotEmpty);
     if (words.isEmpty) return true;
-    final hay = [name, issueTitle, year, ...writers, ...artists, p.basename(path)].whereType<Object>().join(' ').toLowerCase();
+    final hay = [
+      name,
+      issueTitle,
+      year,
+      ...writers,
+      ...artists,
+      p.basename(path),
+    ].whereType<Object>().join(' ').toLowerCase();
     return words.every(hay.contains);
   }
 
@@ -188,46 +196,44 @@ class LibraryStore {
   }
 
   /// Books no file points at any more.
-  Future<void> removeOrphans() => db.customStatement(
-    'DELETE FROM books WHERE content_key NOT IN (SELECT content_key FROM files)',
-  );
+  Future<void> removeOrphans() =>
+      db.customStatement('DELETE FROM books WHERE content_key NOT IN (SELECT content_key FROM files)');
 
   /// Records [info] as the book at [relPath] under [rootId].
-  Future<void> putBook(int rootId, String relPath, int size, DateTime mtime, BookInfo info) =>
-      db.transaction(() async {
-        final meta = info.meta;
-        final seriesName = meta.series ?? p.basenameWithoutExtension(relPath);
-        final seriesId = await _seriesId(seriesName);
-        await db
-            .into(db.books)
-            .insertOnConflictUpdate(
-              BooksCompanion.insert(
-                contentKey: info.contentKey,
-                title: meta.number == null ? seriesName : '$seriesName #${meta.number}',
-                seriesId: Value(seriesId),
-                number: Value(meta.number),
-                pageCount: info.pageCount,
-                format: info.kind.name,
-                issueTitle: Value(meta.title),
-                volume: Value(meta.volume),
-                year: Value(meta.year),
-                writers: Value(meta.writers.isEmpty ? null : meta.writers.join(', ')),
-                artists: Value(meta.artists.isEmpty ? null : meta.artists.join(', ')),
-                summary: Value(meta.summary),
-              ),
-            );
-        await db
-            .into(db.files)
-            .insertOnConflictUpdate(
-              FilesCompanion.insert(
-                contentKey: info.contentKey,
-                rootId: rootId,
-                relPath: relPath,
-                size: size,
-                mtime: mtime,
-              ),
-            );
-      });
+  Future<void> putBook(int rootId, String relPath, int size, DateTime mtime, BookInfo info) => db.transaction(() async {
+    final meta = info.meta;
+    final seriesName = meta.series ?? p.basenameWithoutExtension(relPath);
+    final seriesId = await _seriesId(seriesName);
+    await db
+        .into(db.books)
+        .insertOnConflictUpdate(
+          BooksCompanion.insert(
+            contentKey: info.contentKey,
+            title: meta.number == null ? seriesName : '$seriesName #${meta.number}',
+            seriesId: Value(seriesId),
+            number: Value(meta.number),
+            pageCount: info.pageCount,
+            format: info.kind.name,
+            issueTitle: Value(meta.title),
+            volume: Value(meta.volume),
+            year: Value(meta.year),
+            writers: Value(meta.writers.isEmpty ? null : meta.writers.join(', ')),
+            artists: Value(meta.artists.isEmpty ? null : meta.artists.join(', ')),
+            summary: Value(meta.summary),
+          ),
+        );
+    await db
+        .into(db.files)
+        .insertOnConflictUpdate(
+          FilesCompanion.insert(
+            contentKey: info.contentKey,
+            rootId: rootId,
+            relPath: relPath,
+            size: size,
+            mtime: mtime,
+          ),
+        );
+  });
 
   /// Books group by [seriesKey], so `The Spirit` and `spirit` are one series
   /// under the first name seen.

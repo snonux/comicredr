@@ -86,8 +86,7 @@ class LibraryScanner {
       for (final c in found) {
         seen.add(c.relPath);
         final k = known[c.relPath];
-        final unchanged =
-            k != null && k.size == c.size && k.mtime.millisecondsSinceEpoch ~/ 1000 == c.mtimeMs ~/ 1000;
+        final unchanged = k != null && k.size == c.size && k.mtime.millisecondsSinceEpoch ~/ 1000 == c.mtimeMs ~/ 1000;
         // A cleared cache loses covers; reading the book again puts it back.
         if (unchanged && File('$coverDir/${k.contentKey}.jpg').existsSync()) continue;
         todo.add((root.id, root.path, c));
@@ -125,19 +124,36 @@ class LibraryScanner {
   /// Rescans when anything under a root changes: inotify on Linux. Android
   /// rescans when the app comes back to the front instead. Returns a handle
   /// to stop watching.
+  ///
+  /// Dart's recursive watch only reports the top folder on Linux, so every
+  /// folder under a root gets a watch of its own, set up again after each
+  /// scan so new folders are watched too.
   Future<StreamSubscription<void>?> watch() async {
     if (!Platform.isLinux) return null;
     final events = StreamController<void>();
-    final subs = <StreamSubscription<FileSystemEvent>>[];
-    for (final root in await store.roots()) {
-      try {
-        subs.add(Directory(root.path).watch(recursive: true).listen((_) => events.add(null), onError: (_) {}));
-      } catch (e) {
-        debugPrint('Cannot watch ${root.path}: $e');
+    var subs = <StreamSubscription<FileSystemEvent>>[];
+    var closed = false;
+    Timer? debounce;
+    Future<void> rewatch() async {
+      for (final s in subs) {
+        await s.cancel();
+      }
+      subs = [];
+      for (final root in await store.roots()) {
+        if (closed) return;
+        for (final dir in await _folders(root.path)) {
+          try {
+            subs.add(Directory(dir).watch().listen((_) => events.add(null), onError: (_) {}));
+          } catch (e) {
+            debugPrint('Cannot watch $dir: $e');
+          }
+        }
       }
     }
-    Timer? debounce;
+
+    await rewatch();
     events.onCancel = () async {
+      closed = true;
       debounce?.cancel();
       for (final s in subs) {
         await s.cancel();
@@ -146,18 +162,38 @@ class LibraryScanner {
     // A copy of a big CBZ fires many events; scan once it goes quiet.
     return events.stream.listen((_) {
       debounce?.cancel();
-      debounce = Timer(const Duration(seconds: 2), scan);
+      debounce = Timer(const Duration(seconds: 2), () async {
+        await scan();
+        if (!closed) await rewatch();
+      });
     });
   }
 
   Future<void> dispose() => _status.close();
 }
 
-// Top-level, so the closures sent to the workers capture a path and
+// Top-level, so the closure sent to the worker captures a path and
 // nothing else.
 Future<List<Candidate>> _find(String root) => Isolate.run(() => findBooks(root));
 
-Future<BookInfo> _read(String path, String coverDir) => Isolate.run(() => readBookInfo(path, coverDir: coverDir));
+Future<List<String>> _folders(String root) => Isolate.run(() {
+  final out = <String>[];
+  void walk(Directory d) {
+    out.add(d.path);
+    try {
+      for (final e in d.listSync(followLinks: false)) {
+        if (e is Directory && !p.basename(e.path).startsWith('.')) walk(e);
+      }
+    } on FileSystemException {
+      // Unreadable: nothing under it to watch.
+    }
+  }
+
+  walk(Directory(root));
+  return out;
+});
+
+Future<BookInfo> _read(String path, String coverDir) => readBookInfoInBackground(path, coverDir: coverDir);
 
 const _bookExtensions = {'.cbz', '.cbr', '.zip', '.pdf'};
 

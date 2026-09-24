@@ -7,12 +7,13 @@ decision here.
 
 ## Quick start on Fedora
 
-> **Current state (M6):** CBZ files, PDFs and folders of page images open
-> and read in single-page or two-page mode or in guided view, panel by
-> panel or balloon by balloon, with zoom, the full keymap, touch gestures,
-> and resume. Guided view uses the trained panel and balloon detector when
-> it is installed (step 6) and classic computer vision otherwise. The
-> library (M7) is still to come.
+> **Current state (M7):** a library of your comics folders, with covers,
+> series, search and bookmarks. CBZ files, PDFs and folders of page images
+> read in single-page or two-page mode or in guided view, panel by panel or
+> balloon by balloon, with zoom, the full keymap, touch gestures, and
+> resume. Guided view uses the trained panel and balloon detector when it
+> is installed (step 7) and classic computer vision otherwise. Per-comic
+> sidecar files (M8) are still to come.
 
 ### 1. Install the build tools and Flutter
 
@@ -46,10 +47,61 @@ detector model stay. For a system-wide install, run `make` first and then
 `make test` runs the analyzer and every test, and `make help` lists all
 targets.
 
-### 3. Open a comic book
+### 3. Build your library
+
+The library is where ComicRedr starts. Press `A`, or click **Add your
+comics folder**, and pick the folder your comics live in, for example
+`~/Comics`. Add as many folders as you like; subfolders are searched too.
+From the command line, `comicredr --add-root ~/Comics` does the same.
+
+Every CBZ, PDF and folder of page images under it turns up as a cover.
+The first scan reads each book once, a few at a time in the background,
+for its page count, its metadata and a cover: about a third of a second a
+book on this container's CPU, a second for a big scan. You can browse and
+read while it runs; the status line counts it down. After that, starting
+the app only compares file sizes and dates, so a library that has not
+changed is ready at once. Files you add, rename or delete under a library
+folder show up by themselves a couple of seconds later. `R` rescans by
+hand. A file that looks like a comic but can't be read, such as a genuine
+RAR, is listed with the reason on the **Folders** tab.
+
+Metadata comes from the `ComicInfo.xml` inside a CBZ or a folder when
+there is one, and from the file name otherwise:
+`Daredevil v1 #181 (1982).cbz`, `Daredevil_181.cbz` and
+`daredevil-181.cbz` all read as Daredevil, number 181. Books group into a
+series by that name, whatever folders they are in, and read in issue order.
+
+The library has four tabs: **Reading** (books you have started, the one
+you read last first), **Series**, **Books** (everything, series by series)
+and **Folders** (the folders in the library, to add, remove or rescan).
+Removing a folder leaves the files alone and keeps your reading progress
+for when they come back.
+
+| Do this | Keys | Touch or mouse |
+|---|---|---|
+| Move between covers | arrows, or `h` `j` `k` `l`; `gg` `G` for the first and last | |
+| Open a series, or read a book | `Enter` | tap a series; tap a selected book again |
+| See a book's details, progress and bookmarks | select it; on a narrow window `Enter` reads straight away | tap it on a narrow window, long-press anywhere |
+| Search titles, series, creators and years | `/`, type, `Enter` to go back to the covers | the search field |
+| Next / previous tab | `Tab` `Shift+Tab` | the tabs at the side or bottom |
+| Back out of the details, the search or a series | `Esc` | the back arrow |
+| Add a folder / rescan | `A` / `R` | the folder button, or the **Folders** tab |
+
+On a wide window the selected book or series shows beside the covers, with
+**Continue reading** and its bookmarks. `Esc` in the reader closes the
+book and comes back to the library where you were. In the reader, `]` and
+`[` go to the next and previous book in the series.
+
+On Android the library needs **All files access**, which Android grants
+on a settings page rather than in a dialog. The first time you add a
+folder the app explains this and opens that page; turn it on, come back,
+and add the folder, for example `/storage/emulated/0/Comics`. The phone
+rescans each time the app comes back to the front.
+
+### 4. Open a single comic
 
 A book is a `.cbz`, a `.pdf`, or a folder of page images. Any of these
-opens one straight away, without adding it to a library:
+opens one straight away, without adding it to the library:
 
 - right-click it in Files and pick **Open With → ComicRedr** (after
   `make install`)
@@ -65,8 +117,10 @@ same panel, and balloon mode on the same balloon), with the same zoom and
 scroll. This holds after you rename or copy the file, because progress is
 keyed on the file's content rather than its path. A book you have never
 opened starts on its cover in the view you are reading in. `]` and `[` open
-the next and previous book in the same folder, CBZs, PDFs and folder books
-alike, in natural name order. `Esc` closes the book.
+the next and previous book in the series when the book is in the library
+with others in its series, and otherwise the next and previous book in the
+same folder, CBZs, PDFs and folder books alike, in natural name order.
+`Esc` closes the book and goes back to the library.
 
 The file's first bytes decide how it is read, not its extension, so a `.cbr`
 that is really a ZIP opens as-is.
@@ -99,7 +153,7 @@ for f in *.cbr; do
 done
 ```
 
-### 4. Navigate
+### 5. Navigate
 
 Two keymaps are live at the same time: standard keys, and a vi layer on top
 of them. You don't need to learn the vi layer to use the reader. Press `?`
@@ -122,8 +176,9 @@ table the app binds from.
 | Hide the status line (and system bars on Android) | `F11` | `f` |
 | Night filter | | `i` |
 | Set mark a–z / jump to mark / jump back | | `ma` / `'a` / `''` |
-| Next / previous book in the same folder (the series, once the library lands in M7) | | `]` `[` |
-| Leave guided view, close the book, or cancel a half-typed key | `Esc` | |
+| Next / previous book in the series (in the same folder, outside the library) | | `]` `[` |
+| Bookmark this page (this panel in guided view) | | `mm` |
+| Leave guided view, go back to the library, or cancel a half-typed key | `Esc` | |
 | Open a CBZ or PDF / a folder of page images | | `o` / `O` |
 
 The status line shows the page you are on out of the total (`page 3 / 36`),
@@ -133,13 +188,14 @@ visible when `f` hides the status line.
 
 A count in front of a key repeats it: `5l` moves five pages (five panels
 in guided view), and `3 Ctrl+f` turns three pages. Marks are saved
-and survive a restart, and in guided view they remember the panel. A
-bookmark list arrives with the library in M7. A key
+and survive a restart, and in guided view they remember the panel. `mm`
+adds a bookmark, as many as you like. The book's details in the library
+list its bookmarks and marks; pick one to open the book there. A key
 whose feature has not landed yet says so on the status line. A half-typed sequence such as `g` or `4z`
 shows in the bottom-right corner. It is dropped if you don't finish it
 within 600 ms.
 
-### 5. Guided view
+### 6. Guided view
 
 Press `v`. The camera frames the first panel on the page and dims the rest,
 and `l`, `→` or `Space` glides to the next panel, onto the next page after
@@ -158,7 +214,7 @@ once. While a page is still being analysed the status line says
 A page whose panels don't look like a real layout is shown whole rather
 than guessed at: a splash, a cover, a text page and many ads. The status
 line says why, for example `guided: whole page (1 panel(s): nothing to
-guide through)`. Without the trained detector (step 6), pages without
+guide through)`. Without the trained detector (step 7), pages without
 gutters between panels, and many ads, still trip it up.
 
 **Balloon by balloon.** Press `b` for balloon mode, from guided view or
@@ -171,7 +227,7 @@ same way, and `b` again goes back to panel by panel at the same panel.
 Balloons come from the trained detector; with classic CV the status line
 says `no balloons found` and balloon mode steps panels only.
 
-### 6. Install the trained detector
+### 7. Install the trained detector
 
 The trained model finds panels on pages classic CV gets wrong (borderless
 art, ads, captions) and is the only source of balloons. It is one file,
@@ -193,7 +249,7 @@ anywhere else. Pages analysed by classic CV are analysed again with the
 model the next time you read them. To build the file yourself, see
 [Train the detector](#m5-train-the-detector).
 
-### 7. Touch
+### 8. Touch
 
 A touchscreen works the same on the Fedora laptop as on the phone, and every
 gesture does what the matching key does. A mouse click never turns a page,
@@ -216,7 +272,7 @@ as they mirror the arrow keys. A touchpad pinch zooms too.
 ## Layout
 
 ```
-lib/                      Flutter app: reader screen, page cache, keyboard layer, Drift index
+lib/                      Flutter app: library, reader screen, page cache, keyboard layer, Drift index
 packages/comic_formats    ComicDocument, the CBZ adapter and its worker isolate, sniffing, sort
 packages/comic_analysis   Panel model, classic-CV detection, reading order, the confidence gate
 packages/reader_input     ReaderIntents, default keymap, vi key-sequence resolver
@@ -233,6 +289,7 @@ for p in packages/*; do (cd $p && dart test); done   # make test runs all three
 make icons                       # re-render linux/packaging/icons/*.png after editing the SVG
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
+tool/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
 ```
 

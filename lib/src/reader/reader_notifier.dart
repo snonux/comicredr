@@ -246,6 +246,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
           ? null
           : 'Resumed at page ${page + 1}${guided ? ', panel ${panel + 1}' : ''}',
     );
+    // Opening a book counts as reading it: the library's Reading tab lists
+    // it from now on, even if it is closed on the cover.
+    _saveProgress(book);
     _ensurePanels();
   }
 

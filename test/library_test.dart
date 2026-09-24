@@ -72,7 +72,12 @@ void main() {
       await scanner.scan();
 
       final books = await store.books();
-      expect(books.map((b) => b.name).toSet(), {'The Spirit #1', 'The Spirit #2', 'Barefoot Bride', 'Pepper Carrot #6'});
+      expect(books.map((b) => b.name).toSet(), {
+        'The Spirit #1',
+        'The Spirit #2',
+        'Barefoot Bride',
+        'Pepper Carrot #6',
+      });
       final spirit = LibrarySeries.group(books).firstWhere((s) => s.name == 'The Spirit');
       expect(spirit.books.map((b) => b.number), ['1', '2'], reason: 'series order, not file order');
       expect(spirit.books.first.writers, ['Will Eisner']);
@@ -193,7 +198,10 @@ void main() {
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.keyL);
       // The wide layout shows the selection in the detail pane.
-      expect(find.descendant(of: find.byKey(const Key('detail')), matching: find.text('2 books · 0 read')), findsOneWidget);
+      expect(
+        find.descendant(of: find.byKey(const Key('detail')), matching: find.text('2 books · 0 read')),
+        findsOneWidget,
+      );
       await key(tester, LogicalKeyboardKey.enter); // Into the series.
       expect(find.text('The Spirit #1'), findsWidgets);
       expect(find.text('The Spirit #2'), findsOneWidget);

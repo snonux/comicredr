@@ -276,7 +276,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           _ => null,
         };
         final Widget body = empty
-            ? _EmptyLibrary(onAddRoot: widget.onAddRoot, onOpenFile: widget.onOpenFile, onOpenFolder: widget.onOpenFolder)
+            ? _EmptyLibrary(
+                onAddRoot: widget.onAddRoot,
+                onOpenFile: widget.onOpenFile,
+                onOpenFolder: widget.onOpenFolder,
+              )
             : _detail && selectedBook != null && !wide
             ? BookDetail(book: selectedBook, onRead: read, onBack: back)
             : Column(
@@ -311,10 +315,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                       ],
                     ),
                   Expanded(child: body),
-                  if (pane != null) ...[
-                    const VerticalDivider(width: 1),
-                    SizedBox(width: 380, child: pane),
-                  ],
+                  if (pane != null) ...[const VerticalDivider(width: 1), SizedBox(width: 380, child: pane)],
                 ],
               ),
             ),
@@ -502,10 +503,7 @@ class _CoverCard extends StatelessWidget {
               position: DecorationPosition.foreground,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: selected ? theme.colorScheme.primary : Colors.transparent,
-                  width: 3,
-                ),
+                border: Border.all(color: selected ? theme.colorScheme.primary : Colors.transparent, width: 3),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6),
@@ -602,10 +600,7 @@ class BookDetail extends ConsumerWidget {
         if (book.artists.isNotEmpty) Text('Art by ${book.artists.join(', ')}'),
         const SizedBox(height: 12),
         Text(where, key: const Key('where')),
-        if (book.inProgress) ...[
-          const SizedBox(height: 6),
-          LinearProgressIndicator(value: book.percent ?? 0),
-        ],
+        if (book.inProgress) ...[const SizedBox(height: 6), LinearProgressIndicator(value: book.percent ?? 0)],
         const SizedBox(height: 12),
         FilledButton.icon(
           key: const Key('read'),
@@ -824,10 +819,7 @@ class _LibraryStatus extends ConsumerWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (reader.loading || (scan.running && scan.total > 0))
-            LinearProgressIndicator(
-              minHeight: 2,
-              value: reader.loading ? null : scan.done / math.max(1, scan.total),
-            ),
+            LinearProgressIndicator(minHeight: 2, value: reader.loading ? null : scan.done / math.max(1, scan.total)),
           InkWell(
             onTap: scan.failed.isEmpty ? null : onFailures,
             child: Padding(
@@ -837,7 +829,11 @@ class _LibraryStatus extends ConsumerWidget {
                   Expanded(
                     child: Text(text, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
-                  Text(pending, key: const Key('pending'), style: const TextStyle(fontFamily: 'monospace')),
+                  Text(
+                    pending,
+                    key: const Key('pending'),
+                    style: const TextStyle(fontFamily: 'monospace'),
+                  ),
                 ],
               ),
             ),
