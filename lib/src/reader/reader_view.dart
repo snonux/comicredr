@@ -10,6 +10,7 @@ import 'package:reader_input/reader_input.dart';
 
 import 'guided.dart';
 import 'layout.dart';
+import '../data/progress_store.dart';
 import 'page_cache.dart';
 import 'reader_notifier.dart';
 
@@ -31,7 +32,7 @@ class ReaderView extends ConsumerStatefulWidget {
 }
 
 class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProviderStateMixin {
-  final _transform = TransformationController();
+  late final _transform = TransformationController()..addListener(_scheduleReport);
   late final _camera = AnimationController(vsync: this, duration: const Duration(milliseconds: 220))
     ..addListener(_onCameraTick);
   Matrix4Tween? _cameraTween;
@@ -51,6 +52,11 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
   Fit _fit = Fit.page;
   Size _viewport = Size.zero;
   Size _content = Size.zero;
+
+  /// The saved zoom and scroll of the book just opened, applied once its
+  /// first page is laid out. Nothing is reported back until then, so the
+  /// page loading at identity does not overwrite it.
+  ViewSpot? _restore;
 
   /// Decoded-page budget: generous on the laptop, tight on the phone.
   static int get _budget => defaultTargetPlatform == TargetPlatform.android ? 80 << 20 : 512 << 20;
@@ -92,6 +98,8 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
       _cache = PageCache(book.doc, budgetBytes: _budget);
       _cacheBook = book;
       _shownUnit = const [];
+      _restore = ref.read(readerProvider.notifier).takeRestoredView();
+      if (_restore case final r?) _fit = Fit.values.asNameMap()[r.fit] ?? _fit;
     }
     final unit = s.unit;
     if (_listEquals(unit, _shownUnit) || _viewport == Size.zero) return;
@@ -164,11 +172,60 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     return true;
   }
 
-  void _setFit(Fit fit) => setState(() {
-    _fit = fit;
-    _transform.value = Matrix4.identity();
-    _cameraKey = null;
-  });
+  void _setFit(Fit fit) {
+    setState(() {
+      _fit = fit;
+      _transform.value = Matrix4.identity();
+      _cameraKey = null;
+    });
+    _scheduleReport();
+  }
+
+  bool _reportScheduled = false;
+
+  /// Reports after the next layout, when the page size matches the transform
+  /// (a page turn or a new fit resets the transform before the new layout).
+  void _scheduleReport() {
+    if (_reportScheduled) return;
+    _reportScheduled = true;
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) {
+        _reportScheduled = false;
+        _reportView();
+      })
+      ..scheduleFrame();
+  }
+
+  /// Tells the reader where zoom and scroll are now, for the saved position.
+  /// Guided view's camera follows the panel, so there is nothing to keep.
+  void _reportView() {
+    if (!mounted || _restore != null || _images.isEmpty || _viewport == Size.zero) return;
+    final s = ref.read(readerProvider);
+    if (s.book == null || s.guided) return;
+    final zoom = _scale;
+    final t = _transform.value.getTranslation();
+    final child = _childSize;
+    ref.read(readerProvider.notifier).viewChanged((
+      fit: _fit.name,
+      zoom: zoom,
+      cx: (_viewport.width / 2 - t.x) / (child.width * zoom),
+      cy: (_viewport.height / 2 - t.y) / (child.height * zoom),
+    ));
+  }
+
+  /// Puts the saved zoom and scroll back: the saved point in the middle of
+  /// the screen, clamped to the page as a drag would be.
+  void _applyRestore(ViewSpot r) {
+    final child = _childSize;
+    final zoom = r.zoom.clamp(1.0, 8.0);
+    final m = Matrix4.diagonal3Values(zoom, zoom, 1)
+      ..setTranslationRaw(
+        _viewport.width / 2 - r.cx * child.width * zoom,
+        _viewport.height / 2 - r.cy * child.height * zoom,
+        0,
+      );
+    _transform.value = _clamped(m);
+  }
 
   void _recentre() => setState(() => _cameraKey = null);
 
@@ -298,6 +355,14 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
         if (_images.isEmpty) return const Center(child: CircularProgressIndicator());
         _content = _fitted(_images, guided: s.guided);
         _aimCamera(s);
+        if (_restore case final r? when _shownUnit.contains(s.page)) {
+          // After the camera's own post-frame cut, which resets the view.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || !identical(_restore, r)) return;
+            _restore = null;
+            if (!ref.read(readerProvider).guided) _applyRestore(r);
+          });
+        }
         final ordered = s.rightToLeft ? _images.reversed.toList() : _images;
         final h = _content.height;
         Widget pages = Row(
