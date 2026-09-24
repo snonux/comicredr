@@ -352,6 +352,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     if (_folderRoot != null && roots != null && !roots.any((r) => r.path == _folderRoot)) {
       _folder = _folderRoot = null;
     }
+    // The folder shown was deleted or emptied on disk: up to the nearest
+    // folder above that still holds books, as a file manager would.
+    while (_folder != null && _folder != _folderRoot && !books.any((b) => p.isWithin(_folder!, b.path))) {
+      _folder = p.dirname(_folder!);
+      _selected = null;
+      _detail = false;
+    }
     _items = _itemsFor(books, roots ?? const []);
     if (_selected != null && !_items.any((it) => it.id == _selected)) _selected = null;
 
