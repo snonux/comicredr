@@ -64,6 +64,11 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
 
   /// Whether the pages on screen came from the cache sharpened (`c`).
   bool _shownSharpened = false;
+
+  /// The pages on screen were just swapped for their sharpened (or plain)
+  /// selves: the camera stays where it is, though their size in pixels,
+  /// and so the fitted size by a hair, changed.
+  bool _keepView = false;
   bool _measuring = false;
   int _request = 0;
   Fit _fit = Fit.page;
@@ -112,7 +117,12 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     if (book == null) return;
     if (!identical(book, _cacheBook)) {
       _cache?.dispose();
-      _cache = PageCache(book.doc, budgetBytes: _budget);
+      _cache = PageCache(
+        book.doc,
+        budgetBytes: _budget,
+        // A sharpened page is at most 24 MB on the phone, 64 MB on the laptop.
+        maxSharpenedPixels: defaultTargetPlatform == TargetPlatform.android ? 6 << 20 : 16 << 20,
+      );
       _cacheBook = book;
       _shownUnit = const [];
       _trims.clear();
@@ -137,14 +147,20 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
           return;
         }
         final old = _images;
+        // The same pages, sharpened or not (`c`): zoom and camera stay put.
+        final samePages = _listEquals(unit, _shownUnit);
         setState(() {
           _images = images;
           _shownUnit = unit;
           _shownSharpened = sharpen;
-          _camera.stop();
-          _cameraKey = null; // A new page: the camera jumps rather than glides.
-          _focus = null;
-          _transform.value = Matrix4.identity();
+          if (samePages) {
+            _keepView = true;
+          } else {
+            _camera.stop();
+            _cameraKey = null; // A new page: the camera jumps rather than glides.
+            _focus = null;
+            _transform.value = Matrix4.identity();
+          }
         });
         _disposeImages(old);
         // Warm the next two units and the previous one.
@@ -321,7 +337,15 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     };
     final key = (guided: s.guided, page: s.page, focus: focus, viewport: _viewport, content: _content, trim: trim);
     final last = _cameraKey;
+    final keep = _keepView;
+    _keepView = false;
     if (key == last) return;
+    if (keep &&
+        last != null &&
+        (last.guided, last.page, last.focus, last.trim) == (key.guided, key.page, key.focus, key.trim)) {
+      _cameraKey = key;
+      return;
+    }
     final glide =
         last != null &&
         last.page == key.page &&

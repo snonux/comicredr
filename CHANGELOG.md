@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Clean-up for old scans (`c`, or Settings → Pages):** yellowed paper
+  turns white and faded ink dark again, with levels measured on each
+  page's own paper colour, so the inks lose the yellow cast too. A page
+  with fewer pixels than the screen is also enlarged, at most twice over,
+  and sharpened: about a quarter of a second for a 1000 px golden-age scan,
+  in the background, and cached. Pages without paper, like painted art,
+  only get a gentle contrast stretch. Panel detection still sees the page
+  as scanned. Off by default, and kept once turned on.
+
 - **Wide scanned margins:** guided view no longer shows a page whole just
   because it was scanned with a wide blank margin. The trained detector
   looks at such a page with the margin cut off, whether or not `t` is on;

@@ -38,6 +38,8 @@ Potion Contest*, by David Revoy, licensed
   small detector that runs on your own CPU.
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins.
+- **Clean-up for old scans**: yellowed paper turns white, faded ink dark,
+  and pages with fewer pixels than your screen are enlarged and sharpened.
 - **A library** of your comics folders: covers, series, search,
   collections, a folder view, bookmarks and a reading history.
 - **Picks up where you left off**, on the same page, panel and zoom, even

@@ -6,6 +6,7 @@ import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:comicredr/src/reader/reader_view.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -245,10 +246,21 @@ void main() {
     await settle(tester);
     expect((shown().painter! as dynamic).levels.isNone as bool, isFalse);
 
+    // Zoomed in, c changes the page and keeps the zoom.
+    double zoom() => tester
+        .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+        .transformationController!
+        .value
+        .getMaxScaleOnAxis();
+    tester.state<ReaderViewState>(find.byType(ReaderView)).handle(const ReaderCommand(ReaderIntent.zoomIn, count: 2));
+    await settle(tester);
+    expect(zoom(), greaterThan(1.1));
+    final zoomed = zoom();
     await tester.sendKeyEvent(LogicalKeyboardKey.keyC, character: 'c');
     await settle(tester);
     await settle(tester);
     expect(status(tester), contains('Clean-up off'));
+    expect(zoom(), zoomed);
     expect((shown().painter! as dynamic).levels.isNone as bool, isTrue);
     expect((shown().painter! as dynamic).image.width as int, 200);
   });
