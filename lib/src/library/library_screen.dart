@@ -625,9 +625,10 @@ class BookDetail extends ConsumerWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: m.mark == null ? const Icon(Icons.bookmark) : CircleAvatar(radius: 12, child: Text(m.mark!)),
-            title: Text('Page ${m.page + 1}${m.panel != null ? ', panel ${m.panel! + 1}' : ''}'),
+            title: Text('Page ${m.page + 1}${isPanel(m.panel) ? ', panel ${m.panel! + 1}' : ''}'),
             subtitle: Text(m.mark == null ? 'Bookmark' : "Mark '${m.mark}"),
-            onTap: () => onRead(book, at: (page: m.page, panel: m.panel ?? 0)),
+            // Without a panel, guided view shows the page whole.
+            onTap: () => onRead(book, at: (page: m.page, panel: m.panel ?? pageStart)),
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Remove',

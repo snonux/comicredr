@@ -17,6 +17,7 @@ enum ReaderIntent {
   prevBook('Previous book in the series, or in the same folder'),
   toggleGuided('Guided view, there and back'),
   toggleBalloons('Balloon by balloon inside each panel in guided view, on and off'),
+  toggleWholePage('Whole page before and after its panels in guided view, on and off'),
   cycleModeForward('Cycle single, double, continuous, guided; next library tab'),
   cycleModeBack('Cycle modes backwards; previous library tab'),
   toggleSpread('Single page or two-page spread'),
