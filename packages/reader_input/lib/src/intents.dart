@@ -38,7 +38,6 @@ enum ReaderIntent {
   nightFilter('Night filter'),
   cleanUp('Clean up old scans: paper, contrast, sharpness'),
   fullscreen('Fullscreen: only the comic, no title bar, border or status line; Esc leaves it too'),
-  toggleClock('Clock: the time on the status line, on and off'),
   bookmark('Bookmark this page, or this panel in guided view; again to take the bookmark off'),
   nextBookmark('Next bookmark in this book'),
   prevBookmark('Previous bookmark in this book'),
@@ -60,7 +59,8 @@ enum ReaderIntent {
   resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),
   showKeymap('Show the keymap'),
-  showTouchZones('Show the touch zones for a moment');
+  showTouchZones('Show the touch zones for a moment'),
+  showTime('The time, large, for two seconds, then it fades');
 
   const ReaderIntent(this.description);
 

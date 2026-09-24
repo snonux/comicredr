@@ -7,9 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
-- **Clock (`T`, or Settings → Pages):** the time on the reader's status
-  line, in the system's 12 or 24 hour format. Off by default, and
-  remembered.
+- **The time at a glance (`T`, or a long press in the middle of the
+  page):** the current time, large and centred on a dim backing, for two
+  seconds, then it fades away; in the library, the reader and fullscreen.
+  It follows the system's 12 or 24 hour setting and takes no taps.
 - **Comic details (`I`, the info button on the status line, or Details
   in the library):** the file (format as its bytes say, size, content key,
   sidecar), the pages (pixel sizes, wide spreads, what they are stored as,

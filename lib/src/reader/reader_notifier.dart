@@ -39,7 +39,6 @@ class ReaderState {
     this.wide = const {},
     this.rightToLeft = false,
     this.fullscreen = false,
-    this.clock = false,
     this.night = false,
     this.trim = false,
     this.cleanUp = false,
@@ -94,9 +93,6 @@ class ReaderState {
   final Set<int> wide;
   final bool rightToLeft;
   final bool fullscreen;
-
-  /// The time on the status line (`T`). A setting, off by default.
-  final bool clock;
   final bool night;
 
   /// Auto-trim: scanned margins are cut off each page (`t`). A setting,
@@ -212,7 +208,6 @@ class ReaderState {
     Set<int>? wide,
     bool? rightToLeft,
     bool? fullscreen,
-    bool? clock,
     bool? night,
     bool? trim,
     bool? cleanUp,
@@ -237,7 +232,6 @@ class ReaderState {
     wide: wide ?? this.wide,
     rightToLeft: rightToLeft ?? this.rightToLeft,
     fullscreen: fullscreen ?? this.fullscreen,
-    clock: clock ?? this.clock,
     night: night ?? this.night,
     trim: trim ?? this.trim,
     cleanUp: cleanUp ?? this.cleanUp,
@@ -379,7 +373,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.cleanUp)) ?? state.cleanUp;
     final fullscreen =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen)) ?? state.fullscreen;
-    final clock = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.clock)) ?? state.clock;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -405,7 +398,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
       fullscreen: fullscreen,
-      clock: clock,
       night: night,
       trim: trim,
       cleanUp: cleanUp,
@@ -619,7 +611,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
       pauseWhole: state.pauseWhole,
       cue: state.cue,
       fullscreen: state.fullscreen,
-      clock: state.clock,
       night: state.night,
       trim: state.trim,
       cleanUp: state.cleanUp,
@@ -872,14 +863,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _saveSetting(SettingsStore.fullscreen, on);
   }
 
-  /// The clock on or off, remembered for the next book and launch; `T`
-  /// and the Settings switch both come here.
-  void setClock(bool on) {
-    if (on == state.clock) return;
-    state = state.copyWith(clock: on, message: state.book == null ? null : (on ? 'Clock on' : 'Clock off'));
-    _saveSetting(SettingsStore.clock, on);
-  }
-
   /// Shows [message] on the status line until the next change.
   void notice(String message) => _notice(message);
 
@@ -1020,8 +1003,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
         );
       case ReaderIntent.fullscreen:
         setFullscreen(!state.fullscreen);
-      case ReaderIntent.toggleClock:
-        setClock(!state.clock);
       case ReaderIntent.nightFilter:
         final on = !state.night;
         state = state.copyWith(night: on, message: on ? 'Night filter on' : 'Night filter off');
@@ -1095,6 +1076,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.zoomReset:
       case ReaderIntent.zoomToggle:
       case ReaderIntent.showTouchZones:
+      case ReaderIntent.showTime:
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:
       case ReaderIntent.showKeymap:

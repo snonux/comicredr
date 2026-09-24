@@ -35,7 +35,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   bool? _wholePage;
   bool? _pauseWhole;
   bool? _cleanUp;
-  bool? _clock;
   bool? _sidecars;
   bool? _detectLibrary;
   String? _sidecarDir;
@@ -53,7 +52,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final whole = await settings.loadBool(SettingsStore.wholePageSteps);
     final pause = await settings.loadBool(SettingsStore.pauseWhole);
     final cleanUp = await settings.loadBool(SettingsStore.cleanUp);
-    final clock = await settings.loadBool(SettingsStore.clock);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final detectLibrary = await settings.loadBool(SettingsStore.detectLibrary);
     final sidecarDir = await settings.loadString(SettingsStore.sidecarDir);
@@ -63,7 +61,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       _wholePage = whole ?? true;
       _pauseWhole = pause ?? true;
       _cleanUp = cleanUp ?? false;
-      _clock = clock ?? false;
       _sidecars = sidecars ?? true;
       _detectLibrary = detectLibrary ?? detectLibraryByDefault;
       _sidecarDir = sidecarDir;
@@ -208,17 +205,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       ),
                       value: _cleanUp!,
                       onChanged: (v) => _set(SettingsStore.cleanUp, v),
-                    ),
-                    SwitchListTile(
-                      key: const Key('setting-clock'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Show the time on the status line'),
-                      subtitle: const Text('T switches it while reading.'),
-                      value: _clock!,
-                      onChanged: (v) async {
-                        ref.read(readerProvider.notifier).setClock(v);
-                        await _set(SettingsStore.clock, v);
-                      },
                     ),
                     heading('Guided view'),
                     SwitchListTile(

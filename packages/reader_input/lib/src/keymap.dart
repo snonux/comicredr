@@ -80,7 +80,6 @@ class Keymap {
       Binding(['c'], ReaderIntent.cleanUp),
       Binding(['f'], ReaderIntent.fullscreen),
       Binding(['F11'], ReaderIntent.fullscreen, layer: s),
-      Binding(['T'], ReaderIntent.toggleClock),
       // Marks, search and getting out.
       Binding(['m', 'm'], ReaderIntent.bookmark),
       Binding(['}'], ReaderIntent.nextBookmark),
@@ -106,6 +105,7 @@ class Keymap {
       Binding(['e'], ReaderIntent.editBook),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
       Binding(['g', 't'], ReaderIntent.showTouchZones),
+      Binding(['T'], ReaderIntent.showTime),
     ]);
   }
 

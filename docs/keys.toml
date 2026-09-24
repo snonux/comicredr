@@ -81,8 +81,6 @@ nightFilter = ["i"]
 cleanUp = ["c"]
 # Fullscreen: only the comic, no title bar, border or status line; Esc leaves it too
 fullscreen = ["f", "F11"]
-# Clock: the time on the status line, on and off
-toggleClock = ["T"]
 # Bookmark this page, or this panel in guided view; again to take the bookmark off
 bookmark = ["mm"]
 # Next bookmark in this book
@@ -127,6 +125,8 @@ editBook = ["e"]
 showKeymap = ["?"]
 # Show the touch zones for a moment
 showTouchZones = ["gt"]
+# The time, large, for two seconds, then it fades
+showTime = ["T"]
 
 [touch]
 # Touch gestures, on top of the preset picked in Settings (Standard,
@@ -150,7 +150,11 @@ showTouchZones = ["gt"]
 #   "", "zoomToggle", "",
 # ]
 #
-# longPress = ""
+# longPress = [
+#   "", "", "",
+#   "", "showTime", "",
+#   "", "", "",
+# ]
 #
 # swipeLeft = "nextStep"
 #
