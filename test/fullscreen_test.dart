@@ -89,23 +89,36 @@ void main() {
     expect(bar(), findsOneWidget);
   });
 
-  testWidgets('Esc leaves fullscreen first, then guided view, then the book', (tester) async {
+  testWidgets('Esc backs out of guided view and the book, staying fullscreen; at the top it leaves', (tester) async {
     final c = await openBook(tester);
     await key(tester, LogicalKeyboardKey.keyV, character: 'v');
     await key(tester, LogicalKeyboardKey.keyF, character: 'f');
     expect(c.read(readerProvider).guided, isTrue);
 
     await key(tester, LogicalKeyboardKey.escape);
-    expect(c.read(readerProvider).fullscreen, isFalse);
-    expect(c.read(readerProvider).guided, isTrue);
-    expect(c.read(readerProvider).book, isNotNull);
-
-    await key(tester, LogicalKeyboardKey.escape);
     expect(c.read(readerProvider).guided, isFalse);
-    expect(c.read(readerProvider).book, isNotNull);
+    expect(c.read(readerProvider).fullscreen, isTrue);
 
     await key(tester, LogicalKeyboardKey.escape);
     expect(c.read(readerProvider).book, isNull);
+    expect(c.read(readerProvider).fullscreen, isTrue, reason: 'the library is fullscreen too');
+    expect(windowAsked(), [true]);
+
+    await key(tester, LogicalKeyboardKey.escape);
+    expect(c.read(readerProvider).fullscreen, isFalse, reason: 'nothing left to back out of in the library');
+    expect(windowAsked(), [true, false]);
+  });
+
+  testWidgets('f and F11 in the library', (tester) async {
+    final c = await openBook(tester);
+    await key(tester, LogicalKeyboardKey.escape);
+    expect(c.read(readerProvider).book, isNull);
+
+    await key(tester, LogicalKeyboardKey.keyF, character: 'f');
+    expect(c.read(readerProvider).fullscreen, isTrue);
+    expect(windowAsked(), [true]);
+    await key(tester, LogicalKeyboardKey.f11);
+    expect(c.read(readerProvider).fullscreen, isFalse);
   });
 
   testWidgets('a notice shows the status line for a moment', (tester) async {
@@ -163,6 +176,27 @@ void main() {
     await settle(tester);
     expect(c.read(readerProvider).fullscreen, isFalse);
     expect(status(), findsOneWidget);
+  });
+
+  testWidgets('a launch into the library comes back fullscreen', (tester) async {
+    await openBook(tester);
+    await key(tester, LogicalKeyboardKey.keyF, character: 'f');
+    await key(tester, LogicalKeyboardKey.escape);
+    await settle(tester);
+
+    asked.clear();
+    await tester.pumpWidget(
+      ProviderScope(
+        key: UniqueKey(),
+        overrides: [databaseProvider.overrideWithValue(db), classicCvOnly],
+        child: const ComicRedrApp(),
+      ),
+    );
+    await settle(tester);
+    final c = ProviderScope.containerOf(tester.element(find.byType(ComicRedrApp)));
+    expect(c.read(readerProvider).book, isNull);
+    expect(c.read(readerProvider).fullscreen, isTrue);
+    expect(windowAsked(), [true]);
   });
 
   testWidgets('fullscreen is remembered for the next launch', (tester) async {
