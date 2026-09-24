@@ -37,3 +37,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # The panel and balloon detector, packed into the Linux bundle and the
+  # APK. `make` refuses to build without it; see assets/models/README.md.
+  assets:
+    - assets/models/
