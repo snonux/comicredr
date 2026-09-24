@@ -10,7 +10,7 @@ committed.
 
 ```sh
 python3 spike/labelkit.py show  PAGE --out /tmp/show.jpg    # candidates over a % grid
-python3 spike/labelkit.py set   PAGE --panels "..." --balloons "..."
+python3 spike/labelkit.py set   PAGE --panels "..." --balloons "..." --captions "..."
 python3 spike/labelkit.py check PAGE --out /tmp/check.jpg   # the saved label, drawn
 ```
 
@@ -49,15 +49,26 @@ anything off by more than about 2% of the page.
   gets its panels.
 - Inset panels (a small frame on top of a bigger one) are separate panels.
 
-**Balloon**: something the reader reads, in reading order across the page.
+**Balloon**: what a character says or thinks, in reading order across the
+page. Balloon mode in the app steps through these and nothing else.
 
-- Speech, thought and whisper balloons, and narration captions (the
-  rectangular boxes, often yellow).
-- Tight box around the balloon's outline, tail excluded. A balloon with no
-  outline (floating text) gets the box of its text.
+- Speech, thought and whisper balloons, shouts, and voices from a radio,
+  phone or TV. A rectangular box with a tail pointing at a speaker is a
+  balloon.
+- Tight box around the balloon's outline, tail excluded. Speech with no
+  outline (dialogue floating by its speaker, common in black-and-white and
+  indie books) gets the box of its text.
 - Two balloons joined by a narrow neck are two balloons.
-- Not balloons: sound effects, signs, lettering that is part of the art,
-  titles and credits, page numbers, ad copy.
+- Not balloons: captions (below), sound effects, signs, lettering that is
+  part of the art, titles and credits, page numbers, ad copy.
+
+**Caption** (`--captions`): narration, the narrator's or a character's
+inner voice told in a box with no tail ("Meanwhile...", "Later that night",
+first-person narration boxes), usually a rectangle along a panel edge, often
+yellow. Narration lettered straight on the art with no box is a caption too.
+Tight box, same as balloons. Until September 2026 captions were labelled as
+balloons, and the model learned to stop on them; `labelkit.py crops` and
+`flip` sorted every earlier label into the two kinds.
 
 Borderline cases: pick what a guided-view reader would want to step to, and
 be consistent.
