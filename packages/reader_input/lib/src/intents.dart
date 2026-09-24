@@ -32,11 +32,16 @@ enum ReaderIntent {
   zoomIn('Zoom in'),
   zoomOut('Zoom out'),
   zoomReset('Reset zoom'),
+  zoomToggle('Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view'),
   autoTrim('Auto-trim scan margins'),
   nightFilter('Night filter'),
   cleanUp('Clean up old scans: paper, contrast, sharpness'),
-  fullscreen('Fullscreen'),
-  bookmark('Bookmark here'),
+  fullscreen('Fullscreen: only the comic, no title bar, border or status line; Esc leaves it too'),
+  bookmark('Bookmark this page, or this panel in guided view; again to take the bookmark off'),
+  nextBookmark('Next bookmark in this book'),
+  prevBookmark('Previous bookmark in this book'),
+  bookmarkList('Bookmarks and marks in this book: jump, add a note, remove; the Bookmarks tab in the library'),
+  remove('Remove the selected bookmark in a bookmark list'),
   setMark('Set mark a-z'),
   jumpMark('Jump to mark a-z'),
   jumpBack('Jump back to before the last jump'),
@@ -52,7 +57,8 @@ enum ReaderIntent {
   rescan('Rescan the library folders'),
   resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),
-  showKeymap('Show the keymap');
+  showKeymap('Show the keymap'),
+  showTouchZones('Show the touch zones for a moment');
 
   const ReaderIntent(this.description);
 

@@ -141,6 +141,16 @@ void main() {
     expect(find.byKey(const Key('comicDetails')), findsNothing);
     expect(c.read(readerProvider).book, isNotNull, reason: 'I closed the details, not the book');
 
+    // The page grid has the way in a phone uses: its info button.
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('pageGridDetails')));
+    await settle(tester);
+    expect(find.byKey(const Key('pageGrid')), findsNothing);
+    expect(find.byKey(const Key('comicDetails')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('detailsClose')));
+    await settle(tester);
+
     // Redo panels forgets them, as X does: the model's run on page 1 is gone.
     await typeI(tester);
     await tester.scrollUntilVisible(

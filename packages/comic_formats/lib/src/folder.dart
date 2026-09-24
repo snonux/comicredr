@@ -96,15 +96,55 @@ class FolderDocument implements ComicDocument {
   static String _relative(String root, String path) => path.substring(root.length + 1).replaceAll('\\', '/');
 }
 
+/// Extensions of the files the library lists as books: archives, EPUBs and
+/// PDFs. Loose images count too, see [singleImageExtensions].
+const comicFileExtensions = {'.cbz', '.cbr', '.cbt', '.zip', '.epub', '.pdf'};
+
+/// Extensions of an image file that is a comic of its own, one page long,
+/// when it is not a page of a folder book (see [isFolderBook]).
+const singleImageExtensions = {'.png', '.jpg', '.jpeg', '.webp'};
+
+String _ext(String name) {
+  final dot = name.lastIndexOf('.');
+  return dot > 0 ? name.substring(dot).toLowerCase() : '';
+}
+
+/// Whether [name] is a comic file: a CBZ, CBR, CBT, ZIP, EPUB or PDF.
+bool isComicFileName(String name) => !name.startsWith('.') && comicFileExtensions.contains(_ext(name));
+
+/// Whether [name] is a PNG, JPEG or WebP that can be a one-page comic.
+bool isSingleImageName(String name) => !name.startsWith('.') && singleImageExtensions.contains(_ext(name));
+
 /// Whether [path] is a folder that reads as a book: one holding page images
-/// directly, not only in subfolders. Used to find sibling books, where a
-/// folder of CBZ files or of chapter folders is not itself a book.
+/// directly, not only in subfolders, and no comic file anywhere under it.
+/// A folder of CBZ files or of chapter folders is not itself a book, and
+/// neither is one where a loose image sits beside a CBZ: that image is a
+/// one-page comic of its own.
 bool isFolderBook(String path) {
   final dir = Directory(path);
   if (!dir.existsSync()) return false;
   try {
-    return dir.listSync(followLinks: false).any((e) => e is File && isPageEntry(e.path.split('/').last));
+    final entries = dir.listSync(followLinks: false);
+    return entries.any((e) => e is File && isPageEntry(e.path.split('/').last)) && !holdsComicFiles(entries);
   } on FileSystemException {
     return false;
   }
+}
+
+/// Whether [entries], or any folder among them, holds a comic file. Hidden
+/// files and folders are skipped, as the library skips them.
+bool holdsComicFiles(List<FileSystemEntity> entries) {
+  for (final e in entries) {
+    final name = e.path.split('/').last;
+    if (name.startsWith('.')) continue;
+    if (e is File && isComicFileName(name)) return true;
+    if (e is Directory) {
+      try {
+        if (holdsComicFiles(e.listSync(followLinks: false))) return true;
+      } on FileSystemException {
+        // Unreadable: nothing in it the library could list either.
+      }
+    }
+  }
+  return false;
 }

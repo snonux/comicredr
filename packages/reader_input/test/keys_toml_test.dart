@@ -79,14 +79,14 @@ setMark = "M"
 
     test('warns when a short key hides a longer one', () {
       final load = keymapFromToml('[keys]\nautoTrim = "g"\n');
-      expect(load.warnings.single, contains('hides gg'));
+      expect(load.warnings, [contains('hides gg'), contains('hides gt')]);
     });
 
     test('mark keys need their letter slot', () {
-      final load = keymapFromToml('[keys]\nsetMark = "M<a-z>"\njumpMark = "`<a-z>"\n');
+      final load = keymapFromToml('[keys]\nsetMark = "Q<a-z>"\njumpMark = "`<a-z>"\n');
       expect(load.warnings, isEmpty);
       final r = KeySequenceResolver(load.keymap);
-      expect(r.feed('M', DateTime(2026)), isNull);
+      expect(r.feed('Q', DateTime(2026)), isNull);
       expect(r.feed('q', DateTime(2026)), const ReaderCommand(ReaderIntent.setMark, register: 'q'));
     });
   });

@@ -141,7 +141,6 @@ class MarkStore {
   MarkStore(this._db);
 
   final AppDatabase _db;
-  final _random = Random.secure();
 
   Future<Map<String, ({int page, int panel})>> load(String contentKey) async {
     final rows = await (_db.select(
@@ -156,7 +155,7 @@ class MarkStore {
         .into(_db.bookmarks)
         .insert(
           BookmarksCompanion.insert(
-            id: _uuid(),
+            id: newId(),
             contentKey: contentKey,
             page: page,
             panel: Value(panel),
@@ -166,33 +165,32 @@ class MarkStore {
         );
   });
 
-  /// An anonymous bookmark (`mm`), panel-precise in guided view.
-  Future<void> addBookmark(String contentKey, int page, int? panel) => _db
-      .into(_db.bookmarks)
-      .insert(
-        BookmarksCompanion.insert(
-          id: _uuid(),
-          contentKey: contentKey,
-          page: page,
-          panel: Value(panel),
-          createdAt: DateTime.now(),
-        ),
-      );
-
-  /// The pages with a bookmark (`mm`) on them, for the page grid.
-  Future<Set<int>> bookmarkedPages(String contentKey) async {
-    final rows = await (_db.select(
-      _db.bookmarks,
-    )..where((b) => b.contentKey.equals(contentKey) & b.mark.isNull() & b.deletedAt.isNull())).get();
-    return {for (final r in rows) r.page};
-  }
-
-  /// A random (version 4) UUID, so two devices never collide (section 6).
-  String _uuid() {
-    final b = List<int>.generate(16, (_) => _random.nextInt(256));
-    b[6] = (b[6] & 0x0f) | 0x40;
-    b[8] = (b[8] & 0x3f) | 0x80;
-    final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
-    return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+  /// An anonymous bookmark (`mm`), panel-precise in guided view. Returns
+  /// its id.
+  Future<String> addBookmark(String contentKey, int page, int? panel) async {
+    final id = newId();
+    await _db
+        .into(_db.bookmarks)
+        .insert(
+          BookmarksCompanion.insert(
+            id: id,
+            contentKey: contentKey,
+            page: page,
+            panel: Value(panel),
+            createdAt: DateTime.now(),
+          ),
+        );
+    return id;
   }
 }
+
+/// A random (version 4) UUID, so two devices never collide (section 6).
+String newId() {
+  final b = List<int>.generate(16, (_) => _random.nextInt(256));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  final h = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+}
+
+final _random = Random.secure();

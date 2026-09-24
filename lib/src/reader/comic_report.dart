@@ -69,6 +69,7 @@ class ComicReport {
       BookKind.epub => 'EPUB (image pages)',
       BookKind.pdf => 'PDF',
       BookKind.folder => 'Folder of page images',
+      BookKind.image => 'A single image',
       BookKind.rar => 'RAR',
       BookKind.unknown => 'Unknown',
     };

@@ -14,6 +14,9 @@ enum SourceFormat {
   /// A genuine RAR. Out of scope: the reader says so and offers conversion.
   rar,
   pdf,
+
+  /// A PNG, JPEG or WebP image: a one-page comic.
+  image,
   unknown,
 }
 
@@ -39,6 +42,11 @@ SourceFormat sniffFormat(Uint8List head) {
   if (startsWith([0x52, 0x61, 0x72, 0x21])) return SourceFormat.rar; // Rar!
   if (startsWith([0x25, 0x50, 0x44, 0x46])) return SourceFormat.pdf; // %PDF
   if (isTarHeader(head)) return SourceFormat.tar;
+  if (startsWith([0xFF, 0xD8, 0xFF])) return SourceFormat.image; // JPEG
+  if (startsWith([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) return SourceFormat.image; // PNG
+  if (startsWith([0x52, 0x49, 0x46, 0x46]) && startsWith([0x57, 0x45, 0x42, 0x50], 8)) {
+    return SourceFormat.image; // RIFF....WEBP
+  }
   return SourceFormat.unknown;
 }
 

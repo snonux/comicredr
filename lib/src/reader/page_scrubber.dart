@@ -11,16 +11,20 @@ import 'thumbnails.dart';
 /// How far through the book you are, as a thin bar along the bottom of the
 /// page, which also scrubs: drag along it (or hover with the mouse) and a
 /// small picture of the page under the finger shows above it, with its
-/// number; let go, click or tap to jump there. The bar stays when
-/// fullscreen hides the status line. In guided view it also moves panel by
-/// panel within the page.
+/// number; let go, click or tap to jump there. In fullscreen it is [hidden]
+/// until the status line comes back, but still scrubs. In guided view it
+/// also moves panel by panel within the page. Bookmarked pages carry an
+/// amber notch.
 ///
 /// Lay it over the page with [Positioned.fill]: only the band along the
 /// bottom takes touches, the rest passes through to the page.
 class PageScrubber extends ConsumerStatefulWidget {
-  const PageScrubber({super.key, required this.onPick});
+  const PageScrubber({super.key, required this.onPick, this.hidden = false});
 
   final ValueChanged<int> onPick;
+
+  /// Draws nothing and leaves the pointer alone, for fullscreen.
+  final bool hidden;
 
   /// The band along the bottom that takes drags and taps.
   static const band = 28.0;
@@ -107,6 +111,12 @@ class _PageScrubberState extends ConsumerState<PageScrubber> {
     final within = stops == 0 || state.panel >= pageEnd ? 1.0 : (state.panelIndex + 1) / stops;
     final read = state.guided ? state.page + within : (state.unit.isEmpty ? 0 : state.unit.last + 1.0);
     final active = _at != null;
+    final bookmarked = n == 0
+        ? const <int>{}
+        : {
+            for (final b in state.bookmarks)
+              if (b.mark == null && b.page < n) b.page,
+          };
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -131,7 +141,7 @@ class _PageScrubberState extends ConsumerState<PageScrubber> {
                 onIncrease: state.page + 1 < n ? () => widget.onPick(state.page + 1) : null,
                 onDecrease: state.page > 0 ? () => widget.onPick(state.page - 1) : null,
                 child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
+                  cursor: widget.hidden ? MouseCursor.defer : SystemMouseCursors.click,
                   onHover: (e) => _dragging ? null : _show(e.localPosition.dx, width),
                   onExit: (_) => _dragging ? null : _hide(),
                   child: GestureDetector(
@@ -151,20 +161,32 @@ class _PageScrubberState extends ConsumerState<PageScrubber> {
                     onTapUp: (d) => _jump(d.localPosition.dx, width),
                     child: Align(
                       alignment: Alignment.bottomCenter,
-                      child: ExcludeSemantics(
-                        child: LinearProgressIndicator(
-                          key: const Key('progress'),
-                          value: n == 0 ? 0 : (read / n).clamp(0.0, 1.0),
-                          minHeight: active ? 6 : 3,
-                          backgroundColor: active ? Colors.white24 : Colors.white12,
-                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
-                        ),
-                      ),
+                      child: widget.hidden && !active
+                          ? const SizedBox.shrink()
+                          : ExcludeSemantics(
+                              child: LinearProgressIndicator(
+                                key: const Key('progress'),
+                                value: n == 0 ? 0 : (read / n).clamp(0.0, 1.0),
+                                minHeight: active ? 6 : 3,
+                                backgroundColor: active ? Colors.white24 : Colors.white12,
+                                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
+                              ),
+                            ),
                     ),
                   ),
                 ),
               ),
             ),
+            // A notch above the bar at each bookmarked page.
+            for (final page in bookmarked)
+              Positioned(
+                key: Key('bookmarkTick-$page'),
+                left: ((page + 0.5) / n * width - 1.5).clamp(0.0, width - 3).toDouble(),
+                bottom: active ? 6 : 3,
+                width: 3,
+                height: active ? 12 : 9,
+                child: IgnorePointer(child: ColoredBox(color: Colors.amber.withValues(alpha: 0.9))),
+              ),
             // After the band, so the band keeps its place in the stack and
             // a drag under way is not lost when the preview appears.
             if (at != null)

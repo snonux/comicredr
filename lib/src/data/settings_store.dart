@@ -15,6 +15,10 @@ class SettingsStore {
   static const night = 'reader.night';
   static const autoTrim = 'reader.autoTrim';
 
+  /// Fullscreen (`f`, F11): the reader opens the next book, and the next
+  /// launch, the way it was left.
+  static const fullscreen = 'reader.fullscreen';
+
   /// Scan clean-up (`c`): levels on the paper colour, and small pages
   /// enlarged and sharpened. Off by default.
   static const cleanUp = 'reader.cleanUp';
@@ -31,6 +35,9 @@ class SettingsStore {
   /// Find the panels of the whole library in the background
   /// (LibraryDetection). On by default on the laptop, off on the phone.
   static const detectLibrary = 'detect.library';
+
+  /// The touch preset picked in Settings (a TouchPreset name).
+  static const touchPreset = 'touch.preset';
 
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();

@@ -12,12 +12,15 @@ import 'package:reader_input/reader_input.dart';
 
 import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
+import 'input/touch_providers.dart';
+import 'input/touch_zones.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'providers.dart';
 import 'reader/comic_details.dart';
 import 'reader/guided.dart';
 import 'reader/layout.dart';
+import 'reader/bookmark_list.dart';
 import 'reader/open_book.dart';
 import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
@@ -63,10 +66,21 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _storage = MethodChannel('org.snonux.comicredr/storage');
 
+  /// Linux: the GTK window's fullscreen, both ways (linux/runner).
+  static const _window = MethodChannel('org.snonux.comicredr/window');
+
+  /// How far up from the bottom the mouse brings the status line back in
+  /// fullscreen, and how long the pointer and the status line stay after
+  /// the mouse stops or a notice comes.
+  static const _edge = 96.0;
+  static const _linger = Duration(milliseconds: 1500);
+  static const _noticeLinger = Duration(milliseconds: 2500);
+
   final _view = GlobalKey<ReaderViewState>();
   final _library = GlobalKey<LibraryScreenState>();
   final _overlay = GlobalKey<KeymapOverlayState>();
   final _grid = GlobalKey<PageGridState>();
+  final _bookmarkList = GlobalKey<BookmarkListState>();
   final _keys = FocusNode(debugLabel: 'keys');
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _watch;
@@ -75,10 +89,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// The page grid (`p`) is open over the reader.
   bool _showPages = false;
+
+  /// The bookmark list (`M`) is open over the reader.
+  bool _showBookmarks = false;
   bool _picking = false;
 
   /// The details view (`I`) is open.
   bool _showDetails = false;
+
+  /// In fullscreen: the mouse moved lately, so the pointer shows; the
+  /// status line and progress bar show for a moment, or while the mouse is
+  /// along the bottom edge.
+  bool _pointerShown = false;
+  bool _chromeShown = false;
+  bool _mouseAtEdge = false;
+  Timer? _pointerTimer;
+  Timer? _chromeTimer;
+
+  /// The touch zones drawn over the reader for a moment.
+  bool _showZones = false;
+  Timer? _zonesTimer;
 
   @override
   void initState() {
@@ -96,7 +126,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return ui.AppExitResponse.exit;
       },
     );
+    _window.setMethodCallHandler((call) async {
+      if (call.method == 'fullscreenChanged' && call.arguments is bool) {
+        ref.read(readerProvider.notifier).setFullscreen(call.arguments as bool);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+  }
+
+  /// The window follows the reader's fullscreen: on Linux no title bar or
+  /// border, on Android no system bars.
+  void _applyFullscreen(bool full) {
+    if (Platform.isLinux) {
+      unawaited(
+        _window.invokeMethod<void>('setFullscreen', full).catchError((Object e) {
+          debugPrint('Could not change fullscreen: $e');
+        }),
+      );
+    } else {
+      unawaited(SystemChrome.setEnabledSystemUIMode(full ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge));
+    }
+    _pointerTimer?.cancel();
+    _chromeTimer?.cancel();
+    setState(() {
+      _pointerShown = false;
+      _chromeShown = false;
+      _mouseAtEdge = false;
+    });
+  }
+
+  /// A mouse moved over the reader in fullscreen: the pointer shows until
+  /// it rests, and along the bottom edge the status line comes back.
+  void _mouseMoved(PointerEvent e, double height) {
+    if (e.kind != ui.PointerDeviceKind.mouse || !ref.read(readerProvider).fullscreen) return;
+    final atEdge = e.localPosition.dy >= height - _edge;
+    _pointerTimer?.cancel();
+    _pointerTimer = Timer(_linger, () {
+      if (mounted && !_mouseAtEdge) setState(() => _pointerShown = false);
+    });
+    if (atEdge) {
+      _chromeTimer?.cancel();
+    } else if (_mouseAtEdge) {
+      _showChrome(_linger);
+    }
+    if (!_pointerShown || atEdge != _mouseAtEdge || (atEdge && !_chromeShown)) {
+      setState(() {
+        _pointerShown = true;
+        _mouseAtEdge = atEdge;
+        if (atEdge) _chromeShown = true;
+      });
+    }
+  }
+
+  void _mouseLeft() {
+    if (!_mouseAtEdge) return;
+    setState(() => _mouseAtEdge = false);
+    _showChrome(_linger);
+  }
+
+  /// Shows the status line in fullscreen for [time].
+  void _showChrome(Duration time) {
+    _chromeTimer?.cancel();
+    if (!_chromeShown) setState(() => _chromeShown = true);
+    _chromeTimer = Timer(time, () {
+      if (mounted && !_mouseAtEdge) setState(() => _chromeShown = false);
+    });
   }
 
   Future<void> _start() async {
@@ -143,7 +237,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void dispose() {
     _lifecycle.dispose();
+    _zonesTimer?.cancel();
     _keys.dispose();
+    _pointerTimer?.cancel();
+    _chromeTimer?.cancel();
+    _window.setMethodCallHandler(null);
     unawaited(_watch?.cancel());
     super.dispose();
   }
@@ -312,7 +410,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final file = await openFile(
         acceptedTypeGroups: const [
-          XTypeGroup(label: 'Comics', extensions: ['cbz', 'cbr', 'cbt', 'zip', 'epub', 'pdf']),
+          XTypeGroup(
+            label: 'Comics',
+            extensions: ['cbz', 'cbr', 'cbt', 'zip', 'epub', 'pdf', 'png', 'jpg', 'jpeg', 'webp'],
+          ),
         ],
       );
       if (file != null) await ref.read(readerProvider.notifier).open(file.path);
@@ -343,7 +444,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// Shows the touch zones over the reader for a few seconds.
+  void _flashZones() {
+    _zonesTimer?.cancel();
+    setState(() => _showZones = true);
+    _zonesTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showZones = false);
+    });
+  }
+
   void _onCommand(ReaderCommand c) {
+    if (c.intent == ReaderIntent.showTouchZones) {
+      if (ref.read(readerProvider).book == null) {
+        _library.currentState?.handle(c);
+      } else {
+        _flashZones();
+      }
+      return;
+    }
     if (c.intent == ReaderIntent.showKeymap) {
       setState(() => _showKeymap = !_showKeymap);
       return;
@@ -360,8 +478,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _setShowPages(!_showPages);
       return;
     }
+    if (c.intent == ReaderIntent.bookmarkList && ref.read(readerProvider).book != null && !_showPages) {
+      _setShowBookmarks(!_showBookmarks);
+      return;
+    }
+    if (c.intent == ReaderIntent.showDetails) {
+      if (ref.read(readerProvider).book case final book?) {
+        // Over the page grid or the bookmark list, it takes their place.
+        if (_showPages) _setShowPages(false);
+        if (_showBookmarks) _setShowBookmarks(false);
+        unawaited(_details(book));
+      } else {
+        _library.currentState?.handle(c);
+      }
+      return;
+    }
     if (_showPages) {
       _grid.currentState?.handle(c);
+      return;
+    }
+    if (_showBookmarks) {
+      _bookmarkList.currentState?.handle(c);
       return;
     }
     if (c.intent == ReaderIntent.openFile) {
@@ -378,14 +515,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (c.intent == ReaderIntent.rescan) {
       unawaited(_rescan());
-      return;
-    }
-    if (c.intent == ReaderIntent.showDetails) {
-      if (ref.read(readerProvider).book case final book?) {
-        unawaited(_details(book));
-      } else {
-        _library.currentState?.handle(c);
-      }
       return;
     }
     if (c.intent == ReaderIntent.resetBook) {
@@ -405,7 +534,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _setShowPages(bool on) {
-    setState(() => _showPages = on);
+    setState(() {
+      _showPages = on;
+      if (on) _showBookmarks = false;
+    });
+    _keys.requestFocus();
+  }
+
+  void _setShowBookmarks(bool on) {
+    setState(() => _showBookmarks = on);
     _keys.requestFocus();
   }
 
@@ -419,13 +556,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(readerProvider);
     ref.listen(readerProvider.select((s) => s.book), (was, book) {
-      if (!identical(was, book) && _showPages) setState(() => _showPages = false);
+      if (!identical(was, book) && (_showPages || _showBookmarks)) {
+        setState(() => _showPages = _showBookmarks = false);
+      }
     });
-    ref.listen(readerProvider.select((s) => s.fullscreen), (_, full) {
-      SystemChrome.setEnabledSystemUIMode(full ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
+    ref.listen(readerProvider.select((s) => s.fullscreen), (_, full) => _applyFullscreen(full));
+    // A notice in fullscreen shows on the status line for a moment.
+    ref.listen(readerProvider.select((s) => s.message), (_, message) {
+      if (message != null && ref.read(readerProvider).fullscreen) _showChrome(_noticeLinger);
     });
     ref.listen(positionOfferProvider, (_, offer) {
       if (offer != null) unawaited(_offer(offer));
+    });
+    // The first book opened after picking a touch preset shows its zones.
+    ref.listen(readerProvider.select((s) => s.book != null && s.pageCount > 0), (_, open) {
+      if (open && ref.read(touchPresetProvider.notifier).takeNewPick()) _flashZones();
     });
     final keymap = ref.watch(keymapProvider);
     final keysLoad = ref.watch(keymapLoadProvider);
@@ -464,32 +609,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ),
-                if (s.book != null)
-                  Column(
-                    children: [
-                      Expanded(
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: ReaderTouch(
-                                onCommand: _onCommand,
-                                viewTransform: () => _view.currentState?.transform,
-                                guided: () => ref.read(readerProvider).guided,
-                                child: ReaderView(key: _view),
-                              ),
-                            ),
-                            Positioned.fill(child: PageScrubber(onPick: _jumpTo)),
-                            if (_showPages)
-                              Positioned.fill(
-                                child: PageGrid(key: _grid, onPick: _jumpTo, onClose: () => _setShowPages(false)),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (!s.fullscreen || s.message != null || _pending.isNotEmpty)
-                        _StatusLine(state: s, pending: _pending, gridOpen: _showPages, onCommand: _onCommand),
-                    ],
-                  ),
+                if (s.book != null) s.fullscreen ? _fullscreenReader(s) : _windowedReader(s),
                 if (_showKeymap)
                   KeymapOverlay(
                     key: _overlay,
@@ -507,8 +627,134 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
+extension on _HomeScreenState {
+  Widget get _page => ReaderTouch(
+    onCommand: _onCommand,
+    viewTransform: () => _view.currentState?.transform,
+    guided: () => ref.read(readerProvider).guided,
+    touchMap: () => ref.read(touchMapProvider),
+    child: ReaderView(key: _view),
+  );
+
+  /// What lies over the page: the progress bar, and whatever is open.
+  /// [chrome] false (fullscreen at rest) leaves out the bar and the ribbon.
+  List<Widget> _overPage(ReaderState s, {bool chrome = true}) => [
+    if (chrome && s.bookmarksHere.isNotEmpty && !_showPages && !_showBookmarks)
+      Positioned(
+        top: 0,
+        right: 20,
+        child: Semantics(
+          button: true,
+          label: 'Bookmarked. Opens the bookmark list',
+          child: GestureDetector(
+            key: const Key('bookmarkRibbon'),
+            onTap: () => _setShowBookmarks(true),
+            child: Icon(
+              Icons.bookmark,
+              size: 40,
+              color: Theme.of(context).colorScheme.primary,
+              shadows: const [Shadow(blurRadius: 4)],
+            ),
+          ),
+        ),
+      ),
+    Positioned.fill(
+      child: PageScrubber(onPick: _jumpTo, hidden: !chrome),
+    ),
+    if (_showBookmarks)
+      Positioned.fill(
+        child: BookmarkList(
+          key: _bookmarkList,
+          onClose: () => _setShowBookmarks(false),
+          onDialogDone: _keys.requestFocus,
+        ),
+      ),
+    if (_showPages)
+      Positioned.fill(
+        child: PageGrid(
+          key: _grid,
+          onPick: _jumpTo,
+          onClose: () => _setShowPages(false),
+          onDetails: () => _onCommand(const ReaderCommand(ReaderIntent.showDetails)),
+        ),
+      ),
+    if (_showZones)
+      Positioned.fill(
+        child: IgnorePointer(
+          child: TouchZonesView(
+            key: const Key('touch-zones'),
+            map: ref.watch(touchMapProvider),
+            rightToLeft: s.rightToLeft,
+          ),
+        ),
+      ),
+  ];
+
+  Widget _statusLine(ReaderState s) => _StatusLine(
+    state: s,
+    pending: _pending,
+    gridOpen: _showPages,
+    bookmarksOpen: _showBookmarks,
+    onCommand: _onCommand,
+  );
+
+  /// The page above the status line.
+  Widget _windowedReader(ReaderState s) => Column(
+    children: [
+      Expanded(
+        child: Stack(
+          children: [
+            Positioned.fill(child: _page),
+            ..._overPage(s),
+          ],
+        ),
+      ),
+      _statusLine(s),
+    ],
+  );
+
+  /// Only the page, over the whole screen. The status line and progress
+  /// bar come over it for a moment on a notice, while keys are typed, or
+  /// while the mouse is along the bottom; the pointer hides when the mouse
+  /// rests. The page keeps its size either way, so nothing reflows.
+  Widget _fullscreenReader(ReaderState s) {
+    final chrome = _chromeShown || _pending.isNotEmpty || _showPages || _showBookmarks;
+    return LayoutBuilder(
+      builder: (context, constraints) => MouseRegion(
+        cursor: _pointerShown ? MouseCursor.defer : SystemMouseCursors.none,
+        onHover: (e) => _mouseMoved(e, constraints.maxHeight),
+        onExit: (_) => _mouseLeft(),
+        child: Listener(
+          onPointerMove: (e) => _mouseMoved(e, constraints.maxHeight),
+          child: Stack(
+            children: [
+              Positioned.fill(child: _page),
+              Positioned.fill(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Stack(children: _overPage(s, chrome: chrome)),
+                    ),
+                    if (chrome) _statusLine(s),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.state, required this.pending, required this.onCommand, this.gridOpen = false});
+  const _StatusLine({
+    required this.state,
+    required this.pending,
+    required this.onCommand,
+    this.gridOpen = false,
+    this.bookmarksOpen = false,
+  });
 
   /// Where guided view is on the page, or why it shows the whole page.
   static String _guided(ReaderState s) {
@@ -535,6 +781,9 @@ class _StatusLine extends StatelessWidget {
 
   /// Whether the page grid is open.
   final bool gridOpen;
+
+  /// Whether the bookmark list is open.
+  final bool bookmarksOpen;
 
   /// For the buttons: a phone without a keyboard has no other way into
   /// guided view, balloons or bookmarks.
@@ -618,8 +867,31 @@ class _StatusLine extends StatelessWidget {
                   on: state.guided,
                 ),
                 _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
-                _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
-                _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+                // A phone has no room for it here; the page grid has one.
+                if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
+                if (state.bookmarksHere.isNotEmpty)
+                  _button(
+                    'bookmarkButton',
+                    Icons.bookmark,
+                    'Remove the bookmark here (mm)',
+                    ReaderIntent.bookmark,
+                    on: true,
+                  )
+                else
+                  _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+                _button(
+                  'bookmarksButton',
+                  Icons.bookmarks_outlined,
+                  'Bookmarks (M)',
+                  ReaderIntent.bookmarkList,
+                  on: bookmarksOpen,
+                ),
+                _button(
+                  'fullscreenButton',
+                  state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                  state.fullscreen ? 'Leave fullscreen (f, Esc)' : 'Fullscreen (f)',
+                  ReaderIntent.fullscreen,
+                ),
               ],
             ],
           ),

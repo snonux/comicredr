@@ -117,6 +117,28 @@ void main() {
       await scanner.dispose();
     });
 
+    test('a loose image beside comics is a one-page comic; a folder of only images stays one book', () async {
+      final store = LibraryStore(db);
+      final scanner = LibraryScanner(store, coverDir: covers, workers: 1);
+      writeBook(root, 'Daredevil 181.cbz', 4);
+      File('${root.path}/Sunday Strip 7.png').writeAsBytesSync([...png, 7]);
+      File('${root.path}/cat.gif').writeAsBytesSync([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]); // Not a comic.
+      final folder = Directory('${root.path}/Pepper Carrot e06')..createSync();
+      for (var i = 1; i <= 3; i++) {
+        File('${folder.path}/p$i.png').writeAsBytesSync([...png, i]);
+      }
+      await store.addRoot(root.path);
+      await scanner.scan();
+
+      final books = {for (final b in await store.books()) b.name: b};
+      expect(books.keys.toSet(), {'Daredevil #181', 'Sunday Strip #7', 'Pepper Carrot #6'});
+      expect((books['Sunday Strip #7']!.format, books['Sunday Strip #7']!.pageCount), ('image', 1));
+      expect((books['Pepper Carrot #6']!.format, books['Pepper Carrot #6']!.pageCount), ('folder', 3));
+      expect(File('$covers/${books['Sunday Strip #7']!.key}.jpg').existsSync(), isTrue);
+      expect(scanner.last.failed, isEmpty);
+      await scanner.dispose();
+    });
+
     test('removing a folder forgets its books', () async {
       final store = LibraryStore(db);
       final scanner = LibraryScanner(store, coverDir: covers, workers: 1);

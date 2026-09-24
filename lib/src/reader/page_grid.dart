@@ -19,10 +19,14 @@ import 'thumbnails.dart';
 /// the tile's own size and dropped from the image cache when its tile goes,
 /// so a long book costs no more memory than one screenful.
 class PageGrid extends ConsumerStatefulWidget {
-  const PageGrid({super.key, required this.onPick, required this.onClose});
+  const PageGrid({super.key, required this.onPick, required this.onClose, this.onDetails});
 
   final ValueChanged<int> onPick;
   final VoidCallback onClose;
+
+  /// Opens the book's details (`I`): the way there on a phone, whose
+  /// status line has no room for the button.
+  final VoidCallback? onDetails;
 
   @override
   ConsumerState<PageGrid> createState() => PageGridState();
@@ -31,7 +35,6 @@ class PageGrid extends ConsumerStatefulWidget {
 class PageGridState extends ConsumerState<PageGrid> {
   final _scroll = ScrollController();
   late int _selected = ref.read(readerProvider).page;
-  Set<int> _bookmarked = const {};
   int _columns = 1;
   double _rowExtent = 1;
   double _tileWidth = 1;
@@ -39,23 +42,6 @@ class PageGridState extends ConsumerState<PageGrid> {
 
   static const _pad = 12.0;
   static const _gap = 8.0;
-
-  @override
-  void initState() {
-    super.initState();
-    final key = ref.read(readerProvider).book?.key;
-    if (key != null) {
-      unawaited(
-        ref
-            .read(markStoreProvider)
-            .bookmarkedPages(key)
-            .then((pages) {
-              if (mounted) setState(() => _bookmarked = pages);
-            })
-            .catchError((Object e) => debugPrint('Could not read bookmarks: $e')),
-      );
-    }
-  }
 
   @override
   void dispose() {
@@ -141,6 +127,10 @@ class PageGridState extends ConsumerState<PageGrid> {
     final thumbs = ref.watch(thumbnailsProvider);
     final theme = Theme.of(context);
     final n = s.pageCount;
+    final bookmarked = {
+      for (final b in s.bookmarks)
+        if (b.mark == null) b.page,
+    };
     final marks = <int, List<String>>{};
     for (final e in s.marks.entries) {
       (marks[e.value.page] ??= []).add(e.key);
@@ -162,6 +152,13 @@ class PageGridState extends ConsumerState<PageGrid> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (widget.onDetails != null)
+                  IconButton(
+                    key: const Key('pageGridDetails'),
+                    icon: const Icon(Icons.info_outline),
+                    tooltip: 'Details (I)',
+                    onPressed: widget.onDetails,
+                  ),
                 IconButton(
                   key: const Key('pageGridClose'),
                   icon: const Icon(Icons.close),
@@ -205,7 +202,7 @@ class PageGridState extends ConsumerState<PageGrid> {
                       width: _tileWidth,
                       current: s.unit.contains(i),
                       selected: i == _selected,
-                      bookmarked: _bookmarked.contains(i),
+                      bookmarked: bookmarked.contains(i),
                       marks: marks[i] ?? const [],
                       onTap: () => widget.onPick(i),
                     ),
