@@ -1,0 +1,157 @@
+# Modern-layout eval slice (guided view on modern comics, 2026-09-24).
+#
+# Same rules as test/corpus.manifest.toml: fetched into the git-ignored
+# test/corpus-modern/ by spike/fetch_corpus.py, never committed. These books
+# are modern western comics whose panels vary in size and shape: insets,
+# slanted and overlapping frames, borderless art, broken borders. None of
+# them is in test/corpus.manifest.toml or test/train.manifest.toml, so the
+# slice measures pages the detector has never seen. The CC-NC/ND books are
+# for local testing only; the NASA and CDC books are US government works.
+#
+#   python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern --skip-model
+#   python3 spike/extract_pages.py test/corpus-modern PAGES --manifest test/modern.manifest.toml --per-book 400
+#   python3 spike/labelkit.py import spike/labels/modern PAGES
+
+[[book]]
+name = "modern-digital/first-woman-001.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/first-woman-issue-1-dream-to-reality-nasa/First_Woman_issue_1_Dream%20to%20Reality%20%28NASA%29.pdf"
+licence = "public domain, US government work (NASA, First Woman issue 1, 2021)"
+purpose = "NASA graphic novel: digital colour, superhero-style layouts, insets and slanted panels"
+sha256 = "9affeea8d81e29f74fdcb5c9cfac95da05561b28153ebe746abcbf173402cb24"
+
+[[book]]
+name = "modern-digital/zombie-pandemic.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/ZombieGraphicNovel/zombie-graphic-novel.pdf"
+licence = "public domain, US government work (CDC, Preparedness 101: Zombie Pandemic, 2011)"
+purpose = "mainstream-style digital comic, borderless and overlapping panels"
+sha256 = "d6c819827877970a3b97d92ac6f3dd1f0735001c595a62f1f3b867818d61286d"
+
+[[book]]
+name = "modern-indie/wolfs-head-003.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/wolfs-head-003-by-von-allan/Wolf%27s%20Head%20003%20by%20Von%20Allan.pdf"
+licence = "CC BY-NC-ND 4.0 (Von Allan, Wolf's Head 003)"
+purpose = "contemporary indie, varied panel sizes"
+sha256 = "b30cbca6247c16abb0c1d13fa1a3656019b3db08cae21754d8557d977fdb3f96"
+
+[[book]]
+name = "modern-indie/i-villain.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/ivillain-walter-junior-2018-lr/IVILLAIN%20Walter%20Junior%202018%20lr.pdf"
+licence = "CC BY-NC-ND 4.0 (Walter Junior, I, Villain)"
+purpose = "contemporary indie superhero, irregular layouts"
+sha256 = "17c32934956ef11422ba47d7f0b456b4193e64a729bb1be7d69bdae4396b3c99"
+
+[[book]]
+name = "modern-indie/ihow-000.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/ihow0/IHOW%20%230.pdf"
+licence = "CC BY-NC 4.0 (Wafl, IHOW #0)"
+purpose = "webcomic-style indie"
+sha256 = "42164aec419f9ace7f228d4057a6107e21d4e13f45985ddc5f9df186f3181f94"
+
+[[book]]
+name = "modern-indie/stigkland-locked-up.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/stigkland-locked-up/Stigkland%20Locked%20Up.pdf"
+licence = "CC BY-NC 4.0 (Miguel Carballeira Cabana, Stigkland Locked Up)"
+purpose = "indie action, broken frames"
+sha256 = "ffdf7d2150d361f9baa2d5e1eccb9a5264b7c31ce3fc16952b5b33ef8d1a4403"
+
+[[book]]
+name = "modern/pepper-carrot-e03/en_Pepper-and-Carrot_by-David-Revoy_E03P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep03_The-secret-ingredients/low-res/en_Pepper-and-Carrot_by-David-Revoy_E03P02.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "d24b44d0e6cb84f9f91905521ac13c7c4d596c9e02d180d32fd86708ec33e4ee"
+
+[[book]]
+name = "modern/pepper-carrot-e03/en_Pepper-and-Carrot_by-David-Revoy_E03P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep03_The-secret-ingredients/low-res/en_Pepper-and-Carrot_by-David-Revoy_E03P04.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "731c0a31f7e1282590582a610eb2d58de28f324f99f867ebbdd7abf64758a462"
+
+[[book]]
+name = "modern/pepper-carrot-e03/en_Pepper-and-Carrot_by-David-Revoy_E03P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep03_The-secret-ingredients/low-res/en_Pepper-and-Carrot_by-David-Revoy_E03P06.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "afb134171c8abbe81feeb2d45287275dc0332bc42e13609cd3274b4e982be378"
+
+[[book]]
+name = "modern/pepper-carrot-e19/en_Pepper-and-Carrot_by-David-Revoy_E19P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep19_Pollution/low-res/en_Pepper-and-Carrot_by-David-Revoy_E19P02.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "1150053560c860027d40496dd32c9b1c7e18ead32f78d20d844e41e52af0f364"
+
+[[book]]
+name = "modern/pepper-carrot-e19/en_Pepper-and-Carrot_by-David-Revoy_E19P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep19_Pollution/low-res/en_Pepper-and-Carrot_by-David-Revoy_E19P04.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "59eec0f3952215cda0313c68a64ba04504733d23d58ec7ba36fe926c459988ef"
+
+[[book]]
+name = "modern/pepper-carrot-e19/en_Pepper-and-Carrot_by-David-Revoy_E19P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep19_Pollution/low-res/en_Pepper-and-Carrot_by-David-Revoy_E19P06.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "30ba9fbf3a0cfd0a0e1737b592770203f5ea1b2ab1001e1c6333a1f937afbb1a"
+
+[[book]]
+name = "modern/pepper-carrot-e29/en_Pepper-and-Carrot_by-David-Revoy_E29P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep29_Destroyer-of-Worlds/low-res/en_Pepper-and-Carrot_by-David-Revoy_E29P02.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "a4dad63a2d1937c947675c40695c1c2dba90577759a24bb38160c0a776fa7d6f"
+
+[[book]]
+name = "modern/pepper-carrot-e29/en_Pepper-and-Carrot_by-David-Revoy_E29P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep29_Destroyer-of-Worlds/low-res/en_Pepper-and-Carrot_by-David-Revoy_E29P04.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "69f8fb4c170bdada84be7021b01e5a1b1511feecc80016fe9573308fb5457705"
+
+[[book]]
+name = "modern/pepper-carrot-e29/en_Pepper-and-Carrot_by-David-Revoy_E29P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep29_Destroyer-of-Worlds/low-res/en_Pepper-and-Carrot_by-David-Revoy_E29P06.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "d6cab2245504da536e7075dcf6da33a6a1a906c590381db208908b43a5ff8fa7"
+
+[[book]]
+name = "modern/pepper-carrot-e32/en_Pepper-and-Carrot_by-David-Revoy_E32P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep32_The-Battlefield/low-res/en_Pepper-and-Carrot_by-David-Revoy_E32P02.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "bc254f52e6c76992f138327f973196d87f93a96564c2e837c718444aeb69bee8"
+
+[[book]]
+name = "modern/pepper-carrot-e32/en_Pepper-and-Carrot_by-David-Revoy_E32P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep32_The-Battlefield/low-res/en_Pepper-and-Carrot_by-David-Revoy_E32P04.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "db32ec4fa782e8f0c3d47045479836af184ab585959c905ea823138376bb1c3b"
+
+[[book]]
+name = "modern/pepper-carrot-e32/en_Pepper-and-Carrot_by-David-Revoy_E32P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep32_The-Battlefield/low-res/en_Pepper-and-Carrot_by-David-Revoy_E32P06.jpg"
+licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
+purpose = "digitally painted, full-bleed, slanted and borderless panels"
+sha256 = "feb189b9439c6ff921ea58c4a134fa3a00cd99140a238c7e7f76b8cebaf64b5a"

@@ -14,9 +14,19 @@ import 'panel.dart';
 /// rule decides: two panels share a row when their vertical extents overlap
 /// by more than half of the shorter one.
 ///
+/// A page wider than [spreadAspect] ([aspect] is its width over its
+/// height) is a two-page spread: when no panel crosses the spine, the whole
+/// leading page reads before the other, instead of rows running across
+/// both pages.
+///
 /// The same order is used for balloons inside a panel. spike/evaluate.py
 /// carries a Python copy that the eval set is scored with.
-List<Panel> readingOrder(Iterable<Panel> panels, {bool rightToLeft = false, double tolerance = 0.01}) {
+List<Panel> readingOrder(
+  Iterable<Panel> panels, {
+  bool rightToLeft = false,
+  double tolerance = 0.01,
+  double aspect = 1,
+}) {
   List<Panel> rec(List<Panel> items) {
     if (items.length <= 1) return items;
     final rows = _cut(items, (p) => p.y, (p) => p.bottom, tolerance);
@@ -25,13 +35,33 @@ List<Panel> readingOrder(Iterable<Panel> panels, {bool rightToLeft = false, doub
         ? _cut(items, (p) => -p.right, (p) => -p.x, tolerance)
         : _cut(items, (p) => p.x, (p) => p.right, tolerance);
     if (cols.length > 1) {
-      return [...rec(cols.first), ...rec([for (final c in cols.skip(1)) ...c])];
+      return [
+        ...rec(cols.first),
+        ...rec([for (final c in cols.skip(1)) ...c]),
+      ];
     }
     return _byRows(items, rightToLeft);
   }
 
-  return rec(panels.toList());
+  final items = panels.toList();
+  if (aspect > spreadAspect && items.isNotEmpty) {
+    final left = [
+      for (final p in items)
+        if (p.right <= 0.5 + tolerance) p,
+    ];
+    final right = [
+      for (final p in items)
+        if (p.x >= 0.5 - tolerance) p,
+    ];
+    if (left.isNotEmpty && right.isNotEmpty && left.length + right.length == items.length) {
+      return rightToLeft ? [...rec(right), ...rec(left)] : [...rec(left), ...rec(right)];
+    }
+  }
+  return rec(items);
 }
+
+/// Pages wider than this, width over height, are two-page spreads.
+const spreadAspect = 1.2;
 
 /// Splits [items] into runs along one axis wherever a gap no item spans
 /// opens up, in increasing [start] order.
@@ -72,7 +102,5 @@ List<Panel> _byRows(List<Panel> panels, bool rightToLeft) {
   }
   double top(List<Panel> row) => row.map((p) => p.y).reduce((x, y) => x < y ? x : y);
   rows.sort((a, b) => top(a).compareTo(top(b)));
-  return [
-    for (final row in rows) ...(row..sort((a, b) => rightToLeft ? b.x.compareTo(a.x) : a.x.compareTo(b.x))),
-  ];
+  return [for (final row in rows) ...(row..sort((a, b) => rightToLeft ? b.x.compareTo(a.x) : a.x.compareTo(b.x)))];
 }
