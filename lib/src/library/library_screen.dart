@@ -119,6 +119,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   String? _seriesSelected; // The series to select again when backing out.
   String? _folder; // The folder walked into on the Folders tab, null at the top.
   String? _folderRoot; // The library folder it is under.
+  bool _rootListed = false; // _folderRoot has been seen among the roots.
+  bool _autoFirst = false; // Keep the first item selected until a key or tap.
   String _query = '';
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
@@ -147,6 +149,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     // The Folders tab keeps its place; choosing it again goes to the top.
     if (t == LibraryTab.folders && tab == LibraryTab.folders) _folder = _folderRoot = null;
     _tab = t;
+    _autoFirst = false;
     _series = null;
     _selected = null;
     _detail = false;
@@ -155,6 +158,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   /// Handles a library intent; false for one that means nothing here.
   bool handle(ReaderCommand c) {
+    _autoFirst = false;
     final n = _items.length;
     int? index() {
       final i = _items.indexWhere((it) => it.id == _selected);
@@ -269,9 +273,21 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     return true;
   }
 
+  /// Shows [dir], under the library folder [root], on the Folders tab: for a
+  /// folder opened from the command line, Open With or a drop.
+  void showFolder(String dir, {required String root}) {
+    _setTab(LibraryTab.folders);
+    _openFolder(dir, root: root);
+    _search.clear();
+    setState(() => _query = '');
+    _autoFirst = true;
+  }
+
   /// Walks to [dir] under the library folder [root]; null goes to the top.
   void _openFolder(String? dir, {String? root}) {
     setState(() {
+      if (root != _folderRoot) _rootListed = false;
+      _autoFirst = false;
       _folder = dir;
       _folderRoot = dir == null ? null : root;
       _selected = null;
@@ -314,10 +330,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
       case _FolderItem(:final folder):
         _openFolder(folder.path, root: folder.root?.path ?? _folderRoot);
-        // Select the first thing inside, once the grid has it.
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted && _selected == null && _items.isNotEmpty) setState(() => _selected = _items.first.id);
-        });
+        _autoFirst = true;
       case _BookItem(:final book):
         read(book);
       case _BookmarkItem(:final bookmark, :final book):
@@ -351,6 +364,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// A tap: selects, and a second tap on the selected cover opens it. On a
   /// phone-sized screen a tap on a book shows its detail page.
   void _tap(_Item item, {required bool wide}) {
+    _autoFirst = false;
     if (item is _BookItem && !wide) {
       setState(() {
         _selected = item.id;
@@ -434,13 +448,21 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     final roots = ref.watch(rootsProvider).value;
     // Open on what you are reading when there is something; else the series.
     _tab ??= roots == null ? null : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.series);
-    // A library folder taken out of the library while we are in it.
-    if (_folderRoot != null && roots != null && !roots.any((r) => r.path == _folderRoot)) {
-      _folder = _folderRoot = null;
+    // A library folder taken out of the library while we are in it. One
+    // just added may not be in the list yet.
+    if (_folderRoot != null && roots != null) {
+      if (roots.any((r) => r.path == _folderRoot)) {
+        _rootListed = true;
+      } else if (_rootListed) {
+        _folder = _folderRoot = null;
+      }
     }
     // The folder shown was deleted or emptied on disk: up to the nearest
     // folder above that still holds books, as a file manager would.
-    while (_folder != null && _folder != _folderRoot && !books.any((b) => p.isWithin(_folder!, b.path))) {
+    // Not while the books are still loading or a scan may be adding them: a
+    // folder opened at start has none yet.
+    final settled = ref.watch(booksProvider).hasValue && !(ref.watch(scanStatusProvider).value?.running ?? true);
+    while (settled && _folder != null && _folder != _folderRoot && !books.any((b) => p.isWithin(_folder!, b.path))) {
       _folder = p.dirname(_folder!);
       _selected = null;
       _detail = false;
@@ -449,6 +471,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         ? ref.watch(allBookmarksProvider).value ?? const <BookmarkInfo>[]
         : const <BookmarkInfo>[];
     _items = _itemsFor(books, roots ?? const [], bookmarks);
+    // A folder just opened: its first item, even as a scan adds more.
+    if (_autoFirst && _items.isNotEmpty) _selected = _items.first.id;
     if (_selected != null && !_items.any((it) => it.id == _selected)) {
       // An edit moved the book to another series, or renamed its series:
       // the selection follows the books.
