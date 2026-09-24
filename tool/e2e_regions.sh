@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end check of the part-of-the-page keys on the Linux build: H1 H2
-# (halves), T1-T3 (thirds) and Q1-Q4 (quarters) enlarge that part of a page
+# (halves), B1-B3 (thirds) and Q1-Q4 (quarters) enlarge that part of a page
 # guided view shows whole, and of any page outside guided view. Steps go
 # through the parts in reading order, then to the whole page (held, wine
 # red, in guided view), then the page turns. The same keys again or Esc
@@ -99,7 +99,7 @@ key l;     shot u03_whole;        whole u03_whole ref_a
 key l;     shot u04_next_page;    whole u04_next_page ref_b
 key "$page" shift+g
 # Thirds, and Esc back to the whole page, still in the book.
-part T 1;  shot u05_third_1;      framed u05_third_1 thirds 1
+part B 1;  shot u05_third_1;      framed u05_third_1 thirds 1
 key Right; shot u06_third_2;      framed u06_third_2 thirds 2
 key space; shot u07_third_3;      framed u07_third_3 thirds 3
 key h;     shot u08_back_2;       framed u08_back_2 thirds 2
@@ -117,7 +117,7 @@ key h;     shot g02_upper_half;   framed g02_upper_half halves 1
 key h;     shot g03_held_back;    whole g03_held_back ref_a; held g03_held_back
 key l;     shot g04_held_forward; whole g04_held_forward ref_b
 key "$page" shift+g
-part T 2;  shot g05_third_2;      framed g05_third_2 thirds 2
+part B 2;  shot g05_third_2;      framed g05_third_2 thirds 2
 key l;     shot g06_third_3;      framed g06_third_3 thirds 3
 key l;     shot g07_held;         whole g07_held ref_a; held g07_held
 key l;     shot g08_turned;       whole g08_turned ref_b; black g08_turned

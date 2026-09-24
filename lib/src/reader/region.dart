@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:reader_input/reader_input.dart';
 
-/// How a page is cut into fixed parts to enlarge by hand (`H1`, `T2`,
+/// How a page is cut into fixed parts to enlarge by hand (`H1`, `B2`,
 /// `Q4`...), for pages guided view shows whole or outside guided view.
 enum PageSplit {
   halves(1, 2, ['upper half', 'lower half']),

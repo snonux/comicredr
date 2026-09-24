@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fixtures.dart';
 
-/// Halves, thirds and quarters of a page enlarged by hand (`H1`, `T2`,
+/// Halves, thirds and quarters of a page enlarged by hand (`H1`, `B2`,
 /// `Q3`...), in guided view on a page without panels and outside it.
 void main() {
   late Directory tmp;
@@ -70,7 +70,7 @@ void main() {
     await settle(tester);
   }
 
-  /// A split key and a part number: `H1`, `T3`, `Q4`.
+  /// A split key and a part number: `H1`, `B3`, `Q4`.
   Future<void> part(WidgetTester tester, String split, int n) async {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(
@@ -153,7 +153,7 @@ void main() {
     expect((s.page, s.region, s.guided), (1, null, true));
 
     // Back through the parts the other way.
-    await part(tester, 'T', 3);
+    await part(tester, 'B', 3);
     expectFramed(tester, PageSplit.thirds, 2);
     await key(tester, LogicalKeyboardKey.keyH);
     expect(c.read(readerProvider).region?.part, 1);
@@ -188,14 +188,14 @@ void main() {
     // A page with panels: the part wins over the panel while it is shown.
     await key(tester, LogicalKeyboardKey.pageDown, times: 2);
     expect(c.read(readerProvider).stopsOn(2), hasLength(4));
-    await part(tester, 'T', 2);
+    await part(tester, 'B', 2);
     expectFramed(tester, PageSplit.thirds, 1);
   });
 
   testWidgets('outside guided view: thirds step through, then the whole page, then the next page', (tester) async {
     final c = await open(tester);
     expect(c.read(readerProvider).guided, isFalse);
-    await part(tester, 'T', 1);
+    await part(tester, 'B', 1);
     expectFramed(tester, PageSplit.thirds, 0);
     await key(tester, LogicalKeyboardKey.arrowRight);
     expectFramed(tester, PageSplit.thirds, 1);

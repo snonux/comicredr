@@ -80,11 +80,11 @@ regionUpperHalf = ["H1"]
 # Lower half of the page, enlarged
 regionLowerHalf = ["H2"]
 # Upper third of the page, enlarged; l and h step through the thirds, then on; again or Esc for the whole page
-regionUpperThird = ["T1"]
+regionUpperThird = ["B1"]
 # Middle third of the page, enlarged
-regionMiddleThird = ["T2"]
+regionMiddleThird = ["B2"]
 # Lower third of the page, enlarged
-regionLowerThird = ["T3"]
+regionLowerThird = ["B3"]
 # Top-left quarter of the page, enlarged; l and h step through the quarters in reading order, then on; again or Esc for the whole page
 regionTopLeft = ["Q1"]
 # Top-right quarter of the page, enlarged

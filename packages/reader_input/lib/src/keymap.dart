@@ -76,13 +76,13 @@ class Keymap {
       Binding(['-'], ReaderIntent.zoomOut, layer: s),
       Binding(['='], ReaderIntent.zoomReset, layer: s),
       Binding(['Z'], ReaderIntent.zoomToggle),
-      // A fixed part of the page: H for halves, T for thirds, Q for
+      // A fixed part of the page: H for halves, B for thirds (bands), Q for
       // quarters, then the part's number, top to bottom, left to right.
       Binding(['H', '1'], ReaderIntent.regionUpperHalf),
       Binding(['H', '2'], ReaderIntent.regionLowerHalf),
-      Binding(['T', '1'], ReaderIntent.regionUpperThird),
-      Binding(['T', '2'], ReaderIntent.regionMiddleThird),
-      Binding(['T', '3'], ReaderIntent.regionLowerThird),
+      Binding(['B', '1'], ReaderIntent.regionUpperThird),
+      Binding(['B', '2'], ReaderIntent.regionMiddleThird),
+      Binding(['B', '3'], ReaderIntent.regionLowerThird),
       Binding(['Q', '1'], ReaderIntent.regionTopLeft),
       Binding(['Q', '2'], ReaderIntent.regionTopRight),
       Binding(['Q', '3'], ReaderIntent.regionBottomLeft),

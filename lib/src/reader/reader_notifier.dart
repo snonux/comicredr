@@ -143,7 +143,7 @@ class ReaderState {
   /// Where `''` goes back to: the place before the last jump.
   final Place? jumpedFrom;
 
-  /// The part of a page shown enlarged by hand (`H1`, `T2`, `Q3`...), in
+  /// The part of a page shown enlarged by hand (`H1`, `B2`, `Q3`...), in
   /// guided view or out of it; null for the view as it would be. Steps go
   /// through the split's parts before moving on; leaving the page, a mode
   /// switch or Esc ends it.
@@ -844,7 +844,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _goTo(page, panel: panel, balloon: state.balloons ? balloon : -1);
   }
 
-  /// `H1`, `T2`, `Q3`...: shows [part] of [split] enlarged on the page the
+  /// `H1`, `B2`, `Q3`...: shows [part] of [split] enlarged on the page the
   /// reader is on (in a spread, the page it already shows a part of, else
   /// the first in reading order). The same keys again go back to the whole
   /// page.
