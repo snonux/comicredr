@@ -55,6 +55,10 @@ class Progress extends Table {
   BoolColumn get finished => boolean().withDefault(const Constant(false))();
   DateTimeColumn get updatedAt => dateTime()();
 
+  /// The rest of the spot as JSON: guided and balloon mode, the balloon,
+  /// spread and direction, zoom and scroll. See ReadingPosition.
+  TextColumn get viewJson => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey};
 }
@@ -139,12 +143,13 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.createTable(analysedPages); // M4: guided view
+      if (from < 3) await m.addColumn(progress, progress.viewJson); // Exact resume
     },
   );
 }

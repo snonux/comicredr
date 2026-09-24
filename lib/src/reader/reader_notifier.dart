@@ -181,6 +181,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   ProgressStore get _progress => ref.read(progressStoreProvider);
 
+  /// Zoom and scroll as the reader screen last reported them, saved with the
+  /// position; and the saved one for the screen to restore on open.
+  ViewSpot? _view;
+  ViewSpot? _restoreView;
+
   /// Pages waiting for detection, and whether the worker loop is running.
   final _wanted = <int>{};
   bool _detecting = false;
@@ -210,20 +215,32 @@ class ReaderNotifier extends Notifier<ReaderState> {
         const {};
     final marks = await _orNull(() => ref.read(markStoreProvider).load(book.key)) ?? const {};
     final page = (saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
+    // The saved spot wins; a book never read, or saved before the view was,
+    // keeps the mode the reader is in.
+    final guided = saved?.guided ?? state.guided;
+    final panel = saved?.panel ?? 0;
+    _view = _restoreView = saved?.view;
     state = ReaderState(
       book: book,
       page: page,
-      panel: saved?.panel ?? 0,
-      mode: state.mode,
-      guided: state.guided,
-      balloons: state.balloons,
-      coverAlone: state.coverAlone,
-      rightToLeft: book.meta?.rightToLeft ?? false,
+      panel: panel,
+      balloon: saved?.balloon ?? -1,
+      mode: switch (saved?.spread) {
+        true => PageMode.spread,
+        false => PageMode.single,
+        null => state.mode,
+      },
+      guided: guided,
+      balloons: saved?.balloons ?? state.balloons,
+      coverAlone: saved?.coverAlone ?? state.coverAlone,
+      rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
       fullscreen: state.fullscreen,
       night: state.night,
       panels: {for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons)},
       marks: marks,
-      message: saved != null && saved.page > 0 ? 'Resumed at page ${page + 1}' : null,
+      message: saved == null || (page == 0 && !guided)
+          ? null
+          : 'Resumed at page ${page + 1}${guided ? ', panel ${panel + 1}' : ''}',
     );
     _ensurePanels();
   }
@@ -242,6 +259,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (book == null) return;
     await _progress.flush();
     _wanted.clear();
+    _view = _restoreView = null;
     state = ReaderState(
       mode: state.mode,
       guided: state.guided,
@@ -266,8 +284,37 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   void _saveProgress(OpenBook book) {
-    final i = state.panelIndex;
-    _progress.save(book.key, state.page, state.pageCount, panel: state.guided && i >= 0 ? i : null);
+    // The panel and balloon as asked for, not as resolved: detection may not
+    // have reached the page yet, and they resolve the same way on reopen.
+    _progress.save(
+      book.key,
+      ReadingPosition(
+        page: state.page,
+        panel: state.panel,
+        balloon: state.balloon,
+        guided: state.guided,
+        balloons: state.balloons,
+        spread: state.mode == PageMode.spread,
+        coverAlone: state.coverAlone,
+        rightToLeft: state.rightToLeft,
+        view: _view,
+      ),
+      state.pageCount,
+    );
+  }
+
+  /// The reader screen's zoom and scroll changed; saved with the position.
+  void viewChanged(ViewSpot view) {
+    _view = view;
+    if (state.book case final book?) _saveProgress(book);
+  }
+
+  /// The saved zoom and scroll of the book just opened, once, for the reader
+  /// screen to restore when its first page is laid out.
+  ViewSpot? takeRestoredView() {
+    final v = _restoreView;
+    _restoreView = null;
+    return v;
   }
 
   void _step(int steps) =>
@@ -511,6 +558,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.showKeymap:
         break; // Handled by the screen.
     }
+    // Mode switches (guided, balloons, spread, direction) are part of the
+    // spot too. Saves are debounced, so this costs nothing per key.
+    if (state.book case final book?) _saveProgress(book);
   }
 
   Future<void> flush() => _progress.flush();

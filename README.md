@@ -52,11 +52,14 @@ opens one straight away, without adding it to a library:
 - press `O`, or click **Open a folder**, to pick a folder of page images
 - drag the file or folder onto the window
 
-The book reopens at the page where you left it, even after you rename or
-copy it, because progress is keyed on the file's content rather than its
-path. `]` and `[` open the next and previous book in the same folder,
-CBZs, PDFs and folder books alike, in natural name order. `Esc` closes the
-book.
+Close the book or the app and the book reopens exactly where you left it:
+the same page, in the same view (single page, spread, or guided view on the
+same panel, and balloon mode on the same balloon), with the same zoom and
+scroll. This holds after you rename or copy the file, because progress is
+keyed on the file's content rather than its path. A book you have never
+opened starts on its cover in the view you are reading in. `]` and `[` open
+the next and previous book in the same folder, CBZs, PDFs and folder books
+alike, in natural name order. `Esc` closes the book.
 
 The file's first bytes decide how it is read, not its extension, so a `.cbr`
 that is really a ZIP opens as-is.
@@ -221,6 +224,7 @@ flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
+tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
 ```
 
 ## M1 detection spike

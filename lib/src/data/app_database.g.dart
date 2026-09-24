@@ -999,8 +999,17 @@ class $ProgressTable extends Progress with TableInfo<$ProgressTable, ProgressDat
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _viewJsonMeta = const VerificationMeta('viewJson');
   @override
-  List<GeneratedColumn> get $columns => [contentKey, page, panel, percent, finished, updatedAt];
+  late final GeneratedColumn<String> viewJson = GeneratedColumn<String>(
+    'view_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [contentKey, page, panel, percent, finished, updatedAt, viewJson];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1036,6 +1045,9 @@ class $ProgressTable extends Progress with TableInfo<$ProgressTable, ProgressDat
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('view_json')) {
+      context.handle(_viewJsonMeta, viewJson.isAcceptableOrUnknown(data['view_json']!, _viewJsonMeta));
+    }
     return context;
   }
 
@@ -1051,6 +1063,7 @@ class $ProgressTable extends Progress with TableInfo<$ProgressTable, ProgressDat
       percent: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}percent'])!,
       finished: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}finished'])!,
       updatedAt: attachedDatabase.typeMapping.read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      viewJson: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}view_json']),
     );
   }
 
@@ -1067,6 +1080,10 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
   final double percent;
   final bool finished;
   final DateTime updatedAt;
+
+  /// The rest of the spot as JSON: guided and balloon mode, the balloon,
+  /// spread and direction, zoom and scroll. See ReadingPosition.
+  final String? viewJson;
   const ProgressData({
     required this.contentKey,
     required this.page,
@@ -1074,6 +1091,7 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
     required this.percent,
     required this.finished,
     required this.updatedAt,
+    this.viewJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1086,6 +1104,9 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
     map['percent'] = Variable<double>(percent);
     map['finished'] = Variable<bool>(finished);
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || viewJson != null) {
+      map['view_json'] = Variable<String>(viewJson);
+    }
     return map;
   }
 
@@ -1097,6 +1118,7 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
       percent: Value(percent),
       finished: Value(finished),
       updatedAt: Value(updatedAt),
+      viewJson: viewJson == null && nullToAbsent ? const Value.absent() : Value(viewJson),
     );
   }
 
@@ -1109,6 +1131,7 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
       percent: serializer.fromJson<double>(json['percent']),
       finished: serializer.fromJson<bool>(json['finished']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      viewJson: serializer.fromJson<String?>(json['viewJson']),
     );
   }
   @override
@@ -1121,6 +1144,7 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
       'percent': serializer.toJson<double>(percent),
       'finished': serializer.toJson<bool>(finished),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'viewJson': serializer.toJson<String?>(viewJson),
     };
   }
 
@@ -1131,6 +1155,7 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
     double? percent,
     bool? finished,
     DateTime? updatedAt,
+    Value<String?> viewJson = const Value.absent(),
   }) => ProgressData(
     contentKey: contentKey ?? this.contentKey,
     page: page ?? this.page,
@@ -1138,6 +1163,7 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
     percent: percent ?? this.percent,
     finished: finished ?? this.finished,
     updatedAt: updatedAt ?? this.updatedAt,
+    viewJson: viewJson.present ? viewJson.value : this.viewJson,
   );
   ProgressData copyWithCompanion(ProgressCompanion data) {
     return ProgressData(
@@ -1147,6 +1173,7 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
       percent: data.percent.present ? data.percent.value : this.percent,
       finished: data.finished.present ? data.finished.value : this.finished,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      viewJson: data.viewJson.present ? data.viewJson.value : this.viewJson,
     );
   }
 
@@ -1158,13 +1185,14 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
           ..write('panel: $panel, ')
           ..write('percent: $percent, ')
           ..write('finished: $finished, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('viewJson: $viewJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(contentKey, page, panel, percent, finished, updatedAt);
+  int get hashCode => Object.hash(contentKey, page, panel, percent, finished, updatedAt, viewJson);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1174,7 +1202,8 @@ class ProgressData extends DataClass implements Insertable<ProgressData> {
           other.panel == this.panel &&
           other.percent == this.percent &&
           other.finished == this.finished &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.viewJson == this.viewJson);
 }
 
 class ProgressCompanion extends UpdateCompanion<ProgressData> {
@@ -1184,6 +1213,7 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
   final Value<double> percent;
   final Value<bool> finished;
   final Value<DateTime> updatedAt;
+  final Value<String?> viewJson;
   final Value<int> rowid;
   const ProgressCompanion({
     this.contentKey = const Value.absent(),
@@ -1192,6 +1222,7 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
     this.percent = const Value.absent(),
     this.finished = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.viewJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProgressCompanion.insert({
@@ -1201,6 +1232,7 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
     required double percent,
     this.finished = const Value.absent(),
     required DateTime updatedAt,
+    this.viewJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        page = Value(page),
@@ -1213,6 +1245,7 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
     Expression<double>? percent,
     Expression<bool>? finished,
     Expression<DateTime>? updatedAt,
+    Expression<String>? viewJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1222,6 +1255,7 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
       if (percent != null) 'percent': percent,
       if (finished != null) 'finished': finished,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (viewJson != null) 'view_json': viewJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1233,6 +1267,7 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
     Value<double>? percent,
     Value<bool>? finished,
     Value<DateTime>? updatedAt,
+    Value<String?>? viewJson,
     Value<int>? rowid,
   }) {
     return ProgressCompanion(
@@ -1242,6 +1277,7 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
       percent: percent ?? this.percent,
       finished: finished ?? this.finished,
       updatedAt: updatedAt ?? this.updatedAt,
+      viewJson: viewJson ?? this.viewJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1267,6 +1303,9 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (viewJson.present) {
+      map['view_json'] = Variable<String>(viewJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1282,6 +1321,7 @@ class ProgressCompanion extends UpdateCompanion<ProgressData> {
           ..write('percent: $percent, ')
           ..write('finished: $finished, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('viewJson: $viewJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3889,6 +3929,7 @@ typedef $$ProgressTableCreateCompanionBuilder = ProgressCompanion Function({
   required double percent,
   Value<bool> finished,
   required DateTime updatedAt,
+  Value<String?> viewJson,
   Value<int> rowid,
 });
 typedef $$ProgressTableUpdateCompanionBuilder = ProgressCompanion Function({
@@ -3898,6 +3939,7 @@ typedef $$ProgressTableUpdateCompanionBuilder = ProgressCompanion Function({
   Value<double> percent,
   Value<bool> finished,
   Value<DateTime> updatedAt,
+  Value<String?> viewJson,
   Value<int> rowid,
 });
 
@@ -3924,6 +3966,9 @@ class $$ProgressTableFilterComposer extends Composer<_$AppDatabase, $ProgressTab
 
   ColumnFilters<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get viewJson =>
+      $composableBuilder(column: $table.viewJson, builder: (column) => ColumnFilters(column));
 }
 
 class $$ProgressTableOrderingComposer extends Composer<_$AppDatabase, $ProgressTable> {
@@ -3951,6 +3996,9 @@ class $$ProgressTableOrderingComposer extends Composer<_$AppDatabase, $ProgressT
 
   ColumnOrderings<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get viewJson =>
+      $composableBuilder(column: $table.viewJson, builder: (column) => ColumnOrderings(column));
 }
 
 class $$ProgressTableAnnotationComposer extends Composer<_$AppDatabase, $ProgressTable> {
@@ -3972,6 +4020,8 @@ class $$ProgressTableAnnotationComposer extends Composer<_$AppDatabase, $Progres
   GeneratedColumn<bool> get finished => $composableBuilder(column: $table.finished, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt => $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get viewJson => $composableBuilder(column: $table.viewJson, builder: (column) => column);
 }
 
 class $$ProgressTableTableManager
@@ -4005,6 +4055,7 @@ class $$ProgressTableTableManager
                 Value<double> percent = const Value.absent(),
                 Value<bool> finished = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
+                Value<String?> viewJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProgressCompanion(
                 contentKey: contentKey,
@@ -4013,6 +4064,7 @@ class $$ProgressTableTableManager
                 percent: percent,
                 finished: finished,
                 updatedAt: updatedAt,
+                viewJson: viewJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4023,6 +4075,7 @@ class $$ProgressTableTableManager
                 required double percent,
                 Value<bool> finished = const Value.absent(),
                 required DateTime updatedAt,
+                Value<String?> viewJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProgressCompanion.insert(
                 contentKey: contentKey,
@@ -4031,6 +4084,7 @@ class $$ProgressTableTableManager
                 percent: percent,
                 finished: finished,
                 updatedAt: updatedAt,
+                viewJson: viewJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
