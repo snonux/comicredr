@@ -12,6 +12,8 @@ final _named = <LogicalKeyboardKey, String>{
   LogicalKeyboardKey.space: 'Space',
   LogicalKeyboardKey.tab: 'Tab',
   LogicalKeyboardKey.escape: 'Esc',
+  LogicalKeyboardKey.enter: 'Enter',
+  LogicalKeyboardKey.numpadEnter: 'Enter',
   LogicalKeyboardKey.f11: 'F11',
 };
 

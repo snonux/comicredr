@@ -5,10 +5,12 @@ library;
 import 'src/document.dart';
 
 export 'src/background.dart';
+export 'src/book_info.dart';
 export 'src/cbz.dart';
 export 'src/comic_info.dart';
 export 'src/content_key.dart';
 export 'src/document.dart';
+export 'src/file_name.dart';
 export 'src/folder.dart';
 export 'src/natural_sort.dart';
 export 'src/open.dart';
