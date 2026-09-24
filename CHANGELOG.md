@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Detector built in:** the trained panel and balloon model is packed
+  into the Linux build and the APK, so guided view uses it without
+  `make install-model` or `make push-model`. The build takes it from
+  `assets/models/` (`make model MODEL=...` puts it there); a model
+  installed the old way still wins, for trying another one.
+
 - **Wide scanned margins:** guided view no longer shows a page whole just
   because it was scanned with a wide blank margin. The trained detector
   looks at such a page with the margin cut off, whether or not `t` is on;
