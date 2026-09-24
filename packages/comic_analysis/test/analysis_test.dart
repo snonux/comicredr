@@ -48,11 +48,55 @@ void main() {
       expect(readingOrder([d, c, b, a]), [a, b, c, d]);
     });
 
+    test('a two-page spread reads the whole left page first', () {
+      // Two 2x2 grids side by side: on a single page the rows would run
+      // across the spine.
+      final spread = [
+        for (final page in [0.0, 0.5])
+          for (var r = 0; r < 2; r++)
+            for (var c = 0; c < 2; c++) Panel(page + 0.03 + c * 0.22, 0.05 + r * 0.46, 0.2, 0.43),
+      ];
+      expect(readingOrder(spread.reversed, aspect: 1.5), spread);
+      expect(readingOrder(spread.reversed).take(4).map((p) => p.y), everyElement(0.05));
+    });
+
+    test('a spread with a panel across the spine reads by rows', () {
+      const wide = Panel(0.03, 0.05, 0.94, 0.4);
+      const l = Panel(0.03, 0.5, 0.44, 0.45);
+      const r = Panel(0.53, 0.5, 0.44, 0.45);
+      expect(readingOrder([r, l, wide], aspect: 1.5), [wide, l, r]);
+    });
+
     test('boxes overlapping a gutter by a hair still cut', () {
       const a = Panel(0.05, 0.05, 0.9, 0.305);
       const b = Panel(0.05, 0.35, 0.44, 0.6);
       const c = Panel(0.51, 0.35, 0.44, 0.6);
       expect(readingOrder([c, b, a]), [a, b, c]);
+    });
+  });
+
+  group('dropContainers', () {
+    test('a box around a whole row goes, the row panels stay', () {
+      const row = Panel(0.05, 0.05, 0.9, 0.3);
+      const l = Panel(0.05, 0.05, 0.44, 0.3);
+      const r = Panel(0.51, 0.05, 0.44, 0.3);
+      const below = Panel(0.05, 0.4, 0.9, 0.5);
+      expect(dropContainers([row, l, r, below]), [l, r, below]);
+    });
+
+    test('an inset stays, and so does the panel it sits on', () {
+      const big = Panel(0.05, 0.05, 0.9, 0.6);
+      const inset = Panel(0.6, 0.1, 0.3, 0.2);
+      expect(dropContainers([big, inset]), [big, inset]);
+    });
+  });
+
+  group('modelVersion', () {
+    test('tells model files apart and carries the code version', () {
+      final a = modelVersion([1, 2, 3]);
+      expect(a ~/ 100000000, modelDetectorVersion);
+      expect(modelVersion([1, 2, 3]), a);
+      expect(modelVersion([1, 2, 4]), isNot(a));
     });
   });
 

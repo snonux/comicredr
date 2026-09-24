@@ -258,6 +258,14 @@ line says why, for example `guided: whole page (1 panel(s): nothing to
 guide through)`. Without the trained detector (step 7), pages without
 gutters between panels, and many ads, still trip it up.
 
+Modern layouts (panels of different sizes, slanted frames, insets,
+borderless art) need the trained detector from 2026-09-24 or later; on the
+66-page modern test set it guides 49 pages right, shows 15 whole and
+moves wrongly on 2. A two-page spread (a landscape page image) reads the
+whole left page before the right one. Slanted panels are still framed by
+their box, so a sliver of the neighbouring panel stays lit, and a page
+whose slanted panels overlap a lot is shown whole.
+
 **Balloon by balloon.** Press `b` for balloon mode, from guided view or
 straight from the page. Each panel is shown whole first, then every speech
 balloon and caption in it, one step at a time, in reading order, with a
@@ -285,9 +293,11 @@ This copies it to `~/.local/share/org.snonux.comicredr/models/`.
 On Android it goes in `Android/data/org.snonux.comicredr/files/models/` on
 the phone's storage; with the phone on USB, `make push-model
 MODEL=path/to/comicredr-panels.onnx` puts it there (see
-[Android phone](#android-phone)). Restart the app. `COMICREDR_MODEL=/path/to/file.onnx` points at a model
-anywhere else. Pages analysed by classic CV are analysed again with the
-model the next time you read them. To build the file yourself, see
+[Android phone](#android-phone)). Restart the app.
+`COMICREDR_MODEL=/path/to/file.onnx` points at a model anywhere else.
+Pages analysed by classic CV, or by a different model file, are analysed
+again the next time you read them, so installing a retrained model needs
+nothing else. To build the file yourself, see
 [Train the detector](#m5-train-the-detector).
 
 ### 8. Touch
@@ -438,6 +448,7 @@ make version                     # the version in pubspec.yaml; bump lib/src/ver
 make icons                       # re-render linux/packaging/icons/*.png after editing the SVG
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
+COMICREDR_MODEL=model.onnx tool/e2e_modern.sh  # guided view on real modern comics from test/corpus-modern, screenshots in build/e2e-modern/
 tool/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
@@ -471,11 +482,14 @@ drawn: `spike/LABELLING.md`); the comics are fetched.
 pip install opencv-python-headless numpy pillow pypdfium2 huggingface_hub ultralytics onnx onnxruntime onnxslim
 python3 spike/fetch_corpus.py                                   # eval comics + the Manga109 model
 python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train
-python3 spike/extract_pages.py test/corpus spike/eval_pages --per-book 10
-python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 12 --manifest test/train.manifest.toml
+python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern --skip-model
+python3 spike/extract_pages.py test/corpus spike/eval_pages --per-book 400
+python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 400 --manifest test/train.manifest.toml
+python3 spike/extract_pages.py test/corpus-modern spike/modern_pages --per-book 400 --manifest test/modern.manifest.toml
 python3 spike/labelkit.py import spike/labels/eval spike/eval_pages
 python3 spike/labelkit.py import spike/labels/train spike/train_pages
-python3 spike/train.py spike/train_pages --out spike/out/train  # -> spike/out/train/run/weights/best.pt
+python3 spike/labelkit.py import spike/labels/modern spike/modern_pages
+python3 spike/train.py spike/train_pages --out spike/out/train --epochs 45  # -> spike/out/train/run/weights/best.pt
 python3 spike/export_onnx.py spike/out/train/run/weights/best.pt --out spike/out/comicredr-panels.onnx --int8 spike/train_pages
 cd spike && python3 evaluate.py eval_pages --out out/eval --pretrained ../test/corpus/models/best.pt \
     --trained out/comicredr-panels.onnx                          # out/eval/report.md
@@ -499,3 +513,26 @@ The float model is the one to install: INT8 loses accuracy and is no
 faster here. Its wrong pages are mostly one missed narrow caption panel on
 dense golden-age pages, plus one page whose panels are all right but read
 in a debatable order. Black-and-white and modern indie art stay weakest.
+
+**Modern layouts (2026-09-24).** A second test set, `test/modern.manifest.toml`
+(labels in `spike/labels/modern/`), holds 66 pages from six modern books
+never trained on (NASA's First Woman, the CDC's Zombie Pandemic, Wolf's
+Head, I Villain, IHOW, Stigkland) plus four Pepper&Carrot episodes, tagged
+modern-digital, modern-indie and modern-painted. The shipped model guided
+37 of them right: it missed panels, or reported a whole row as one more
+panel, and the gate then showed the page whole. The retrain adds 84
+labelled modern pages to the training set (305 pages, 45 epochs, about two
+hours on 4 cores), drops a frame that wraps two others, lowers the frame
+threshold to 0.3 and reads two-page spreads page by page:
+
+| Test set | Model | Guided right | Whole page | Wrong camera | Panel F1 |
+|---|---|---|---|---|---|
+| Modern, 66 pages | first fine-tune | 37 | 22 | 7 | 0.81 |
+| Modern, 66 pages | modern retrain | 49 | 15 | 2 | 0.87 |
+| Original, 100 pages | first fine-tune | 64 | 25 | 11 | 0.87 |
+| Original, 100 pages | modern retrain | 67 | 20 | 13 | 0.87 |
+
+Per style on the modern set: digital 9 to 14 of 18, indie 17 to 24 of 36,
+painted 11 of 12 either way. Still missed: IHOW's rounded frames on black
+(0 of 9, nothing like it in training), and pages whose slanted panels'
+boxes overlap too much for the gate.

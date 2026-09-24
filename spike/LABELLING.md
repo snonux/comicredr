@@ -61,3 +61,19 @@ anything off by more than about 2% of the page.
 
 Borderline cases: pick what a guided-view reader would want to step to, and
 be consistent.
+
+## Modern layouts
+
+Added with the modern-layout eval slice (`test/modern.manifest.toml`,
+labels in `spike/labels/modern/`):
+
+- **Slanted or irregular frames**: the axis-aligned box that just contains
+  the frame. Boxes of neighbouring slanted panels overlap; that is expected.
+- **Broken borders** (a figure or balloon bursting out of the frame): the
+  box of the frame itself, not of what breaks out of it.
+- **Insets** on top of a bigger panel are separate panels, read in the
+  order the story reads them (usually after the panel they sit on, unless
+  they sit at its top left).
+- **Two-page spreads** (a landscape page image holding two pages): all of
+  the left page first, then all of the right page. A panel that runs
+  across the spine is read where its top edge puts it.
