@@ -141,6 +141,17 @@ build internals, test scripts, detector work and conventions here.
   decode again at the new size a quarter second after the size settles.
   Android handles rotation in the running activity (`configChanges` in
   the manifest), so nothing restarts.
+- Fullscreen (`f`, F11, a status-line button, a tap in the middle):
+  `ReaderState.fullscreen`, saved as `reader.fullscreen` and loaded when a
+  book opens. `HomeScreen._applyFullscreen` makes the window follow: on
+  Linux through the `org.snonux.comicredr/window` channel in
+  `linux/runner/my_application.cc` (`gtk_window_fullscreen`, which also
+  hides the GNOME header bar; a `window-state-event` reports the window
+  manager leaving fullscreen back as `fullscreenChanged`), on Android
+  immersive mode. In fullscreen the page keeps the whole screen; the
+  status line and progress bar come over it on a notice, while keys are
+  typed, or while the mouse is in the bottom 96 px, and the pointer hides
+  1.5 s after the mouse stops. Esc leaves fullscreen before guided view.
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
   settings page. The APK was tested on an Android 14 emulator only; a real
   phone, pinch zoom and real speed and memory are untested.
@@ -191,6 +202,7 @@ tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned sprea
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
+tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 

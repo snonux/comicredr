@@ -34,7 +34,7 @@ enum ReaderIntent {
   autoTrim('Auto-trim scan margins'),
   nightFilter('Night filter'),
   cleanUp('Clean up old scans: paper, contrast, sharpness'),
-  fullscreen('Fullscreen'),
+  fullscreen('Fullscreen: only the comic, no title bar, border or status line; Esc leaves it too'),
   bookmark('Bookmark here'),
   setMark('Set mark a-z'),
   jumpMark('Jump to mark a-z'),

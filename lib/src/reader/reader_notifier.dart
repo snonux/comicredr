@@ -330,6 +330,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final trim = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.autoTrim)) ?? state.trim;
     final cleanUp =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.cleanUp)) ?? state.cleanUp;
+    final fullscreen =
+        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen)) ?? state.fullscreen;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -352,7 +354,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       wholePageSteps: whole,
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
-      fullscreen: state.fullscreen,
+      fullscreen: fullscreen,
       night: night,
       trim: trim,
       cleanUp: cleanUp,
@@ -623,6 +625,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   void _notice(String message) => state = state.copyWith(message: message);
 
+  /// Fullscreen on or off, remembered for the next book and launch. The
+  /// window follows it (HomeScreen); the window manager leaving fullscreen
+  /// by itself comes back here too.
+  void setFullscreen(bool on) {
+    if (on == state.fullscreen) return;
+    state = state.copyWith(fullscreen: on);
+    _saveSetting(SettingsStore.fullscreen, on);
+  }
+
   /// Shows [message] on the status line until the next change.
   void notice(String message) => _notice(message);
 
@@ -755,7 +766,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
           message: state.rightToLeft ? 'Left to right' : 'Right to left',
         );
       case ReaderIntent.fullscreen:
-        state = state.copyWith(fullscreen: !state.fullscreen);
+        setFullscreen(!state.fullscreen);
       case ReaderIntent.nightFilter:
         final on = !state.night;
         state = state.copyWith(night: on, message: on ? 'Night filter on' : 'Night filter off');
@@ -785,8 +796,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final back = state.jumpedFrom;
         back == null ? _notice('No jump to go back from') : _goTo(back.page, panel: back.panel, jump: true);
       case ReaderIntent.back:
-        // Esc leaves guided view before it means anything else.
-        state.guided ? _setGuided(false) : await close();
+        // Esc leaves fullscreen first, as everywhere else, then guided view,
+        // then the book.
+        if (state.fullscreen) {
+          setFullscreen(false);
+        } else {
+          state.guided ? _setGuided(false) : await close();
+        }
       case ReaderIntent.toggleContinuous:
       case ReaderIntent.halfPageDown:
       case ReaderIntent.halfPageUp:

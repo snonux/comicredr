@@ -10,9 +10,52 @@
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  GtkWindow* window;
+  // org.snonux.comicredr/window: the reader asks for fullscreen through it,
+  // and hears back when the window manager changes it.
+  FlMethodChannel* window_channel;
+  gboolean fullscreen;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// setFullscreen(bool): the window covers the whole screen with no title bar
+// or header bar (GTK hides a header bar in fullscreen), or comes back.
+static void window_method_cb(FlMethodChannel* channel, FlMethodCall* call,
+                             gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  g_autoptr(FlMethodResponse) response = nullptr;
+  FlValue* args = fl_method_call_get_args(call);
+  if (g_strcmp0(fl_method_call_get_name(call), "setFullscreen") == 0 &&
+      args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_BOOL) {
+    if (fl_value_get_bool(args)) {
+      gtk_window_fullscreen(self->window);
+    } else {
+      gtk_window_unfullscreen(self->window);
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+  fl_method_call_respond(call, response, nullptr);
+}
+
+// Tells the reader when the window manager takes the window in or out of
+// fullscreen by itself, so the two never disagree.
+static gboolean window_state_cb(GtkWidget* widget, GdkEventWindowState* event,
+                                gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  if (!(event->changed_mask & GDK_WINDOW_STATE_FULLSCREEN)) return FALSE;
+  gboolean full = (event->new_window_state & GDK_WINDOW_STATE_FULLSCREEN) != 0;
+  if (full == self->fullscreen) return FALSE;
+  self->fullscreen = full;
+  if (self->window_channel != nullptr) {
+    g_autoptr(FlValue) value = fl_value_new_bool(full);
+    fl_method_channel_invoke_method(self->window_channel, "fullscreenChanged",
+                                    value, nullptr, nullptr, nullptr);
+  }
+  return FALSE;
+}
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
@@ -24,6 +67,9 @@ static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+  self->window = window;
+  g_signal_connect(window, "window-state-event", G_CALLBACK(window_state_cb),
+                   self);
 
   // Use a header bar when running in GNOME as this is the common style used
   // by applications and is the setup most users will be using (e.g. Ubuntu
@@ -90,6 +136,13 @@ static void my_application_activate(GApplication* application) {
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  self->window_channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "org.snonux.comicredr/window", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(self->window_channel,
+                                            window_method_cb, self, nullptr);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -136,6 +189,7 @@ static void my_application_shutdown(GApplication* application) {
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_object(&self->window_channel);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
