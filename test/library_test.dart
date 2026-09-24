@@ -137,7 +137,11 @@ void main() {
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [databaseProvider.overrideWithValue(db), coverDirProvider.overrideWithValue(covers)],
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            coverDirProvider.overrideWithValue(covers),
+            classicCvOnly,
+          ],
           child: const ComicRedrApp(),
         ),
       );

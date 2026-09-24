@@ -31,7 +31,7 @@ void main() {
 
   Future<ProviderContainer> pumpApp(WidgetTester tester) async {
     await tester.pumpWidget(
-      ProviderScope(overrides: [databaseProvider.overrideWithValue(db)], child: const ComicRedrApp()),
+      ProviderScope(overrides: [databaseProvider.overrideWithValue(db), classicCvOnly], child: const ComicRedrApp()),
     );
     await tester.pump();
     return ProviderScope.containerOf(tester.element(find.byType(ComicRedrApp)));

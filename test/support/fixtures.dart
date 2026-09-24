@@ -6,6 +6,7 @@ import 'package:archive/archive.dart';
 import 'package:comicredr/src/data/app_database.dart' hide Override;
 import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
+import 'package:comicredr/src/reader/panel_detector.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 
@@ -43,12 +44,8 @@ Uint8List gridPage(int width, int height, List<(int, int, int, int)> panels) {
 }
 
 /// Four panels in a 2x2 grid on a 400 x 600 page.
-Uint8List grid4Page() => gridPage(400, 600, [
-  (20, 20, 170, 270),
-  (210, 20, 170, 270),
-  (20, 310, 170, 270),
-  (210, 310, 170, 270),
-]);
+Uint8List grid4Page() =>
+    gridPage(400, 600, [(20, 20, 170, 270), (210, 20, 170, 270), (20, 310, 170, 270), (210, 310, 170, 270)]);
 
 /// A minimal 8-bit greyscale PNG encoder, so tests need no image library.
 Uint8List encodeGrayPng(int width, int height, Uint8List pixels) {
@@ -107,3 +104,8 @@ class _NoSidecars extends SidecarSync {
   @override
   Future<void> flush() => progress.flush();
 }
+
+/// Pins detection to classic CV, so a trained model installed on the machine
+/// or named by COMICREDR_MODEL (the e2e scripts export it) never changes
+/// what the tests see.
+final classicCvOnly = panelDetectorProvider.overrideWith((ref) async => const PanelDetector());

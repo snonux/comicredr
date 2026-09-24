@@ -37,7 +37,7 @@ void main() {
         overrides: [
           databaseProvider.overrideWithValue(db),
           noSidecars(db),
-          if (detector != null) panelDetectorProvider.overrideWith((ref) async => detector),
+          detector != null ? panelDetectorProvider.overrideWith((ref) async => detector) : classicCvOnly,
         ],
         child: const ComicRedrApp(),
       ),
