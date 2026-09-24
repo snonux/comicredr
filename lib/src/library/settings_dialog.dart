@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,6 +31,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   bool? _wholePage;
   bool? _sidecars;
   bool? _detectLibrary;
+  String? _sidecarDir;
+  bool _moving = false;
   String? _detector;
 
   @override
@@ -41,12 +46,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final whole = await settings.loadBool(SettingsStore.wholePageSteps);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final detectLibrary = await settings.loadBool(SettingsStore.detectLibrary);
+    final sidecarDir = await settings.loadString(SettingsStore.sidecarDir);
     final detector = await ref.read(panelDetectorProvider.future);
     if (!mounted) return;
     setState(() {
       _wholePage = whole ?? true;
       _sidecars = sidecars ?? true;
       _detectLibrary = detectLibrary ?? detectLibraryByDefault;
+      _sidecarDir = sidecarDir;
       _detector = detector.model == null
           ? 'Classic computer vision. Install the trained model for balloons and better panels (see the README).'
           : 'The trained model: ${detector.model!.path}';
@@ -57,6 +64,88 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     await ref.read(settingsStoreProvider).saveBool(key, value);
     if (key == SettingsStore.detectLibrary) await ref.read(libraryDetectionProvider).reload();
     await _load();
+  }
+
+  /// Asks for the folder to keep sidecars in: the system's folder picker
+  /// on the laptop, a path on the phone, which has none that gives one.
+  Future<String?> _pickFolder() async {
+    if (!Platform.isAndroid) return getDirectoryPath(confirmButtonText: 'Keep comic data here');
+    final field = TextEditingController(text: _sidecarDir ?? '/storage/emulated/0/ComicRedr');
+    final dir = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keep comic data in'),
+        content: TextField(
+          key: const Key('sidecarDir-field'),
+          controller: field,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Folder'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, field.text.trim()), child: const Text('Use')),
+        ],
+      ),
+    );
+    field.dispose();
+    return dir;
+  }
+
+  /// Keeps sidecars in [dir] from now on, or beside each comic when null,
+  /// and offers to move the ones already written; nothing moves unasked.
+  Future<void> _setSidecarDir(String? dir) async {
+    final old = _sidecarDir;
+    if (dir == old || _moving) return;
+    final sync = ref.read(sidecarSyncProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _moving = true);
+    try {
+      final n = await sync.countIn(old);
+      await ref.read(settingsStoreProvider).saveString(SettingsStore.sidecarDir, dir);
+      sync.placeChanged();
+      await _load();
+      if (n == 0 || !mounted) return;
+      final files = '$n comic data file${n == 1 ? '' : 's'}';
+      final move = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Move $files?'),
+          content: Text(
+            '${old == null ? 'They are beside your comics' : 'They are in $old'}. '
+            'Move them ${dir == null ? 'beside each comic' : 'to $dir'}? '
+            'Files you leave are still read.',
+          ),
+          actions: [
+            TextButton(
+              key: const Key('sidecarMove-leave'),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Leave them'),
+            ),
+            FilledButton(
+              key: const Key('sidecarMove-move'),
+              autofocus: true,
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Move'),
+            ),
+          ],
+        ),
+      );
+      if (move != true) return;
+      final moved = await sync.moveAll(from: old, to: dir);
+      messenger.showSnackBar(
+        SnackBar(content: Text('Moved $moved of $files${moved < n ? '; the rest could not be moved' : ''}')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not change where comic data is kept: $e')));
+    } finally {
+      if (mounted) setState(() => _moving = false);
+    }
+  }
+
+  Future<void> _chooseSidecarDir() async {
+    final dir = await _pickFolder();
+    if (dir == null || dir.isEmpty) return;
+    await _setSidecarDir(dir);
   }
 
   Future<void> _clearHistory() async {
@@ -120,13 +209,43 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     SwitchListTile(
                       key: const Key('setting-sidecars'),
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Save panels, bookmarks and position in a file beside each comic'),
-                      subtitle: const Text(
-                        'So they travel when you copy the comic. Sidecars already there are always read.',
-                      ),
+                      title: const Text('Save panels, bookmarks and position in a file for each comic'),
+                      subtitle: const Text('Sidecars already there are always read.'),
                       value: _sidecars!,
                       onChanged: (v) => _set(SettingsStore.writeSidecars, v),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 4),
+                      child: SegmentedButton<bool>(
+                        key: const Key('setting-sidecarPlace'),
+                        segments: const [
+                          ButtonSegment(value: false, label: Text('Beside each comic')),
+                          ButtonSegment(value: true, label: Text('In one folder')),
+                        ],
+                        selected: {_sidecarDir != null},
+                        onSelectionChanged: _moving
+                            ? null
+                            : (v) => v.first ? _chooseSidecarDir() : _setSidecarDir(null),
+                      ),
+                    ),
+                    if (_sidecarDir case final dir?)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(dir, key: const Key('setting-sidecarDir'), style: theme.textTheme.bodySmall),
+                          ),
+                          TextButton(
+                            key: const Key('setting-sidecarDir-change'),
+                            onPressed: _moving ? null : _chooseSidecarDir,
+                            child: const Text('Change…'),
+                          ),
+                        ],
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2, bottom: 6),
+                        child: Text('So they travel when you copy the comic.', style: theme.textTheme.bodySmall),
+                      ),
                     if (widget.onExportSidecars case final export?)
                       Align(
                         alignment: Alignment.centerLeft,
