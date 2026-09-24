@@ -33,6 +33,7 @@ enum ReaderIntent {
   zoomReset('Reset zoom'),
   autoTrim('Auto-trim scan margins'),
   nightFilter('Night filter'),
+  cleanUp('Clean up old scans: paper, contrast, sharpness'),
   fullscreen('Fullscreen'),
   bookmark('Bookmark here'),
   setMark('Set mark a-z'),

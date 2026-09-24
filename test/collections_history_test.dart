@@ -176,7 +176,9 @@ void main() {
       expect(find.textContaining('12 min · 4 pages'), findsOneWidget);
     });
 
-    testWidgets('settings turn whole-page steps, sidecar writing and the library pass on and off, and it is kept', (tester) async {
+    testWidgets('settings turn whole-page steps, sidecar writing and the library pass on and off, and it is kept', (
+      tester,
+    ) async {
       await tester.runAsync(shelf);
       final c = await pumpApp(tester);
       await settle(tester);
@@ -184,21 +186,31 @@ void main() {
       await settle(tester);
       expect(find.text('Settings'), findsOneWidget);
       expect(find.textContaining('Classic computer vision'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('setting-wholePage')));
       await tester.tap(find.byKey(const Key('setting-wholePage')));
       await settle(tester);
+      expect(tester.widget<SwitchListTile>(find.byKey(const Key('setting-cleanUp'))).value, isFalse);
+      await tester.ensureVisible(find.byKey(const Key('setting-cleanUp')));
+      await tester.tap(find.byKey(const Key('setting-cleanUp')));
+      await settle(tester);
+      await tester.ensureVisible(find.byKey(const Key('setting-sidecars')));
       await tester.tap(find.byKey(const Key('setting-sidecars')));
       await settle(tester);
       // Off by default on the phone, which tests run as: turned on here.
       expect(tester.widget<SwitchListTile>(find.byKey(const Key('setting-detectLibrary'))).value, isFalse);
+      await tester.ensureVisible(find.byKey(const Key('setting-detectLibrary')));
       await tester.tap(find.byKey(const Key('setting-detectLibrary')));
       await settle(tester);
       final settings = c.read(settingsStoreProvider);
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.wholePageSteps)), isFalse);
+      expect(await tester.runAsync(() => settings.loadBool(SettingsStore.cleanUp)), isTrue);
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.writeSidecars)), isFalse);
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.detectLibrary)), isTrue);
+      await tester.ensureVisible(find.byKey(const Key('setting-detectLibrary')));
       await tester.tap(find.byKey(const Key('setting-detectLibrary')));
       await settle(tester);
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.detectLibrary)), isFalse);
+      await tester.ensureVisible(find.byKey(const Key('setting-close')));
       await tester.tap(find.byKey(const Key('setting-close')));
       await settle(tester);
       expect(find.text('Settings'), findsNothing);

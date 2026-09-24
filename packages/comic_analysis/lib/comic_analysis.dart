@@ -5,6 +5,7 @@ library;
 
 export 'src/balloons.dart';
 export 'src/classic_cv.dart';
+export 'src/cleanup.dart';
 export 'src/gate.dart';
 export 'src/model_io.dart';
 export 'src/outline.dart';

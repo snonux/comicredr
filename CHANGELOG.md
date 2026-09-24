@@ -15,6 +15,15 @@ the `?` overlay.
   the pointer before you let go. Thumbnails are made only for the pages
   shown, off the UI thread, and kept on disk beside the covers.
 
+- **Clean-up for old scans (`c`, or Settings → Pages):** yellowed paper
+  turns white and faded ink dark again, with levels measured on each
+  page's own paper colour, so the inks lose the yellow cast too. Zoomed in,
+  or in guided view, a scan with fewer pixels than the screen shows is
+  enlarged, at most twice over, and sharpened, in the background, and
+  cached. Pages without paper, like painted art,
+  only get a gentle contrast stretch. Panel detection still sees the page
+  as scanned. Off by default, and kept once turned on.
+
 - **Detector built in:** the trained panel and balloon model is packed
   into the Linux build and the APK, so guided view uses it without
   `make install-model` or `make push-model`. The build takes it from

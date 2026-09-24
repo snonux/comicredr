@@ -41,6 +41,8 @@ Potion Contest*, by David Revoy, licensed
   spread stays whole, and the pages after it keep their sides.
 - **See before you jump**: `p` opens a grid of page thumbnails, and
   dragging along the progress bar previews the page under your finger.
+- **Clean-up for old scans**: yellowed paper turns white, faded ink dark,
+  and pages with fewer pixels than your screen are enlarged and sharpened.
 - **A library** of your comics folders: covers, series, search,
   collections, a folder view, bookmarks and a reading history. Fix a
   book's title, series or issue in the app; the comic file stays as it is.

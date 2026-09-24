@@ -71,6 +71,8 @@ zoomReset = ["="]
 autoTrim = ["t"]
 # Night filter
 nightFilter = ["i"]
+# Clean up old scans: paper, contrast, sharpness
+cleanUp = ["c"]
 # Fullscreen
 fullscreen = ["f", "F11"]
 # Bookmark here

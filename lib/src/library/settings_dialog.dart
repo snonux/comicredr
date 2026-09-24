@@ -29,6 +29,7 @@ class SettingsDialog extends ConsumerStatefulWidget {
 
 class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   bool? _wholePage;
+  bool? _cleanUp;
   bool? _sidecars;
   bool? _detectLibrary;
   String? _sidecarDir;
@@ -44,6 +45,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   Future<void> _load() async {
     final settings = ref.read(settingsStoreProvider);
     final whole = await settings.loadBool(SettingsStore.wholePageSteps);
+    final cleanUp = await settings.loadBool(SettingsStore.cleanUp);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final detectLibrary = await settings.loadBool(SettingsStore.detectLibrary);
     final sidecarDir = await settings.loadString(SettingsStore.sidecarDir);
@@ -51,6 +53,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     if (!mounted) return;
     setState(() {
       _wholePage = whole ?? true;
+      _cleanUp = cleanUp ?? false;
       _sidecars = sidecars ?? true;
       _detectLibrary = detectLibrary ?? detectLibraryByDefault;
       _sidecarDir = sidecarDir;
@@ -184,6 +187,18 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    heading('Pages'),
+                    SwitchListTile(
+                      key: const Key('setting-cleanUp'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Clean up old scans'),
+                      subtitle: const Text(
+                        'Whitens yellowed paper, darkens faded ink, and enlarges and sharpens pages smaller than the '
+                        'screen. c switches it while reading.',
+                      ),
+                      value: _cleanUp!,
+                      onChanged: (v) => _set(SettingsStore.cleanUp, v),
+                    ),
                     heading('Guided view'),
                     SwitchListTile(
                       key: const Key('setting-wholePage'),
