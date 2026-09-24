@@ -52,9 +52,14 @@ class ReaderViewState extends ConsumerState<ReaderView> {
     }
   }
 
+  /// Decode width: the screen's width in pixels, with 1.5x headroom for zoom
+  /// on the laptop. The phone decodes at screen width, so its 80 MB budget
+  /// holds about ten pages rather than four (a 2610 px scan at full width
+  /// is some 20 MB decoded).
   int get _targetWidth {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    return (math.max(_viewport.width, _viewport.height) * dpr * 1.5).round().clamp(512, 8192);
+    final headroom = defaultTargetPlatform == TargetPlatform.android ? 1.0 : 1.5;
+    return (_viewport.width * dpr * headroom).round().clamp(512, 8192);
   }
 
   /// Loads the pages of [s]'s unit, keeping the old ones on screen until the

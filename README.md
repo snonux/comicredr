@@ -90,7 +90,7 @@ table the app binds from.
 | Hide the status line (and system bars on Android) | `F11` | `f` |
 | Night filter | | `i` |
 | Set mark a–z / jump to mark / jump back | | `ma` / `'a` / `''` |
-| Next / previous book in the series | | `]` `[` |
+| Next / previous book in the same folder (the series, once the library lands in M7) | | `]` `[` |
 | Close the book, or cancel a half-typed key | `Esc` | |
 | Open a file | | `o` |
 

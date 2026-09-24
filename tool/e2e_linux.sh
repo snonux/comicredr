@@ -63,9 +63,17 @@ key equal; key z w;  shot 08_fit_width
 key z z; key G;      shot 09_last
 key i;               shot 10_night
 key i; key bracketright; sleep 1.5; shot 11_next_book
-key bracketleft; sleep 1.5;         shot 12_resumed
+key bracketleft; sleep 1.5;         shot 12_back
 key question;        shot 13_keymap
 key Escape; key Escape; shot 14_closed
+
+# Resume across a restart: quit, relaunch on the same book, and expect the
+# last page with "Resumed at page …" on the status line.
+kill "$app"; wait "$app" 2>/dev/null || true
+HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$book" >>"$out/app.log" 2>&1 &
+app=$!
+sleep 5
+shot 15_resumed_after_restart
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"
 if grep -v XGetInputFocus "$out/app.log" | grep -q 'Unhandled Exception\|\[ERROR'; then
