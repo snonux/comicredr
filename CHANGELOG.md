@@ -17,6 +17,12 @@ the `?` overlay.
   overlay labelled for screen readers, notices read out as they appear, and
   the layout holds at double text size.
 
+- **Slanted panels:** guided view dims along a panel's real outline when
+  it is not a rectangle (slanted gutters, cut corners), so the
+  neighbouring panels' corners no longer stay lit. Pages whose slanted
+  panels' boxes overlap are now guided instead of shown whole, and read
+  top panel first. Books are detected again once.
+
 - **Android:** the APK builds and has been tested on an Android 14
   emulator. `make keystore`, `make apk`, `make install-apk` and
   `make push-model` build, sign and sideload it; the README has the steps.

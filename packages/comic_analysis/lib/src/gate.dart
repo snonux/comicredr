@@ -16,7 +16,8 @@ class GateResult {
 /// A wrong camera move is worse than no camera move (design plan section 5),
 /// so a page only gets guided view when its frames look like a real layout:
 /// between [minPanels] and [maxPanels] of them, none overlapping another by
-/// more than [maxOverlap] of the smaller one, none filling the whole page,
+/// more than [maxOverlap] of the smaller one (by their outlines, so slanted
+/// panels whose boxes overlap still pass), none filling the whole page,
 /// together covering at least [minCoverage] of it, and no more than
 /// [maxScraps] of them smaller than [scrapArea] of the page. Otherwise the
 /// reader just pages. The thresholds match the M1 spike, except the scrap
@@ -41,7 +42,7 @@ GateResult confidenceGate(
   for (var i = 0; i < n; i++) {
     for (var j = i + 1; j < n; j++) {
       final smaller = frames[i].area < frames[j].area ? frames[i].area : frames[j].area;
-      if (frames[i].intersection(frames[j]) > maxOverlap * smaller) {
+      if (frames[i].overlap(frames[j]) > maxOverlap * smaller) {
         reasons.add('panels ${i + 1} and ${j + 1} overlap');
       }
     }

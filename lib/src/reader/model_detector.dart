@@ -76,7 +76,8 @@ class ModelDetector {
   final _pending = <int, Completer<ModelDetection>>{};
 
   /// Runs the model on an RGBA page of [w] x [h], its long side at most
-  /// [inputSize]. Returns frames in reading order and balloons.
+  /// [inputSize]. Returns frames in reading order, with their outlines where
+  /// they are not rectangles (refineOutlines), and balloons.
   Future<ModelDetection> detect(Uint8List rgba, int w, int h) async {
     final port = await (_worker ??= _spawn());
     final id = _next++;
@@ -93,8 +94,14 @@ class ModelDetector {
       switch (msg) {
         case SendPort port:
           ready.complete(port);
-        case (int id, List<double> frames, List<double> balloons):
-          _pending.remove(id)?.complete(ModelDetection(_panels(frames, PanelKind.frame), _panels(balloons, PanelKind.balloon)));
+        case (int id, List<double> frames, List<List<double>?> shapes, List<double> balloons):
+          _pending
+              .remove(id)
+              ?.complete(
+                ModelDetection([
+                  for (final (i, f) in _panels(frames, PanelKind.frame).indexed) f.withShape(shapes[i]),
+                ], _panels(balloons, PanelKind.balloon)),
+              );
         case (int id, String error):
           _pending.remove(id)?.completeError(StateError(error));
         case (String error,):
@@ -111,7 +118,8 @@ class ModelDetector {
   }
 }
 
-/// Panels travel between isolates as flat x, y, w, h, confidence rows.
+/// Panels travel between isolates as flat x, y, w, h, confidence rows, and
+/// frame outlines beside them.
 List<Panel> _panels(List<double> flat, PanelKind kind) => [
   for (var i = 0; i + 4 < flat.length; i += 5)
     Panel(flat[i], flat[i + 1], flat[i + 2], flat[i + 3], kind: kind, confidence: flat[i + 4]),
@@ -154,7 +162,11 @@ Future<void> _serve((SendPort, String, int, int) args) async {
           for (final v in row as List) (v as num).toDouble(),
       ];
       final found = decodeDetections(rows, w, h);
-      reply.send((id, _flat(found.frames), _flat(found.balloons)));
+      // The page is already here at the model's size: find the real outline
+      // of slanted and cut frames while at it, then sort again, since panels
+      // either side of a slanted gutter read by their outlines.
+      final frames = readingOrder(refineOutlines(rgba, w, h, found.frames, found.balloons), aspect: w / h);
+      reply.send((id, _flat(frames), [for (final f in frames) f.shape], _flat(found.balloons)));
     } catch (e) {
       reply.send((id, '$e'));
     } finally {

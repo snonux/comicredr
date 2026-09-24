@@ -363,6 +363,7 @@ void main() {
     final file = File('${tmp.path}/index.sqlite');
     final old = AppDatabase(NativeDatabase(file));
     await old.customStatement('ALTER TABLE bookmarks DROP COLUMN deleted_at');
+    await dropOutlines(old);
     await old.customStatement("INSERT INTO settings (key, value) VALUES ('guided.wholePageSteps', 'false')");
     await old.customStatement('PRAGMA user_version = 5');
     await old.close();
@@ -371,10 +372,30 @@ void main() {
     expect((await upgraded.select(upgraded.settings).get()).single.value, 'false');
     await upgraded.close();
   });
+
+  test('an M8 index keeps its panels and gains frame outlines', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await dropOutlines(old);
+    await old.customStatement(
+      'INSERT INTO panels (content_key, page, idx, x, y, w, h, kind, source, model_ver, confidence) '
+      "VALUES ('k', 1, 0, 0.1, 0.1, 0.8, 0.4, 'frame', 'model', 200000001, 0.9)",
+    );
+    await old.customStatement('PRAGMA user_version = 7');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    final rows = await upgraded.select(upgraded.panels).get();
+    expect((rows.single.x, rows.single.shape), (0.1, null));
+    await upgraded.close();
+  });
 }
 
 /// Takes an index back to before schema 5: no removal times, no settings.
 Future<void> dropM8(AppDatabase old) async {
   await old.customStatement('ALTER TABLE bookmarks DROP COLUMN deleted_at');
   await old.customStatement('DROP TABLE settings');
+  await dropOutlines(old);
 }
+
+/// Takes an index back to before schema 8: frames are boxes only.
+Future<void> dropOutlines(AppDatabase old) => old.customStatement('ALTER TABLE panels DROP COLUMN shape');
