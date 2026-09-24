@@ -240,8 +240,17 @@ carries a per-style summary.
 
 ## Train the detector (M5)
 
-Everything runs on the CPU; a 40-epoch fine-tune takes about an hour and a
-half on 4 cores. The labels are committed in `spike/labels/` (how they were
+Everything runs on the CPU. `make train-model` (tool/train_model.sh) runs
+the steps that build the shipped model, from fetching the training comics
+and the ShadowB checkpoint to exporting the float ONNX, then validates the
+file and puts it in `assets/models/` through tool/fetch_model.sh, which
+`make fetch-model URL=...` also uses (URL or path; `HF_TOKEN` goes to
+huggingface.co only; the check loads the file with onnxruntime and wants a
+[1, 300, 6] output). Measured 2026-09-24 in a 4-core cloud container:
+3.5 minutes an epoch over the 305 training pages, 7 minutes for
+`EPOCHS=1` end to end with downloads cached; 733 MB of comics, 465 MB of
+pages, 45 MB base model. fetch_corpus.py `--skip-books` fetches only the
+checkpoint. The manual steps, including evaluation: The labels are committed in `spike/labels/` (how they were
 drawn: `spike/LABELLING.md`); the comics are fetched.
 
 ```sh

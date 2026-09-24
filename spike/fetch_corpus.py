@@ -78,12 +78,13 @@ def main():
     ap.add_argument("--manifest", default="test/corpus.manifest.toml")
     ap.add_argument("--out", default="test/corpus")
     ap.add_argument("--skip-model", action="store_true")
+    ap.add_argument("--skip-books", action="store_true", help="only the pretrained model")
     a = ap.parse_args()
     m = tomllib.loads(Path(a.manifest).read_text())
     out = Path(a.out)
     failures = 0
 
-    for b in m.get("book", []):
+    for b in [] if a.skip_books else m.get("book", []):
         dest = out / b["name"]
         try:
             download(b["url"], dest, b.get("sha256") or None)
@@ -92,7 +93,7 @@ def main():
             failures += 1
             print(f"FAILED  {b['name']}: {e}", file=sys.stderr)
 
-    for s in m.get("search", []):
+    for s in [] if a.skip_books else m.get("search", []):
         try:
             for ident, name, size in ia_search(s["query"], s["count"], s["formats"], s.get("max_mb", 200)):
                 url = f"https://archive.org/download/{ident}/{urllib.parse.quote(name)}"
