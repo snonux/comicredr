@@ -2757,6 +2757,15 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _shapeMeta = const VerificationMeta('shape');
+  @override
+  late final GeneratedColumn<String> shape = GeneratedColumn<String>(
+    'shape',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -2770,6 +2779,7 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
     source,
     modelVer,
     confidence,
+    shape,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2859,6 +2869,12 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
     } else if (isInserting) {
       context.missing(_confidenceMeta);
     }
+    if (data.containsKey('shape')) {
+      context.handle(
+        _shapeMeta,
+        shape.isAcceptableOrUnknown(data['shape']!, _shapeMeta),
+      );
+    }
     return context;
   }
 
@@ -2912,6 +2928,10 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
         DriftSqlType.double,
         data['${effectivePrefix}confidence'],
       )!,
+      shape: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}shape'],
+      ),
     );
   }
 
@@ -2933,6 +2953,10 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
   final String source;
   final int modelVer;
   final double confidence;
+
+  /// A frame's outline when it is not its box (Panel.shape), as
+  /// "x,y,x,y,..." in page coordinates; null for a rectangle.
+  final String? shape;
   const PanelRow({
     required this.contentKey,
     required this.page,
@@ -2945,6 +2969,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     required this.source,
     required this.modelVer,
     required this.confidence,
+    this.shape,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2960,6 +2985,9 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     map['source'] = Variable<String>(source);
     map['model_ver'] = Variable<int>(modelVer);
     map['confidence'] = Variable<double>(confidence);
+    if (!nullToAbsent || shape != null) {
+      map['shape'] = Variable<String>(shape);
+    }
     return map;
   }
 
@@ -2976,6 +3004,9 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       source: Value(source),
       modelVer: Value(modelVer),
       confidence: Value(confidence),
+      shape: shape == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shape),
     );
   }
 
@@ -2996,6 +3027,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       source: serializer.fromJson<String>(json['source']),
       modelVer: serializer.fromJson<int>(json['modelVer']),
       confidence: serializer.fromJson<double>(json['confidence']),
+      shape: serializer.fromJson<String?>(json['shape']),
     );
   }
   @override
@@ -3013,6 +3045,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       'source': serializer.toJson<String>(source),
       'modelVer': serializer.toJson<int>(modelVer),
       'confidence': serializer.toJson<double>(confidence),
+      'shape': serializer.toJson<String?>(shape),
     };
   }
 
@@ -3028,6 +3061,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     String? source,
     int? modelVer,
     double? confidence,
+    Value<String?> shape = const Value.absent(),
   }) => PanelRow(
     contentKey: contentKey ?? this.contentKey,
     page: page ?? this.page,
@@ -3040,6 +3074,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     source: source ?? this.source,
     modelVer: modelVer ?? this.modelVer,
     confidence: confidence ?? this.confidence,
+    shape: shape.present ? shape.value : this.shape,
   );
   PanelRow copyWithCompanion(PanelsCompanion data) {
     return PanelRow(
@@ -3058,6 +3093,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       confidence: data.confidence.present
           ? data.confidence.value
           : this.confidence,
+      shape: data.shape.present ? data.shape.value : this.shape,
     );
   }
 
@@ -3074,7 +3110,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
           ..write('kind: $kind, ')
           ..write('source: $source, ')
           ..write('modelVer: $modelVer, ')
-          ..write('confidence: $confidence')
+          ..write('confidence: $confidence, ')
+          ..write('shape: $shape')
           ..write(')'))
         .toString();
   }
@@ -3092,6 +3129,7 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     source,
     modelVer,
     confidence,
+    shape,
   );
   @override
   bool operator ==(Object other) =>
@@ -3107,7 +3145,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
           other.kind == this.kind &&
           other.source == this.source &&
           other.modelVer == this.modelVer &&
-          other.confidence == this.confidence);
+          other.confidence == this.confidence &&
+          other.shape == this.shape);
 }
 
 class PanelsCompanion extends UpdateCompanion<PanelRow> {
@@ -3122,6 +3161,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
   final Value<String> source;
   final Value<int> modelVer;
   final Value<double> confidence;
+  final Value<String?> shape;
   final Value<int> rowid;
   const PanelsCompanion({
     this.contentKey = const Value.absent(),
@@ -3135,6 +3175,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     this.source = const Value.absent(),
     this.modelVer = const Value.absent(),
     this.confidence = const Value.absent(),
+    this.shape = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PanelsCompanion.insert({
@@ -3149,6 +3190,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     required String source,
     required int modelVer,
     required double confidence,
+    this.shape = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        page = Value(page),
@@ -3173,6 +3215,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     Expression<String>? source,
     Expression<int>? modelVer,
     Expression<double>? confidence,
+    Expression<String>? shape,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3187,6 +3230,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
       if (source != null) 'source': source,
       if (modelVer != null) 'model_ver': modelVer,
       if (confidence != null) 'confidence': confidence,
+      if (shape != null) 'shape': shape,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3203,6 +3247,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     Value<String>? source,
     Value<int>? modelVer,
     Value<double>? confidence,
+    Value<String?>? shape,
     Value<int>? rowid,
   }) {
     return PanelsCompanion(
@@ -3217,6 +3262,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
       source: source ?? this.source,
       modelVer: modelVer ?? this.modelVer,
       confidence: confidence ?? this.confidence,
+      shape: shape ?? this.shape,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3257,6 +3303,9 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     if (confidence.present) {
       map['confidence'] = Variable<double>(confidence.value);
     }
+    if (shape.present) {
+      map['shape'] = Variable<String>(shape.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3277,6 +3326,7 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
           ..write('source: $source, ')
           ..write('modelVer: $modelVer, ')
           ..write('confidence: $confidence, ')
+          ..write('shape: $shape, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6638,6 +6688,7 @@ typedef $$PanelsTableCreateCompanionBuilder = PanelsCompanion Function({
   required String source,
   required int modelVer,
   required double confidence,
+  Value<String?> shape,
   Value<int> rowid,
 });
 typedef $$PanelsTableUpdateCompanionBuilder = PanelsCompanion Function({
@@ -6652,6 +6703,7 @@ typedef $$PanelsTableUpdateCompanionBuilder = PanelsCompanion Function({
   Value<String> source,
   Value<int> modelVer,
   Value<double> confidence,
+  Value<String?> shape,
   Value<int> rowid,
 });
 
@@ -6716,6 +6768,11 @@ class $$PanelsTableFilterComposer
 
   ColumnFilters<double> get confidence => $composableBuilder(
     column: $table.confidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get shape => $composableBuilder(
+    column: $table.shape,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6783,6 +6840,11 @@ class $$PanelsTableOrderingComposer
     column: $table.confidence,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get shape => $composableBuilder(
+    column: $table.shape,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PanelsTableAnnotationComposer
@@ -6830,6 +6892,9 @@ class $$PanelsTableAnnotationComposer
     column: $table.confidence,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get shape =>
+      $composableBuilder(column: $table.shape, builder: (column) => column);
 }
 
 class $$PanelsTableTableManager
@@ -6871,6 +6936,7 @@ class $$PanelsTableTableManager
                 Value<String> source = const Value.absent(),
                 Value<int> modelVer = const Value.absent(),
                 Value<double> confidence = const Value.absent(),
+                Value<String?> shape = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PanelsCompanion(
                 contentKey: contentKey,
@@ -6884,6 +6950,7 @@ class $$PanelsTableTableManager
                 source: source,
                 modelVer: modelVer,
                 confidence: confidence,
+                shape: shape,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6899,6 +6966,7 @@ class $$PanelsTableTableManager
                 required String source,
                 required int modelVer,
                 required double confidence,
+                Value<String?> shape = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PanelsCompanion.insert(
                 contentKey: contentKey,
@@ -6912,6 +6980,7 @@ class $$PanelsTableTableManager
                 source: source,
                 modelVer: modelVer,
                 confidence: confidence,
+                shape: shape,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

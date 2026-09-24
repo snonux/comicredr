@@ -62,7 +62,9 @@ void main() {
       key,
       1,
       const DetectedPage(
-        [Panel(0.1, 0.1, 0.8, 0.4, confidence: 0.9)],
+        [
+          Panel(0.1, 0.1, 0.8, 0.4, confidence: 0.9, shape: [0.1, 0.1, 0.9, 0.1, 0.9, 0.4, 0.1, 0.5]),
+        ],
         [Panel(0.2, 0.15, 0.2, 0.1, kind: PanelKind.balloon, confidence: 0.8)],
         source: PanelSource.model,
         version: modelDetectorVersion,
@@ -95,6 +97,7 @@ void main() {
     expect(pages.keys, [1]);
     expect(pages[1]!.source, PanelSource.model);
     expect((pages[1]!.frames.length, pages[1]!.balloons.length), (1, 1));
+    expect(pages[1]!.frames.single.shape, [0.1, 0.1, 0.9, 0.1, 0.9, 0.4, 0.1, 0.5], reason: 'the outline travels too');
     expect(await phone.marks.load(key), {'a': (page: 1, panel: 0)});
     expect((await phone.bookmarks(key)).map((b) => b.page), containsAll([1, 3]));
 

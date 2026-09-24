@@ -102,9 +102,11 @@ Detection detectPanels(GrayImage image, {bool rightToLeft = false}) {
   final kept = _dropNested(found.where((b) => b.area >= minArea).toList())
       .where((b) => math.min(b.x1 - b.x0, b.y1 - b.y0) >= sliver)
       .toList();
-  final frames = readingOrder([
-    for (final b in kept) Panel(b.x0 / w, b.y0 / h, (b.x1 - b.x0) / w, (b.y1 - b.y0) / h),
-  ], rightToLeft: rightToLeft, aspect: w / h);
+  final frames = readingOrder(
+    [for (final b in kept) Panel(b.x0 / w, b.y0 / h, (b.x1 - b.x0) / w, (b.y1 - b.y0) / h)],
+    rightToLeft: rightToLeft,
+    aspect: w / h,
+  );
   return Detection(frames, confidenceGate(frames));
 }
 
