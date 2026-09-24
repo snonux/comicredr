@@ -214,7 +214,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           setState(() => _selected = next?.id);
         }
       case ReaderIntent.back:
-        back();
+        return back();
       case ReaderIntent.up:
         _folderUp();
       case ReaderIntent.resetBook:

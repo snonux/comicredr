@@ -201,6 +201,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _start() async {
+    unawaited(ref.read(readerProvider.notifier).loadFullscreen());
     final warnings = ref.read(keymapLoadProvider).load.warnings;
     if (warnings.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -587,7 +588,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     if (ref.read(readerProvider).book == null) {
-      _library.currentState?.handle(c);
+      final reader = ref.read(readerProvider.notifier);
+      if (c.intent == ReaderIntent.fullscreen) {
+        reader.setFullscreen(!ref.read(readerProvider).fullscreen);
+        return;
+      }
+      final handled = _library.currentState?.handle(c) ?? false;
+      // Esc with nothing left to back out of in the library leaves
+      // fullscreen.
+      if (c.intent == ReaderIntent.back && !handled) reader.setFullscreen(false);
       return;
     }
     if (_view.currentState?.handle(c) ?? false) return;
@@ -955,7 +964,7 @@ class _StatusLine extends StatelessWidget {
                 _button(
                   'fullscreenButton',
                   state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                  state.fullscreen ? 'Leave fullscreen (f, Esc)' : 'Fullscreen (f)',
+                  state.fullscreen ? 'Leave fullscreen (f)' : 'Fullscreen (f)',
                   ReaderIntent.fullscreen,
                 ),
               ],
