@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -9,6 +10,7 @@ import 'package:reader_input/reader_input.dart';
 
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
+import '../reader/reset_dialog.dart';
 import '../version.dart';
 import 'library_detection.dart';
 import 'library_store.dart';
@@ -176,6 +178,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         back();
       case ReaderIntent.up:
         _folderUp();
+      case ReaderIntent.resetBook:
+        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+          unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
+        }
       default:
         return false;
     }
@@ -862,6 +868,16 @@ class BookDetail extends ConsumerWidget {
           ),
         const SizedBox(height: 16),
         SelectableText(book.path, style: theme.textTheme.bodySmall),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            key: const Key('resetBook'),
+            onPressed: () => resetBook(context, ref, book),
+            icon: const Icon(Icons.restart_alt),
+            label: const Text('Reset this comic… (X)'),
+          ),
+        ),
       ],
     );
   }
@@ -872,6 +888,32 @@ extension on BookDetail {
   Future<void> _changed(WidgetRef ref, Future<void> Function() change) async {
     await change();
     await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+  }
+}
+
+/// Asks, then resets [book] from the library: `X` on its cover, or the
+/// button in its details. Its panels are found again by the library pass,
+/// or by the reader when it is opened.
+Future<void> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final scope = await askReset(context, book.name);
+  if (scope == null) return;
+  try {
+    final ok = await ref.read(sidecarSyncProvider).reset(book.key, everything: scope == ResetScope.everything);
+    unawaited(ref.read(libraryDetectionProvider).run());
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          !ok
+              ? "Reset ${book.name} here, but the file beside it can't be changed, so it may come back"
+              : scope == ResetScope.everything
+              ? '${book.name} starts from scratch'
+              : "${book.name}'s panels will be found again",
+        ),
+      ),
+    );
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('Could not reset ${book.name}: $e')));
   }
 }
 

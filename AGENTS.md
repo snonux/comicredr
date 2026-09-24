@@ -77,6 +77,9 @@ build internals, test scripts, detector work and conventions here.
   collections and per-device positions. Removed bookmarks stay removed
   when an older sidecar comes back. Unwritable folders fall back to the
   app database; Settings → Export sidecars writes them to a tree elsewhere.
+  `X` (or Reset in the book's details) resets a comic: `SidecarSync.reset`
+  deletes its rows and rewrites every copy's sidecar without them, since a
+  sidecar left alone would merge them straight back in.
   Inspect one with
   `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
@@ -124,6 +127,7 @@ COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padd
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 ```
 
 ## Detection spike (M1)
