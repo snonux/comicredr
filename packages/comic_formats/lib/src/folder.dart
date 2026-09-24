@@ -5,6 +5,7 @@ import 'comic_info.dart';
 import 'document.dart';
 import 'image_size.dart';
 import 'natural_sort.dart';
+import 'page_facts.dart';
 
 /// A directory of page images read as one book (design plan section 3).
 ///
@@ -59,6 +60,24 @@ class FolderDocument implements ComicDocument {
       }
     } on FileSystemException {
       return null;
+    }
+  }
+
+  @override
+  Future<List<PageFacts>> pageFacts() async => [for (var i = 0; i < _pages.length; i++) await _facts(i)];
+
+  Future<PageFacts> _facts(int index) async {
+    try {
+      final f = await File('$root/${_pages[index]}').open();
+      try {
+        final total = await f.length();
+        final facts = imageFacts(await f.read(headBytes), total: total);
+        return facts.width != null || total <= headBytes ? facts : imageFacts(await _read(index), total: total);
+      } finally {
+        await f.close();
+      }
+    } on FileSystemException {
+      return PageFacts.unknown;
     }
   }
 

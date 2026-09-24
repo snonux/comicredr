@@ -33,6 +33,8 @@ firstPage = ["gg", "Home"]
 lastPage = ["G", "End"]
 # Page thumbnails: pick a page to jump to
 pageGrid = ["p"]
+# Details of this comic: file, pages and scan quality, metadata, reading, panels and balloons found; the selected book's in the library
+showDetails = ["I"]
 # Next book in the series, or in the same folder
 nextBook = ["]"]
 # Previous book in the series, or in the same folder

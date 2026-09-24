@@ -8,8 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
+import '../providers.dart';
+import '../reader/comic_details.dart';
 import '../reader/bookmark_list.dart';
 import '../reader/guided.dart';
+import '../reader/open_book.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/reset_dialog.dart';
 import '../version.dart';
@@ -207,6 +210,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       case ReaderIntent.resetBook:
         if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
           unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
+        }
+      case ReaderIntent.showDetails:
+        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+          unawaited(showBookDetails(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
         }
       case ReaderIntent.editBook:
         final done = widget.keysFocus?.requestFocus;
@@ -1096,14 +1103,23 @@ class BookDetail extends ConsumerWidget {
         const SizedBox(height: 16),
         SelectableText(book.path, style: theme.textTheme.bodySmall),
         const SizedBox(height: 16),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            key: const Key('resetBook'),
-            onPressed: () => resetBook(context, ref, book),
-            icon: const Icon(Icons.restart_alt),
-            label: const Text('Reset this comic… (X)'),
-          ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              key: const Key('bookDetails'),
+              onPressed: () => showBookDetails(context, ref, book),
+              icon: const Icon(Icons.info_outline),
+              label: const Text('Details (I)'),
+            ),
+            OutlinedButton.icon(
+              key: const Key('resetBook'),
+              onPressed: () => resetBook(context, ref, book),
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset this comic… (X)'),
+            ),
+          ],
         ),
       ],
     );
@@ -1115,6 +1131,51 @@ extension on BookDetail {
   Future<void> _changed(WidgetRef ref, Future<void> Function() change) async {
     await change();
     await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+  }
+}
+
+/// The details view of [book] from the library: `I` on its cover, or the
+/// button in its details. The book is opened for it and closed after.
+/// Redo panels forgets its panels, which the library pass finds again.
+Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook book) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final OpenBook open;
+  try {
+    open = (await openBook(book.path)).withEdits(await ref.read(libraryStoreProvider).edits(book.key));
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('Could not open ${book.name}: $e')));
+    return;
+  }
+  var redo = false;
+  try {
+    if (!context.mounted) return;
+    await showComicDetails(
+      context,
+      open,
+      closeKeys: {
+        for (final b in ref.read(keymapProvider).bindings)
+          if (b.intent == ReaderIntent.showDetails && b.keys.length == 1 && b.keys.single.length == 1) b.keys.single,
+      },
+      onRedoPanels: () async => redo = true,
+    );
+  } finally {
+    await open.doc.close();
+  }
+  if (!redo) return;
+  try {
+    final ok = await ref.read(sidecarSyncProvider).reset(book.key, everything: false);
+    unawaited(ref.read(libraryDetectionProvider).run());
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? "${book.name}'s panels will be found again"
+              : "Reset ${book.name} here, but the file beside it can't be changed, so it may come back",
+        ),
+      ),
+    );
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('Could not reset ${book.name}: $e')));
   }
 }
 

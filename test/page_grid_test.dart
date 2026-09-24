@@ -207,6 +207,9 @@ class _RecordingDoc implements ComicDocument {
   Future<List<(int, int)?>> pageSizes() async => List.filled(pageCount, null);
 
   @override
+  Future<List<PageFacts>> pageFacts() async => List.filled(pageCount, PageFacts.unknown);
+
+  @override
   Future<ComicMeta?> embeddedMetadata() async => null;
 
   @override

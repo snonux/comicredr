@@ -48,6 +48,10 @@ Potion Contest*, by David Revoy, licensed
   note if you like. `mm` or the bookmark button sets one and takes it off
   again, `M` lists them with a picture of each page, `}` and `{` jump
   between them, and the library's Bookmarks tab gathers every book's.
+- **Details of every comic** (`I`): file and format, page sizes and how
+  sharp the scans are on your screen, JPEG quality, the images inside a
+  PDF, metadata, reading time, and what panel and balloon detection found
+  on each page.
 - **Clean-up for old scans**: yellowed paper turns white, faded ink dark,
   and pages with fewer pixels than your screen are enlarged and sharpened.
 - **A library** of your comics folders: covers, series, search,

@@ -17,9 +17,11 @@ import 'input/touch_zones.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'providers.dart';
+import 'reader/comic_details.dart';
 import 'reader/guided.dart';
 import 'reader/layout.dart';
 import 'reader/bookmark_list.dart';
+import 'reader/open_book.dart';
 import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
@@ -91,6 +93,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// The bookmark list (`M`) is open over the reader.
   bool _showBookmarks = false;
   bool _picking = false;
+
+  /// The details view (`I`) is open.
+  bool _showDetails = false;
 
   /// In fullscreen: the mouse moved lately, so the pointer shows; the
   /// status line and progress bar show for a moment, or while the mouse is
@@ -332,6 +337,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// `I` in the reader: the open comic's details. A page picked in them is
+  /// gone to; Redo panels resets the comic's panels, as `X` does.
+  Future<void> _details(OpenBook book) async {
+    if (_showDetails) return;
+    _showDetails = true;
+    try {
+      await showComicDetails(
+        context,
+        book,
+        currentPage: ref.read(readerProvider).page,
+        closeKeys: _keysFor(ReaderIntent.showDetails),
+        onJump: (page) => ref.read(readerProvider.notifier).jumpTo(page),
+        onRedoPanels: () => ref.read(readerProvider.notifier).reset(ResetScope.panels),
+      );
+    } finally {
+      _showDetails = false;
+      _keys.requestFocus();
+    }
+  }
+
+  /// The single characters bound to [intent], for a dialog that closes on
+  /// the key that opened it.
+  Set<String> _keysFor(ReaderIntent intent) => {
+    for (final b in ref.read(keymapProvider).bindings)
+      if (b.intent == intent && b.keys.length == 1 && b.keys.single.length == 1) b.keys.single,
+  };
+
   /// `X` in the reader: asks, then resets the open comic.
   Future<void> _reset(String title) async {
     final scope = await askReset(context, title);
@@ -448,6 +480,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (c.intent == ReaderIntent.bookmarkList && ref.read(readerProvider).book != null && !_showPages) {
       _setShowBookmarks(!_showBookmarks);
+      return;
+    }
+    if (c.intent == ReaderIntent.showDetails) {
+      if (ref.read(readerProvider).book case final book?) {
+        // Over the page grid or the bookmark list, it takes their place.
+        if (_showPages) _setShowPages(false);
+        if (_showBookmarks) _setShowBookmarks(false);
+        unawaited(_details(book));
+      } else {
+        _library.currentState?.handle(c);
+      }
       return;
     }
     if (_showPages) {
@@ -628,7 +671,12 @@ extension on _HomeScreenState {
       ),
     if (_showPages)
       Positioned.fill(
-        child: PageGrid(key: _grid, onPick: _jumpTo, onClose: () => _setShowPages(false)),
+        child: PageGrid(
+          key: _grid,
+          onPick: _jumpTo,
+          onClose: () => _setShowPages(false),
+          onDetails: () => _onCommand(const ReaderCommand(ReaderIntent.showDetails)),
+        ),
       ),
     if (_showZones)
       Positioned.fill(
@@ -819,6 +867,8 @@ class _StatusLine extends StatelessWidget {
                   on: state.guided,
                 ),
                 _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
+                // A phone has no room for it here; the page grid has one.
+                if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
                 if (state.bookmarksHere.isNotEmpty)
                   _button(
                     'bookmarkButton',

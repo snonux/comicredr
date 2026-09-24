@@ -1086,6 +1086,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.activate:
       case ReaderIntent.up:
       case ReaderIntent.pageGrid:
+      case ReaderIntent.showDetails:
       case ReaderIntent.bookmarkList:
       case ReaderIntent.remove:
         break; // Handled by the screen, or only mean something in the library.

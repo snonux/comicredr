@@ -54,6 +54,7 @@ class Keymap {
       Binding(['Home'], ReaderIntent.firstPage, layer: s),
       Binding(['End'], ReaderIntent.lastPage, layer: s),
       Binding(['p'], ReaderIntent.pageGrid),
+      Binding(['I'], ReaderIntent.showDetails),
       Binding([']'], ReaderIntent.nextBook),
       Binding(['['], ReaderIntent.prevBook),
       // Switching how the page is shown.

@@ -19,10 +19,14 @@ import 'thumbnails.dart';
 /// the tile's own size and dropped from the image cache when its tile goes,
 /// so a long book costs no more memory than one screenful.
 class PageGrid extends ConsumerStatefulWidget {
-  const PageGrid({super.key, required this.onPick, required this.onClose});
+  const PageGrid({super.key, required this.onPick, required this.onClose, this.onDetails});
 
   final ValueChanged<int> onPick;
   final VoidCallback onClose;
+
+  /// Opens the book's details (`I`): the way there on a phone, whose
+  /// status line has no room for the button.
+  final VoidCallback? onDetails;
 
   @override
   ConsumerState<PageGrid> createState() => PageGridState();
@@ -148,6 +152,13 @@ class PageGridState extends ConsumerState<PageGrid> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (widget.onDetails != null)
+                  IconButton(
+                    key: const Key('pageGridDetails'),
+                    icon: const Icon(Icons.info_outline),
+                    tooltip: 'Details (I)',
+                    onPressed: widget.onDetails,
+                  ),
                 IconButton(
                   key: const Key('pageGridClose'),
                   icon: const Icon(Icons.close),

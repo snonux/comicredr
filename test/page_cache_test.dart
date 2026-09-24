@@ -35,6 +35,9 @@ class LifoDoc implements ComicDocument {
   Future<Uint8List?> rawPage(int index) async => null;
   @override
   Future<List<(int, int)?>> pageSizes() async => List.filled(pageCount, null);
+
+  @override
+  Future<List<PageFacts>> pageFacts() async => List.filled(pageCount, PageFacts.unknown);
   @override
   Future<ComicMeta?> embeddedMetadata() async => null;
   @override
@@ -61,6 +64,9 @@ class StoredDoc implements ComicDocument {
   Future<Uint8List?> rawPage(int index) async => bytes;
   @override
   Future<List<(int, int)?>> pageSizes() async => List.filled(pageCount, imageSize(bytes));
+
+  @override
+  Future<List<PageFacts>> pageFacts() async => List.filled(pageCount, PageFacts.unknown);
   @override
   Future<ComicMeta?> embeddedMetadata() async => null;
   @override

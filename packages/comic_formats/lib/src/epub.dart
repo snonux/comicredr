@@ -7,6 +7,7 @@ import 'cbz.dart';
 import 'comic_info.dart';
 import 'document.dart';
 import 'natural_sort.dart';
+import 'page_facts.dart';
 
 /// A comic EPUB: fixed-layout or image-based, one page image per spine item.
 ///
@@ -136,6 +137,9 @@ class EpubDocument implements ComicDocument {
 
   @override
   Future<List<(int, int)?>> pageSizes() async => [for (final p in _pages) zipPageSize(p)];
+
+  @override
+  Future<List<PageFacts>> pageFacts() async => [for (final p in _pages) zipPageFacts(p)];
 
   @override
   Future<ComicMeta?> embeddedMetadata() async => _meta;
