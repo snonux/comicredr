@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Clock (`T`, or Settings → Pages):** the time, small and
+  semi-transparent in the top-left corner of the reader, in every view
+  and in fullscreen. It follows the system's 12 or 24 hour setting,
+  turns over on the minute and takes no taps. Off by default, and
+  remembered.
 - **Comic details (`I`, the info button on the status line, or Details
   in the library):** the file (format as its bytes say, size, content key,
   sidecar), the pages (pixel sizes, wide spreads, what they are stored as,

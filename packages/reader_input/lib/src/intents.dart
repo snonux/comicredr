@@ -38,6 +38,7 @@ enum ReaderIntent {
   nightFilter('Night filter'),
   cleanUp('Clean up old scans: paper, contrast, sharpness'),
   fullscreen('Fullscreen: only the comic, no title bar, border or status line; Esc leaves it too'),
+  toggleClock('Clock: the time, small and faint in a corner of the reader in every view; on and off'),
   bookmark('Bookmark this page, or this panel in guided view; again to take the bookmark off'),
   nextBookmark('Next bookmark in this book'),
   prevBookmark('Previous bookmark in this book'),
