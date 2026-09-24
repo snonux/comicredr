@@ -86,6 +86,12 @@ build internals, test scripts, detector work and conventions here.
   books are under it, the Folders tab opens at it (`HomeScreen._openPath`),
   adding it as a library folder unless one already holds it. `--add-root`
   only adds, so the e2e scripts start on the usual tab.
+- Every start, while the library has no folder at all, `~/Comics`
+  (Android: `/storage/emulated/0/Comics`, once All files access is
+  granted, also checked on resume) is added if it exists
+  (`addDefaultFolder`, `lib/src/library/default_folder.dart`). It runs
+  after `--add-root`, so the e2e scripts are unaffected. Taking it out of
+  the library sets `library.defaultFolderRemoved` and it stays out.
 - The library's first scan reads each book once in the background (about a
   third of a second a book); later starts only compare sizes and dates. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
@@ -250,6 +256,7 @@ tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: s
 tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_open_folder.sh       # comicredr FOLDER: inside the library, outside it (added), a folder book and a CBZ still read; Backspace up
+tool/e2e_default_folder.sh    # ~/Comics as the default library folder, fresh HOMEs: with it, without it (empty library, Settings from there, made later), taken out and restarted, a folder of one's own; makes its own books
 tool/e2e_folders_live.sh      # Folders tab open while comics, sub-folders and the shown folder are added, moved and deleted
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
