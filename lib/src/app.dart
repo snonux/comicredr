@@ -15,6 +15,7 @@ import 'providers.dart';
 import 'reader/layout.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
+import 'version.dart';
 
 class ComicRedrApp extends StatelessWidget {
   const ComicRedrApp({super.key, this.initialPath});
@@ -191,6 +192,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('ComicRedr', style: theme.textTheme.displaySmall),
+          Text('version $appVersion', key: const Key('version'), style: theme.textTheme.bodySmall),
           const SizedBox(height: 24),
           if (loading)
             const CircularProgressIndicator()
@@ -329,6 +331,10 @@ class KeymapOverlay extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text('ComicRedr $appVersion', style: theme.textTheme.titleLarge),
+            ),
             for (final MapEntry(key: intent, value: bindings) in byIntent.entries)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
