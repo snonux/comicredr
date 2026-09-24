@@ -65,6 +65,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
   List<int> _shownUnit = const [];
   Box? _shownBox;
 
+  /// Runs once a resize or rotation has settled; until then the pages on
+  /// screen are stretched to the new size rather than decoded every frame.
+  Timer? _resizeTimer;
+
   /// Sharp tiles over the shown pages, by page number, while zoomed in.
   Map<int, Tile> _tiles = const {};
   Timer? _tileTimer;
@@ -72,6 +76,17 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
 
   /// Auto-trim's cut for each page measured so far in this book.
   final _trims = <int, Trim>{};
+
+  /// Scan clean-up's levels for each page measured so far in this book.
+  final _levels = <int, Levels>{};
+
+  /// Whether the pages on screen came from the cache sharpened (`c`).
+  bool _shownSharpened = false;
+
+  /// The pages on screen were just swapped for their sharpened (or plain)
+  /// selves: the camera stays where it is, though their size in pixels,
+  /// and so the fitted size by a hair, changed.
+  bool _keepView = false;
   bool _measuring = false;
   int _request = 0;
   Fit _fit = Fit.page;
@@ -115,6 +130,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _resizeTimer?.cancel();
     _tileTimer?.cancel();
     _clearTiles();
     _disposeImages(_images);
@@ -162,50 +178,75 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     if (book == null) return;
     if (!identical(book, _cacheBook)) {
       _cache?.dispose();
-      _cache = PageCache(book.doc, budgetBytes: _budget);
+      _cache = PageCache(
+        book.doc,
+        budgetBytes: _budget,
+        // A sharpened page is at most 24 MB on the phone, 64 MB on the laptop.
+        maxSharpenedPixels: defaultTargetPlatform == TargetPlatform.android ? 6 << 20 : 16 << 20,
+      );
       _cacheBook = book;
       _shownUnit = const [];
       _trims.clear();
+      _levels.clear();
       _restore = ref.read(readerProvider.notifier).takeRestoredView();
       if (_restore case final r?) _fit = Fit.values.asNameMap()[r.fit] ?? _fit;
     }
     final unit = s.unit;
     if (_viewport == Size.zero) return;
     final box = _box(s.guided, unit.length);
-    if (_listEquals(unit, _shownUnit) && box == _shownBox) return;
+    final sharpen = s.cleanUp;
+    final sameUnit = _listEquals(unit, _shownUnit);
+    // A new size alone waits for the resize to settle.
+    if (sameUnit && sharpen == _shownSharpened && (box == _shownBox || (_resizeTimer?.isActive ?? false))) return;
     final request = ++_request;
     final cache = _cache!;
-    Future.wait([for (final p in unit) cache.get(p, box)]).then(
+    Future.wait([for (final p in unit) cache.get(p, box, sharpen: sharpen)]).then(
       (images) async {
-        // Measured before the swap, so a trimmed page never shows whole first.
-        if (ref.read(readerProvider).trim) await _measure(unit, images);
+        // Measured before the swap, so a trimmed page never shows whole
+        // first, nor a cleaned-up page yellow.
+        final now = ref.read(readerProvider);
+        if (now.trim || now.cleanUp) await _measure(unit, images, trim: now.trim, levels: now.cleanUp);
         if (!mounted || request != _request) {
           _disposeImages(images);
           return;
         }
         final old = _images;
+        // The same pages sharper or smaller after a resize, or sharpened or
+        // not (`c`), keep the view.
+        final samePages = _listEquals(unit, _shownUnit);
         setState(() {
           _clearTiles();
           _images = images;
           _shownUnit = unit;
           _shownBox = box;
-          _camera.stop();
-          _cameraKey = null; // A new page: the camera jumps rather than glides.
-          _focus = null;
-          _transform.value = Matrix4.identity();
+          _shownSharpened = sharpen;
+          if (samePages) {
+            _keepView = true;
+          } else {
+            _camera.stop();
+            _cameraKey = null; // A new page: the camera jumps rather than glides.
+            _focus = null;
+            _transform.value = Matrix4.identity();
+          }
         });
         _disposeImages(old);
+        // The view stayed put, so its sharp tiles come back for the new pages.
+        if (samePages) _scheduleTiles();
         // Warm the next two units and the previous one.
         final n = s.pageCount;
         final mode = s.guided ? PageMode.single : s.mode;
-        final ahead1 = stepFrom(unit.last, 1, n, mode, coverAlone: s.coverAlone);
-        final ahead2 = stepFrom(unit.last, 2, n, mode, coverAlone: s.coverAlone);
-        final behind = stepFrom(unit.first, -1, n, mode, coverAlone: s.coverAlone);
-        cache.prefetch({
-          ...unitAt(ahead1, n, mode, coverAlone: s.coverAlone),
-          ...unitAt(ahead2, n, mode, coverAlone: s.coverAlone),
-          ...unitAt(behind, n, mode, coverAlone: s.coverAlone),
-        }, box);
+        final ahead1 = stepFrom(unit.last, 1, n, mode, coverAlone: s.coverAlone, wide: s.wide);
+        final ahead2 = stepFrom(unit.last, 2, n, mode, coverAlone: s.coverAlone, wide: s.wide);
+        final behind = stepFrom(unit.first, -1, n, mode, coverAlone: s.coverAlone, wide: s.wide);
+        cache.prefetch(
+          {
+            ...unitAt(ahead1, n, mode, coverAlone: s.coverAlone, wide: s.wide),
+            ...unitAt(ahead2, n, mode, coverAlone: s.coverAlone, wide: s.wide),
+            ...unitAt(behind, n, mode, coverAlone: s.coverAlone, wide: s.wide),
+          },
+          box,
+          sharpen: sharpen,
+        );
       },
       onError: (Object e) {
         if (mounted) ref.read(readerProvider.notifier).notice('Could not decode page ${unit.first + 1}: $e');
@@ -213,33 +254,38 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     );
   }
 
-  /// Finds the margins of [pages] not measured yet, on a small copy of
-  /// each decoded page.
-  Future<void> _measure(List<int> pages, List<ui.Image> images) async {
+  /// Finds the margins ([trim]) and the levels ([levels]) of [pages] not
+  /// measured yet, on one small copy of each decoded page.
+  Future<void> _measure(List<int> pages, List<ui.Image> images, {required bool trim, required bool levels}) async {
     final book = _cacheBook;
     for (var k = 0; k < pages.length; k++) {
-      if (_trims.containsKey(pages[k])) continue;
-      Trim trim;
+      final wantTrim = trim && !_trims.containsKey(pages[k]);
+      final wantLevels = levels && !_levels.containsKey(pages[k]);
+      if (!wantTrim && !wantLevels) continue;
+      var t = Trim.full;
+      var l = Levels.none;
       try {
-        trim = await measureTrim(images[k]);
+        final (rgba, w, h) = await smallCopy(images[k]);
+        if (wantTrim) t = findTrim(rgba, w, h);
+        if (wantLevels) l = findLevels(rgba, w, h);
       } catch (e) {
-        debugPrint('Could not measure page ${pages[k] + 1} for auto-trim: $e');
-        trim = Trim.full;
+        debugPrint('Could not measure page ${pages[k] + 1}: $e');
       }
       // Another book opened meanwhile: its page numbers mean other pages.
       if (!identical(book, _cacheBook)) return;
-      _trims[pages[k]] = trim;
+      if (wantTrim) _trims[pages[k]] = t;
+      if (wantLevels) _levels[pages[k]] = l;
     }
   }
 
-  /// `t` on a page already showing: measure it, then lay it out again.
-  void _measureShown() {
+  /// `t` or `c` on a page already showing: measure it, then lay it out again.
+  void _measureShown(ReaderState s) {
     if (_measuring) return;
     final unit = _shownUnit;
-    if (unit.every(_trims.containsKey)) return;
+    if ((!s.trim || unit.every(_trims.containsKey)) && (!s.cleanUp || unit.every(_levels.containsKey))) return;
     _measuring = true;
     final clones = [for (final i in _images) i.clone()];
-    _measure(unit, clones).whenComplete(() {
+    _measure(unit, clones, trim: s.trim, levels: s.cleanUp).whenComplete(() {
       _disposeImages(clones);
       _measuring = false;
       if (mounted) setState(() {});
@@ -249,6 +295,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
   /// The part of shown page [k] (in unit order) to draw.
   Trim _trimOf(ReaderState s, int k) =>
       s.trim && k < _shownUnit.length ? _trims[_shownUnit[k]] ?? Trim.full : Trim.full;
+
+  /// The levels shown page [k] (in unit order) is drawn with.
+  Levels _levelsOf(ReaderState s, int k) =>
+      s.cleanUp && k < _shownUnit.length ? _levels[_shownUnit[k]] ?? Levels.none : Levels.none;
 
   static bool _listEquals(List<int> a, List<int> b) =>
       a.length == b.length && Iterable.generate(a.length).every((i) => a[i] == b[i]);
@@ -317,15 +367,42 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     if (!mounted || _restore != null || _images.isEmpty || _viewport == Size.zero) return;
     final s = ref.read(readerProvider);
     if (s.book == null || s.guided) return;
+    ref.read(readerProvider.notifier).viewChanged(_spot());
+  }
+
+  /// Where zoom and scroll are now, for tests.
+  @visibleForTesting
+  ViewSpot get spot => _spot();
+
+  /// Zoom and the point in the middle of the screen, as fractions of the
+  /// laid-out page, which stay true when the window changes size.
+  ViewSpot _spot() {
     final zoom = _scale;
     final t = _transform.value.getTranslation();
     final child = _childSize;
-    ref.read(readerProvider.notifier).viewChanged((
+    return (
       fit: _fit.name,
       zoom: zoom,
       cx: (_viewport.width / 2 - t.x) / (child.width * zoom),
       cy: (_viewport.height / 2 - t.y) / (child.height * zoom),
-    ));
+    );
+  }
+
+  /// The window was resized or the phone rotated from [old]. The page is
+  /// fitted to the new size at once, keeping the zoom and the point in the
+  /// middle of the screen; guided view's camera re-frames its panel by
+  /// itself. The pages decode again at the new size once it settles.
+  void _resized(Size old, ReaderState s) {
+    if (old != Size.zero && _images.isNotEmpty && _restore == null && !s.guided && !_transform.value.isIdentity()) {
+      final keep = _spot();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !ref.read(readerProvider).guided) _applyRestore(keep);
+      });
+    }
+    _resizeTimer?.cancel();
+    _resizeTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) _sync(ref.read(readerProvider));
+    });
   }
 
   /// Puts the saved zoom and scroll back: the saved point in the middle of
@@ -361,7 +438,18 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     };
     final key = (guided: s.guided, page: s.page, focus: focus, viewport: _viewport, content: _content, trim: trim);
     final last = _cameraKey;
+    final keep = _keepView;
+    _keepView = false;
     if (key == last) return;
+    // Outside guided view the camera has nothing to frame: a resize keeps
+    // the reader's own zoom and scroll (_resized). Pages just swapped for
+    // their sharpened selves keep the camera in guided view too.
+    final kept =
+        keep && (last?.guided, last?.page, last?.focus, last?.trim) == (key.guided, key.page, key.focus, key.trim);
+    if (last != null && (kept || (!key.guided && !last.guided && last.page == key.page && last.trim == key.trim))) {
+      _cameraKey = key;
+      return;
+    }
     final glide =
         last != null &&
         last.page == key.page &&
@@ -527,10 +615,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
       final visible = seen.intersect(margin).intersect(p.rect);
       if (visible.width <= 0 || visible.height <= 0) continue;
       // Pixels across the whole page, as the screen shows it now, but no
-      // more than a stored image has.
+      // more than a stored image has, or twice that enlarged by clean-up.
       final fullWidth = math.min(
         p.rect.width * scale * dpr / p.trim.width,
-        cache.storedWidth(p.page) ?? double.infinity,
+        (cache.storedWidth(p.page) ?? double.infinity) * (s.cleanUp ? PageCache.maxUpscale : 1),
       );
       if (fullWidth <= p.image.width * 1.2) continue;
       PageRegion toPage(Rect r) => (
@@ -560,7 +648,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     _tiles = keep;
     final generation = ++_tileGeneration;
     for (final w in wanted) {
-      cache.tile(w.page, w.fullWidth, w.region).then((tile) {
+      cache.tile(w.page, w.fullWidth, w.region, sharpen: s.cleanUp).then((tile) {
         if (!mounted || generation != _tileGeneration || !identical(cache, _cache) || !_shownUnit.contains(w.page)) {
           tile.image.dispose();
           return;
@@ -607,19 +695,22 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
       builder: (context, constraints) {
         final viewport = constraints.biggest;
         if (viewport != _viewport) {
+          // Measured against the old size and layout, before they change.
+          _resized(_viewport, s);
           _viewport = viewport;
-          _shownUnit = const []; // Re-decode at the new size.
         }
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _sync(ref.read(readerProvider));
         });
         if (_images.isEmpty) return const Center(child: CircularProgressIndicator());
-        if (s.trim) {
+        if (s.trim || s.cleanUp) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) _measureShown();
+            if (mounted) _measureShown(ref.read(readerProvider));
           });
         }
-        final shown = [for (var k = 0; k < _images.length; k++) (image: _images[k], trim: _trimOf(s, k))];
+        final shown = [
+          for (var k = 0; k < _images.length; k++) (image: _images[k], trim: _trimOf(s, k), levels: _levelsOf(s, k)),
+        ];
         final sizes = [for (final p in shown) Size(p.image.width * p.trim.width, p.image.height * p.trim.height)];
         _content = _fitted(sizes, guided: s.guided);
         _aimCamera(s);
@@ -644,7 +735,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
                 child: CustomPaint(
                   key: const Key('page-image'),
                   size: Size(p.image.width * p.trim.width * h / (p.image.height * p.trim.height), h),
-                  painter: _PagePainter(p.image, p.trim, k < numbers.length ? _tiles[numbers[k]] : null),
+                  painter: _PagePainter(p.image, p.trim, p.levels, k < numbers.length ? _tiles[numbers[k]] : null),
                 ),
               ),
           ],
@@ -687,19 +778,23 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
   }
 }
 
-/// A decoded page, drawn with auto-trim's margins cut off, and a sharp
-/// [tile] of part of it on top when zoomed in.
+/// A decoded page, drawn with auto-trim's margins cut off, a sharp [tile]
+/// of part of it on top when zoomed in, and scan clean-up's levels, a
+/// colour matrix that costs nothing to draw.
 class _PagePainter extends CustomPainter {
-  const _PagePainter(this.image, this.trim, [this.tile]);
+  const _PagePainter(this.image, this.trim, this.levels, [this.tile]);
 
   final ui.Image image;
   final Trim trim;
+  final Levels levels;
   final Tile? tile;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = image.width.toDouble(), h = image.height.toDouble();
-    final paint = Paint()..filterQuality = FilterQuality.medium;
+    final paint = Paint()
+      ..filterQuality = FilterQuality.medium
+      ..colorFilter = levels.isNone ? null : ColorFilter.matrix(levels.matrix);
     canvas.drawImageRect(
       image,
       Rect.fromLTRB(trim.left * w, trim.top * h, trim.right * w, trim.bottom * h),
@@ -724,13 +819,22 @@ class _PagePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PagePainter old) =>
-      !identical(old.image, image) || old.trim != trim || !identical(old.tile?.image, tile?.image);
+      !identical(old.image, image) ||
+      old.trim != trim ||
+      old.levels != levels ||
+      !identical(old.tile?.image, tile?.image);
 }
 
-/// Finds a decoded page's scanned margins, for auto-trim (`t`): the page is
-/// drawn 240 px wide, which smooths away paper grain, and its luminance
-/// profile read from that.
+/// Finds a decoded page's scanned margins, for auto-trim (`t`), on a
+/// [smallCopy] of it.
 Future<Trim> measureTrim(ui.Image image) async {
+  final (rgba, w, h) = await smallCopy(image);
+  return findTrim(rgba, w, h);
+}
+
+/// A decoded page drawn 240 px wide as RGBA, which smooths away paper
+/// grain: what auto-trim and scan clean-up measure.
+Future<(Uint8List, int, int)> smallCopy(ui.Image image) async {
   const w = 240;
   final h = math.max(16, (image.height * w / image.width).round());
   final recorder = ui.PictureRecorder();
@@ -745,7 +849,8 @@ Future<Trim> measureTrim(ui.Image image) async {
   picture.dispose();
   final data = await small.toByteData(format: ui.ImageByteFormat.rawRgba);
   small.dispose();
-  return data == null ? Trim.full : findTrim(data.buffer.asUint8List(), w, h);
+  if (data == null) throw StateError('page could not be read back');
+  return (data.buffer.asUint8List(), w, h);
 }
 
 /// Dimmed and warmed, for reading in the dark. A colour matrix costs nothing.

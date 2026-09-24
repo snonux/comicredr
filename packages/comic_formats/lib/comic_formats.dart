@@ -12,6 +12,7 @@ export 'src/content_key.dart';
 export 'src/document.dart';
 export 'src/file_name.dart';
 export 'src/folder.dart';
+export 'src/image_size.dart';
 export 'src/natural_sort.dart';
 export 'src/open.dart';
 export 'src/pdf.dart';
