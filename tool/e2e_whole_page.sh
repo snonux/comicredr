@@ -51,16 +51,20 @@ close_gracefully() {
   for _ in $(seq 1 20); do kill -0 "$app" 2>/dev/null || return 0; sleep 0.25; done
   echo "the app did not quit on close"; failed=1; kill "$app"
 }
-key() { xdotool key "$@" 2>/dev/null; sleep 1.2; }
+# A PDF page renders for a second or more at guided view's width while
+# detection shares the CPU, and the old page stays up until it is ready,
+# so PDFs get longer between steps. E2E_STEP overrides.
+case "$book" in *.pdf|*.PDF) step=${E2E_STEP:-3} ;; *) step=${E2E_STEP:-1.2} ;; esac
+key() { xdotool key "$@" 2>/dev/null; sleep "$step"; }
 shot() { import -window root "$out/$1.png"; }
 # Touch in the Flutter view's logical pixels, as in e2e_linux.sh.
 touch() { echo "$@" >>"$touches"; sleep 0.016; }
-tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep 1.2; }
+tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep "$step"; }
 swipe() {
   touch down 0 "$1" "$2"
   for i in $(seq 1 20); do touch move 0 $(( $1 + ($3 - $1) * i / 20 )) "$2"; done
   touch up 0 "$3" "$2"
-  sleep 1.2
+  sleep "$step"
 }
 
 # Pixels that differ between a shot and a reference, status line cropped
