@@ -74,7 +74,9 @@ class Bookmarks extends Table {
 }
 
 /// Detected regions, normalised to the page. `source` and `modelVer` let a
-/// better detector replace only its own rows.
+/// better detector replace only its own rows. `idx` is the reading order,
+/// left to right; right-to-left books reorder when they load.
+@DataClassName('PanelRow')
 class Panels extends Table {
   TextColumn get contentKey => text()();
   IntColumn get page => integer()();
@@ -90,6 +92,20 @@ class Panels extends Table {
 
   @override
   Set<Column> get primaryKey => {contentKey, page, kind, idx, source};
+}
+
+/// Which pages a detector has looked at, and at which version, so a page
+/// where it found nothing is not analysed again on every visit.
+class AnalysedPages extends Table {
+  TextColumn get contentKey => text()();
+  IntColumn get page => integer()();
+  TextColumn get source => text()(); // classicCv, model
+  IntColumn get modelVer => integer()();
+  IntColumn get millis => integer()(); // detection time, for tuning
+  DateTimeColumn get analysedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {contentKey, page, source};
 }
 
 /// Hand edits to metadata, kept apart so a rescan never clobbers them.
@@ -109,7 +125,7 @@ class ReadLog extends Table {
   IntColumn get pages => integer()();
 }
 
-@DriftDatabase(tables: [Books, Files, SeriesTable, Progress, Bookmarks, Panels, Overrides, ReadLog])
+@DriftDatabase(tables: [Books, Files, SeriesTable, Progress, Bookmarks, Panels, AnalysedPages, Overrides, ReadLog])
 class AppDatabase extends _$AppDatabase {
   /// Lives in the app support directory (`~/.local/share/org.snonux.comicredr`
   /// on Linux), not in Documents, which may not exist.
@@ -123,5 +139,12 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.createTable(analysedPages); // M4: guided view
+    },
+  );
 }
