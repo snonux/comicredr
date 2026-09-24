@@ -212,8 +212,8 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     SwitchListTile(
                       key: const Key('setting-clock'),
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Show the time while reading'),
-                      subtitle: const Text('Small and faint in the top corner, in fullscreen too. T switches it.'),
+                      title: const Text('Show the time on the status line'),
+                      subtitle: const Text('T switches it while reading.'),
                       value: _clock!,
                       onChanged: (v) async {
                         ref.read(readerProvider.notifier).setClock(v);

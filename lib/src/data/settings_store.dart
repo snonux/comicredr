@@ -22,7 +22,7 @@ class SettingsStore {
   /// launch, the way it was left.
   static const fullscreen = 'reader.fullscreen';
 
-  /// The clock in a corner of the reader (`T`). Off by default.
+  /// The time on the reader's status line (`T`). Off by default.
   static const clock = 'reader.clock';
 
   /// Scan clean-up (`c`): levels on the paper colour, and small pages

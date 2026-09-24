@@ -8,15 +8,13 @@ import 'package:comicredr/src/reader/reader_clock.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fixtures.dart';
 
-/// The clock (`T`): the time in a corner of the reader, in fullscreen too,
-/// remembered, and never in the way of a tap.
+/// The clock (`T`): the time on the reader's status line, remembered.
 void main() {
   const window = MethodChannel('org.snonux.comicredr/window');
   late Directory tmp;
@@ -62,29 +60,26 @@ void main() {
 
   Finder clock() => find.byKey(const Key('clock'));
 
-  testWidgets('T shows the clock top left, in fullscreen too, and T hides it', (tester) async {
+  testWidgets('T puts the time on the status line and takes it off', (tester) async {
     final c = await openBook(tester);
     expect(clock(), findsNothing);
 
     await key(tester, LogicalKeyboardKey.keyT, character: 'T', shift: true);
     expect(c.read(readerProvider).clock, isTrue);
     expect(clock(), findsOneWidget);
-    final screen = tester.getRect(find.byType(Scaffold));
-    final at = tester.getRect(clock());
-    expect(at.left, lessThan(screen.width / 4));
-    expect(at.top, lessThan(screen.height / 8));
-    final text = tester.widget<Text>(clock());
-    expect(text.data, matches(RegExp(r'^\d{1,2}:\d\d( [AP]M)?$')));
-    expect(text.style!.color!.a, lessThan(1));
+    expect(find.descendant(of: find.byType(Row), matching: clock()), findsOneWidget);
+    final line = tester.getRect(find.byKey(const Key('status')));
+    expect(tester.getRect(clock()).center.dy, closeTo(line.center.dy, 2));
+    expect(tester.widget<Text>(clock()).data, matches(RegExp(r'^\d{1,2}:\d\d( [AP]M)?$')));
 
+    // Fullscreen at rest has no status line, so no clock either.
     await key(tester, LogicalKeyboardKey.keyF, character: 'f');
+    await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 3)));
+    await tester.pump(const Duration(seconds: 3));
     expect(c.read(readerProvider).fullscreen, isTrue);
+    expect(clock(), findsNothing);
+    await key(tester, LogicalKeyboardKey.keyF, character: 'f');
     expect(clock(), findsOneWidget);
-
-    // The clock takes no taps: the page under it gets them.
-    final hits = HitTestResult();
-    tester.binding.hitTestInView(hits, tester.getCenter(clock()), tester.view.viewId);
-    expect(hits.path.any((e) => e.target is RenderParagraph), isFalse);
 
     await key(tester, LogicalKeyboardKey.keyT, character: 'T', shift: true);
     expect(c.read(readerProvider).clock, isFalse);

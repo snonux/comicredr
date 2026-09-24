@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-/// The time in a corner of the reader (`T`): small, faint and out of the
-/// way of taps. The system's 12 or 24 hour setting decides the format. It
-/// redraws on the minute, and nothing else ticks.
+/// The time on the reader's status line (`T`). The system's 12 or 24 hour
+/// setting decides the format. It redraws on the minute, and nothing else
+/// ticks.
 class ReaderClock extends StatefulWidget {
   const ReaderClock({super.key, this.now = DateTime.now});
 
@@ -42,30 +42,12 @@ class _ReaderClockState extends State<ReaderClock> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final time = MaterialLocalizations.of(context).formatTimeOfDay(
+  Widget build(BuildContext context) => Text(
+    MaterialLocalizations.of(context).formatTimeOfDay(
       TimeOfDay.fromDateTime(widget.now()),
       alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
-    );
-    // Light letters with a dark halo read on white paper and black pages
-    // alike, and let the art show through.
-    return IgnorePointer(
-      child: Text(
-        time,
-        key: const Key('clock'),
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.6),
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          fontFeatures: const [FontFeature.tabularFigures()],
-          // A thin dark outline, crisp on white paper, and a soft halo.
-          shadows: [
-            for (final (dx, dy) in const [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)])
-              Shadow(color: Colors.black.withValues(alpha: 0.5), offset: Offset(dx, dy), blurRadius: 0.5),
-            Shadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 4),
-          ],
-        ),
-      ),
-    );
-  }
+    ),
+    key: const Key('clock'),
+    style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
+  );
 }

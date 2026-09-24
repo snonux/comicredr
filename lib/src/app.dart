@@ -675,8 +675,6 @@ extension on _HomeScreenState {
 
   /// What lies over the page: the progress bar, and whatever is open.
   /// [chrome] false (fullscreen at rest) leaves out the bar and the ribbon.
-  /// The clock stays either way, top left, clear of the bookmark ribbon on
-  /// the right and of a phone's status bar; it takes no taps.
   List<Widget> _overPage(ReaderState s, {bool chrome = true}) => [
     if (chrome && s.bookmarksHere.isNotEmpty && !_showPages && !_showBookmarks)
       Positioned(
@@ -716,12 +714,6 @@ extension on _HomeScreenState {
           onClose: () => _setShowPages(false),
           onDetails: () => _onCommand(const ReaderCommand(ReaderIntent.showDetails)),
         ),
-      ),
-    if (s.clock)
-      Positioned(
-        top: MediaQuery.paddingOf(context).top + 6,
-        left: MediaQuery.paddingOf(context).left + 10,
-        child: const ReaderClock(),
       ),
     if (_showZones)
       Positioned.fill(
@@ -885,6 +877,7 @@ class _StatusLine extends StatelessWidget {
                   ),
                 ),
               ),
+              if (state.clock) ...[const SizedBox(width: 12), const ReaderClock()],
               Text(
                 pending,
                 key: const Key('pending'),

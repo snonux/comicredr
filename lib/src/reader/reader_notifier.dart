@@ -95,8 +95,7 @@ class ReaderState {
   final bool rightToLeft;
   final bool fullscreen;
 
-  /// The time in a corner of the page (`T`), in fullscreen too. A setting,
-  /// off by default.
+  /// The time on the status line (`T`). A setting, off by default.
   final bool clock;
   final bool night;
 
