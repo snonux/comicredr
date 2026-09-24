@@ -37,11 +37,13 @@ Potion Contest*, by David Revoy, licensed
   speech balloon to speech balloon inside each panel. Panels are found by a
   small detector that runs on your own CPU.
 - **Single page or two-page spreads**, with zoom, a night filter and
-  automatic trimming of white scanner margins.
+  automatic trimming of white scanner margins. A scanned double-page
+  spread stays whole, and the pages after it keep their sides.
 - **See before you jump**: `p` opens a grid of page thumbnails, and
   dragging along the progress bar previews the page under your finger.
 - **A library** of your comics folders: covers, series, search,
-  collections, a folder view, bookmarks and a reading history.
+  collections, a folder view, bookmarks and a reading history. Fix a
+  book's title, series or issue in the app; the comic file stays as it is.
 - **Picks up where you left off**, on the same page, panel and zoom, even
   after you rename or copy the file.
 - **Keyboard first**, with a vi layer on top of the usual keys and your

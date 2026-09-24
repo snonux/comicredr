@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:comic_formats/comic_formats.dart';
 import 'package:path/path.dart' as p;
 
+import '../data/meta_edits.dart';
+
 /// A book the reader has open: the document plus what identifies it.
 class OpenBook {
   OpenBook({required this.path, required this.key, required this.doc, this.meta, this.folder = false});
@@ -16,6 +18,38 @@ class OpenBook {
 
   /// A folder of page images rather than a file.
   final bool folder;
+
+  /// The same book with the facts edited by hand in the library on top of
+  /// what the file and its name say.
+  OpenBook withEdits(Map<MetaField, String?> edits) {
+    if (edits.isEmpty) return this;
+    final m = mergeMeta(meta, parseFileName(p.basename(path)));
+    String? v(MetaField f) {
+      if (!edits.containsKey(f)) return null;
+      final s = edits[f]?.trim();
+      return s == null || s.isEmpty ? null : s;
+    }
+
+    T? pick<T>(MetaField f, T? file, T? Function(String?) parse) => edits.containsKey(f) ? parse(v(f)) : file;
+    return OpenBook(
+      path: path,
+      key: key,
+      doc: doc,
+      folder: folder,
+      meta: ComicMeta(
+        series: v(MetaField.series) ?? m.series ?? (folder ? p.basename(path) : p.basenameWithoutExtension(path)),
+        number: pick(MetaField.number, m.number, (s) => s),
+        title: pick(MetaField.title, m.title, (s) => s),
+        volume: pick(MetaField.volume, m.volume, (s) => int.tryParse(s ?? '')),
+        year: pick(MetaField.year, m.year, (s) => int.tryParse(s ?? '')),
+        writers: pick(MetaField.writers, m.writers, splitPeople) ?? const [],
+        artists: pick(MetaField.artists, m.artists, splitPeople) ?? const [],
+        summary: pick(MetaField.summary, m.summary, (s) => s),
+        frontCoverPage: m.frontCoverPage,
+        rightToLeft: m.rightToLeft,
+      ),
+    );
+  }
 
   String get title {
     final m = meta;
