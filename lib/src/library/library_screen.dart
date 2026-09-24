@@ -198,6 +198,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         _setTab(LibraryTab.values[(tab.index - 1) % LibraryTab.values.length]);
       case ReaderIntent.search:
         _searchFocus.requestFocus();
+        // Typing replaces the last search; arrows keep it. After the field
+        // has taken focus, which places the cursor itself.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _search.selection = TextSelection(baseOffset: 0, extentOffset: _search.text.length);
+        });
       case ReaderIntent.bookmarkList:
         _setTab(LibraryTab.bookmarks);
       case ReaderIntent.remove:
