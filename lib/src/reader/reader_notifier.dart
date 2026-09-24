@@ -1129,6 +1129,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.showKeymap:
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
+      case ReaderIntent.toggleShuffle:
+      case ReaderIntent.reshuffle:
       case ReaderIntent.resetBook:
       case ReaderIntent.editBook:
       case ReaderIntent.activate:

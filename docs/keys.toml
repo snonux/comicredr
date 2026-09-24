@@ -119,6 +119,10 @@ activate = ["Enter"]
 addRoot = ["A"]
 # Rescan the library folders
 rescan = ["R"]
+# Shuffle in the library's Folders tab: each comic shows a random page instead of its cover, on and off
+toggleShuffle = ["S"]
+# Pick other random pages for shuffle in the Folders tab
+reshuffle = ["gs"]
 # Reset this comic: find its panels again, or forget its bookmarks and position too
 resetBook = ["X"]
 # Edit the selected book's title, series, issue and creators in the library; on a series, rename it

@@ -63,6 +63,8 @@ Potion Contest*, by David Revoy, licensed
 - **A library** of your comics folders: covers, series, search,
   collections, a folder view and a reading history. Fix a
   book's title, series or issue in the app; the comic file stays as it is.
+  Shuffle in the folder view shows a random page of each comic instead
+  of its cover, for rediscovering what you have.
 - **Picks up where you left off**, on the same page, panel and zoom, even
   after you rename or copy the file.
 - **Keyboard first**, with a vi layer on top of the usual keys and your

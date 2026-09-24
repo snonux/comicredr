@@ -46,6 +46,10 @@ class SettingsStore {
   /// levels, kept across openings and restarts.
   static const gridZoom = 'grid.zoom';
 
+  /// Shuffle on the library's Folders tab (`S`): random pages instead of
+  /// covers. Off by default.
+  static const shuffle = 'library.shuffle';
+
   /// The default library folder (~/Comics) was taken out of the library,
   /// so starts no longer add it back.
   static const defaultFolderRemoved = 'library.defaultFolderRemoved';
