@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:comic_formats/comic_formats.dart' show naturalCompare;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
@@ -9,6 +10,7 @@ import 'package:reader_input/reader_input.dart';
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
 import '../version.dart';
+import 'settings_dialog.dart';
 import 'library_store.dart';
 import 'providers.dart';
 import 'scanner.dart';
@@ -17,6 +19,8 @@ enum LibraryTab {
   reading('Reading', Icons.auto_stories),
   series('Series', Icons.collections_bookmark),
   books('Books', Icons.menu_book),
+  collections('Collections', Icons.label_outline),
+  history('History', Icons.history),
   folders('Folders', Icons.folder);
 
   const LibraryTab(this.label, this.icon);
@@ -233,6 +237,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
   }
 
+  /// The groups a cover can open: series, or collections on their tab.
+  List<LibrarySeries> _groups(List<LibraryBook> books) =>
+      tab == LibraryTab.collections ? collectionGroups(books) : LibrarySeries.group(books);
+
+  /// Tabs that are lists of their own rather than cover grids.
+  bool get _listTab => tab == LibraryTab.folders || tab == LibraryTab.history;
+
   List<_Item> _itemsFor(List<LibraryBook> books) {
     final q = _query.trim();
     switch (tab) {
@@ -243,13 +254,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             return (b.readAt ?? DateTime(0)).compareTo(a.readAt ?? DateTime(0));
           });
         return [for (final b in started) _BookItem(b)];
-      case LibraryTab.series:
-        final all = LibrarySeries.group(books);
+      case LibraryTab.series || LibraryTab.collections:
+        final all = _groups(books);
         final open = all.where((s) => s.id == _series).firstOrNull;
         if (open != null) return [for (final b in open.books.where((b) => b.matches(q))) _BookItem(b)];
         return [
           for (final s in all.where((s) => s.matches(q)))
-            s.books.length == 1 ? _BookItem(s.books.first) : _SeriesItem(s),
+            s.books.length == 1 && tab == LibraryTab.series ? _BookItem(s.books.first) : _SeriesItem(s),
         ];
       case LibraryTab.books:
         return [
@@ -257,7 +268,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             for (final b in s.books)
               if (b.matches(q)) _BookItem(b),
         ];
-      case LibraryTab.folders:
+      case LibraryTab.folders || LibraryTab.history:
         return const [];
     }
   }
@@ -292,11 +303,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 children: [
                   _header(context, books),
                   Expanded(
-                    child: tab == LibraryTab.folders ? _Folders(onAddRoot: widget.onAddRoot) : _grid(context, wide),
+                    child: switch (tab) {
+                      LibraryTab.folders => _Folders(onAddRoot: widget.onAddRoot),
+                      LibraryTab.history => _History(books: books, query: _query.trim(), onRead: read),
+                      _ => _grid(context, wide),
+                    },
                   ),
                 ],
               );
-        final Widget? pane = !wide || empty || tab == LibraryTab.folders
+        final Widget? pane = !wide || empty || _listTab
             ? null
             : switch (_items.where((it) => it.id == _selected).firstOrNull) {
                 _BookItem(:final book) => BookDetail(book: book, onRead: read),
@@ -345,13 +360,17 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   Widget _header(BuildContext context, List<LibraryBook> books) {
     final theme = Theme.of(context);
-    final series = _series == null ? null : LibrarySeries.group(books).where((s) => s.id == _series).firstOrNull;
+    final series = _series == null ? null : _groups(books).where((s) => s.id == _series).firstOrNull;
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
       child: Row(
         children: [
           if (series != null) ...[
-            IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back to series', onPressed: back),
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: tab == LibraryTab.collections ? 'Back to collections' : 'Back to series',
+              onPressed: back,
+            ),
             Flexible(
               child: Text(series.name, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
             ),
@@ -397,13 +416,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Open a comic without adding it (o)',
             onPressed: widget.onOpenFile,
           ),
-          if (widget.onExportSidecars case final export?)
-            IconButton(
-              key: const Key('exportSidecars'),
-              icon: const Icon(Icons.drive_file_move_outline),
-              tooltip: 'Export sidecars to another folder',
-              onPressed: export,
-            ),
+          IconButton(
+            key: const Key('settings'),
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () => showSettings(context, onExportSidecars: widget.onExportSidecars),
+          ),
         ],
       ),
     );
@@ -415,6 +433,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           ? 'Nothing matches "$_query".'
           : tab == LibraryTab.reading
           ? 'Books you start reading show up here.'
+          : tab == LibraryTab.collections
+          ? 'No collections yet. Open a book\'s details and add it to one.'
           : 'No books found yet.';
       return Center(child: Text(text, style: Theme.of(context).textTheme.bodyLarge));
     }
@@ -622,6 +642,32 @@ class BookDetail extends ConsumerWidget {
         ),
         if (book.summary != null) ...[const SizedBox(height: 16), Text(book.summary!)],
         const SizedBox(height: 20),
+        Text('Collections', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            for (final c in book.collections)
+              InputChip(
+                label: Text(c),
+                onDeleted: () => _changed(ref, () => ref.read(libraryStoreProvider).removeFromCollection(book.key, c)),
+                deleteButtonTooltipMessage: 'Take out of $c',
+              ),
+            ActionChip(
+              key: const Key('addToCollection'),
+              avatar: const Icon(Icons.add, size: 18),
+              label: const Text('Add to a collection'),
+              onPressed: () async {
+                final name = await _askCollection(context, ref, book);
+                if (name != null) {
+                  await _changed(ref, () => ref.read(libraryStoreProvider).addToCollection(book.key, name));
+                }
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
         Text('Bookmarks', style: theme.textTheme.titleMedium),
         if (marks.isEmpty)
           Padding(
@@ -643,16 +689,171 @@ class BookDetail extends ConsumerWidget {
             trailing: IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Remove',
-              onPressed: () async {
-                await ref.read(libraryStoreProvider).deleteBookmark(m.id);
-                await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
-              },
+              onPressed: () => _changed(ref, () => ref.read(libraryStoreProvider).deleteBookmark(m.id)),
             ),
           ),
         const SizedBox(height: 16),
         SelectableText(book.path, style: theme.textTheme.bodySmall),
       ],
     );
+  }
+}
+
+extension on BookDetail {
+  /// Runs a change to the book in the index, then writes its sidecar.
+  Future<void> _changed(WidgetRef ref, Future<void> Function() change) async {
+    await change();
+    await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+  }
+}
+
+/// Asks for a collection to put [book] in: one of those there are, or a
+/// new name.
+Future<String?> _askCollection(BuildContext context, WidgetRef ref, LibraryBook book) {
+  final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
+  final names = {for (final b in all) ...b.collections}.difference(book.collections.toSet()).toList()
+    ..sort(naturalCompare);
+  return showDialog<String>(
+    context: context,
+    builder: (_) => _CollectionDialog(book: book, names: names),
+  );
+}
+
+class _CollectionDialog extends StatefulWidget {
+  const _CollectionDialog({required this.book, required this.names});
+
+  final LibraryBook book;
+
+  /// Collections the book is not in yet.
+  final List<String> names;
+
+  @override
+  State<_CollectionDialog> createState() => _CollectionDialogState();
+}
+
+class _CollectionDialogState extends State<_CollectionDialog> {
+  final _field = TextEditingController();
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  void _done(String name) {
+    if (name.trim().isNotEmpty) Navigator.pop(context, name.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text('Add ${widget.book.name} to a collection'),
+    content: SizedBox(
+      width: 400,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            key: const Key('collectionName'),
+            controller: _field,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'New collection'),
+            onSubmitted: _done,
+          ),
+          if (widget.names.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [for (final n in widget.names) ActionChip(label: Text(n), onPressed: () => _done(n))],
+            ),
+          ],
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      FilledButton(onPressed: () => _done(_field.text), child: const Text('Add')),
+    ],
+  );
+}
+
+/// Reading history: sittings with books, newest first, by day.
+class _History extends ConsumerWidget {
+  const _History({required this.books, required this.query, required this.onRead});
+
+  final List<LibraryBook> books;
+  final String query;
+  final void Function(LibraryBook, {Place? at}) onRead;
+
+  static String _day(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(d.year, d.month, d.day);
+    if (day == today) return 'Today';
+    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
+  }
+
+  static String _two(int n) => n.toString().padLeft(2, '0');
+
+  static String _length(Duration d) => d.inMinutes < 1
+      ? 'under a minute'
+      : (d.inHours > 0 ? '${d.inHours} h ${d.inMinutes % 60} min' : '${d.inMinutes} min');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final entries = ref.watch(historyProvider).value ?? const <HistoryEntry>[];
+    final byKey = {for (final b in books) b.key: b};
+    final shown = [
+      for (final e in entries)
+        if (byKey[e.key] case final b? when b.matches(query)) (e, b),
+    ];
+    if (shown.isEmpty) {
+      return Center(
+        child: Text(
+          query.isEmpty ? 'What you read shows up here, sitting by sitting.' : 'Nothing matches "$query".',
+          style: theme.textTheme.bodyLarge,
+        ),
+      );
+    }
+    final rows = <Widget>[];
+    String? lastDay;
+    for (final (e, b) in shown) {
+      final day = _day(e.startedAt);
+      if (day != lastDay) {
+        rows.add(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+            child: Text(day, style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+          ),
+        );
+        lastDay = day;
+      }
+      rows.add(
+        ListTile(
+          key: Key('history-${e.key}-${e.startedAt.millisecondsSinceEpoch}'),
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: SizedBox(width: 32, height: 48, child: CoverImage(bookKey: b.key, width: 96)),
+          ),
+          title: Text(b.name),
+          subtitle: Text(
+            '${_two(e.startedAt.hour)}:${_two(e.startedAt.minute)} · ${_length(e.duration)} · '
+            '${e.pages} page${e.pages == 1 ? '' : 's'}',
+          ),
+          trailing: b.finished
+              ? const Icon(Icons.check_circle, color: Colors.greenAccent)
+              : b.inProgress
+              ? Text('${((b.percent ?? 0) * 100).round()}%')
+              : null,
+          onTap: () => onRead(b),
+        ),
+      );
+    }
+    return ListView(key: const Key('history'), children: rows);
   }
 }
 

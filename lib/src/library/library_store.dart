@@ -26,6 +26,7 @@ class LibraryBook {
     this.percent,
     this.finished = false,
     this.readAt,
+    this.collections = const [],
   });
 
   final String key;
@@ -50,6 +51,9 @@ class LibraryBook {
   final double? percent;
   final bool finished;
   final DateTime? readAt;
+
+  /// The hand-made collections the book is in, by name.
+  final List<String> collections;
 
   /// `Daredevil #181`, or the series alone for a book without a number.
   String get name => number == null ? series : '$series #$number';
@@ -114,6 +118,25 @@ class LibrarySeries {
         LibrarySeries(id, list.first.series, list..sort(LibraryBook.seriesOrder)),
     ]..sort((a, b) => naturalCompare(seriesKey(a.name), seriesKey(b.name)));
   }
+}
+
+/// The hand-made collections among [books], as groups the library shows
+/// like series: collections in name order, books in series order. Ids are
+/// negative, so they never meet a series id.
+List<LibrarySeries> collectionGroups(List<LibraryBook> books) {
+  final by = <String, List<LibraryBook>>{};
+  for (final b in books) {
+    for (final c in b.collections) {
+      by.putIfAbsent(c, () => []).add(b);
+    }
+  }
+  final names = by.keys.toList()..sort(naturalCompare);
+  int bySeries(LibraryBook a, LibraryBook b) {
+    final s = naturalCompare(seriesKey(a.series), seriesKey(b.series));
+    return s != 0 ? s : LibraryBook.seriesOrder(a, b);
+  }
+
+  return [for (final (i, n) in names.indexed) LibrarySeries(-1 - i, n, by[n]!..sort(bySeries))];
 }
 
 /// A watched folder, with how many books were found in it.
@@ -249,7 +272,9 @@ SELECT b.content_key, b.number, b.page_count, b.format, b.added_at, b.issue_titl
        b.writers, b.artists, b.summary, b.series_id, s.name AS series_name,
        (SELECT r.path || '/' || f.rel_path FROM files f JOIN roots r ON r.id = f.root_id
          WHERE f.content_key = b.content_key ORDER BY r.id, f.rel_path LIMIT 1) AS path,
-       pr.page AS p_page, pr.percent AS p_percent, pr.finished AS p_finished, pr.updated_at AS p_updated
+       pr.page AS p_page, pr.percent AS p_percent, pr.finished AS p_finished, pr.updated_at AS p_updated,
+       (SELECT group_concat(c.name, char(31)) FROM collection_books c
+         WHERE c.content_key = b.content_key AND c.removed_at IS NULL) AS collections
 FROM books b
 JOIN series s ON s.id = b.series_id
 LEFT JOIN progress pr ON pr.content_key = b.content_key
@@ -258,7 +283,8 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
 
   /// Every book in the library, live: a scan adding a book or a page turn
   /// saving progress updates whoever watches.
-  Stream<List<LibraryBook>> watchBooks() => _live({db.books, db.seriesTable, db.files, db.roots, db.progress}, books);
+  Stream<List<LibraryBook>> watchBooks() =>
+      _live({db.books, db.seriesTable, db.files, db.roots, db.progress, db.collectionBooks}, books);
 
   Future<List<LibraryBook>> books() => db.customSelect(_booksSql).get().then((rows) => rows.map(_book).toList());
 
@@ -288,6 +314,7 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       percent: r.readNullable<double>('p_percent'),
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,
       readAt: time('p_updated'),
+      collections: (r.readNullable<String>('collections')?.split('\x1f') ?? <String>[])..sort(naturalCompare),
     );
   }
 
@@ -324,4 +351,54 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
   Future<void> deleteBookmark(String id) => (db.update(
     db.bookmarks,
   )..where((b) => b.id.equals(id))).write(BookmarksCompanion(deletedAt: Value(DateTime.now())));
+
+  /// Puts the book [contentKey] in the collection [name], making the
+  /// collection if it is new.
+  Future<void> addToCollection(String contentKey, String name) => db
+      .into(db.collectionBooks)
+      .insertOnConflictUpdate(
+        CollectionBooksCompanion.insert(
+          name: name.trim(),
+          contentKey: contentKey,
+          addedAt: DateTime.now(),
+          removedAt: const Value(null),
+        ),
+      );
+
+  /// Takes the book out of [name]. The row stays with the time, for the
+  /// sidecar; a collection with no books left is gone from the library.
+  Future<void> removeFromCollection(String contentKey, String name) =>
+      (db.update(db.collectionBooks)..where((c) => c.contentKey.equals(contentKey) & c.name.equals(name))).write(
+        CollectionBooksCompanion(removedAt: Value(DateTime.now())),
+      );
+
+  /// Sittings with books, newest first, for the History tab.
+  Stream<List<HistoryEntry>> watchHistory({int limit = 300}) => _live(
+    {db.readLog},
+    () =>
+        (db.select(db.readLog)
+              ..orderBy([(r) => OrderingTerm(expression: r.startedAt, mode: OrderingMode.desc)])
+              ..limit(limit))
+            .get()
+            .then(
+              (rows) => [
+                for (final r in rows)
+                  HistoryEntry(key: r.contentKey, startedAt: r.startedAt, endedAt: r.endedAt, pages: r.pages),
+              ],
+            ),
+  );
+}
+
+/// One sitting with a book, for the History tab.
+class HistoryEntry {
+  const HistoryEntry({required this.key, required this.startedAt, required this.endedAt, required this.pages});
+
+  final String key;
+  final DateTime startedAt;
+  final DateTime endedAt;
+
+  /// Pages shown, each counted once.
+  final int pages;
+
+  Duration get duration => endedAt.difference(startedAt);
 }

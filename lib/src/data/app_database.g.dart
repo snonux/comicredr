@@ -4532,6 +4532,322 @@ class SettingsCompanion extends UpdateCompanion<SettingRow> {
   }
 }
 
+class $CollectionBooksTable extends CollectionBooks
+    with TableInfo<$CollectionBooksTable, CollectionBook> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CollectionBooksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _contentKeyMeta = const VerificationMeta(
+    'contentKey',
+  );
+  @override
+  late final GeneratedColumn<String> contentKey = GeneratedColumn<String>(
+    'content_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _addedAtMeta = const VerificationMeta(
+    'addedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> addedAt = GeneratedColumn<DateTime>(
+    'added_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _removedAtMeta = const VerificationMeta(
+    'removedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> removedAt = GeneratedColumn<DateTime>(
+    'removed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [name, contentKey, addedAt, removedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'collection_books';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CollectionBook> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('content_key')) {
+      context.handle(
+        _contentKeyMeta,
+        contentKey.isAcceptableOrUnknown(data['content_key']!, _contentKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentKeyMeta);
+    }
+    if (data.containsKey('added_at')) {
+      context.handle(
+        _addedAtMeta,
+        addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_addedAtMeta);
+    }
+    if (data.containsKey('removed_at')) {
+      context.handle(
+        _removedAtMeta,
+        removedAt.isAcceptableOrUnknown(data['removed_at']!, _removedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {name, contentKey};
+  @override
+  CollectionBook map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CollectionBook(
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      contentKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_key'],
+      )!,
+      addedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}added_at'],
+      )!,
+      removedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}removed_at'],
+      ),
+    );
+  }
+
+  @override
+  $CollectionBooksTable createAlias(String alias) {
+    return $CollectionBooksTable(attachedDatabase, alias);
+  }
+}
+
+class CollectionBook extends DataClass implements Insertable<CollectionBook> {
+  final String name;
+  final String contentKey;
+  final DateTime addedAt;
+  final DateTime? removedAt;
+  const CollectionBook({
+    required this.name,
+    required this.contentKey,
+    required this.addedAt,
+    this.removedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['name'] = Variable<String>(name);
+    map['content_key'] = Variable<String>(contentKey);
+    map['added_at'] = Variable<DateTime>(addedAt);
+    if (!nullToAbsent || removedAt != null) {
+      map['removed_at'] = Variable<DateTime>(removedAt);
+    }
+    return map;
+  }
+
+  CollectionBooksCompanion toCompanion(bool nullToAbsent) {
+    return CollectionBooksCompanion(
+      name: Value(name),
+      contentKey: Value(contentKey),
+      addedAt: Value(addedAt),
+      removedAt: removedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(removedAt),
+    );
+  }
+
+  factory CollectionBook.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CollectionBook(
+      name: serializer.fromJson<String>(json['name']),
+      contentKey: serializer.fromJson<String>(json['contentKey']),
+      addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      removedAt: serializer.fromJson<DateTime?>(json['removedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'name': serializer.toJson<String>(name),
+      'contentKey': serializer.toJson<String>(contentKey),
+      'addedAt': serializer.toJson<DateTime>(addedAt),
+      'removedAt': serializer.toJson<DateTime?>(removedAt),
+    };
+  }
+
+  CollectionBook copyWith({
+    String? name,
+    String? contentKey,
+    DateTime? addedAt,
+    Value<DateTime?> removedAt = const Value.absent(),
+  }) => CollectionBook(
+    name: name ?? this.name,
+    contentKey: contentKey ?? this.contentKey,
+    addedAt: addedAt ?? this.addedAt,
+    removedAt: removedAt.present ? removedAt.value : this.removedAt,
+  );
+  CollectionBook copyWithCompanion(CollectionBooksCompanion data) {
+    return CollectionBook(
+      name: data.name.present ? data.name.value : this.name,
+      contentKey: data.contentKey.present
+          ? data.contentKey.value
+          : this.contentKey,
+      addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      removedAt: data.removedAt.present ? data.removedAt.value : this.removedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CollectionBook(')
+          ..write('name: $name, ')
+          ..write('contentKey: $contentKey, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('removedAt: $removedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(name, contentKey, addedAt, removedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CollectionBook &&
+          other.name == this.name &&
+          other.contentKey == this.contentKey &&
+          other.addedAt == this.addedAt &&
+          other.removedAt == this.removedAt);
+}
+
+class CollectionBooksCompanion extends UpdateCompanion<CollectionBook> {
+  final Value<String> name;
+  final Value<String> contentKey;
+  final Value<DateTime> addedAt;
+  final Value<DateTime?> removedAt;
+  final Value<int> rowid;
+  const CollectionBooksCompanion({
+    this.name = const Value.absent(),
+    this.contentKey = const Value.absent(),
+    this.addedAt = const Value.absent(),
+    this.removedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CollectionBooksCompanion.insert({
+    required String name,
+    required String contentKey,
+    required DateTime addedAt,
+    this.removedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : name = Value(name),
+       contentKey = Value(contentKey),
+       addedAt = Value(addedAt);
+  static Insertable<CollectionBook> custom({
+    Expression<String>? name,
+    Expression<String>? contentKey,
+    Expression<DateTime>? addedAt,
+    Expression<DateTime>? removedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (name != null) 'name': name,
+      if (contentKey != null) 'content_key': contentKey,
+      if (addedAt != null) 'added_at': addedAt,
+      if (removedAt != null) 'removed_at': removedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CollectionBooksCompanion copyWith({
+    Value<String>? name,
+    Value<String>? contentKey,
+    Value<DateTime>? addedAt,
+    Value<DateTime?>? removedAt,
+    Value<int>? rowid,
+  }) {
+    return CollectionBooksCompanion(
+      name: name ?? this.name,
+      contentKey: contentKey ?? this.contentKey,
+      addedAt: addedAt ?? this.addedAt,
+      removedAt: removedAt ?? this.removedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (contentKey.present) {
+      map['content_key'] = Variable<String>(contentKey.value);
+    }
+    if (addedAt.present) {
+      map['added_at'] = Variable<DateTime>(addedAt.value);
+    }
+    if (removedAt.present) {
+      map['removed_at'] = Variable<DateTime>(removedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CollectionBooksCompanion(')
+          ..write('name: $name, ')
+          ..write('contentKey: $contentKey, ')
+          ..write('addedAt: $addedAt, ')
+          ..write('removedAt: $removedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4546,6 +4862,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $OverridesTable overrides = $OverridesTable(this);
   late final $ReadLogTable readLog = $ReadLogTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
+  late final $CollectionBooksTable collectionBooks = $CollectionBooksTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4562,6 +4881,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     overrides,
     readLog,
     settings,
+    collectionBooks,
   ];
 }
 
@@ -7415,6 +7735,204 @@ typedef $$SettingsTableProcessedTableManager =
       SettingRow,
       PrefetchHooks Function()
     >;
+typedef $$CollectionBooksTableCreateCompanionBuilder =
+    CollectionBooksCompanion Function({
+      required String name,
+      required String contentKey,
+      required DateTime addedAt,
+      Value<DateTime?> removedAt,
+      Value<int> rowid,
+    });
+typedef $$CollectionBooksTableUpdateCompanionBuilder =
+    CollectionBooksCompanion Function({
+      Value<String> name,
+      Value<String> contentKey,
+      Value<DateTime> addedAt,
+      Value<DateTime?> removedAt,
+      Value<int> rowid,
+    });
+
+class $$CollectionBooksTableFilterComposer
+    extends Composer<_$AppDatabase, $CollectionBooksTable> {
+  $$CollectionBooksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get removedAt => $composableBuilder(
+    column: $table.removedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CollectionBooksTableOrderingComposer
+    extends Composer<_$AppDatabase, $CollectionBooksTable> {
+  $$CollectionBooksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get addedAt => $composableBuilder(
+    column: $table.addedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get removedAt => $composableBuilder(
+    column: $table.removedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CollectionBooksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CollectionBooksTable> {
+  $$CollectionBooksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get addedAt =>
+      $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get removedAt =>
+      $composableBuilder(column: $table.removedAt, builder: (column) => column);
+}
+
+class $$CollectionBooksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CollectionBooksTable,
+          CollectionBook,
+          $$CollectionBooksTableFilterComposer,
+          $$CollectionBooksTableOrderingComposer,
+          $$CollectionBooksTableAnnotationComposer,
+          $$CollectionBooksTableCreateCompanionBuilder,
+          $$CollectionBooksTableUpdateCompanionBuilder,
+          (
+            CollectionBook,
+            BaseReferences<
+              _$AppDatabase,
+              $CollectionBooksTable,
+              CollectionBook
+            >,
+          ),
+          CollectionBook,
+          PrefetchHooks Function()
+        > {
+  $$CollectionBooksTableTableManager(
+    _$AppDatabase db,
+    $CollectionBooksTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CollectionBooksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CollectionBooksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CollectionBooksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> name = const Value.absent(),
+                Value<String> contentKey = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<DateTime?> removedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CollectionBooksCompanion(
+                name: name,
+                contentKey: contentKey,
+                addedAt: addedAt,
+                removedAt: removedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String name,
+                required String contentKey,
+                required DateTime addedAt,
+                Value<DateTime?> removedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CollectionBooksCompanion.insert(
+                name: name,
+                contentKey: contentKey,
+                addedAt: addedAt,
+                removedAt: removedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$CollectionBooksTable, CollectionBook>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $CollectionBooksTable,
+                    CollectionBook
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CollectionBooksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CollectionBooksTable,
+      CollectionBook,
+      $$CollectionBooksTableFilterComposer,
+      $$CollectionBooksTableOrderingComposer,
+      $$CollectionBooksTableAnnotationComposer,
+      $$CollectionBooksTableCreateCompanionBuilder,
+      $$CollectionBooksTableUpdateCompanionBuilder,
+      (
+        CollectionBook,
+        BaseReferences<_$AppDatabase, $CollectionBooksTable, CollectionBook>,
+      ),
+      CollectionBook,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7441,4 +7959,6 @@ class $AppDatabaseManager {
       $$ReadLogTableTableManager(_db, _db.readLog);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
+  $$CollectionBooksTableTableManager get collectionBooks =>
+      $$CollectionBooksTableTableManager(_db, _db.collectionBooks);
 }

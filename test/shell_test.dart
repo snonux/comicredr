@@ -293,7 +293,7 @@ void main() {
       'INSERT INTO panels (content_key, page, idx, x, y, w, h, kind, source, model_ver, confidence) '
       "VALUES ('k', 1, 0, 0.1, 0.1, 0.8, 0.4, 'frame', 'model', 200000001, 0.9)",
     );
-    await old.customStatement('PRAGMA user_version = 6');
+    await old.customStatement('PRAGMA user_version = 7');
     await old.close();
     final upgraded = AppDatabase(NativeDatabase(file));
     final rows = await upgraded.select(upgraded.panels).get();
@@ -309,5 +309,5 @@ Future<void> dropM8(AppDatabase old) async {
   await dropOutlines(old);
 }
 
-/// Takes an index back to before schema 7: frames are boxes only.
+/// Takes an index back to before schema 8: frames are boxes only.
 Future<void> dropOutlines(AppDatabase old) => old.customStatement('ALTER TABLE panels DROP COLUMN shape');

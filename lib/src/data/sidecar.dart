@@ -22,11 +22,10 @@ const sidecarExtension = '.crdb';
 const folderSidecarName = '.comicredr.crdb';
 
 /// The format this code writes. A sidecar from a newer app is read for the
-/// tables it shares with this one and never written over. The nullable
-/// `panels.shape` column (frame outlines) came later without a bump: older
-/// apps read such a sidecar fine, and one that rewrites it only drops the
-/// outlines, which leaves those frames as boxes.
-const sidecarSchemaVersion = 1;
+/// tables it shares with this one and never written over. 2: collections,
+/// and the nullable `panels.shape` column (frame outlines), which a
+/// sidecar written before it lacks.
+const sidecarSchemaVersion = 2;
 
 /// Whether [path] is a sidecar or one being written, which the library
 /// scanner and its folder watch ignore.
@@ -99,6 +98,7 @@ class SidecarData {
     this.bookmarks = const [],
     this.progress = const [],
     this.overrides = const {},
+    this.collections = const [],
     this.cover,
   });
 
@@ -113,9 +113,13 @@ class SidecarData {
   final List<Bookmark> bookmarks;
   final List<SidecarProgress> progress;
   final Map<String, String> overrides;
+
+  /// The collections the book is in, and was taken out of (removedAt set).
+  final List<CollectionBook> collections;
   final Uint8List? cover;
 
-  bool get isEmpty => analysed.isEmpty && bookmarks.isEmpty && progress.isEmpty && overrides.isEmpty;
+  bool get isEmpty =>
+      analysed.isEmpty && bookmarks.isEmpty && progress.isEmpty && overrides.isEmpty && collections.isEmpty;
 }
 
 const _schema = [
@@ -134,6 +138,7 @@ const _schema = [
       'panel INTEGER, percent REAL NOT NULL, finished INTEGER NOT NULL, updated_at INTEGER NOT NULL, view_json TEXT)',
   'CREATE TABLE overrides (field TEXT PRIMARY KEY, value TEXT NOT NULL)',
   'CREATE TABLE cover (image BLOB NOT NULL)',
+  'CREATE TABLE collections (name TEXT PRIMARY KEY, added_at INTEGER NOT NULL, removed_at INTEGER)',
 ];
 
 DateTime _time(Object? ms) => DateTime.fromMillisecondsSinceEpoch((ms as int?) ?? 0);
@@ -227,6 +232,15 @@ SidecarData? readSidecar(String path) {
       overrides: {
         for (final r in rows('overrides', 'SELECT * FROM overrides')) r['field'] as String: r['value'] as String,
       },
+      collections: [
+        for (final r in rows('collections', 'SELECT * FROM collections'))
+          CollectionBook(
+            name: r['name'] as String,
+            contentKey: key,
+            addedAt: _time(r['added_at']),
+            removedAt: r['removed_at'] == null ? null : _time(r['removed_at']),
+          ),
+      ],
       cover: cover?['image'] as Uint8List?,
     );
   } on SqliteException {
@@ -321,6 +335,13 @@ void writeSidecar(String path, SidecarData data, {required String device, String
     for (final MapEntry(:key, :value) in merged.overrides.entries) {
       db.execute('INSERT INTO overrides VALUES (?, ?)', [key, value]);
     }
+    for (final c in merged.collections) {
+      db.execute('INSERT INTO collections VALUES (?, ?, ?)', [
+        c.name,
+        c.addedAt.millisecondsSinceEpoch,
+        c.removedAt?.millisecondsSinceEpoch,
+      ]);
+    }
     if (merged.cover case final c?) db.execute('INSERT INTO cover VALUES (?)', [c]);
     db.execute('COMMIT');
   } catch (_) {
@@ -346,6 +367,7 @@ void writeSidecar(String path, SidecarData data, {required String device, String
 /// * Bookmarks are a union by id, and a removal wins over the bookmark. A
 ///   vi mark a–z points at one place: the latest one set.
 /// * Each device's position is its own; the later one wins per device.
+/// * Per collection, the later of adding and taking out wins.
 /// * Book facts, overrides and the cover come from [b] when it has them.
 SidecarData mergeSidecars(SidecarData a, SidecarData b) {
   final analysed = <(int, String), AnalysedPage>{};
@@ -387,6 +409,13 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
     if (have == null || !r.updatedAt.isBefore(have.updatedAt)) progress[r.device] = r;
   }
 
+  final collections = <String, CollectionBook>{};
+  DateTime changed(CollectionBook c) => c.removedAt ?? c.addedAt;
+  for (final c in [...a.collections, ...b.collections]) {
+    final have = collections[c.name];
+    if (have == null || changed(c).isAfter(changed(have))) collections[c.name] = c;
+  }
+
   return SidecarData(
     contentKey: b.contentKey,
     book: b.book ?? a.book,
@@ -395,6 +424,7 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
     bookmarks: bookmarks.values.toList(),
     progress: progress.values.toList(),
     overrides: {...a.overrides, ...b.overrides},
+    collections: collections.values.toList(),
     cover: b.cover ?? a.cover,
   );
 }

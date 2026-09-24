@@ -11,6 +11,10 @@ class SettingsStore {
   /// Guided view shows each page whole before and after its panels.
   static const wholePageSteps = 'guided.wholePageSteps';
 
+  /// Write each comic's sidecar beside it (M8). On by default; reading
+  /// sidecars that are there already never stops.
+  static const writeSidecars = 'sidecars.write';
+
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
     final v = row == null ? null : jsonDecode(row.value);
