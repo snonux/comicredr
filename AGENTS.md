@@ -123,6 +123,15 @@ build internals, test scripts, detector work and conventions here.
   book's sidecar goes through `SidecarSync.sidecarsOf`/`sidecarFor`.
   Inspect one with
   `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
+- Bookmarks and vi marks are rows in `bookmarks` (mark null for a
+  bookmark, panel null for a whole page). The reader follows the open
+  book's rows through `LibraryStore.watchBookmarks`, so the list (`M`,
+  `lib/src/reader/bookmark_list.dart`), the ribbon, the progress bar's
+  notches and `}` `{` see changes from anywhere. `mm` takes off whatever
+  `ReaderState.bookmarksHere` holds, else adds one. A note
+  (`LibraryStore.setNote`) replaces the row with a new id and removes the
+  old one, which the sidecar merge's "union by id, removal wins" carries
+  to every copy.
 - Touch: `ReaderTouch` looks every gesture up in a `TouchMap`
   (`reader_input` touch_map.dart): taps, double-taps and long presses on a
   3x3 grid (30% side columns, rows in thirds), four swipes and a
@@ -214,6 +223,7 @@ tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned sprea
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
+tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the zoom cue, keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
@@ -238,8 +248,17 @@ carries a per-style summary.
 
 ## Train the detector (M5)
 
-Everything runs on the CPU; a 40-epoch fine-tune takes about an hour and a
-half on 4 cores. The labels are committed in `spike/labels/` (how they were
+Everything runs on the CPU. `make train-model` (tool/train_model.sh) runs
+the steps that build the shipped model, from fetching the training comics
+and the ShadowB checkpoint to exporting the float ONNX, then validates the
+file and puts it in `assets/models/` through tool/fetch_model.sh, which
+`make fetch-model URL=...` also uses (URL or path; `HF_TOKEN` goes to
+huggingface.co only; the check loads the file with onnxruntime and wants a
+[1, 300, 6] output). Measured 2026-09-24 in a 4-core cloud container:
+3.5 minutes an epoch over the 305 training pages, 7 minutes for
+`EPOCHS=1` end to end with downloads cached; 733 MB of comics, 465 MB of
+pages, 45 MB base model. fetch_corpus.py `--skip-books` fetches only the
+checkpoint. The manual steps, including evaluation: The labels are committed in `spike/labels/` (how they were
 drawn: `spike/LABELLING.md`); the comics are fetched.
 
 ```sh

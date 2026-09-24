@@ -37,6 +37,11 @@ final bookmarksProvider = StreamProvider.family<List<BookmarkInfo>, String>(
   (ref, key) => ref.watch(libraryStoreProvider).watchBookmarks(key),
 );
 
+/// Every book's bookmarks and marks, for the library's Bookmarks tab.
+final allBookmarksProvider = StreamProvider<List<BookmarkInfo>>(
+  (ref) => ref.watch(libraryStoreProvider).watchAllBookmarks(),
+);
+
 final historyProvider = StreamProvider<List<HistoryEntry>>((ref) => ref.watch(libraryStoreProvider).watchHistory());
 
 /// The whole-library panel pass. It starts after every library scan and

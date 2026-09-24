@@ -81,6 +81,11 @@ class Keymap {
       Binding(['F11'], ReaderIntent.fullscreen, layer: s),
       // Marks, search and getting out.
       Binding(['m', 'm'], ReaderIntent.bookmark),
+      Binding(['}'], ReaderIntent.nextBookmark),
+      Binding(['{'], ReaderIntent.prevBookmark),
+      Binding(['M'], ReaderIntent.bookmarkList),
+      Binding(['x'], ReaderIntent.remove),
+      Binding(['Delete'], ReaderIntent.remove, layer: s),
       Binding(['m', letterSlot], ReaderIntent.setMark),
       Binding(["'", "'"], ReaderIntent.jumpBack),
       Binding(["'", letterSlot], ReaderIntent.jumpMark),

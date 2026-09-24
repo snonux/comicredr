@@ -7,6 +7,23 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Getting the detector:** `make train-model` rebuilds the model from the
+  free training comics on the CPU, and `make fetch-model URL=...` downloads
+  your own copy; both check the file before the build packs it. The
+  README says why the model can't be in the repository.
+
+- **Bookmarks you can use:** `mm` (or the bookmark button) now takes a
+  bookmark off again when the page, or in guided view the panel, already
+  has one, instead of adding another. A ribbon at the top right of the
+  page and amber notches on the progress bar show where bookmarks are.
+  `M` (or the list button) lists the book's bookmarks and marks with a
+  picture of each page: Enter or a tap jumps, `e` writes a short note,
+  `x` or Delete removes one. `}` and `{` jump to the next and previous
+  bookmark. The library has a Bookmarks tab across every book (`M` there
+  too), searchable by note; a book's details show and edit the notes.
+  Notes travel in the sidecar: a note replaces the bookmark with a new
+  one and marks the old one removed, so the merge needs no edit times.
+
 - **One-page image comics:** a PNG, JPEG or WebP file opens as a comic of
   one page, from the command line, Open With or the open dialog, with
   guided view, balloons and its own sidecar. In the library, an image
