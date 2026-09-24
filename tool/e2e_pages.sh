@@ -2,7 +2,8 @@
 # End-to-end check of the page grid (p) and the scrubber preview on the
 # Linux build: opens a CBZ, picks pages in the grid by key, previews pages
 # by hovering and dragging along the progress bar with the mouse, then does
-# the grid on a PDF, and restarts to see the thumbnails come from disk.
+# the grid on a PDF, restarts to see the thumbnails come from disk, and
+# zooms the grid with + and Ctrl and the wheel, kept across a restart.
 # Checks the reading position in the index with sqlite3 after each jump.
 #
 #   tool/e2e_pages.sh book.cbz book.pdf
@@ -119,6 +120,32 @@ key p; sleep 3
 shot 11_grid_after_restart
 check "no thumbnail was made again" test "$(find "$out/home/.cache" -path '*covers/pages/*' -name '*.jpg' -printf '%p %T@\n' | sort | md5sum)" = "$stamp"
 check "and none is missing" test "$(thumbs)" = "$count"
+key Escape
+stop
+
+# Zoom: + until one page a row, which makes the 1024 px thumbnails; then
+# Ctrl and the wheel down twice for smaller tiles. The size is kept.
+start "$cbz"
+key p; sleep 3
+for _ in 1 2 3 4 5 6 7; do xdotool key plus; sleep 0.4; done
+sleep 8
+shot 12_grid_one_a_row
+check "one page a row made sharper thumbnails" test "$(find "$out/home/.cache" -path '*covers/pages/*/w1024/*' -name '*.jpg' | wc -l)" -gt 0
+xdotool mousemove 640 400; sleep 0.3
+xdotool keydown ctrl; sleep 0.3; xdotool click 5; sleep 0.5; xdotool click 5; sleep 0.3; xdotool keyup ctrl
+sleep 6
+shot 13_grid_ctrl_wheel
+zoom=$(q "select value from settings where key = 'grid.zoom'")
+check "the grid size is saved ($zoom)" test -n "$zoom"
+key Escape
+stop
+start "$cbz"
+key p; sleep 4
+shot 14_grid_zoom_after_restart
+check "and kept after a restart" test "$(q "select value from settings where key = 'grid.zoom'")" = "$zoom"
+key minus; sleep 3
+shot 15_grid_minus
+check "- changes it again" test "$(q "select value from settings where key = 'grid.zoom'")" != "$zoom"
 key Escape
 stop
 
