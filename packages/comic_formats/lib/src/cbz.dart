@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
 import 'comic_info.dart';
 import 'document.dart';
+import 'image_size.dart';
 import 'natural_sort.dart';
 
 /// A ZIP comic: `.cbz`, or a `.cbr` that is really a ZIP.
@@ -58,6 +60,11 @@ class CbzDocument implements ComicDocument {
   Future<Uint8List?> rawPage(int index) async => _read(_pages[index]);
 
   @override
+  Future<List<(int, int)?>> pageSizes() async => [
+    for (final p in _pages) imageSize(_head(p, headBytes)) ?? _fullSize(p),
+  ];
+
+  @override
   Future<ComicMeta?> embeddedMetadata() async {
     final info = _comicInfo;
     if (info == null) return null;
@@ -66,6 +73,53 @@ class CbzDocument implements ComicDocument {
 
   @override
   Future<void> close() async => _input.closeSync();
+
+  /// A JPEG whose frame header lies past its first [headBytes] is read
+  /// whole; anything else unreadable is left without a size.
+  static (int, int)? _fullSize(ArchiveFile f) {
+    try {
+      final bytes = _read(f);
+      return bytes.length > headBytes ? imageSize(bytes) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The first [n] bytes of [f], inflating only as much as they need: a
+  /// page's size is in its header, and inflating every page of a book whole
+  /// would take seconds.
+  static Uint8List _head(ArchiveFile f, int n) {
+    try {
+      final zip = f.rawContent;
+      if (zip is! ZipFile) return _read(f);
+      final raw = zip.getStream(decompress: false);
+      final start = raw.position;
+      try {
+        switch (zip.compressionMethod) {
+          case CompressionType.none:
+            return raw.peekBytes(math.min(n, raw.length)).toUint8List();
+          case CompressionType.deflate:
+            final inflate = RawZLibFilter.inflateFilter(raw: true);
+            final out = BytesBuilder(copy: false);
+            while (out.length < n && !raw.isEOS) {
+              final chunk = raw.readBytes(math.min(16 << 10, raw.length)).toUint8List();
+              if (chunk.isEmpty) break;
+              inflate.process(chunk, 0, chunk.length);
+              for (List<int>? o; (o = inflate.processed(flush: false)) != null;) {
+                out.add(o!);
+              }
+            }
+            return out.takeBytes();
+          default:
+            return _read(f);
+        }
+      } finally {
+        raw.setPosition(start);
+      }
+    } catch (_) {
+      return Uint8List(0);
+    }
+  }
 
   static Uint8List _read(ArchiveFile f) {
     final out = OutputMemoryStream(size: f.size > 0 ? f.size : 1 << 16);

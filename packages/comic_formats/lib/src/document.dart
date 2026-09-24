@@ -62,6 +62,11 @@ abstract interface class ComicDocument {
   /// The page's original encoded bytes, or null where there are none (PDF).
   Future<Uint8List?> rawPage(int index);
 
+  /// Every page's size in pixels (points for a PDF), in order, read without
+  /// decoding the pages; null for a page whose size could not be read. What
+  /// counts is the shape: spread mode shows a wide page on its own.
+  Future<List<(int, int)?>> pageSizes();
+
   Future<ComicMeta?> embeddedMetadata();
 
   Future<void> close();

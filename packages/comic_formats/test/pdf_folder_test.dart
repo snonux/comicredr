@@ -71,6 +71,7 @@ void main() {
       final q = await doc.page(1, targetWidth: 300, targetHeight: 300);
       expect((q.width, q.height), (300, 200));
       expect(await doc.rawPage(0), isNull);
+      expect(await doc.pageSizes(), [(600, 900), (900, 600)]);
       await doc.close();
     });
 

@@ -55,6 +55,12 @@ build internals, test scripts, detector work and conventions here.
   300 dpi: about a quarter of a second a page at screen size, just under a
   second at the 2048 px guided view asks for. The current page renders
   before prefetched ones.
+- Two-page mode shows a page at least 1.1 times wider than tall (a
+  scanned double-page spread) alone and starts pairing again after it
+  (`unitAt` in `lib/src/reader/layout.dart`). The sizes come from the page
+  headers (`ComicDocument.pageSizes`, `imageSize`), read after the book
+  opens: about 30 ms for a 36-page CBZ, inflating only each page's first
+  64 KiB. EXIF rotation is not looked at.
 - Folder books read JPEG, PNG, WebP, GIF and BMP in natural order,
   subfolders included, skipping dotfiles and `Thumbs.db`.
 - The library's first scan reads each book once in the background (about a
@@ -127,6 +133,7 @@ COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padd
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 ```
 
