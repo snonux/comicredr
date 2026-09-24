@@ -7,6 +7,10 @@
 #   make uninstall        remove what make install put there
 #   make model MODEL=path   put the detector model where the build packs it
 #   make install-model MODEL=comicredr-panels.onnx   override it per user
+#   make keystore         create the Android release key (once, back it up)
+#   make apk              signed release APK for the phone (arm64)
+#   make install-apk      sideload it over USB with adb
+#   make push-model MODEL=comicredr-panels.onnx   override it on the phone
 #   make test             flutter analyze + all tests
 #   make analyze          flutter analyze only
 #   make icons            re-render the PNG icons from the SVG
@@ -37,15 +41,26 @@ APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 ICON_SIZES := 16 24 32 48 64 128 256 512
 MODELDIR ?= $(HOME)/.local/share/$(APP_ID)/models
+# Android. The release key lives outside the repository: same-key signing is
+# what lets a sideloaded update install over the old app and keep its data.
+KEYSTORE ?= $(HOME)/.config/comicredr/release.jks
+KEYPROPS := android/key.properties
+APK_ABI  ?= android-arm64
+APK      := build/app/outputs/flutter-apk/app-release.apk
+ADB      ?= adb
+PHONE_MODELDIR := /sdcard/Android/data/$(APP_ID)/files/models
+ANDROID_ICONS := mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192
+
 # pubspec.yaml's version without the +build suffix: 0.1.0+1 gives 0.1.0.
 VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
 
-.PHONY: all build deps run dev test analyze install uninstall model install-model check-model icons clean help version
+.PHONY: all build deps run dev test analyze install uninstall model install-model check-model icons clean help version \
+	keystore apk install-apk push-model
 
 all: build
 
 help:
-	@sed -n '2,18p' Makefile | sed 's/^# \{0,1\}//'
+	@sed -n '2,22p' Makefile | sed 's/^# \{0,1\}//'
 
 version:
 	@echo $(VERSION)
@@ -127,11 +142,47 @@ install-model:
 	install -Dm644 "$(MODEL)" $(MODELDIR)/comicredr-panels.onnx
 	@echo "Model installed in $(MODELDIR). Restart ComicRedr to use it."
 
+# One release key per person, made once. The password is random and kept in
+# android/key.properties (gitignored); back up both files together.
+keystore:
+	@test ! -f "$(KEYSTORE)" || { echo "$(KEYSTORE) exists already; not replacing a release key."; exit 1; }
+	mkdir -p "$(dir $(KEYSTORE))"
+	@pw=$$(openssl rand -hex 16) && \
+	keytool -genkeypair -noprompt -keystore "$(KEYSTORE)" -storetype PKCS12 \
+	  -alias comicredr -keyalg RSA -keysize 4096 -validity 36500 \
+	  -dname "CN=ComicRedr" -storepass "$$pw" -keypass "$$pw" && \
+	chmod 600 "$(KEYSTORE)" && \
+	printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=comicredr\nkeyPassword=%s\n' "$(KEYSTORE)" "$$pw" "$$pw" > $(KEYPROPS) && \
+	chmod 600 $(KEYPROPS)
+	@echo "Release key in $(KEYSTORE), password in $(KEYPROPS)."
+	@echo "Back both up: an APK signed with another key cannot update the installed app."
+
+apk: deps check-model
+	@test -f $(KEYPROPS) || { echo "No release key: run make keystore once (or restore $(KEYPROPS) and the keystore)."; exit 1; }
+	$(FLUTTER) build apk --release --target-platform $(APK_ABI)
+	@echo "Built $(APK)"
+
+install-apk:
+	@test -f $(APK) || { echo "No APK yet: run make apk first."; exit 1; }
+	$(ADB) install -r $(APK)
+
+# adb may write into the app's folder on shared storage; most file managers
+# on Android 11 and later may not.
+push-model:
+	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
+	$(ADB) shell mkdir -p $(PHONE_MODELDIR)
+	$(ADB) push "$(MODEL)" $(PHONE_MODELDIR)/comicredr-panels.onnx
+	@echo "Model on the phone. Close and reopen ComicRedr to use it."
+
 # Re-render the committed PNG icons after editing the SVG.
 # Needs rsvg-convert (dnf install librsvg2-tools).
 icons:
 	mkdir -p $(PKG)/icons
 	for s in $(ICON_SIZES); do rsvg-convert -w $$s -h $$s $(PKG)/$(APP_ID).svg -o $(PKG)/icons/$$s.png || exit 1; done
+	for d in $(ANDROID_ICONS); do \
+	  rsvg-convert -w $${d#*:} -h $${d#*:} $(PKG)/$(APP_ID).svg \
+	    -o android/app/src/main/res/mipmap-$${d%%:*}/ic_launcher.png || exit 1; \
+	done
 
 clean:
 	$(FLUTTER) clean
