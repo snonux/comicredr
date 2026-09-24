@@ -117,15 +117,45 @@ if (( d > 100000 )); then echo "ok   gt draws the zones over the page ($d pixels
 key Escape; sleep 1
 click 1251 28; shot 04_settings
 # The Touch heading is below the fold: scroll the dialog down to it.
-xdotool mousemove 640 450 click 5 click 5 click 5 click 5 click 5; sleep 1
-click 543 323; shot 05_settings_left_handed
+xdotool mousemove 640 450 click 5 click 5 click 5 click 5 click 5 click 5 click 5 click 5 click 5 click 5; sleep 1
+shot 05_settings_touch
+# Where the Touch presets are: the segmented button just above the preview
+# grid, found by their outlines so a Settings section added above them does
+# not move the click.
+read -r lx ly < <(python3 - "$out/05_settings_touch.png" 1 <<'PY'
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert("RGB")
+px = im.load()
+def light(x, y):
+    r, g, b = px[x, y]
+    return min(r, g, b) > 100 and max(r, g, b) - min(r, g, b) < 40
+runs = []  # Light horizontal lines starting at the dialog's left margin.
+for y in range(im.size[1]):
+    for x in range(370, 400):
+        if light(x, y) and not light(x - 1, y):
+            e = x
+            while e < im.size[0] and light(e, y):
+                e += 1
+            if e - x > 150:
+                runs.append((y, x, e))
+            break
+grid = next(y for y, x, e in runs if x < 386 and 230 < e - x < 250)  # The preview's top edge.
+bottom, top = [r for r in runs if r[0] < grid and r[1] >= 386][-1], None
+top = [r for r in runs if r[0] < bottom[0] - 20 and r[1] == bottom[1] and r[2] == bottom[2]][-1]
+left, right = bottom[1] - 12, bottom[2] + 12  # The rounded ends start 12 px in.
+i = int(sys.argv[2])
+print((left * (5 - 2 * i) + right * (2 * i + 1)) // 6, (top[0] + bottom[0]) // 2)
+PY
+)
+click "$lx" "$ly"; shot 06_settings_left_handed
 expect "$(q "select value from settings where key = 'touch.preset'")" '"leftHanded"' "Settings saved the preset"
 click 868 656
 # The Books tab lists both; the second one opens with a click and Enter.
-click 43 160; shot 06_books
-click 400 205; key Return; sleep 1; shot 07_zones_on_open
-sleep 3.5; shot 08_zones_on_open_gone
-d=$(differ 07_zones_on_open 08_zones_on_open_gone)
+click 43 160; shot 07_books
+click 400 205; key Return; sleep 1; shot 08_zones_on_open
+sleep 3.5; shot 09_zones_on_open_gone
+d=$(differ 08_zones_on_open 09_zones_on_open_gone)
 if (( d > 100000 )); then echo "ok   the next book opened shows the zones ($d pixels differ)"; else echo "FAIL zones on open: only $d pixels differ"; failed=1; fi
 start_page=$(page)
 tap 60 340;   expect_page $(( start_page + 1 )) "left-handed: tap left goes on"
@@ -148,15 +178,15 @@ twoFingerTap = "autoTrim"
 pinch = "zoomIn"
 TOML
 COMICREDR_KEYS="$PWD/$out/keys.toml" start "$book1"
-shot 09_keys_toml
+shot 10_keys_toml
 tap 1200 100; expect_page 12 "[touch] tap top-right: last page"
 tap 60 100;   expect_page 1 "[touch] tap top-left: first page"
 vswipe 640 500 150; expect_page 2 "[touch] swipe up: next page"
 vswipe 640 150 500; expect_page 1 "[touch] swipe down: previous page"
 tap 1200 340; expect_page 2 "[touch] middle-right tap, listed again: next"
-hold 640 340; shot 10_long_press_night
+hold 640 340; shot 11_long_press_night
 expect "$(q "select value from settings where key = 'reader.night'")" true "[touch] long press: night filter"
-two_finger_tap 640 340; shot 11_two_finger_trim
+two_finger_tap 640 340; shot 12_two_finger_trim
 expect "$(q "select value from settings where key = 'reader.autoTrim'")" true "[touch] two-finger tap: auto-trim"
 expect_page 2 "neither the long press nor the two-finger tap turned the page"
 if grep -qF 'keys.toml: [touch] has no gesture called "pinch"' "$out/app.log"; then
@@ -164,9 +194,9 @@ if grep -qF 'keys.toml: [touch] has no gesture called "pinch"' "$out/app.log"; t
 else
   echo "FAIL the bad [touch] line was not reported"; failed=1
 fi
-key g t; shot 12_gt_keys_toml
+key g t; shot 13_gt_keys_toml
 key Escape; sleep 1; click 1251 28
-xdotool mousemove 640 450 click 5 click 5 click 5 click 5 click 5; sleep 1; shot 13_settings_keys_toml
+xdotool mousemove 640 450 click 5 click 5 click 5 click 5 click 5; sleep 1; shot 14_settings_keys_toml
 key Escape
 stop
 

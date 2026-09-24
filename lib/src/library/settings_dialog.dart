@@ -305,7 +305,6 @@ class _TouchPicker extends ConsumerWidget {
       children: [
         SegmentedButton<TouchPreset>(
           key: const Key('setting-touch'),
-          showSelectedIcon: false,
           segments: [
             for (final p in TouchPreset.values)
               ButtonSegment(
