@@ -23,6 +23,12 @@ page, because a wrong camera move is worse than none (design plan section 5):
   wrong   the gate passed with panels that don't match, or a non-story page
           (cover, text, ad) got a camera
 
+With --trim the model looks at each page with its blank scanned margins cut
+off when they are wide (spike/trim.py), and the gate judges its frames
+against that part of the page, as the app does; classic CV keeps the whole
+page. --add-margin pads every page with a blank margin first, to test pages
+scanned with a wide one.
+
 Writes results.json and report.md into --out, and with --overlays one
 <page>.<detector>.jpg per page.
 """
@@ -35,6 +41,7 @@ import cv2
 import numpy as np
 
 import detect_cv
+import trim as autotrim
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 PANEL_CONF = 0.3
@@ -264,6 +271,23 @@ def drop_containers(boxes, inside=0.85, cover=0.6):
     return out
 
 
+def add_margin(img, gt, share, colour=None):
+    """[img] with [share] of its size added as blank margin on every side,
+    and its labels moved to match."""
+    h, w = img.shape[:2]
+    mx, my = round(w * share), round(h * share)
+    if colour:
+        fill = [int(v) for v in colour.split(",")]
+    else:
+        edge = np.concatenate([img[0], img[-1], img[:, 0], img[:, -1]])
+        fill = [int(v) for v in np.median(edge, axis=0)]
+    out = cv2.copyMakeBorder(img, my, my, mx, mx, cv2.BORDER_CONSTANT, value=fill)
+    W, H = w + 2 * mx, h + 2 * my
+    moved = {k: [[(mx + x * w) / W, (my + y * h) / H, bw * w / W, bh * h / H] for x, y, bw, bh in v]
+             for k, v in gt.items()}
+    return out, W, H, moved
+
+
 def load_trained(path):
     return Onnx(path) if str(path).endswith(".onnx") else Ultralytics(path, "trained")
 
@@ -280,11 +304,12 @@ def clip(boxes):
     return out
 
 
-def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0):
+def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL):
     panels = reading_order(clip(panels), aspect=aspect)
     pm = match(panels, gt_panels)
     bm = match(clip(balloons), gt_balloons)
-    passed, reasons = gate(panels)
+    # The app judges a trimmed page by the part it detected on.
+    passed, reasons = gate(autotrim.to_crop(panels, trim))
     story = len(gt_panels) >= 2
     exact = len(pm) == len(panels) == len(gt_panels) and all(i == j for i, j in pm)
     if not story:
@@ -370,6 +395,16 @@ def main():
     ap.add_argument("--overlays", action="store_true")
     ap.add_argument("--panel-conf", type=float, default=PANEL_CONF)
     ap.add_argument("--balloon-conf", type=float, default=BALLOON_CONF)
+    ap.add_argument("--trim", action="store_true",
+                    help="detect on the page with its scanned margins cut off, as the app does")
+    ap.add_argument("--trim-pad", type=float, default=autotrim.DETECT_PAD,
+                    help="margin left around the art when trimming for detection")
+    ap.add_argument("--trim-below", type=float, default=autotrim.DETECT_BELOW,
+                    help="only trim when what is left is at most this share of the page's area")
+    ap.add_argument("--add-margin", type=float, default=0.0,
+                    help="first pad every page with this share of blank margin on each side, "
+                         "in its own paper colour (a wide scanner margin)")
+    ap.add_argument("--margin-colour", help="B,G,R of that margin instead, e.g. 30,30,30 for a scanner bed")
     a = ap.parse_args()
     PANEL_CONF, BALLOON_CONF = a.panel_conf, a.balloon_conf
     out = Path(a.out)
@@ -389,13 +424,23 @@ def main():
         W, H = lab["w"], lab["h"]
         gt = {k: [[x / W, y / H, w / W, h / H] for x, y, w, h in lab[k]] for k in ("panels", "balloons")}
         img = cv2.imread(str(page))
+        if a.add_margin:
+            img, W, H, gt = add_margin(img, gt, a.add_margin, a.margin_colour)
         row = {"page": str(page.relative_to(a.pages)), "style": page.parent.name,
                "gt_panels": len(gt["panels"]), "gt_balloons": len(gt["balloons"]), "det": {}}
+        t = autotrim.FULL
+        page_img = img
+        if a.trim:
+            page_img, t = autotrim.crop(img, autotrim.detection_trim(img, pad=a.trim_pad, below=a.trim_below))
+            row["trim"] = t
         for d in dets:
+            # Classic CV keeps the whole page, as in the app.
+            dt, d_img = (autotrim.FULL, img) if d.name == "cv" else (t, page_img)
             t0 = time.perf_counter()
-            panels, balloons = d(img)
+            panels, balloons = d(d_img)
+            panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
             ms = (time.perf_counter() - t0) * 1000
-            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H)
+            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt)
             res["ms"] = ms
             row["det"][d.name] = res
             if a.overlays:

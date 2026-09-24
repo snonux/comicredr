@@ -134,6 +134,11 @@ class AnalysedPages extends Table {
   IntColumn get millis => integer()(); // detection time, for tuning
   DateTimeColumn get analysedAt => dateTime()();
 
+  /// The part of the page the detector looked at once the scanned margins
+  /// were cut off, as "left,top,right,bottom" (encodeTrim); null for the
+  /// whole page. The confidence gate judges the frames against it.
+  TextColumn get trim => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey, page, source};
 }
@@ -212,7 +217,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -229,6 +234,8 @@ class AppDatabase extends _$AppDatabase {
       if (from < 6) await m.addColumn(bookmarks, bookmarks.deletedAt); // M8: sidecars
       if (from < 7) await m.createTable(collectionBooks); // M8: collections
       if (from < 8) await m.addColumn(panels, panels.shape); // Non-rectangular frames
+      // Detection on trimmed pages; an index from before M4 got the column with the table.
+      if (from >= 2 && from < 9) await m.addColumn(analysedPages, analysedPages.trim);
     },
   );
 }

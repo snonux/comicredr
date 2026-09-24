@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Wide scanned margins:** guided view no longer shows a page whole just
+  because it was scanned with a wide blank margin. The trained detector
+  looks at such a page with the margin cut off, whether or not `t` is on;
+  with a 12% margin added to the labelled test pages, 68 of 100 are guided
+  right instead of 28. Books are detected again once.
+
 - **M9, polish and ship:** `t` auto-trims the white margins off scanned
   pages, and it and the night filter (`i`) are now remembered across books
   and restarts. Any key can be remapped in

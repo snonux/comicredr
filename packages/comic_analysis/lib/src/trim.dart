@@ -1,4 +1,7 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
+
+import 'panel.dart';
 
 /// The part of a page worth showing once the scanner's margins are cut
 /// away, as fractions of the page (0..1). [full] means nothing to trim.
@@ -122,4 +125,120 @@ int _edgeMode(Uint8List lum, int w, int h) {
     if (hist[i] > hist[best]) best = i;
   }
   return best * 8 + 4;
+}
+
+/// The width [measureTrimRgba] shrinks a page to before [findTrim] reads
+/// it, as the reader does for `t`: wide enough for the margins, narrow
+/// enough to smooth away paper grain.
+const trimMeasureWidth = 240;
+
+/// The margin [findTrim] leaves around the art when a page is trimmed for
+/// panel detection: wider than on screen, since the model was trained on
+/// scans with some paper around the frames. On the labelled eval pages a
+/// 1% cut changed the model's answer on 18 pages, 3% on 11.
+const detectionTrimPad = 0.03;
+
+/// A page is only trimmed for panel detection when what is left is at most
+/// this share of its area. The model was trained on scans with ordinary
+/// margins and changes its answer on a few pages when those are cut, for
+/// no gain; wide margins are what hide the layout. With this, the labelled
+/// eval and modern pages score as before, and with an 8% or 12% blank
+/// margin added to every page, guided view gets 67 and 68 of the 100 eval
+/// pages right instead of 44 and 28, and 47 and 46 of the 66 modern pages
+/// instead of 36 and 16 (spike/evaluate.py --trim --add-margin).
+const detectionTrimArea = 0.8;
+
+/// [findTrim] on an RGBA page of any size, leaving [pad]: shrunk to
+/// [trimMeasureWidth] across first by averaging, so a page decoded at
+/// 800 px is measured the way the reader measures it on screen.
+Trim measureTrimRgba(Uint8List rgba, int w, int h, {double pad = 0.01}) {
+  if (w <= trimMeasureWidth) return findTrim(rgba, w, h, pad: pad);
+  const sw = trimMeasureWidth;
+  final sh = math.max(16, (h * sw / w).round());
+  final sums = Uint32List(sw * sh * 4);
+  final counts = Uint32List(sw * sh);
+  for (var y = 0; y < h; y++) {
+    final sy = y * sh ~/ h;
+    for (var x = 0; x < w; x++) {
+      final d = sy * sw + x * sw ~/ w;
+      final s = (y * w + x) * 4;
+      sums[d * 4] += rgba[s];
+      sums[d * 4 + 1] += rgba[s + 1];
+      sums[d * 4 + 2] += rgba[s + 2];
+      counts[d]++;
+    }
+  }
+  final small = Uint8List(sw * sh * 4);
+  for (var i = 0; i < counts.length; i++) {
+    final n = math.max(1, counts[i]);
+    small[i * 4] = sums[i * 4] ~/ n;
+    small[i * 4 + 1] = sums[i * 4 + 1] ~/ n;
+    small[i * 4 + 2] = sums[i * 4 + 2] ~/ n;
+    small[i * 4 + 3] = 255;
+  }
+  return findTrim(small, sw, sh, pad: pad);
+}
+
+/// The part of an RGBA page of [w] x [h] inside [trim], cut on whole pixels,
+/// with the trim those pixels really are, which is what panels found on the
+/// crop map back through.
+(Uint8List, int, int, Trim) cropRgba(Uint8List rgba, int w, int h, Trim trim) {
+  if (trim.isFull) return (rgba, w, h, Trim.full);
+  final x0 = (trim.left * w).round().clamp(0, w - 1), x1 = (trim.right * w).round().clamp(x0 + 1, w);
+  final y0 = (trim.top * h).round().clamp(0, h - 1), y1 = (trim.bottom * h).round().clamp(y0 + 1, h);
+  final cw = x1 - x0, ch = y1 - y0;
+  final out = Uint8List(cw * ch * 4);
+  for (var y = 0; y < ch; y++) {
+    final s = ((y0 + y) * w + x0) * 4;
+    out.setRange(y * cw * 4, (y + 1) * cw * 4, rgba, s);
+  }
+  return (out, cw, ch, Trim(x0 / w, y0 / h, x1 / w, y1 / h));
+}
+
+/// Moves regions between the whole page and a trimmed part of it. Panels
+/// are found on the trimmed page, so wide scanner margins don't hide the
+/// layout, and stored on the whole page, as the reader draws them.
+extension TrimPanels on Trim {
+  /// [p], normalised to this trimmed part, normalised to the whole page.
+  Panel toPage(Panel p) => isFull
+      ? p
+      : Panel(
+          left + p.x * width,
+          top + p.y * height,
+          p.w * width,
+          p.h * height,
+          kind: p.kind,
+          confidence: p.confidence,
+          shape: p.shape == null
+              ? null
+              : [for (final (i, v) in p.shape!.indexed) i.isEven ? left + v * width : top + v * height],
+        );
+
+  /// [p], normalised to the whole page, normalised to this trimmed part.
+  Panel toTrim(Panel p) => isFull
+      ? p
+      : Panel(
+          (p.x - left) / width,
+          (p.y - top) / height,
+          p.w / width,
+          p.h / height,
+          kind: p.kind,
+          confidence: p.confidence,
+          shape: p.shape == null
+              ? null
+              : [for (final (i, v) in p.shape!.indexed) i.isEven ? (v - left) / width : (v - top) / height],
+        );
+}
+
+/// A trim as stored beside a detection run: "left,top,right,bottom", or
+/// null for the whole page.
+String? encodeTrim(Trim trim) =>
+    trim.isFull ? null : [trim.left, trim.top, trim.right, trim.bottom].map((v) => v.toStringAsFixed(5)).join(',');
+
+/// The trim [encodeTrim] wrote; the whole page for null or anything
+/// unreadable.
+Trim decodeTrim(String? text) {
+  final v = text?.split(',').map(double.tryParse).toList();
+  if (v == null || v.length != 4 || v.contains(null)) return Trim.full;
+  return Trim(v[0]!, v[1]!, v[2]!, v[3]!);
 }

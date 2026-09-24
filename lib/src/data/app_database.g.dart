@@ -3399,6 +3399,15 @@ class $AnalysedPagesTable extends AnalysedPages
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _trimMeta = const VerificationMeta('trim');
+  @override
+  late final GeneratedColumn<String> trim = GeneratedColumn<String>(
+    'trim',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -3407,6 +3416,7 @@ class $AnalysedPagesTable extends AnalysedPages
     modelVer,
     millis,
     analysedAt,
+    trim,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3468,6 +3478,12 @@ class $AnalysedPagesTable extends AnalysedPages
     } else if (isInserting) {
       context.missing(_analysedAtMeta);
     }
+    if (data.containsKey('trim')) {
+      context.handle(
+        _trimMeta,
+        trim.isAcceptableOrUnknown(data['trim']!, _trimMeta),
+      );
+    }
     return context;
   }
 
@@ -3501,6 +3517,10 @@ class $AnalysedPagesTable extends AnalysedPages
         DriftSqlType.dateTime,
         data['${effectivePrefix}analysed_at'],
       )!,
+      trim: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}trim'],
+      ),
     );
   }
 
@@ -3517,6 +3537,11 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
   final int modelVer;
   final int millis;
   final DateTime analysedAt;
+
+  /// The part of the page the detector looked at once the scanned margins
+  /// were cut off, as "left,top,right,bottom" (encodeTrim); null for the
+  /// whole page. The confidence gate judges the frames against it.
+  final String? trim;
   const AnalysedPage({
     required this.contentKey,
     required this.page,
@@ -3524,6 +3549,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     required this.modelVer,
     required this.millis,
     required this.analysedAt,
+    this.trim,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3534,6 +3560,9 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     map['model_ver'] = Variable<int>(modelVer);
     map['millis'] = Variable<int>(millis);
     map['analysed_at'] = Variable<DateTime>(analysedAt);
+    if (!nullToAbsent || trim != null) {
+      map['trim'] = Variable<String>(trim);
+    }
     return map;
   }
 
@@ -3545,6 +3574,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       modelVer: Value(modelVer),
       millis: Value(millis),
       analysedAt: Value(analysedAt),
+      trim: trim == null && nullToAbsent ? const Value.absent() : Value(trim),
     );
   }
 
@@ -3560,6 +3590,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       modelVer: serializer.fromJson<int>(json['modelVer']),
       millis: serializer.fromJson<int>(json['millis']),
       analysedAt: serializer.fromJson<DateTime>(json['analysedAt']),
+      trim: serializer.fromJson<String?>(json['trim']),
     );
   }
   @override
@@ -3572,6 +3603,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       'modelVer': serializer.toJson<int>(modelVer),
       'millis': serializer.toJson<int>(millis),
       'analysedAt': serializer.toJson<DateTime>(analysedAt),
+      'trim': serializer.toJson<String?>(trim),
     };
   }
 
@@ -3582,6 +3614,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     int? modelVer,
     int? millis,
     DateTime? analysedAt,
+    Value<String?> trim = const Value.absent(),
   }) => AnalysedPage(
     contentKey: contentKey ?? this.contentKey,
     page: page ?? this.page,
@@ -3589,6 +3622,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     modelVer: modelVer ?? this.modelVer,
     millis: millis ?? this.millis,
     analysedAt: analysedAt ?? this.analysedAt,
+    trim: trim.present ? trim.value : this.trim,
   );
   AnalysedPage copyWithCompanion(AnalysedPagesCompanion data) {
     return AnalysedPage(
@@ -3602,6 +3636,7 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       analysedAt: data.analysedAt.present
           ? data.analysedAt.value
           : this.analysedAt,
+      trim: data.trim.present ? data.trim.value : this.trim,
     );
   }
 
@@ -3613,14 +3648,15 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
           ..write('source: $source, ')
           ..write('modelVer: $modelVer, ')
           ..write('millis: $millis, ')
-          ..write('analysedAt: $analysedAt')
+          ..write('analysedAt: $analysedAt, ')
+          ..write('trim: $trim')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(contentKey, page, source, modelVer, millis, analysedAt);
+      Object.hash(contentKey, page, source, modelVer, millis, analysedAt, trim);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3630,7 +3666,8 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
           other.source == this.source &&
           other.modelVer == this.modelVer &&
           other.millis == this.millis &&
-          other.analysedAt == this.analysedAt);
+          other.analysedAt == this.analysedAt &&
+          other.trim == this.trim);
 }
 
 class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
@@ -3640,6 +3677,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
   final Value<int> modelVer;
   final Value<int> millis;
   final Value<DateTime> analysedAt;
+  final Value<String?> trim;
   final Value<int> rowid;
   const AnalysedPagesCompanion({
     this.contentKey = const Value.absent(),
@@ -3648,6 +3686,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     this.modelVer = const Value.absent(),
     this.millis = const Value.absent(),
     this.analysedAt = const Value.absent(),
+    this.trim = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AnalysedPagesCompanion.insert({
@@ -3657,6 +3696,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     required int modelVer,
     required int millis,
     required DateTime analysedAt,
+    this.trim = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        page = Value(page),
@@ -3671,6 +3711,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     Expression<int>? modelVer,
     Expression<int>? millis,
     Expression<DateTime>? analysedAt,
+    Expression<String>? trim,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3680,6 +3721,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
       if (modelVer != null) 'model_ver': modelVer,
       if (millis != null) 'millis': millis,
       if (analysedAt != null) 'analysed_at': analysedAt,
+      if (trim != null) 'trim': trim,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3691,6 +3733,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     Value<int>? modelVer,
     Value<int>? millis,
     Value<DateTime>? analysedAt,
+    Value<String?>? trim,
     Value<int>? rowid,
   }) {
     return AnalysedPagesCompanion(
@@ -3700,6 +3743,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
       modelVer: modelVer ?? this.modelVer,
       millis: millis ?? this.millis,
       analysedAt: analysedAt ?? this.analysedAt,
+      trim: trim ?? this.trim,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3725,6 +3769,9 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     if (analysedAt.present) {
       map['analysed_at'] = Variable<DateTime>(analysedAt.value);
     }
+    if (trim.present) {
+      map['trim'] = Variable<String>(trim.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3740,6 +3787,7 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
           ..write('modelVer: $modelVer, ')
           ..write('millis: $millis, ')
           ..write('analysedAt: $analysedAt, ')
+          ..write('trim: $trim, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7022,6 +7070,7 @@ typedef $$AnalysedPagesTableCreateCompanionBuilder =
       required int modelVer,
       required int millis,
       required DateTime analysedAt,
+      Value<String?> trim,
       Value<int> rowid,
     });
 typedef $$AnalysedPagesTableUpdateCompanionBuilder =
@@ -7032,6 +7081,7 @@ typedef $$AnalysedPagesTableUpdateCompanionBuilder =
       Value<int> modelVer,
       Value<int> millis,
       Value<DateTime> analysedAt,
+      Value<String?> trim,
       Value<int> rowid,
     });
 
@@ -7071,6 +7121,11 @@ class $$AnalysedPagesTableFilterComposer
 
   ColumnFilters<DateTime> get analysedAt => $composableBuilder(
     column: $table.analysedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get trim => $composableBuilder(
+    column: $table.trim,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7113,6 +7168,11 @@ class $$AnalysedPagesTableOrderingComposer
     column: $table.analysedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get trim => $composableBuilder(
+    column: $table.trim,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AnalysedPagesTableAnnotationComposer
@@ -7145,6 +7205,9 @@ class $$AnalysedPagesTableAnnotationComposer
     column: $table.analysedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get trim =>
+      $composableBuilder(column: $table.trim, builder: (column) => column);
 }
 
 class $$AnalysedPagesTableTableManager
@@ -7184,6 +7247,7 @@ class $$AnalysedPagesTableTableManager
                 Value<int> modelVer = const Value.absent(),
                 Value<int> millis = const Value.absent(),
                 Value<DateTime> analysedAt = const Value.absent(),
+                Value<String?> trim = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AnalysedPagesCompanion(
                 contentKey: contentKey,
@@ -7192,6 +7256,7 @@ class $$AnalysedPagesTableTableManager
                 modelVer: modelVer,
                 millis: millis,
                 analysedAt: analysedAt,
+                trim: trim,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7202,6 +7267,7 @@ class $$AnalysedPagesTableTableManager
                 required int modelVer,
                 required int millis,
                 required DateTime analysedAt,
+                Value<String?> trim = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AnalysedPagesCompanion.insert(
                 contentKey: contentKey,
@@ -7210,6 +7276,7 @@ class $$AnalysedPagesTableTableManager
                 modelVer: modelVer,
                 millis: millis,
                 analysedAt: analysedAt,
+                trim: trim,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

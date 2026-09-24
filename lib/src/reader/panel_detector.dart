@@ -16,6 +16,7 @@ class DetectedPage {
     required this.source,
     required this.version,
     required this.millis,
+    this.trim = Trim.full,
   });
 
   /// Frames in left-to-right reading order.
@@ -26,6 +27,11 @@ class DetectedPage {
   final PanelSource source;
   final int version;
   final int millis;
+
+  /// The part of the page detection looked at, with the scanned margins cut
+  /// off. [frames] and [balloons] are on the whole page all the same; the
+  /// confidence gate judges them against this part (PagePanels).
+  final Trim trim;
 }
 
 /// Finds the frames, and with the trained model the balloons, on a page,
@@ -36,6 +42,14 @@ class DetectedPage {
 /// M4. The page decodes straight to detection size through Flutter's native
 /// codec, which runs on the engine's threads; the UI isolate only moves
 /// bytes.
+///
+/// When a page has wide blank scanned margins, the model looks at it with
+/// them cut off (findTrim), decoded again so the art still fills its input,
+/// and the gate judges the frames against that part: before, the frames of
+/// such a page covered too little of it and the page was shown whole (see
+/// [detectionTrimArea] for the numbers). Classic CV keeps the whole page:
+/// on trimmed pages it passed the gate with wrong frames far more often
+/// than it got another page right (spike/evaluate.py).
 class PanelDetector {
   const PanelDetector({this.model});
 
@@ -50,14 +64,15 @@ class PanelDetector {
     if (model != null) {
       try {
         final sw = Stopwatch()..start();
-        final (rgba, w, h) = await pageRgba(doc, page, model.inputSize);
+        final (rgba, w, h, trim) = await trimmedPageRgba(doc, page, model.inputSize);
         final found = await model.detect(rgba, w, h);
         return DetectedPage(
-          found.frames,
-          found.balloons,
+          [for (final f in found.frames) trim.toPage(f)],
+          [for (final b in found.balloons) trim.toPage(b)],
           source: PanelSource.model,
           version: model.version,
           millis: sw.elapsedMilliseconds,
+          trim: trim,
         );
       } catch (e) {
         debugPrint('Model detection failed on page ${page + 1}, using classic CV: $e');
@@ -74,6 +89,20 @@ class PanelDetector {
       millis: sw.elapsedMilliseconds,
     );
   }
+}
+
+/// Page [index] of [doc] as raw RGBA with the long side at most [longSide],
+/// with its blank scanned margins cut off when they are wide (at most
+/// [detectionTrimArea] of the page left), and the part of the page it is.
+/// A trimmed page is decoded a second time, larger, so its art is as big as
+/// a page without margins would be.
+Future<(Uint8List, int, int, Trim)> trimmedPageRgba(ComicDocument doc, int index, int longSide) async {
+  final (rgba, w, h) = await pageRgba(doc, index, longSide);
+  final trim = await _measureOnWorker(TransferableTypedData.fromList([rgba]), w, h);
+  if (trim.isFull || trim.width * trim.height > detectionTrimArea) return (rgba, w, h, Trim.full);
+  final bigger = (longSide / math.max(trim.width, trim.height)).floor();
+  final (big, bw, bh) = await pageRgba(doc, index, bigger);
+  return _cropOnWorker(TransferableTypedData.fromList([big]), bw, bh, trim, longSide);
 }
 
 /// Page [index] of [doc] as raw RGBA with the long side at most [longSide]:
@@ -112,6 +141,30 @@ Future<(Uint8List, int, int)> decodeSmall(Uint8List bytes, int longSide) async {
   }
 }
 
-/// Top level, so the closure sent to the worker holds only these three.
+/// Top level, so the closures sent to the workers hold only their arguments.
+Future<Trim> _measureOnWorker(TransferableTypedData rgba, int w, int h) =>
+    Isolate.run(() => measureTrimRgba(rgba.materialize().asUint8List(), w, h, pad: detectionTrimPad));
+
+/// The [trim] of a page, cut on whole pixels and kept within [longSide]:
+/// a source image smaller than asked for comes back at its own size.
+Future<(Uint8List, int, int, Trim)> _cropOnWorker(
+  TransferableTypedData rgba,
+  int w,
+  int h,
+  Trim trim,
+  int longSide,
+) => Isolate.run(() {
+  final (px, cw, ch, exact) = cropRgba(rgba.materialize().asUint8List(), w, h, trim);
+  if (math.max(cw, ch) <= longSide) return (px, cw, ch, exact);
+  // Rounding put a pixel over: drop it rather than scale.
+  final (fit, fw, fh, _) = cropRgba(px, cw, ch, Trim(0, 0, math.min(cw, longSide) / cw, math.min(ch, longSide) / ch));
+  return (
+    fit,
+    fw,
+    fh,
+    Trim(exact.left, exact.top, exact.left + exact.width * fw / cw, exact.top + exact.height * fh / ch),
+  );
+});
+
 Future<List<Panel>> _detectOnWorker(TransferableTypedData rgba, int w, int h) =>
     Isolate.run(() => detectPanels(GrayImage.fromRgba(rgba.materialize().asUint8List(), w, h)).frames);

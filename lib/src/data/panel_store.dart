@@ -50,7 +50,14 @@ class PanelStore {
     }
     return {
       for (final MapEntry(key: page, value: (s, a)) in best.entries)
-        page: DetectedPage(frames[page]!, balloons[page]!, source: s, version: a.modelVer, millis: a.millis),
+        page: DetectedPage(
+          frames[page]!,
+          balloons[page]!,
+          source: s,
+          version: a.modelVer,
+          millis: a.millis,
+          trim: decodeTrim(a.trim),
+        ),
     };
   }
 
@@ -103,6 +110,7 @@ class PanelStore {
             modelVer: found.version,
             millis: found.millis,
             analysedAt: DateTime.now(),
+            trim: Value(encodeTrim(found.trim)),
           ),
         );
   });
