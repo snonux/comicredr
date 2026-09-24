@@ -4,8 +4,8 @@
 # thumbnails, then ask to delete it and cancel with Enter and with Esc,
 # then confirm. Checks the comic and its sidecar are in the desktop trash,
 # and the index rows, cover and thumbnails are gone. Then deletes a folder
-# book from the library, where the next cover was selected, and checks the
-# third book is untouched.
+# book from the library's Series tab, checks the next cover took the
+# selection, and that the third book is untouched.
 #
 #   tool/e2e_delete.sh
 #
@@ -120,12 +120,19 @@ check "and the position" test "$(rows progress "$k")" = 0
 check "the cover is gone" test ! -e "$covers/$k.jpg"
 check "the page thumbnails are gone" test ! -e "$covers/pages/$k"
 
-# Back in the library the next cover, the folder book, is selected:
-# Shift+Delete there asks about it and says how many pages it has.
+# Back in the library, on the Reading tab it was opened from. The Series
+# tab, its first cover (the folder book), and Shift+Delete there: the
+# dialog says how many pages the folder has.
+xdotool mousemove 43 100 click 1; sleep 1.5
+key l
 key shift+Delete; sleep 3
 shot 06_library_dialog
 key Tab; key Return; sleep 4
 shot 07_library_after
+# The next cover took the selection: Shift+Delete asks about it. Esc.
+key shift+Delete; sleep 3
+shot 07b_next_selected
+key Escape; sleep 1
 check "the folder book is gone" test ! -e "$folder"
 check "the folder book is in the trash" test -f "$trash/files/Folder Book/p1.png"
 check "the third book is untouched" test -f "$keep"
