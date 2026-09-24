@@ -68,10 +68,17 @@ build internals, test scripts, detector work and conventions here.
 - A whole-library detection pass runs after each scan at low priority,
   resumes after a restart, and is off by default on Android. Settings turns
   it off.
-- The detector model is loaded from
-  `~/.local/share/org.snonux.comicredr/models/`
-  (`Android/data/org.snonux.comicredr/files/models/` on the phone), the app
-  bundle, or `COMICREDR_MODEL=/path/to/file.onnx`.
+- The detector model is built into the app from
+  `assets/models/comicredr-panels.onnx` (gitignored; `make model MODEL=...`
+  puts it there). `make` and `make apk` refuse to build without it unless
+  `NO_MODEL=1`. `findModel` (lib/src/reader/model_detector.dart) looks, in
+  order, at `COMICREDR_MODEL=/path/to/file.onnx` (`none` forces classic
+  CV), a user-installed model in `~/.local/share/org.snonux.comicredr/models/`
+  (`make install-model`; on the phone also
+  `Android/data/org.snonux.comicredr/files/models/`, `make push-model`),
+  then the built-in one. On Linux the built-in file is opened in place in
+  `bundle/data/flutter_assets/assets/models/`; on Android it is copied out
+  of the APK into `<app support>/bundled-model/` once per model version.
 - Sidecars: `book.cbz.crdb` beside the file, `.comicredr.crdb` inside a
   folder book. They hold metadata, panels and balloons, bookmarks, marks,
   collections and per-device positions. Removed bookmarks stay removed
