@@ -49,11 +49,22 @@ Future<String?> findModel() async {
 /// the platform thread never wait on it, so a page turn can't stutter
 /// behind a detection. The session loads once, on the first page.
 class ModelDetector {
-  ModelDetector(this.path, {this.inputSize = modelInputSize, int? threads})
+  ModelDetector(this.path, {required this.version, this.inputSize = modelInputSize, int? threads})
     : threads = threads ?? (Platform.numberOfProcessors - 2).clamp(1, 8);
+
+  /// Loads the detector for the model at [path], hashing the file off the
+  /// UI isolate for its [version].
+  static Future<ModelDetector> open(String path) async {
+    final version = await Isolate.run(() => modelVersion(File(path).readAsBytesSync()));
+    return ModelDetector(path, version: version);
+  }
 
   /// The .onnx file.
   final String path;
+
+  /// What panels found with this model file are cached under (see
+  /// [modelVersion]).
+  final int version;
   final int inputSize;
 
   /// ONNX Runtime's intra-op threads: all cores but two, so reading stays
