@@ -39,6 +39,10 @@ class SettingsStore {
   /// (LibraryDetection). On by default on the laptop, off on the phone.
   static const detectLibrary = 'detect.library';
 
+  /// How big the page grid's (`p`) thumbnails are: an index into its zoom
+  /// levels, kept across openings and restarts.
+  static const gridZoom = 'grid.zoom';
+
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
 
