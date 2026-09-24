@@ -36,7 +36,7 @@ void main() {
         key: UniqueKey(),
         overrides: [
           databaseProvider.overrideWithValue(db),
-          if (detector != null) panelDetectorProvider.overrideWith((ref) async => detector),
+          detector != null ? panelDetectorProvider.overrideWith((ref) async => detector) : classicCvOnly,
         ],
         child: const ComicRedrApp(),
       ),

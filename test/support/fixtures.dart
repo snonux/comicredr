@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:comicredr/src/reader/panel_detector.dart';
+import 'package:comicredr/src/reader/reader_notifier.dart';
 
 /// A 1x1 PNG. Every page of a fixture book is this, plus a trailing byte
 /// that PNG decoders ignore, so pages stay distinguishable.
@@ -79,3 +81,8 @@ String writeBookOf(Directory dir, String name, List<Uint8List> pages) {
   File(path).writeAsBytesSync(ZipEncoder().encodeBytes(a));
   return path;
 }
+
+/// Pins detection to classic CV, so a trained model installed on the machine
+/// or named by COMICREDR_MODEL (the e2e scripts export it) never changes
+/// what the tests see.
+final classicCvOnly = panelDetectorProvider.overrideWith((ref) async => const PanelDetector());
