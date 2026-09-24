@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
+import 'package:flutter/foundation.dart';
 
 /// The most device pixels a page may decode to: it is fitted inside, never
 /// enlarged. 0 leaves that side free, as fit-to-width does with the height.
@@ -23,11 +26,22 @@ typedef Tile = ({ui.Image image, PageRegion region});
 /// page. [get] and [tile] return clones the caller owns and must dispose;
 /// the cache disposes its own copy on eviction, which never invalidates a
 /// clone still on screen.
+///
+/// Asked to sharpen (scan clean-up, `c`), a page or tile with fewer pixels
+/// than it is shown at is enlarged towards that, at most [maxUpscale] times
+/// and to [maxSharpenedPixels], with [upscaleSharpen] in a background
+/// isolate. It is cached apart from the page as decoded.
 class PageCache {
-  PageCache(this.doc, {required this.budgetBytes});
+  PageCache(this.doc, {required this.budgetBytes, this.maxSharpenedPixels = 16 << 20});
 
   final ComicDocument doc;
   final int budgetBytes;
+  final int maxSharpenedPixels;
+
+  static const maxUpscale = 2.0;
+
+  /// Enlarging a page less than this much is not worth the time.
+  static const minUpscale = 1.15;
 
   // Insertion-ordered: oldest first. A key's region is null for a whole page.
   final _images = <_Key, ui.Image>{};
@@ -50,16 +64,16 @@ class PageCache {
   /// A tile wider than this would show nothing the page does not.
   int? storedWidth(int index) => _storedWidths[index];
 
-  Future<ui.Image> get(int index, Box box) async {
-    final image = await _load(_page(index, box), urgent: true);
+  Future<ui.Image> get(int index, Box box, {bool sharpen = false}) async {
+    final image = await _load(_page(index, box, sharpen), urgent: true);
     return image.clone();
   }
 
   /// Starts decoding pages the reader is likely to want next.
-  void prefetch(Iterable<int> indexes, Box box) {
+  void prefetch(Iterable<int> indexes, Box box, {bool sharpen = false}) {
     for (final i in indexes) {
       if (i >= 0 && i < doc.pageCount) {
-        unawaited(_load(_page(i, box)).then((_) {}, onError: (_) {}));
+        unawaited(_load(_page(i, box, sharpen)).then((_) {}, onError: (_) {}));
       }
     }
   }
@@ -67,9 +81,10 @@ class PageCache {
   /// [region] of page [index] at the scale the whole page would have
   /// [fullWidth] pixels across, or at the page's own size when that is
   /// smaller. A PDF renders only that part; a stored image is decoded
-  /// whole at that scale, cropped, and only the crop kept.
-  Future<Tile> tile(int index, int fullWidth, PageRegion region) async {
-    final key = (index: index, width: _bucket(fullWidth), height: 0, region: region);
+  /// whole at that scale, cropped, and only the crop kept. With [sharpen],
+  /// a crop narrower than asked for is enlarged and sharpened.
+  Future<Tile> tile(int index, int fullWidth, PageRegion region, {bool sharpen = false}) async {
+    final key = (index: index, width: _bucket(fullWidth), height: 0, region: region, sharpen: sharpen);
     final image = await _load(key, urgent: true);
     return (image: image.clone(), region: _regions[key] ?? region);
   }
@@ -82,8 +97,8 @@ class PageCache {
     }
   }
 
-  static _Key _page(int index, Box box) =>
-      (index: index, width: _bucket(box.width), height: _bucket(box.height), region: null);
+  static _Key _page(int index, Box box, bool sharpen) =>
+      (index: index, width: _bucket(box.width), height: _bucket(box.height), region: null, sharpen: sharpen);
 
   Future<ui.Image> _load(_Key key, {bool urgent = false}) {
     final hit = _images.remove(key);
@@ -138,6 +153,16 @@ class PageCache {
       image.dispose();
       image = crop;
       drawn = cut;
+    }
+    if (key.sharpen) {
+      // What it is shown at: the box for a page, the crop's share of the
+      // asked-for width for a tile.
+      final want = drawn == null ? math.min(boxW / image.width, boxH / image.height) : boxW * drawn.width / image.width;
+      final bigger = await enlarge(image, want, maxPixels: maxSharpenedPixels);
+      if (bigger != null) {
+        image.dispose();
+        image = bigger;
+      }
     }
     if (_disposed) {
       // The book closed while this page decoded: hand out a clone and drop ours.
@@ -203,6 +228,30 @@ class PageCache {
     _bytes = 0;
   }
 
+  /// [image] enlarged [scale] times, at most [maxUpscale] and to
+  /// [maxPixels], and sharpened; null when that is too little to be worth it
+  /// (see [minUpscale]).
+  static Future<ui.Image?> enlarge(ui.Image image, double scale, {int maxPixels = 16 << 20}) async {
+    final w = image.width, h = image.height;
+    final s = math.min(math.min(scale, maxUpscale), math.sqrt(maxPixels / (w * h)));
+    if (s < minUpscale) return null;
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (data == null) return null;
+    final ow = (w * s).round(), oh = (h * s).round();
+    final pixels = data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    final sw = Stopwatch()..start();
+    final big = await Isolate.run(() => upscaleSharpen(pixels, w, h, ow, oh), debugName: 'sharpen');
+    debugPrint('Clean-up: ${w}x$h enlarged to ${ow}x$oh in ${sw.elapsedMilliseconds} ms');
+    final buffer = await ui.ImmutableBuffer.fromUint8List(big);
+    final descriptor = ui.ImageDescriptor.raw(buffer, width: ow, height: oh, pixelFormat: ui.PixelFormat.rgba8888);
+    final codec = await descriptor.instantiateCodec();
+    final out = (await codec.getNextFrame()).image;
+    codec.dispose();
+    descriptor.dispose();
+    buffer.dispose();
+    return out;
+  }
+
   static int _size(ui.Image image) => image.width * image.height * 4;
 
   /// Rounds sizes up to 64 px steps so small window resizes reuse pages,
@@ -210,7 +259,7 @@ class PageCache {
   static int _bucket(int size) => ((size + 63) ~/ 64) * 64;
 }
 
-typedef _Key = ({int index, int width, int height, PageRegion? region});
+typedef _Key = ({int index, int width, int height, PageRegion? region, bool sharpen});
 
 /// Decoded-page budget for a device with [memTotal] bytes of RAM (null when
 /// unknown): a slice of it, generous on the laptop and tight on the phone,

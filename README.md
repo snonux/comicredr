@@ -39,6 +39,8 @@ Potion Contest*, by David Revoy, licensed
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins. A scanned double-page
   spread stays whole, and the pages after it keep their sides.
+- **Clean-up for old scans**: yellowed paper turns white, faded ink dark,
+  and pages with fewer pixels than your screen are enlarged and sharpened.
 - **A library** of your comics folders: covers, series, search,
   collections, a folder view, bookmarks and a reading history. Fix a
   book's title, series or issue in the app; the comic file stays as it is.

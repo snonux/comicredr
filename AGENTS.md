@@ -106,6 +106,17 @@ build internals, test scripts, detector work and conventions here.
   book's sidecar goes through `SidecarSync.sidecarsOf`/`sidecarFor`.
   Inspect one with
   `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
+- Scan clean-up (`c`): `findLevels` (comic_analysis `cleanup.dart`) reads
+  the paper colour off the 240 px copy auto-trim also measures, and the
+  page is drawn through that colour matrix, so it costs nothing to show.
+  `upscaleSharpen` (unsharp mask, then Catmull-Rom) runs in an isolate
+  from `PageCache` when a page is smaller than its box, or a zoom tile
+  asks for more than the stored page has (up to twice its width); the
+  sharpened copy is cached under its own key. About 40 ms per output
+  megapixel on one core: 40 to 110 ms a zoom tile of a 1000 px scan.
+  Detection decodes its own copy, so it never sees the clean-up.
+  `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
+  tries it on one page.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -156,6 +167,7 @@ COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padd
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
 tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
 tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
