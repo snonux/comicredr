@@ -5,7 +5,8 @@
 #   make dev              debug build with hot reload (flutter run -d linux)
 #   make install          per-user install under ~/.local, no sudo
 #   make uninstall        remove what make install put there
-#   make install-model MODEL=comicredr-panels.onnx
+#   make model MODEL=path   put the detector model where the build packs it
+#   make install-model MODEL=comicredr-panels.onnx   override it per user
 #   make test             flutter analyze + all tests
 #   make analyze          flutter analyze only
 #   make icons            re-render the PNG icons from the SVG
@@ -21,6 +22,10 @@ DART    ?= dart
 PREFIX  ?= $(HOME)/.local
 BOOK    ?=
 MODEL   ?= comicredr-panels.onnx
+# The detector model the build packs into the app (pubspec.yaml assets).
+BUNDLED_MODEL := assets/models/comicredr-panels.onnx
+# NO_MODEL=1 builds without it; the app then detects with classic CV.
+NO_MODEL ?=
 
 ARCH := $(shell uname -m | sed -e 's/x86_64/x64/' -e 's/aarch64/arm64/')
 BUNDLE := build/linux/$(ARCH)/release/bundle
@@ -35,12 +40,12 @@ MODELDIR ?= $(HOME)/.local/share/$(APP_ID)/models
 # pubspec.yaml's version without the +build suffix: 0.1.0+1 gives 0.1.0.
 VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
 
-.PHONY: all build deps run dev test analyze install uninstall install-model icons clean help version
+.PHONY: all build deps run dev test analyze install uninstall model install-model check-model icons clean help version
 
 all: build
 
 help:
-	@sed -n '2,17p' Makefile | sed 's/^# \{0,1\}//'
+	@sed -n '2,18p' Makefile | sed 's/^# \{0,1\}//'
 
 version:
 	@echo $(VERSION)
@@ -48,7 +53,7 @@ version:
 deps:
 	$(FLUTTER) pub get
 
-build: deps
+build: deps check-model
 	$(FLUTTER) build linux --release
 
 run: build
@@ -100,6 +105,23 @@ ifeq ($(DESTDIR),)
 	 elif test -d $(ICONDIR); then touch $(ICONDIR); fi
 endif
 
+# Every release build packs the model; stop early and say where it goes
+# rather than ship an app that quietly falls back to classic CV.
+check-model:
+ifeq ($(NO_MODEL),)
+	@test -s $(BUNDLED_MODEL) || { \
+	  echo "No detector model at $(BUNDLED_MODEL)."; \
+	  echo "Copy it there with: make model MODEL=/path/to/comicredr-panels.onnx"; \
+	  echo "or build without it (classic CV only) with: make NO_MODEL=1"; exit 1; }
+endif
+
+model:
+	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
+	install -Dm644 "$(MODEL)" $(BUNDLED_MODEL)
+	@echo "Model in $(BUNDLED_MODEL); the next make packs it into the app."
+
+# A model here wins over the one built into the app, for trying another
+# model without rebuilding.
 install-model:
 	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
 	install -Dm644 "$(MODEL)" $(MODELDIR)/comicredr-panels.onnx
