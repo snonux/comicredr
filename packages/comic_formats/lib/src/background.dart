@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'book_info.dart';
 import 'document.dart';
 import 'open.dart';
+import 'page_facts.dart';
 
 /// Runs a [ComicDocument] on another isolate, so archive inflates, file
 /// reads and PDF renders never touch the UI isolate (design plan section 1:
@@ -58,6 +59,9 @@ class BackgroundDocument implements ComicDocument {
 
   @override
   Future<List<(int, int)?>> pageSizes() async => (await _host.call('sizes', doc: _doc) as List).cast<(int, int)?>();
+
+  @override
+  Future<List<PageFacts>> pageFacts() async => (await _host.call('facts', doc: _doc) as List).cast<PageFacts>();
 
   @override
   Future<ComicMeta?> embeddedMetadata() async => await _host.call('meta', doc: _doc) as ComicMeta?;
@@ -202,6 +206,8 @@ Future<void> _hostMain(SendPort reply) async {
           reply.send((id, raw == null ? null : TransferableTypedData.fromList([raw])));
         case 'sizes':
           reply.send((id, await docs[doc]!.pageSizes()));
+        case 'facts':
+          reply.send((id, await docs[doc]!.pageFacts()));
         case 'meta':
           reply.send((id, await docs[doc]!.embeddedMetadata()));
         case 'close':

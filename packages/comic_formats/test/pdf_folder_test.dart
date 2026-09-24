@@ -72,6 +72,10 @@ void main() {
       expect((q.width, q.height), (300, 200));
       expect(await doc.rawPage(0), isNull);
       expect(await doc.pageSizes(), [(600, 900), (900, 600)]);
+      expect(
+        [for (final f in await doc.pageFacts()) (f.format, f.width, f.height)],
+        [('pdf', 600, 900), ('pdf', 900, 600)],
+      );
       await doc.close();
     });
 

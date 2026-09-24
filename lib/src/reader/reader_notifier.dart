@@ -33,6 +33,8 @@ class ReaderState {
     this.guided = false,
     this.balloons = false,
     this.wholePageSteps = true,
+    this.pauseWhole = true,
+    this.cue = 0,
     this.coverAlone = true,
     this.wide = const {},
     this.rightToLeft = false,
@@ -74,6 +76,16 @@ class ReaderState {
   /// and again after its last one, before moving on. A setting, on by
   /// default; `w` toggles it.
   final bool wholePageSteps;
+
+  /// On a page guided view shows whole, the first step onward stays on the
+  /// page and plays a short cue ([cue]); the next one turns. So a page
+  /// without usable panels is not skipped before it is looked at. A
+  /// setting, on by default; `W` toggles it.
+  final bool pauseWhole;
+
+  /// Counts the pauses on whole pages; the reader screen plays its cue
+  /// each time it goes up.
+  final int cue;
   final bool coverAlone;
 
   /// Pages wider than tall: scanned double-page spreads, shown alone in
@@ -190,6 +202,8 @@ class ReaderState {
     bool? guided,
     bool? balloons,
     bool? wholePageSteps,
+    bool? pauseWhole,
+    int? cue,
     bool? coverAlone,
     Set<int>? wide,
     bool? rightToLeft,
@@ -212,6 +226,8 @@ class ReaderState {
     guided: guided ?? this.guided,
     balloons: balloons ?? this.balloons,
     wholePageSteps: wholePageSteps ?? this.wholePageSteps,
+    pauseWhole: pauseWhole ?? this.pauseWhole,
+    cue: cue ?? this.cue,
     coverAlone: coverAlone ?? this.coverAlone,
     wide: wide ?? this.wide,
     rightToLeft: rightToLeft ?? this.rightToLeft,
@@ -349,10 +365,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final whole =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.wholePageSteps)) ??
         state.wholePageSteps;
+    final pause =
+        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.pauseWhole)) ?? state.pauseWhole;
     final night = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.night)) ?? state.night;
     final trim = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.autoTrim)) ?? state.trim;
     final cleanUp =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.cleanUp)) ?? state.cleanUp;
+    final fullscreen =
+        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen)) ?? state.fullscreen;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -373,9 +393,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
       guided: guided,
       balloons: saved?.balloons ?? state.balloons,
       wholePageSteps: whole,
+      pauseWhole: pause,
+      cue: state.cue,
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
-      fullscreen: state.fullscreen,
+      fullscreen: fullscreen,
       night: night,
       trim: trim,
       cleanUp: cleanUp,
@@ -586,6 +608,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       guided: state.guided,
       balloons: state.balloons,
       wholePageSteps: state.wholePageSteps,
+      pauseWhole: state.pauseWhole,
+      cue: state.cue,
       fullscreen: state.fullscreen,
       night: state.night,
       trim: state.trim,
@@ -647,6 +671,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   void _goTo(int page, {int? panel, int balloon = -1, bool jump = false}) {
     final book = state.book!;
     final target = page.clamp(0, state.pageCount - 1);
+    if (target != state.page || jump) _heldPage = null;
     state = state.copyWith(
       page: target,
       panel: panel ?? state.entryPanel,
@@ -710,6 +735,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// on, a page with panels is shown whole on arrival and again after its
   /// last panel, in both directions.
   void _stepGuided(int steps) {
+    if (steps.abs() == 1 && _pauseOnWhole(forward: steps > 0)) return;
     final whole = state.wholePageSteps;
     var page = state.page;
     var panel = state.panel;
@@ -775,6 +801,48 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _goTo(page, panel: panel, balloon: state.balloons ? balloon : -1);
   }
 
+  /// Pauses of the step that would leave a page shown whole: the first
+  /// step onward stays on the page, moved to its far side ([pageEnd] going
+  /// forward, [pageStart] going back), and plays the cue; the step after it
+  /// turns. A page arrived on from the other side, or jumped to, starts on
+  /// the near side. After one pause the page is left by the next step
+  /// either way. Pages whose panels are not known yet are not held, nor is
+  /// a count (`3l`).
+  bool _pauseOnWhole({required bool forward}) {
+    if (!state.pauseWhole ||
+        _heldPage == state.page ||
+        !state.panels.containsKey(state.page) ||
+        state.stopsOn(state.page).isNotEmpty) {
+      return false;
+    }
+    // Arriving from behind lands on pageStart or 0, from ahead on pageEnd
+    // or lastPanel.
+    final farSide = state.panel >= lastPanel;
+    if (forward == farSide) return false;
+    _heldPage = state.page;
+    final shown = _pauseHints++ < 3 || _reduceMotion;
+    state = state.copyWith(
+      panel: forward ? pageEnd : pageStart,
+      balloon: -1,
+      cue: state.cue + 1,
+      message: shown ? 'Whole page: press again for the ${forward ? 'next' : 'previous'} page' : state.message,
+    );
+    if (state.book case final book?) _saveProgress(book);
+    return true;
+  }
+
+  /// The page the last pause held on; cleared on leaving it.
+  int? _heldPage;
+
+  /// Pauses on whole pages so far in this run: the status line explains
+  /// the first few.
+  int _pauseHints = 0;
+
+  /// The system asks for reduced motion, so the cue is the status line's
+  /// hint alone, every time. The reader screen tells it.
+  bool _reduceMotion = false;
+  set reduceMotion(bool on) => _reduceMotion = on;
+
   void _setGuided(bool on, {PageMode? mode}) {
     state = state.copyWith(guided: on, mode: mode);
     if (on) {
@@ -785,6 +853,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   void _notice(String message) => state = state.copyWith(message: message);
+
+  /// Fullscreen on or off, remembered for the next book and launch. The
+  /// window follows it (HomeScreen); the window manager leaving fullscreen
+  /// by itself comes back here too.
+  void setFullscreen(bool on) {
+    if (on == state.fullscreen) return;
+    state = state.copyWith(fullscreen: on);
+    _saveSetting(SettingsStore.fullscreen, on);
+  }
 
   /// Shows [message] on the status line until the next change.
   void notice(String message) => _notice(message);
@@ -888,6 +965,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
           message: on ? 'Whole page before and after the panels' : 'Straight from panel to panel across pages',
         );
         _saveSetting(SettingsStore.wholePageSteps, on);
+      case ReaderIntent.togglePauseWhole:
+        final on = !state.pauseWhole;
+        state = state.copyWith(
+          pauseWhole: on,
+          message: on ? 'Pages shown whole hold for one more step' : 'Pages shown whole turn at once',
+        );
+        _saveSetting(SettingsStore.pauseWhole, on);
       case ReaderIntent.toggleSpread:
         // Guided view shows one page, so d from there goes to the spread.
         state.guided
@@ -918,7 +1002,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
           message: state.rightToLeft ? 'Left to right' : 'Right to left',
         );
       case ReaderIntent.fullscreen:
-        state = state.copyWith(fullscreen: !state.fullscreen);
+        setFullscreen(!state.fullscreen);
       case ReaderIntent.nightFilter:
         final on = !state.night;
         state = state.copyWith(night: on, message: on ? 'Night filter on' : 'Night filter off');
@@ -948,8 +1032,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final back = state.jumpedFrom;
         back == null ? _notice('No jump to go back from') : _goTo(back.page, panel: back.panel, jump: true);
       case ReaderIntent.back:
-        // Esc leaves guided view before it means anything else.
-        state.guided ? _setGuided(false) : await close();
+        // Esc leaves fullscreen first, as everywhere else, then guided view,
+        // then the book.
+        if (state.fullscreen) {
+          setFullscreen(false);
+        } else {
+          state.guided ? _setGuided(false) : await close();
+        }
       case ReaderIntent.toggleContinuous:
       case ReaderIntent.halfPageDown:
       case ReaderIntent.halfPageUp:
@@ -997,6 +1086,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.activate:
       case ReaderIntent.up:
       case ReaderIntent.pageGrid:
+      case ReaderIntent.showDetails:
       case ReaderIntent.bookmarkList:
       case ReaderIntent.remove:
         break; // Handled by the screen, or only mean something in the library.

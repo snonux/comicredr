@@ -152,6 +152,17 @@ build internals, test scripts, detector work and conventions here.
   by Flutter's decoder, JPEG-encoded on a short isolate and kept in
   `<cache>/covers/pages/<content key>/<page>.jpg`. Newest request first,
   two at a time; tiles evict their images when they scroll away.
+- The details view (`I`, `lib/src/reader/comic_details.dart`, gathered by
+  `readComicReport` in `comic_report.dart`) reads no pixels: each page's
+  format, size, bytes and JPEG quality come from `ComicDocument.pageFacts`
+  (the header, as `pageSizes` reads it; quality estimated from the
+  luminance quantisation table the way libjpeg scales it), through the
+  book's own worker, so a PDF stays on the PDFium isolate. A PDF's images
+  come from `pdfImages` (comic_formats), which scans the file's bytes for
+  image XObjects on a short isolate, no PDFium: about 50 ms for 10 MB.
+  Both are cached per content key for the session. Detection numbers are
+  `PanelStore.load` for this install's detector, judged by the same gate
+  guided view uses.
 - Scan clean-up (`c`): `findLevels` (comic_analysis `cleanup.dart`) reads
   the paper colour off the 240 px copy auto-trim also measures, and the
   page is drawn through that colour matrix, so it costs nothing to show.
@@ -163,6 +174,13 @@ build internals, test scripts, detector work and conventions here.
   Detection decodes its own copy, so it never sees the clean-up.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
+- A page guided view shows whole (no panels that pass the gate) holds
+  for one step: the first step onward stays and plays a zoom cue (the
+  status line explains the first three; with reduced motion only the hint,
+  every time), the next one turns, however soon. Mirrored going back. A
+  page arrived on from the other side, a count (`3l`) and pages whose
+  panels are not known yet are not held (`_pauseOnWhole` in
+  `reader_notifier.dart`). `W` or Settings turns it off (`guided.pauseWhole`).
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -171,6 +189,17 @@ build internals, test scripts, detector work and conventions here.
   decode again at the new size a quarter second after the size settles.
   Android handles rotation in the running activity (`configChanges` in
   the manifest), so nothing restarts.
+- Fullscreen (`f`, F11, a status-line button, a tap in the middle):
+  `ReaderState.fullscreen`, saved as `reader.fullscreen` and loaded when a
+  book opens. `HomeScreen._applyFullscreen` makes the window follow: on
+  Linux through the `org.snonux.comicredr/window` channel in
+  `linux/runner/my_application.cc` (`gtk_window_fullscreen`, which also
+  hides the GNOME header bar; a `window-state-event` reports the window
+  manager leaving fullscreen back as `fullscreenChanged`), on Android
+  immersive mode. In fullscreen the page keeps the whole screen; the
+  status line and progress bar come over it on a notice, while keys are
+  typed, or while the mouse is in the bottom 96 px, and the pointer hides
+  1.5 s after the mouse stops. Esc leaves fullscreen before guided view.
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
   settings page. The APK was tested on an Android 14 emulator only; a real
   phone, pinch zoom and real speed and memory are untested.
@@ -226,6 +255,9 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the zoom cue, keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
+COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 
@@ -248,8 +280,17 @@ carries a per-style summary.
 
 ## Train the detector (M5)
 
-Everything runs on the CPU; a 40-epoch fine-tune takes about an hour and a
-half on 4 cores. The labels are committed in `spike/labels/` (how they were
+Everything runs on the CPU. `make train-model` (tool/train_model.sh) runs
+the steps that build the shipped model, from fetching the training comics
+and the ShadowB checkpoint to exporting the float ONNX, then validates the
+file and puts it in `assets/models/` through tool/fetch_model.sh, which
+`make fetch-model URL=...` also uses (URL or path; `HF_TOKEN` goes to
+huggingface.co only; the check loads the file with onnxruntime and wants a
+[1, 300, 6] output). Measured 2026-09-24 in a 4-core cloud container:
+3.5 minutes an epoch over the 305 training pages, 7 minutes for
+`EPOCHS=1` end to end with downloads cached; 733 MB of comics, 465 MB of
+pages, 45 MB base model. fetch_corpus.py `--skip-books` fetches only the
+checkpoint. The manual steps, including evaluation: The labels are committed in `spike/labels/` (how they were
 drawn: `spike/LABELLING.md`); the comics are fetched.
 
 ```sh

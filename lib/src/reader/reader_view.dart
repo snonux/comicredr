@@ -37,12 +37,20 @@ class ReaderView extends ConsumerStatefulWidget {
   ConsumerState<ReaderView> createState() => ReaderViewState();
 }
 
-class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderStateMixin, WidgetsBindingObserver {
   late final _transform = TransformationController()
     ..addListener(_scheduleReport)
     ..addListener(_scheduleTiles);
   late final _camera = AnimationController(vsync: this, duration: const Duration(milliseconds: 220))
     ..addListener(_onCameraTick);
+
+  /// The cue for a pause on a page shown whole (ReaderState.cue): the
+  /// page zooms out and back in.
+  late final _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 450));
+
+  /// The last [ReaderState.cue] seen; null before the first build, so
+  /// opening the reader plays nothing.
+  int? _seenCue;
   Matrix4Tween? _cameraTween;
   RectTween? _focusTween;
 
@@ -136,6 +144,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     _disposeImages(_images);
     _cache?.dispose();
     _camera.dispose();
+    _pulse.dispose();
     _transform.dispose();
     super.dispose();
   }
@@ -691,6 +700,13 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(readerProvider);
+    final still = MediaQuery.disableAnimationsOf(context);
+    ref.read(readerProvider.notifier).reduceMotion = still;
+    if (s.cue != _seenCue) {
+      // Reduced motion: the status line's hint alone.
+      if (_seenCue != null && s.cue > _seenCue! && !still) _pulse.forward(from: 0);
+      _seenCue = s.cue;
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final viewport = constraints.biggest;
@@ -753,6 +769,14 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
             ],
           );
         }
+        pages = AnimatedBuilder(
+          animation: _pulse,
+          child: pages,
+          // Out to 88% and back, easing at both ends.
+          builder: (context, child) => _pulse.isAnimating
+              ? Transform.scale(scale: 1 - 0.12 * math.sin(math.pi * _pulse.value), child: child)
+              : child!,
+        );
         if (s.night) {
           pages = ColorFiltered(colorFilter: const ColorFilter.matrix(_night), child: pages);
         }

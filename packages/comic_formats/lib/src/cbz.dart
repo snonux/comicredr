@@ -9,6 +9,7 @@ import 'comic_info.dart';
 import 'document.dart';
 import 'image_size.dart';
 import 'natural_sort.dart';
+import 'page_facts.dart';
 import 'sniff.dart';
 
 /// A ZIP comic: `.cbz`, or a `.cbr` that is really a ZIP.
@@ -64,9 +65,10 @@ class CbzDocument implements ComicDocument {
   Future<Uint8List?> rawPage(int index) async => _read(_pages[index]);
 
   @override
-  Future<List<(int, int)?>> pageSizes() async => [
-    for (final p in _pages) zipPageSize(p),
-  ];
+  Future<List<(int, int)?>> pageSizes() async => [for (final p in _pages) zipPageSize(p)];
+
+  @override
+  Future<List<PageFacts>> pageFacts() async => [for (final p in _pages) zipPageFacts(p)];
 
   @override
   Future<ComicMeta?> embeddedMetadata() async {
@@ -135,6 +137,18 @@ class CbzDocument implements ComicDocument {
 /// The pixel size of the page image in ZIP entry [f], read from as little
 /// of it as its header needs; null when it cannot be read.
 (int, int)? zipPageSize(ArchiveFile f) => imageSize(CbzDocument._head(f, headBytes)) ?? CbzDocument._fullSize(f);
+
+/// What the page image in ZIP entry [f] is, from its header; the whole
+/// entry is read only when the header lies past the first [headBytes].
+PageFacts zipPageFacts(ArchiveFile f) {
+  final facts = imageFacts(CbzDocument._head(f, headBytes), total: f.size);
+  if (facts.width != null || f.size <= headBytes) return facts;
+  try {
+    return imageFacts(CbzDocument._read(f), total: f.size);
+  } catch (_) {
+    return facts;
+  }
+}
 
 /// Reads [input]'s ZIP central directory. Throws [FormatException] when it
 /// is not a readable ZIP.
