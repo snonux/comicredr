@@ -190,6 +190,7 @@ table the app binds from.
 | First / last page | `Home` `End` | `gg` `G`, and `42G` goes to page 42 |
 | Guided view on and off | | `v` |
 | Balloon by balloon inside each panel, on and off | | `b` |
+| Whole page before and after its panels in guided view, on and off (on by default) | | `w` |
 | Cycle single page, spread, guided view | `Tab` `Shift+Tab` | |
 | Switch between single page and spread | | `d` |
 | Shift the spread pairing by one page | | `D` |
@@ -219,10 +220,17 @@ within 600 ms.
 
 ### 6. Guided view
 
-Press `v`. The camera frames the first panel on the page and dims the rest,
-and `l`, `→` or `Space` glides to the next panel, onto the next page after
-the last one. `h` goes back. `Ctrl+f` or `PgDn` skips to the next page's
-first panel. `+` and `-` zoom within a panel and `zz` re-centres it. `v`
+Press `v`. The page is shown whole first, so you see its layout, then
+`l`, `→` or `Space` glides into the first panel and dims the rest, and on
+panel by panel. After the last panel the camera pulls back to the whole
+page once more, and the next step turns to the next page, again shown
+whole. `h` goes back the same way. `Ctrl+f` or `PgDn` skips to the next
+page, shown whole. `+` and `-` zoom within a panel and `zz` re-centres it.
+
+The whole-page steps are on by default. Press `w` to go straight from panel
+to panel across pages instead, and `w` again to bring them back; the choice
+is kept across restarts. A page that is only ever shown whole (a splash,
+a cover) is one step either way. `v`
 again returns to single page or spread, whichever you came from, and `v`
 once more comes back to the same panel. Reopening a book remembers the
 panel you stopped on, even after a restart; press `v` to pick up there.
@@ -313,6 +321,7 @@ make icons                       # re-render linux/packaging/icons/*.png after e
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
 tool/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
+tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 ```
 
 ## M1 detection spike
