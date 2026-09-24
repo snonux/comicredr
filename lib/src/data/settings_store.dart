@@ -15,6 +15,10 @@ class SettingsStore {
   static const night = 'reader.night';
   static const autoTrim = 'reader.autoTrim';
 
+  /// Scan clean-up (`c`): levels on the paper colour, and small pages
+  /// enlarged and sharpened. Off by default.
+  static const cleanUp = 'reader.cleanUp';
+
   /// Write each comic's sidecar beside it (M8). On by default; reading
   /// sidecars that are there already never stops.
   static const writeSidecars = 'sidecars.write';

@@ -34,6 +34,8 @@ class LifoDoc implements ComicDocument {
   @override
   Future<Uint8List?> rawPage(int index) async => null;
   @override
+  Future<List<(int, int)?>> pageSizes() async => List.filled(pageCount, null);
+  @override
   Future<ComicMeta?> embeddedMetadata() async => null;
   @override
   Future<void> close() async {}
@@ -58,6 +60,8 @@ class StoredDoc implements ComicDocument {
   @override
   Future<Uint8List?> rawPage(int index) async => bytes;
   @override
+  Future<List<(int, int)?>> pageSizes() async => List.filled(pageCount, imageSize(bytes));
+  @override
   Future<ComicMeta?> embeddedMetadata() async => null;
   @override
   Future<void> close() async {}
@@ -73,6 +77,40 @@ Uint8List halfBlackPage() {
 }
 
 void main() {
+  testWidgets('clean-up enlarges a page smaller than its box, at most twice, and keeps both', (tester) async {
+    await tester.runAsync(() async {
+      final cache = PageCache(StoredDoc(halfBlackPage()), budgetBytes: 64 << 20);
+      Future<(int, int)> size(Box box, {bool sharpen = false}) async {
+        final image = await cache.get(0, box, sharpen: sharpen);
+        final s = (image.width, image.height);
+        image.dispose();
+        return s;
+      }
+
+      expect(await size((width: 2000, height: 2000)), (400, 600));
+      expect(await size((width: 2000, height: 2000), sharpen: true), (800, 1200), reason: 'twice, no more');
+      expect(await size((width: 512, height: 768), sharpen: true), (512, 768));
+      expect(await size((width: 448, height: 640), sharpen: true), (400, 600), reason: 'too little to be worth it');
+      expect(cache.bytes, 400 * 600 * 4 + 800 * 1200 * 4 + 512 * 768 * 4 + 400 * 600 * 4);
+      cache.dispose();
+    });
+  });
+
+  testWidgets('clean-up enlarges a zoomed-in tile past the stored page', (tester) async {
+    await tester.runAsync(() async {
+      final cache = PageCache(StoredDoc(halfBlackPage()), budgetBytes: 64 << 20);
+      const middle = (left: 0.25, top: 0.25, width: 0.5, height: 0.5);
+      final plain = await cache.tile(0, 1600, middle);
+      final sharp = await cache.tile(0, 1600, middle, sharpen: true);
+      expect((plain.image.width, plain.image.height), (200, 300));
+      expect((sharp.image.width, sharp.image.height), (400, 600));
+      expect(sharp.region, plain.region);
+      plain.image.dispose();
+      sharp.image.dispose();
+      cache.dispose();
+    });
+  });
+
   testWidgets('a stored page decodes to fit the box it is shown in, never larger than stored', (tester) async {
     await tester.runAsync(() async {
       final cache = PageCache(StoredDoc(halfBlackPage()), budgetBytes: 64 << 20);

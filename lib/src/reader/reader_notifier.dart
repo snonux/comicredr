@@ -33,10 +33,12 @@ class ReaderState {
     this.balloons = false,
     this.wholePageSteps = true,
     this.coverAlone = true,
+    this.wide = const {},
     this.rightToLeft = false,
     this.fullscreen = false,
     this.night = false,
     this.trim = false,
+    this.cleanUp = false,
     this.panels = const {},
     this.marks = const {},
     this.jumpedFrom,
@@ -71,6 +73,10 @@ class ReaderState {
   /// default; `w` toggles it.
   final bool wholePageSteps;
   final bool coverAlone;
+
+  /// Pages wider than tall: scanned double-page spreads, shown alone in
+  /// spread mode. Empty until the page sizes are read after opening.
+  final Set<int> wide;
   final bool rightToLeft;
   final bool fullscreen;
   final bool night;
@@ -78,6 +84,11 @@ class ReaderState {
   /// Auto-trim: scanned margins are cut off each page (`t`). A setting,
   /// like [night], remembered across books and restarts.
   final bool trim;
+
+  /// Scan clean-up (`c`): yellowed paper whitened, faded ink darkened, and
+  /// pages with fewer pixels than the screen enlarged and sharpened. A
+  /// setting like [trim]; detection still sees the page as scanned.
+  final bool cleanUp;
 
   /// Detection results for this book's pages; a page not in here has not
   /// been analysed yet.
@@ -99,7 +110,7 @@ class ReaderState {
       ? const []
       : guided
       ? [page]
-      : unitAt(page, pageCount, mode, coverAlone: coverAlone);
+      : unitAt(page, pageCount, mode, coverAlone: coverAlone, wide: wide);
 
   /// Camera stops on [p] in reading order; empty when the page is shown
   /// whole, either because its panels are unknown or because the gate
@@ -159,10 +170,12 @@ class ReaderState {
     bool? balloons,
     bool? wholePageSteps,
     bool? coverAlone,
+    Set<int>? wide,
     bool? rightToLeft,
     bool? fullscreen,
     bool? night,
     bool? trim,
+    bool? cleanUp,
     Map<int, PagePanels>? panels,
     Map<String, Place>? marks,
     Place? jumpedFrom,
@@ -178,10 +191,12 @@ class ReaderState {
     balloons: balloons ?? this.balloons,
     wholePageSteps: wholePageSteps ?? this.wholePageSteps,
     coverAlone: coverAlone ?? this.coverAlone,
+    wide: wide ?? this.wide,
     rightToLeft: rightToLeft ?? this.rightToLeft,
     fullscreen: fullscreen ?? this.fullscreen,
     night: night ?? this.night,
     trim: trim ?? this.trim,
+    cleanUp: cleanUp ?? this.cleanUp,
     panels: panels ?? this.panels,
     marks: marks ?? this.marks,
     jumpedFrom: jumpedFrom ?? this.jumpedFrom,
@@ -313,6 +328,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         state.wholePageSteps;
     final night = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.night)) ?? state.night;
     final trim = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.autoTrim)) ?? state.trim;
+    final cleanUp =
+        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.cleanUp)) ?? state.cleanUp;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -338,6 +355,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       fullscreen: state.fullscreen,
       night: night,
       trim: trim,
+      cleanUp: cleanUp,
       panels: {
         for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons, value.trim),
       },
@@ -359,6 +377,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
     _ensurePanels();
+    unawaited(_readWidePages(book));
     unawaited(_writeSidecar(book));
   }
 
@@ -407,6 +426,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       fullscreen: state.fullscreen,
       night: state.night,
       trim: state.trim,
+      cleanUp: state.cleanUp,
     );
     await book.doc.close();
     // Off the way of whatever opens next; flush() on exit waits for it.
@@ -439,6 +459,25 @@ class ReaderNotifier extends Notifier<ReaderState> {
           ? 'Finding the panels again'
           : 'Panels forgotten; guided view (v) finds them again',
     );
+  }
+
+  /// Finds the wide pages of [book], which spread mode shows alone. The
+  /// sizes come from the page headers on the book's worker, after the page
+  /// being opened on, so the first page is not kept waiting; until they
+  /// arrive, spreads pair as if every page were narrow.
+  Future<void> _readWidePages(OpenBook book) async {
+    final List<(int, int)?> sizes;
+    try {
+      sizes = await book.doc.pageSizes();
+    } catch (e) {
+      debugPrint('Could not read the page sizes of ${book.path}: $e');
+      return;
+    }
+    final wide = {
+      for (var i = 0; i < sizes.length; i++)
+        if (sizes[i] case (final w, final h) when isWidePage(w, h)) i,
+    };
+    if (wide.isNotEmpty && identical(state.book, book)) state = state.copyWith(wide: wide);
   }
 
   /// Goes to [page], at [panel] or where guided view enters a page.
@@ -492,7 +531,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   void _step(int steps) =>
-      _goTo(stepFrom(state.page, steps, state.pageCount, state.mode, coverAlone: state.coverAlone));
+      _goTo(stepFrom(state.page, steps, state.pageCount, state.mode, coverAlone: state.coverAlone, wide: state.wide));
 
   /// Guided view's step: the next or previous panel, crossing onto the
   /// neighbouring page at either end. A page shown whole is one step. In
@@ -765,6 +804,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final on = !state.trim;
         state = state.copyWith(trim: on, message: on ? 'Auto-trim: margins cut' : 'Auto-trim off: whole pages');
         _saveSetting(SettingsStore.autoTrim, on);
+      case ReaderIntent.cleanUp:
+        final on = !state.cleanUp;
+        state = state.copyWith(
+          cleanUp: on,
+          message: on
+              ? 'Clean-up on: paper whitened, ink darkened, small pages sharpened'
+              : 'Clean-up off: pages as scanned',
+        );
+        _saveSetting(SettingsStore.cleanUp, on);
       case ReaderIntent.panDown:
       case ReaderIntent.panUp:
       case ReaderIntent.fitWidth:

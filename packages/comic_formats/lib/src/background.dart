@@ -57,6 +57,9 @@ class BackgroundDocument implements ComicDocument {
   }
 
   @override
+  Future<List<(int, int)?>> pageSizes() async => (await _host.call('sizes', doc: _doc) as List).cast<(int, int)?>();
+
+  @override
   Future<ComicMeta?> embeddedMetadata() async => await _host.call('meta', doc: _doc) as ComicMeta?;
 
   @override
@@ -197,6 +200,8 @@ Future<void> _hostMain(SendPort reply) async {
         case 'raw':
           final raw = await docs[doc]!.rawPage(args.$1);
           reply.send((id, raw == null ? null : TransferableTypedData.fromList([raw])));
+        case 'sizes':
+          reply.send((id, await docs[doc]!.pageSizes()));
         case 'meta':
           reply.send((id, await docs[doc]!.embeddedMetadata()));
         case 'close':

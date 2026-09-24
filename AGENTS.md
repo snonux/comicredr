@@ -55,6 +55,12 @@ build internals, test scripts, detector work and conventions here.
   300 dpi: about a quarter of a second a page at screen size, just under a
   second at the 2048 px guided view asks for. The current page renders
   before prefetched ones.
+- Two-page mode shows a page at least 1.1 times wider than tall (a
+  scanned double-page spread) alone and starts pairing again after it
+  (`unitAt` in `lib/src/reader/layout.dart`). The sizes come from the page
+  headers (`ComicDocument.pageSizes`, `imageSize`), read after the book
+  opens: about 30 ms for a 36-page CBZ, inflating only each page's first
+  64 KiB. EXIF rotation is not looked at.
 - Folder books read JPEG, PNG, WebP, GIF and BMP in natural order,
   subfolders included, skipping dotfiles and `Thumbs.db`. CBZ and CBT
   (tar) use the same order; a CBT is indexed once on open (GNU long names,
@@ -110,9 +116,25 @@ build internals, test scripts, detector work and conventions here.
   book's sidecar goes through `SidecarSync.sidecarsOf`/`sidecarFor`.
   Inspect one with
   `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
+- Scan clean-up (`c`): `findLevels` (comic_analysis `cleanup.dart`) reads
+  the paper colour off the 240 px copy auto-trim also measures, and the
+  page is drawn through that colour matrix, so it costs nothing to show.
+  `upscaleSharpen` (unsharp mask, then Catmull-Rom) runs in an isolate
+  from `PageCache` when a page is smaller than its box, or a zoom tile
+  asks for more than the stored page has (up to twice its width); the
+  sharpened copy is cached under its own key. About 40 ms per output
+  megapixel on one core: 40 to 110 ms a zoom tile of a 1000 px scan.
+  Detection decodes its own copy, so it never sees the clean-up.
+  `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
+  tries it on one page.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
+- A resize or rotation keeps the page, the zoom and the point in the
+  middle of the screen; guided view re-frames the same panel. Pages
+  decode again at the new size a quarter second after the size settles.
+  Android handles rotation in the running activity (`configChanges` in
+  the manifest), so nothing restarts.
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
   settings page. The APK was tested on an Android 14 emulator only; a real
   phone, pinch zoom and real speed and memory are untested.
@@ -155,7 +177,10 @@ COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padd
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
+tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
 tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
+tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
