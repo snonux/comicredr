@@ -103,6 +103,54 @@ void main() {
     });
   });
 
+  testWidgets("Android's back leaves guided view, then the book, and never closes the app from the reader", (
+    tester,
+  ) async {
+    final path = writeBook(tmp, 'Back.cbz', 4);
+    final c = await pumpApp(tester);
+    await open(tester, c, path);
+    await key(tester, LogicalKeyboardKey.keyV);
+    expect(c.read(readerProvider).guided, isTrue);
+
+    // handlePopRoute is what the engine calls for the back button or gesture;
+    // true means the app handled it rather than letting Android close it.
+    Future<bool> back() async {
+      final handled = await tester.binding.handlePopRoute();
+      await settle(tester);
+      return handled;
+    }
+
+    expect(await back(), isTrue);
+    expect(c.read(readerProvider).guided, isFalse);
+    expect(c.read(readerProvider).book, isNotNull);
+    expect(await back(), isTrue);
+    expect(c.read(readerProvider).book, isNull);
+  });
+
+  testWidgets('narrow screens put the page counter first and drop the file name', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
+    final path = writeBook(tmp, 'A Rather Long Title For A Phone 01.cbz', 6);
+    final c = await pumpApp(tester);
+    await open(tester, c, path);
+    expect(status(tester), startsWith('page 1 / 6'));
+    expect(find.text('A Rather Long Title For A Phone 01.cbz'), findsNothing);
+
+    // Without a keyboard, the status line's buttons are the way into guided
+    // view and balloons.
+    expect(find.byKey(const Key('balloonsButton')), findsNothing);
+    await tester.tap(find.byKey(const Key('guidedButton')));
+    await settle(tester);
+    expect(c.read(readerProvider).guided, isTrue);
+    await tester.tap(find.byKey(const Key('balloonsButton')));
+    await settle(tester);
+    expect(c.read(readerProvider).balloons, isTrue);
+    await tester.tap(find.byKey(const Key('guidedButton')));
+    await settle(tester);
+    expect(c.read(readerProvider).guided, isFalse);
+  });
+
   testWidgets('reopening resumes where reading stopped', (tester) async {
     final path = writeBook(tmp, 'Resume.cbz', 8);
     final c = await pumpApp(tester);

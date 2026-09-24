@@ -270,6 +270,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// Android's back button or gesture: the same as Esc, one level at a
+  /// time, and it leaves the app only from the library's top level. Without
+  /// this, back in the reader closed the whole app.
+  void _systemBack() {
+    if (_showKeymap || ref.read(readerProvider).book != null) {
+      _onCommand(const ReaderCommand(ReaderIntent.back));
+    } else if (!(_library.currentState?.back() ?? false)) {
+      unawaited(SystemNavigator.pop());
+    }
+  }
+
   void _onCommand(ReaderCommand c) {
     if (c.intent == ReaderIntent.showKeymap) {
       setState(() => _showKeymap = !_showKeymap);
@@ -313,60 +324,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (offer != null) unawaited(_offer(offer));
     });
     final keymap = ref.watch(keymapProvider);
-    return ReaderKeyboard(
-      keymap: keymap,
-      onCommand: _onCommand,
-      onPendingChanged: (p) => setState(() => _pending = p),
-      focusNode: _keys,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: DropTarget(
-          onDragDone: (d) {
-            if (d.files.isNotEmpty) ref.read(readerProvider.notifier).open(d.files.first.path);
-          },
-          child: Stack(
-            children: [
-              // The library stays built under the reader, so Esc comes back
-              // to the same tab, search and cover.
-              Offstage(
-                offstage: s.book != null,
-                child: TickerMode(
-                  enabled: s.book == null,
-                  child: LibraryScreen(
-                    key: _library,
-                    onAddRoot: _addRoot,
-                    onExportSidecars: _exportSidecars,
-                    onOpenFile: _pickFile,
-                    onOpenFolder: _pickFolder,
-                    keysFocus: _keys,
-                    pending: s.book == null ? _pending : '',
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _systemBack();
+      },
+      child: ReaderKeyboard(
+        keymap: keymap,
+        onCommand: _onCommand,
+        onPendingChanged: (p) => setState(() => _pending = p),
+        focusNode: _keys,
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: DropTarget(
+            onDragDone: (d) {
+              if (d.files.isNotEmpty) ref.read(readerProvider.notifier).open(d.files.first.path);
+            },
+            child: Stack(
+              children: [
+                // The library stays built under the reader, so Esc comes back
+                // to the same tab, search and cover.
+                Offstage(
+                  offstage: s.book != null,
+                  child: TickerMode(
+                    enabled: s.book == null,
+                    child: LibraryScreen(
+                      key: _library,
+                      onAddRoot: _addRoot,
+                      onExportSidecars: _exportSidecars,
+                      onOpenFile: _pickFile,
+                      onOpenFolder: _pickFolder,
+                      keysFocus: _keys,
+                      pending: s.book == null ? _pending : '',
+                    ),
                   ),
                 ),
-              ),
-              if (s.book != null)
-                Column(
-                  children: [
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: ReaderTouch(
-                              onCommand: _onCommand,
-                              viewTransform: () => _view.currentState?.transform,
-                              guided: () => ref.read(readerProvider).guided,
-                              child: ReaderView(key: _view),
+                if (s.book != null)
+                  Column(
+                    children: [
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: ReaderTouch(
+                                onCommand: _onCommand,
+                                viewTransform: () => _view.currentState?.transform,
+                                guided: () => ref.read(readerProvider).guided,
+                                child: ReaderView(key: _view),
+                              ),
                             ),
-                          ),
-                          Positioned(left: 0, right: 0, bottom: 0, child: _ProgressBar(state: s)),
-                        ],
+                            Positioned(left: 0, right: 0, bottom: 0, child: _ProgressBar(state: s)),
+                          ],
+                        ),
                       ),
-                    ),
-                    if (!s.fullscreen || s.message != null || _pending.isNotEmpty)
-                      _StatusLine(state: s, pending: _pending),
-                  ],
-                ),
-              if (_showKeymap) KeymapOverlay(keymap: keymap),
-            ],
+                      if (!s.fullscreen || s.message != null || _pending.isNotEmpty)
+                        _StatusLine(state: s, pending: _pending, onCommand: _onCommand),
+                    ],
+                  ),
+                if (_showKeymap) KeymapOverlay(keymap: keymap),
+              ],
+            ),
           ),
         ),
       ),
@@ -399,7 +416,7 @@ class _ProgressBar extends StatelessWidget {
 }
 
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.state, required this.pending});
+  const _StatusLine({required this.state, required this.pending, required this.onCommand});
 
   /// Where guided view is on the page, or why it shows the whole page.
   static String _guided(ReaderState s) {
@@ -424,6 +441,19 @@ class _StatusLine extends StatelessWidget {
   final ReaderState state;
   final String pending;
 
+  /// For the buttons: a phone without a keyboard has no other way into
+  /// guided view, balloons or bookmarks.
+  final ValueChanged<ReaderCommand> onCommand;
+
+  Widget _button(String key, IconData icon, String tip, ReaderIntent intent, {bool on = false}) => IconButton(
+    key: Key(key),
+    icon: Icon(icon),
+    tooltip: tip,
+    isSelected: on,
+    visualDensity: VisualDensity.compact,
+    onPressed: () => onCommand(ReaderCommand(intent)),
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -434,32 +464,65 @@ class _StatusLine extends StatelessWidget {
         : unit.length == 1
         ? 'page ${unit.first + 1} / ${state.pageCount}'
         : 'pages ${unit.first + 1}–${unit.last + 1} / ${state.pageCount}';
-    final left = [
-      if (book != null) book.title,
+    final details = [
       if (book != null) pages,
       if (book != null && state.guided) _guided(state),
       if (book != null && !state.guided && state.mode == PageMode.spread) 'spread',
       if (state.rightToLeft) 'RTL',
-    ].join('  ·  ');
-    return Container(
-      color: theme.colorScheme.surfaceContainer,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(state.message ?? left, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // A phone in portrait has room for about 40 characters: the page and
+        // panel counters come first there, the title after them, and the
+        // file name, which repeats the title, is left out.
+        final narrow = constraints.maxWidth < 600;
+        final left = (narrow ? [...details, if (book != null) book.title] : [if (book != null) book.title, ...details])
+            .join('  ·  ');
+        return Container(
+          color: theme.colorScheme.surfaceContainer,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  state.message ?? left,
+                  key: const Key('status'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                pending,
+                key: const Key('pending'),
+                style: const TextStyle(fontFamily: 'monospace'),
+              ),
+              if (book != null && !narrow) ...[
+                const SizedBox(width: 12),
+                Text(p.basename(book.path), style: theme.textTheme.bodySmall),
+              ],
+              if (book != null) ...[
+                const SizedBox(width: 4),
+                if (state.guided)
+                  _button(
+                    'balloonsButton',
+                    state.balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
+                    'Balloon by balloon (b)',
+                    ReaderIntent.toggleBalloons,
+                    on: state.balloons,
+                  ),
+                _button(
+                  'guidedButton',
+                  state.guided ? Icons.view_quilt : Icons.view_quilt_outlined,
+                  'Guided view (v)',
+                  ReaderIntent.toggleGuided,
+                  on: state.guided,
+                ),
+                _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+              ],
+            ],
           ),
-          Text(
-            pending,
-            key: const Key('pending'),
-            style: const TextStyle(fontFamily: 'monospace'),
-          ),
-          if (book != null) ...[
-            const SizedBox(width: 12),
-            Text(p.basename(book.path), style: theme.textTheme.bodySmall),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 }

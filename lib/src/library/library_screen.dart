@@ -627,7 +627,7 @@ class BookDetail extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Text(
-              'None yet. In the reader, mm bookmarks the page (the panel in guided view), ma sets mark a.',
+              'None yet. In the reader, mm or the bookmark button marks the page (the panel in guided view); ma sets mark a.',
               style: theme.textTheme.bodySmall,
             ),
           ),

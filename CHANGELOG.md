@@ -5,6 +5,17 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## Unreleased
+
+- **Android:** the APK builds and has been tested on an Android 14
+  emulator. `make keystore`, `make apk`, `make install-apk` and
+  `make push-model` build, sign and sideload it; the README has the steps.
+  PDFs no longer all fail to open on Android, the back gesture steps out
+  of guided view and the book instead of closing the app, and the
+  reader's status line has buttons for guided view, balloons and
+  bookmarks, and puts the page counter first on a phone. The app has its
+  own launcher icon.
+
 ## 0.1.0 (2026-09-24)
 
 The first tagged version: a working reader on the Fedora desktop, with
