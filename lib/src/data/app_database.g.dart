@@ -644,7 +644,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   }
 }
 
-class $FilesTable extends Files with TableInfo<$FilesTable, File> {
+class $FilesTable extends Files with TableInfo<$FilesTable, BookFile> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -703,7 +703,7 @@ class $FilesTable extends Files with TableInfo<$FilesTable, File> {
   String get actualTableName => $name;
   static const String $name = 'files';
   @override
-  VerificationContext validateIntegrity(Insertable<File> instance, {bool isInserting = false}) {
+  VerificationContext validateIntegrity(Insertable<BookFile> instance, {bool isInserting = false}) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
     if (data.containsKey('content_key')) {
@@ -740,9 +740,9 @@ class $FilesTable extends Files with TableInfo<$FilesTable, File> {
   @override
   Set<GeneratedColumn> get $primaryKey => {rootId, relPath};
   @override
-  File map(Map<String, dynamic> data, {String? tablePrefix}) {
+  BookFile map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return File(
+    return BookFile(
       contentKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}content_key'],
@@ -760,13 +760,13 @@ class $FilesTable extends Files with TableInfo<$FilesTable, File> {
   }
 }
 
-class File extends DataClass implements Insertable<File> {
+class BookFile extends DataClass implements Insertable<BookFile> {
   final String contentKey;
   final int rootId;
   final String relPath;
   final int size;
   final DateTime mtime;
-  const File({
+  const BookFile({
     required this.contentKey,
     required this.rootId,
     required this.relPath,
@@ -794,9 +794,9 @@ class File extends DataClass implements Insertable<File> {
     );
   }
 
-  factory File.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+  factory BookFile.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return File(
+    return BookFile(
       contentKey: serializer.fromJson<String>(json['contentKey']),
       rootId: serializer.fromJson<int>(json['rootId']),
       relPath: serializer.fromJson<String>(json['relPath']),
@@ -816,15 +816,16 @@ class File extends DataClass implements Insertable<File> {
     };
   }
 
-  File copyWith({String? contentKey, int? rootId, String? relPath, int? size, DateTime? mtime}) => File(
-    contentKey: contentKey ?? this.contentKey,
-    rootId: rootId ?? this.rootId,
-    relPath: relPath ?? this.relPath,
-    size: size ?? this.size,
-    mtime: mtime ?? this.mtime,
-  );
-  File copyWithCompanion(FilesCompanion data) {
-    return File(
+  BookFile copyWith({String? contentKey, int? rootId, String? relPath, int? size, DateTime? mtime}) =>
+      BookFile(
+        contentKey: contentKey ?? this.contentKey,
+        rootId: rootId ?? this.rootId,
+        relPath: relPath ?? this.relPath,
+        size: size ?? this.size,
+        mtime: mtime ?? this.mtime,
+      );
+  BookFile copyWithCompanion(FilesCompanion data) {
+    return BookFile(
       contentKey: data.contentKey.present ? data.contentKey.value : this.contentKey,
       rootId: data.rootId.present ? data.rootId.value : this.rootId,
       relPath: data.relPath.present ? data.relPath.value : this.relPath,
@@ -835,7 +836,7 @@ class File extends DataClass implements Insertable<File> {
 
   @override
   String toString() {
-    return (StringBuffer('File(')
+    return (StringBuffer('BookFile(')
           ..write('contentKey: $contentKey, ')
           ..write('rootId: $rootId, ')
           ..write('relPath: $relPath, ')
@@ -850,7 +851,7 @@ class File extends DataClass implements Insertable<File> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is File &&
+      (other is BookFile &&
           other.contentKey == this.contentKey &&
           other.rootId == this.rootId &&
           other.relPath == this.relPath &&
@@ -858,7 +859,7 @@ class File extends DataClass implements Insertable<File> {
           other.mtime == this.mtime);
 }
 
-class FilesCompanion extends UpdateCompanion<File> {
+class FilesCompanion extends UpdateCompanion<BookFile> {
   final Value<String> contentKey;
   final Value<int> rootId;
   final Value<String> relPath;
@@ -885,7 +886,7 @@ class FilesCompanion extends UpdateCompanion<File> {
        relPath = Value(relPath),
        size = Value(size),
        mtime = Value(mtime);
-  static Insertable<File> custom({
+  static Insertable<BookFile> custom({
     Expression<String>? contentKey,
     Expression<int>? rootId,
     Expression<String>? relPath,
@@ -3063,7 +3064,7 @@ final class $$BooksTableReferences extends BaseReferences<_$AppDatabase, $BooksT
     return ProcessedTableManager(manager.$state.copyWith(prefetchedData: [item]));
   }
 
-  static MultiTypedResultKey<$FilesTable, List<File>> _filesRefsTable(_$AppDatabase db) =>
+  static MultiTypedResultKey<$FilesTable, List<BookFile>> _filesRefsTable(_$AppDatabase db) =>
       MultiTypedResultKey.fromTable(db.files, aliasName: 'books__content_key__files__content_key');
 
   $$FilesTableProcessedTableManager get filesRefs {
@@ -3347,7 +3348,7 @@ class $$BooksTableTableManager
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (filesRefs)
-                    await $_getPrefetchedData<Book, $BooksTable, File>(
+                    await $_getPrefetchedData<Book, $BooksTable, BookFile>(
                       currentTable: table,
                       referencedTable: $$BooksTableReferences._filesRefsTable(db),
                       managerFromTypedResult: (p0) => $$BooksTableReferences(db, table, p0).filesRefs,
@@ -3394,7 +3395,7 @@ typedef $$FilesTableUpdateCompanionBuilder = FilesCompanion Function({
   Value<int> rowid,
 });
 
-final class $$FilesTableReferences extends BaseReferences<_$AppDatabase, $FilesTable, File> {
+final class $$FilesTableReferences extends BaseReferences<_$AppDatabase, $FilesTable, BookFile> {
   $$FilesTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $BooksTable _contentKeyTable(_$AppDatabase db) =>
@@ -3533,14 +3534,14 @@ class $$FilesTableTableManager
         RootTableManager<
           _$AppDatabase,
           $FilesTable,
-          File,
+          BookFile,
           $$FilesTableFilterComposer,
           $$FilesTableOrderingComposer,
           $$FilesTableAnnotationComposer,
           $$FilesTableCreateCompanionBuilder,
           $$FilesTableUpdateCompanionBuilder,
-          (File, $$FilesTableReferences),
-          File,
+          (BookFile, $$FilesTableReferences),
+          BookFile,
           PrefetchHooks Function({bool contentKey})
         > {
   $$FilesTableTableManager(_$AppDatabase db, $FilesTable table)
@@ -3584,7 +3585,7 @@ class $$FilesTableTableManager
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable<$FilesTable, File>(table), $$FilesTableReferences(db, table, e)))
+              .map((e) => (e.readTable<$FilesTable, BookFile>(table), $$FilesTableReferences(db, table, e)))
               .toList(),
           prefetchHooksCallback: ({contentKey = false}) {
             return PrefetchHooks(
@@ -3630,14 +3631,14 @@ typedef $$FilesTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
       $FilesTable,
-      File,
+      BookFile,
       $$FilesTableFilterComposer,
       $$FilesTableOrderingComposer,
       $$FilesTableAnnotationComposer,
       $$FilesTableCreateCompanionBuilder,
       $$FilesTableUpdateCompanionBuilder,
-      (File, $$FilesTableReferences),
-      File,
+      (BookFile, $$FilesTableReferences),
+      BookFile,
       PrefetchHooks Function({bool contentKey})
     >;
 typedef $$ProgressTableCreateCompanionBuilder = ProgressCompanion Function({

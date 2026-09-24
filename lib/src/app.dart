@@ -1,89 +1,232 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
 import 'input/reader_keyboard.dart';
 import 'providers.dart';
+import 'reader/layout.dart';
+import 'reader/reader_notifier.dart';
+import 'reader/reader_view.dart';
 
 class ComicRedrApp extends StatelessWidget {
-  const ComicRedrApp({super.key});
+  const ComicRedrApp({super.key, this.initialPath});
+
+  /// A book to open at start, from the command line.
+  final String? initialPath;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'ComicRedr',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(colorSchemeSeed: const Color(0xFF0B6FB4), useMaterial3: true),
       darkTheme: ThemeData(
         colorSchemeSeed: const Color(0xFF0B6FB4),
         brightness: Brightness.dark,
         useMaterial3: true,
       ),
-      home: const ShellScreen(),
+      themeMode: ThemeMode.dark,
+      home: ReaderScreen(initialPath: initialPath),
     );
   }
 }
 
-/// M2 placeholder: opens nothing yet, but wires the keyboard layer end to
-/// end so every binding can be tried on the laptop and a phone keyboard.
-class ShellScreen extends ConsumerStatefulWidget {
-  const ShellScreen({super.key});
+/// The one screen until the library arrives in M7: an empty state that
+/// opens files, and the reader once a book is open.
+class ReaderScreen extends ConsumerStatefulWidget {
+  const ReaderScreen({super.key, this.initialPath});
+
+  final String? initialPath;
 
   @override
-  ConsumerState<ShellScreen> createState() => _ShellScreenState();
+  ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ShellScreenState extends ConsumerState<ShellScreen> {
+class _ReaderScreenState extends ConsumerState<ReaderScreen> {
+  final _view = GlobalKey<ReaderViewState>();
+  late final AppLifecycleListener _lifecycle;
   String _pending = '';
   bool _showKeymap = false;
+  bool _picking = false;
 
-  void _onCommand(ReaderCommand command) {
-    ref.read(lastCommandProvider.notifier).set(command);
-    setState(() {
-      if (command.intent == ReaderIntent.showKeymap) {
-        _showKeymap = !_showKeymap;
-      } else if (command.intent == ReaderIntent.back) {
-        _showKeymap = false;
-      }
-    });
+  @override
+  void initState() {
+    super.initState();
+    // Flush the reading position when the app is backgrounded or closed.
+    _lifecycle = AppLifecycleListener(
+      onPause: () => ref.read(readerProvider.notifier).flush(),
+      onExitRequested: () async {
+        await ref.read(readerProvider.notifier).flush();
+        return ui.AppExitResponse.exit;
+      },
+    );
+    final path = widget.initialPath;
+    if (path != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(readerProvider.notifier).open(path));
+    }
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    if (_picking) return;
+    _picking = true;
+    try {
+      final file = await openFile(
+        acceptedTypeGroups: const [
+          XTypeGroup(label: 'Comics', extensions: ['cbz', 'cbr', 'zip']),
+        ],
+      );
+      if (file != null) await ref.read(readerProvider.notifier).open(file.path);
+    } finally {
+      _picking = false;
+    }
+  }
+
+  void _onCommand(ReaderCommand c) {
+    if (c.intent == ReaderIntent.showKeymap) {
+      setState(() => _showKeymap = !_showKeymap);
+      return;
+    }
+    if (_showKeymap && c.intent == ReaderIntent.back) {
+      setState(() => _showKeymap = false);
+      return;
+    }
+    if (c.intent == ReaderIntent.openFile) {
+      unawaited(_pickFile());
+      return;
+    }
+    if (_view.currentState?.handle(c) ?? false) return;
+    unawaited(ref.read(readerProvider.notifier).handle(c));
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(readerProvider);
+    ref.listen(readerProvider.select((s) => s.fullscreen), (_, full) {
+      SystemChrome.setEnabledSystemUIMode(full ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
+    });
     final keymap = ref.watch(keymapProvider);
-    final last = ref.watch(lastCommandProvider);
-    final theme = Theme.of(context);
     return ReaderKeyboard(
       keymap: keymap,
       onCommand: _onCommand,
       onPendingChanged: (p) => setState(() => _pending = p),
       child: Scaffold(
-        body: Stack(
-          children: [
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('ComicRedr', style: theme.textTheme.displaySmall),
-                  const SizedBox(height: 12),
-                  Text('Nothing to open yet. Press ? for the keymap.', style: theme.textTheme.bodyLarge),
-                  const SizedBox(height: 24),
-                  Text(
-                    last == null ? '' : last.toString(),
-                    key: const Key('last-command'),
-                    style: theme.textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
-                  ),
-                ],
+        backgroundColor: Colors.black,
+        body: DropTarget(
+          onDragDone: (d) {
+            if (d.files.isNotEmpty) ref.read(readerProvider.notifier).open(d.files.first.path);
+          },
+          child: Column(
+            children: [
+              Expanded(
+                child: Stack(
+                  children: [
+                    if (s.book != null)
+                      Positioned.fill(child: ReaderView(key: _view))
+                    else
+                      _EmptyState(loading: s.loading, onOpen: _pickFile),
+                    if (_showKeymap) KeymapOverlay(keymap: keymap),
+                  ],
+                ),
               ),
-            ),
-            if (_pending.isNotEmpty)
-              Positioned(
-                right: 16,
-                bottom: 16,
-                child: Text(_pending, style: theme.textTheme.titleMedium?.copyWith(fontFamily: 'monospace')),
-              ),
-            if (_showKeymap) KeymapOverlay(keymap: keymap),
-          ],
+              if (!s.fullscreen || s.message != null || _pending.isNotEmpty)
+                _StatusLine(state: s, pending: _pending),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.loading, required this.onOpen});
+
+  final bool loading;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text('ComicRedr', style: theme.textTheme.displaySmall),
+          const SizedBox(height: 24),
+          if (loading)
+            const CircularProgressIndicator()
+          else
+            FilledButton.icon(
+              onPressed: onOpen,
+              icon: const Icon(Icons.folder_open),
+              label: const Text('Open a comic'),
+            ),
+          const SizedBox(height: 12),
+          Text('Press o, or drop a .cbz here. Press ? for the keymap.', style: theme.textTheme.bodyMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({required this.state, required this.pending});
+
+  final ReaderState state;
+  final String pending;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final book = state.book;
+    final unit = state.unit;
+    final pages = unit.isEmpty
+        ? ''
+        : unit.length == 1
+        ? '${unit.first + 1} / ${state.pageCount}'
+        : '${unit.first + 1}–${unit.last + 1} / ${state.pageCount}';
+    final left = [
+      if (book != null) book.title,
+      if (book != null) pages,
+      if (book != null && state.mode == PageMode.spread) 'spread',
+      if (state.rightToLeft) 'RTL',
+    ].join('  ·  ');
+    return Container(
+      color: theme.colorScheme.surfaceContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              state.message ?? left,
+              key: const Key('status'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(
+            pending,
+            key: const Key('pending'),
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
+          if (book != null) ...[
+            const SizedBox(width: 12),
+            Text(p.basename(book.path), style: theme.textTheme.bodySmall),
+          ],
+        ],
       ),
     );
   }

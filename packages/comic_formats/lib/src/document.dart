@@ -1,14 +1,16 @@
 import 'dart:typed_data';
 
-/// A decoded page, at roughly the size that was asked for.
+/// A page as encoded image bytes (JPEG, PNG, WebP) for the UI to decode.
+///
+/// Archives and folders hand back the stored image untouched and leave
+/// downscaling to Flutter's native decoder; PDF (M6) renders at the target
+/// size and fills in [width] and [height].
 class PageImage {
-  const PageImage(this.width, this.height, this.encoded);
+  const PageImage(this.encoded, {this.width, this.height});
 
-  final int width;
-  final int height;
-
-  /// Encoded image bytes (JPEG, PNG, WebP) ready for the UI to decode.
   final Uint8List encoded;
+  final int? width;
+  final int? height;
 }
 
 /// Metadata embedded in the book: ComicInfo.xml for archives and folders,
