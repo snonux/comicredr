@@ -14,6 +14,9 @@ class SettingsStore {
   /// Guided view holds on a page shown whole for one step before turning.
   static const pauseWhole = 'guided.pauseWhole';
 
+  /// How a held page shows it: a PauseCue name, `colour` by default.
+  static const pauseCue = 'guided.pauseCue';
+
   /// The night filter (`i`) and auto-trim (`t`), kept across restarts.
   static const night = 'reader.night';
   static const autoTrim = 'reader.autoTrim';

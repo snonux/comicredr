@@ -21,6 +21,7 @@ enum ReaderIntent {
   toggleBalloons('Balloon by balloon inside each panel in guided view, on and off'),
   toggleWholePage('Whole page before and after its panels in guided view, on and off'),
   togglePauseWhole('Hold one step on a page guided view shows whole before turning, on and off'),
+  cyclePauseCue('How a held page shows it: wine-red background or zoom out and back'),
   cycleModeForward('Cycle single, double, continuous, guided; next library tab'),
   cycleModeBack('Cycle modes backwards; previous library tab'),
   toggleSpread('Single page or two-page spread'),

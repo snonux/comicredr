@@ -47,6 +47,8 @@ toggleBalloons = ["b"]
 toggleWholePage = ["w"]
 # Hold one step on a page guided view shows whole before turning, on and off
 togglePauseWhole = ["W"]
+# How a held page shows it: wine-red background or zoom out and back
+cyclePauseCue = ["gw"]
 # Cycle single, double, continuous, guided; next library tab
 cycleModeForward = ["Tab"]
 # Cycle modes backwards; previous library tab

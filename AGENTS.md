@@ -175,12 +175,15 @@ build internals, test scripts, detector work and conventions here.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
 - A page guided view shows whole (no panels that pass the gate) holds
-  for one step: the first step onward stays and plays a zoom cue (the
-  status line explains the first three; with reduced motion only the hint,
-  every time), the next one turns, however soon. Mirrored going back. A
-  page arrived on from the other side, a count (`3l`) and pages whose
-  panels are not known yet are not held (`_pauseOnWhole` in
-  `reader_notifier.dart`). `W` or Settings turns it off (`guided.pauseWhole`).
+  for one step: the first step onward stays and sets `ReaderState.held`,
+  the next one turns, however soon. Mirrored going back. The cue
+  (`guided.pauseCue`, `gw` cycles it) is the Scaffold background turning
+  `heldColour` (#3A0D16) in app.dart until the page is left, the default,
+  or ReaderView's zoom pulse (colour instead with reduced motion). The
+  status line explains the first three. A page arrived on from the other
+  side, a count (`3l`) and pages whose panels are not known yet are not
+  held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or Settings turns
+  it off (`guided.pauseWhole`).
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -255,7 +258,7 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
-tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the zoom cue, keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars

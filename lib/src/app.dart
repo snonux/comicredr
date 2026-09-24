@@ -621,7 +621,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPendingChanged: (p) => setState(() => _pending = p),
         focusNode: _keys,
         child: Scaffold(
-          backgroundColor: Colors.black,
+          // A page guided view holds on turns the background wine red.
+          backgroundColor:
+              s.held && s.guided && (s.pauseCue == PauseCue.colour || MediaQuery.disableAnimationsOf(context))
+              ? heldColour
+              : Colors.black,
           body: DropTarget(
             onDragDone: (d) {
               if (d.files.isNotEmpty) unawaited(_openPath(d.files.first.path));

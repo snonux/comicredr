@@ -703,8 +703,8 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     final still = MediaQuery.disableAnimationsOf(context);
     ref.read(readerProvider.notifier).reduceMotion = still;
     if (s.cue != _seenCue) {
-      // Reduced motion: the status line's hint alone.
-      if (_seenCue != null && s.cue > _seenCue! && !still) _pulse.forward(from: 0);
+      // Reduced motion: the background colour instead (app.dart).
+      if (_seenCue != null && s.cue > _seenCue! && s.pauseCue == PauseCue.zoom && !still) _pulse.forward(from: 0);
       _seenCue = s.cue;
     }
     return LayoutBuilder(

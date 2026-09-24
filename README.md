@@ -36,7 +36,10 @@ Potion Contest*, by David Revoy, licensed
 
 - **Guided view** glides from panel to panel, and **balloon mode** from
   speech balloon to speech balloon inside each panel. Panels are found by a
-  small detector that runs on your own CPU.
+  small detector that runs on your own CPU. On a page it can't guide,
+  the first press stays and turns the background a dark wine red, so you
+  look at the whole page before the next press turns it (or the page
+  zooms out and back instead, `gw`; `W` turns it off).
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins. A scanned double-page
   spread stays whole, and the pages after it keep their sides.
