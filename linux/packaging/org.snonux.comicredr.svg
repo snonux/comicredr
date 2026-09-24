@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ComicRedr app icon: a comic page in guided view, one panel framed and
+     the rest dimmed, with a speech balloon. PNG sizes are rendered from this
+     file by `make icons`. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd23f"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </linearGradient>
+    <pattern id="dots" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <circle cx="6" cy="6" r="2.2" fill="#c2410c" fill-opacity="0.22"/>
+    </pattern>
+    <clipPath id="tile">
+      <rect x="16" y="16" width="224" height="224" rx="44"/>
+    </clipPath>
+  </defs>
+
+  <!-- Tile with halftone dots -->
+  <rect x="16" y="20" width="224" height="224" rx="44" fill="#000" fill-opacity="0.18"/>
+  <rect x="16" y="16" width="224" height="224" rx="44" fill="url(#bg)"/>
+  <rect x="16" y="16" width="224" height="224" rx="44" fill="url(#dots)"/>
+
+  <g clip-path="url(#tile)">
+    <!-- The page, tilted -->
+    <g transform="rotate(-7 124 134)">
+      <rect x="54" y="46" width="140" height="184" rx="6" fill="#000" fill-opacity="0.25" transform="translate(4 6)"/>
+      <rect x="54" y="46" width="140" height="184" rx="6" fill="#ffffff" stroke="#1f2937" stroke-width="6"/>
+      <!-- Dimmed panels -->
+      <rect x="66" y="58" width="116" height="60" rx="3" fill="#94a3b8" stroke="#1f2937" stroke-width="4"/>
+      <rect x="66" y="176" width="116" height="42" rx="3" fill="#94a3b8" stroke="#1f2937" stroke-width="4"/>
+      <!-- The panel guided view is on -->
+      <rect x="66" y="126" width="54" height="42" rx="3" fill="#94a3b8" stroke="#1f2937" stroke-width="4"/>
+      <rect x="128" y="126" width="54" height="42" rx="3" fill="#38bdf8" stroke="#1f2937" stroke-width="4"/>
+      <rect x="121" y="119" width="68" height="56" rx="7" fill="none" stroke="#dc2626" stroke-width="7"/>
+    </g>
+
+    <!-- Speech balloon -->
+    <path d="M150 96 L136 124 L170 101 Z" fill="#ffffff" stroke="#1f2937" stroke-width="6" stroke-linejoin="round"/>
+    <ellipse cx="180" cy="74" rx="46" ry="32" fill="#ffffff" stroke="#1f2937" stroke-width="6"/>
+    <path d="M152 101 L138 120 L170 103 Z" fill="#ffffff"/>
+    <circle cx="162" cy="74" r="6" fill="#1f2937"/>
+    <circle cx="180" cy="74" r="6" fill="#1f2937"/>
+    <circle cx="198" cy="74" r="6" fill="#1f2937"/>
+  </g>
+</svg>
