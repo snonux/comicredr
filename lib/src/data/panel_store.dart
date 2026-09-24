@@ -45,7 +45,7 @@ class PanelStore {
       if (run == null || r.source != run.source) continue;
       final kind = PanelKind.values.asNameMap()[r.kind] ?? PanelKind.frame;
       (kind == PanelKind.frame ? frames : balloons)[r.page]!.add(
-        Panel(r.x, r.y, r.w, r.h, kind: kind, confidence: r.confidence),
+        Panel(r.x, r.y, r.w, r.h, kind: kind, confidence: r.confidence, shape: decodeShape(r.shape)),
       );
     }
     return {
@@ -89,6 +89,7 @@ class PanelStore {
               source: found.source.name,
               modelVer: found.version,
               confidence: f.confidence,
+              shape: Value(encodeShape(f.shape)),
             ),
       ]);
     });

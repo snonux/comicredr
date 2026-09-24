@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:comic_analysis/comic_analysis.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +40,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
 
   /// The dimming hole in page coordinates (0..1), or null for no dimming.
   Rect? _focus;
+
+  /// The hole's real shape when the frame is not a rectangle, as points
+  /// relative to [_focus] (0..1 across it), so it glides with the hole.
+  List<Offset>? _holeShape;
 
   /// What the camera last aimed at. A change moves the camera; null makes
   /// it cut to its target on the next frame.
@@ -253,6 +258,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
     _cameraKey = key;
     final target = Matrix4.identity();
     Rect? hole;
+    List<Offset>? shape;
     if (focus != null) {
       final child = _childSize;
       final origin = Offset((child.width - _content.width) / 2, (child.height - _content.height) / 2);
@@ -267,6 +273,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
         ..setTranslationRaw(cam.offset.dx, cam.offset.dy, 0)
         ..scaleByDouble(cam.scale, cam.scale, 1, 1);
       hole = Rect.fromLTWH(focus.x, focus.y, focus.w, focus.h);
+      shape = holeShape(hole, s.focusOutline);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -276,11 +283,15 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
           begin: _focus ?? const Rect.fromLTWH(0, 0, 1, 1),
           end: hole ?? const Rect.fromLTWH(0, 0, 1, 1),
         );
+        _holeShape = shape;
         _camera.forward(from: 0);
       } else {
         _camera.stop();
         _transform.value = target;
-        setState(() => _focus = hole);
+        setState(() {
+          _focus = hole;
+          _holeShape = shape;
+        });
       }
     });
   }
@@ -391,7 +402,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
             children: [
               pages,
               Positioned.fill(
-                child: CustomPaint(key: const Key('guided-dim'), painter: _DimPainter(_focus!)),
+                child: CustomPaint(key: const Key('guided-dim'), painter: _DimPainter(_focus!, _holeShape)),
               ),
             ],
           );
@@ -432,12 +443,28 @@ const _night = <double>[
   0, 0, 0, 1, 0,
 ];
 
+/// The part of [outline] (a frame's real shape, page coordinates) inside
+/// [hole], as points relative to [hole]; null when there is no outline and
+/// the hole is its rectangle.
+List<Offset>? holeShape(Rect hole, List<double>? outline) {
+  if (outline == null || hole.isEmpty) return null;
+  final clipped = clipConvex(
+    [for (var i = 0; i + 1 < outline.length; i += 2) (outline[i], outline[i + 1])],
+    [(hole.left, hole.top), (hole.right, hole.top), (hole.right, hole.bottom), (hole.left, hole.bottom)],
+  );
+  if (clipped.length < 3) return null;
+  return [for (final (x, y) in clipped) Offset((x - hole.left) / hole.width, (y - hole.top) / hole.height)];
+}
+
 /// Dims the page outside [hole] (page coordinates, 0..1) to 45%, so the
-/// panel stands out and the reader keeps their place on the page.
+/// panel stands out and the reader keeps their place on the page. With a
+/// [shape] (relative to [hole]) the hole is that polygon, so the corners
+/// of the neighbours around a slanted panel are dimmed too.
 class _DimPainter extends CustomPainter {
-  const _DimPainter(this.hole);
+  const _DimPainter(this.hole, [this.shape]);
 
   final Rect hole;
+  final List<Offset>? shape;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -448,12 +475,18 @@ class _DimPainter extends CustomPainter {
       hole.right * size.width,
       hole.bottom * size.height,
     );
+    final shape = this.shape;
+    final path = shape == null
+        ? (Path()..addRect(cut))
+        : (Path()..addPolygon([
+            for (final p in shape) Offset(cut.left + p.dx * cut.width, cut.top + p.dy * cut.height),
+          ], true));
     canvas.drawPath(
-      Path.combine(PathOperation.difference, Path()..addRect(page), Path()..addRect(cut)),
+      Path.combine(PathOperation.difference, Path()..addRect(page), path),
       Paint()..color = const Color(0x8C000000),
     );
   }
 
   @override
-  bool shouldRepaint(_DimPainter old) => old.hole != hole;
+  bool shouldRepaint(_DimPainter old) => old.hole != hole || !listEquals(old.shape, shape);
 }

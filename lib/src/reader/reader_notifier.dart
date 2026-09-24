@@ -114,6 +114,15 @@ class ReaderState {
     return b < 0 ? frame : balloonFocus(frame, balloonsOn(page, i)[b]);
   }
 
+  /// The real outline of the frame guided view is on, in page coordinates,
+  /// when it is not its box (Panel.shape); null for a rectangle or the
+  /// whole page. In balloon mode it is the balloon's frame.
+  List<double>? get focusOutline {
+    if (!guided) return null;
+    final i = panelIndex;
+    return i < 0 ? null : stopsOn(page)[i].shape;
+  }
+
   /// [balloon] resolved against what is known: -1 for the panel as a whole,
   /// always so outside balloon mode.
   int get balloonIndex {

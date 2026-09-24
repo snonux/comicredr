@@ -12,7 +12,8 @@ import 'panel.dart';
 ///
 /// When nothing can be cut (overlapping balloons, a jumbled layout), the M4
 /// rule decides: two panels share a row when their vertical extents overlap
-/// by more than half of the shorter one.
+/// by more than half of the shorter one, unless their outlines show one
+/// stacked above the other across a slanted gutter.
 ///
 /// A page wider than [spreadAspect] ([aspect] is its width over its
 /// height) is a two-page spread: when no panel crosses the spine, the whole
@@ -93,7 +94,7 @@ List<Panel> _byRows(List<Panel> panels, bool rightToLeft) {
       final bottom = row.map((r) => r.bottom).reduce((a, b) => a > b ? a : b);
       final overlap = (bottom < p.bottom ? bottom : p.bottom) - (top > p.y ? top : p.y);
       final shorter = p.h < bottom - top ? p.h : bottom - top;
-      if (overlap > 0.5 * shorter) {
+      if (overlap > 0.5 * shorter && !row.any((r) => _stacked(p, r))) {
         home = row;
         break;
       }
@@ -103,4 +104,14 @@ List<Panel> _byRows(List<Panel> panels, bool rightToLeft) {
   double top(List<Panel> row) => row.map((p) => p.y).reduce((x, y) => x < y ? x : y);
   rows.sort((a, b) => top(a).compareTo(top(b)));
   return [for (final row in rows) ...(row..sort((a, b) => rightToLeft ? b.x.compareTo(a.x) : a.x.compareTo(b.x)))];
+}
+
+/// Whether [a] and [b] sit one above the other across a slanted gutter:
+/// their boxes share most of their width, but their outlines barely touch.
+bool _stacked(Panel a, Panel b) {
+  if (a.shape == null && b.shape == null) return false;
+  final width = (a.right < b.right ? a.right : b.right) - (a.x > b.x ? a.x : b.x);
+  final narrower = a.w < b.w ? a.w : b.w;
+  final smaller = a.area < b.area ? a.area : b.area;
+  return width > 0.5 * narrower && a.overlap(b) < 0.02 * smaller;
 }
