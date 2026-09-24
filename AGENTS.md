@@ -62,7 +62,17 @@ build internals, test scripts, detector work and conventions here.
   opens: about 30 ms for a 36-page CBZ, inflating only each page's first
   64 KiB. EXIF rotation is not looked at.
 - Folder books read JPEG, PNG, WebP, GIF and BMP in natural order,
-  subfolders included, skipping dotfiles and `Thumbs.db`.
+  subfolders included, skipping dotfiles and `Thumbs.db`. CBZ and CBT
+  (tar) use the same order; a CBT is indexed once on open (GNU long names,
+  pax and v7 headers) and each page is one seek.
+- An EPUB is a ZIP whose `mimetype` entry says so (or that has
+  `META-INF/container.xml`). Pages follow the OPF spine: an image item is
+  a page, an XHTML or SVG item is the largest image it points at, items
+  without an image are skipped. Fewer than half the spine as pages, or
+  pages with paragraphs of text (unless the book is `pre-paginated`), and
+  the book is refused as a text ebook. Metadata comes from a ComicInfo.xml
+  inside, else the OPF (Dublin Core, `belongs-to-collection`,
+  `calibre:series`, creator roles `ill`/`art` as artists).
 - The library's first scan reads each book once in the background (about a
   third of a second a book); later starts only compare sizes and dates. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
@@ -145,7 +155,7 @@ build internals, test scripts, detector work and conventions here.
 
 ```
 lib/                      Flutter app: library, reader screen, page cache, keyboard layer, Drift index
-packages/comic_formats    ComicDocument, the CBZ adapter and its worker isolate, sniffing, sort
+packages/comic_formats    ComicDocument, the CBZ, CBT, EPUB, PDF and folder adapters, the worker isolate, sniffing, sort
 packages/comic_analysis   Panel model, classic-CV detection, reading order, the confidence gate
 packages/reader_input     ReaderIntents, default keymap, vi key-sequence resolver
 spike/                    M1 throwaway: classic-CV panel detection and overlays
@@ -179,6 +189,8 @@ tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in
 tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
+tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
+(cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 ```
 
