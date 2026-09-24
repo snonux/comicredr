@@ -221,7 +221,7 @@ void main() {
         10, 310, 420, 590, 0.7, 0, // bottom frame, spills past the page
         20, 20, 80, 60, 0.9, 2, // balloon
         30, 30, 60, 50, 0.3, 2, // balloon below threshold
-        50, 50, 90, 90, 0.9, 1, // text class: ignored
+        50, 50, 90, 90, 0.9, 1, // narration caption: not a balloon stop
       ];
       final d = decodeDetections(rows, 400, 600);
       expect(d.frames.length, 3);
