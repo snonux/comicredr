@@ -77,7 +77,7 @@ swipeLeft = ""
     test('bad lines are named and skipped like bad key lines', () {
       final load = keymapFromToml('''
 [keys]
-autoTrim = "T"
+autoTrim = "U"
 [touch]
 pinch = "zoomIn"
 tap = ["nextStep", "prevStep"]
@@ -90,7 +90,7 @@ twoFingerTap = "bookmark"
       expect(all, allOf(contains('"pinch"'), contains('nine actions'), contains('one action'), contains('"nextStpe"')));
       expect(load.warnings.every((w) => w.startsWith('keys.toml: [touch]')), isTrue);
       expect(load.touch.keys, [TouchGesture.twoFingerTap]);
-      expect(load.keymap.bindings.where((b) => b.intent == ReaderIntent.autoTrim).single.keys, ['T']);
+      expect(load.keymap.bindings.where((b) => b.intent == ReaderIntent.autoTrim).single.keys, ['U']);
     });
 
     test('other tables are still refused', () {

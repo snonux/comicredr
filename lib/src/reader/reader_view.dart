@@ -14,6 +14,7 @@ import 'layout.dart';
 import '../data/progress_store.dart';
 import 'page_cache.dart';
 import 'reader_notifier.dart';
+import 'region.dart';
 
 /// How the page is fitted before any zoom.
 enum Fit { page, width, height }
@@ -430,32 +431,70 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
 
   void _recentre() => setState(() => _cameraKey = null);
 
-  /// Points the camera at the focused panel, or back at the whole page, once
-  /// the frame is laid out. Within a page the camera glides; onto a new page,
+  /// Points the camera at the focused panel, or the part of the page picked
+  /// by hand ([ReaderState.region]), or back at the whole page, once the
+  /// frame is laid out. Within a page the camera glides; onto a new page,
   /// or when the system asks for reduced motion, it cuts.
   void _aimCamera(ReaderState s) {
     final trim = _trimOf(s, 0);
-    // Panels are found on the whole page; the page on screen may be trimmed.
-    final focus = switch (s.focus) {
-      null => null,
-      final f => Rect.fromLTWH(
+    final child = _childSize;
+    final origin = Offset(
+      (child.width - _content.width) / 2,
+      !s.guided && _fit == Fit.width ? 0.0 : (child.height - _content.height) / 2,
+    );
+    // What to frame, in the child's coordinates, and the dimming hole, as
+    // fractions of the shown pages.
+    Rect? rect, focus;
+    List<double>? outline;
+    if (s.region case final r?) {
+      for (final p in _pageRects(s)) {
+        if (p.page != r.page) continue;
+        final part = partRect(r.split, r.part);
+        rect = Rect.fromLTWH(
+          p.rect.left + part.left * p.rect.width,
+          p.rect.top + part.top * p.rect.height,
+          part.width * p.rect.width,
+          part.height * p.rect.height,
+        );
+        focus = Rect.fromLTWH(
+          (rect.left - origin.dx) / _content.width,
+          (rect.top - origin.dy) / _content.height,
+          rect.width / _content.width,
+          rect.height / _content.height,
+        );
+      }
+    } else if (s.focus case final f?) {
+      // Panels are found on the whole page; the page on screen may be trimmed.
+      focus = Rect.fromLTWH(
         (f.x - trim.left) / trim.width,
         (f.y - trim.top) / trim.height,
         f.w / trim.width,
         f.h / trim.height,
-      ),
-    };
+      );
+      rect = Rect.fromLTWH(
+        origin.dx + focus.left * _content.width,
+        origin.dy + focus.top * _content.height,
+        focus.width * _content.width,
+        focus.height * _content.height,
+      );
+      outline = s.focusOutline;
+    }
     final key = (guided: s.guided, page: s.page, focus: focus, viewport: _viewport, content: _content, trim: trim);
     final last = _cameraKey;
     final keep = _keepView;
     _keepView = false;
     if (key == last) return;
-    // Outside guided view the camera has nothing to frame: a resize keeps
-    // the reader's own zoom and scroll (_resized). Pages just swapped for
-    // their sharpened selves keep the camera in guided view too.
+    // Outside guided view the camera has nothing to frame unless a part of
+    // the page was picked: a resize keeps the reader's own zoom and scroll
+    // (_resized). Pages just swapped for their sharpened selves keep the
+    // camera in guided view too.
     final kept =
         keep && (last?.guided, last?.page, last?.focus, last?.trim) == (key.guided, key.page, key.focus, key.trim);
-    if (last != null && (kept || (!key.guided && !last.guided && last.page == key.page && last.trim == key.trim))) {
+    if (last != null &&
+        (kept ||
+            (!key.guided && !last.guided && key.focus == null && last.focus == null) &&
+                last.page == key.page &&
+                last.trim == key.trim)) {
       _cameraKey = key;
       return;
     }
@@ -468,21 +507,12 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     final target = Matrix4.identity();
     Rect? hole;
     List<Offset>? shape;
-    if (focus != null) {
-      final child = _childSize;
-      final origin = Offset((child.width - _content.width) / 2, (child.height - _content.height) / 2);
-      final rect = Rect.fromLTWH(
-        origin.dx + focus.left * _content.width,
-        origin.dy + focus.top * _content.height,
-        focus.width * _content.width,
-        focus.height * _content.height,
-      );
+    if (rect != null && focus != null) {
       final cam = cameraOn(rect, _viewport);
       target
         ..setTranslationRaw(cam.offset.dx, cam.offset.dy, 0)
         ..scaleByDouble(cam.scale, cam.scale, 1, 1);
       hole = focus;
-      final outline = s.focusOutline;
       // The outline goes into the trimmed page's coordinates too.
       shape = holeShape(hole, switch (outline) {
         null => null,
@@ -759,7 +789,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
               ),
           ],
         );
-        if (s.guided && _focus != null) {
+        if (_focus != null) {
           pages = Stack(
             children: [
               pages,

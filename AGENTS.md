@@ -193,6 +193,13 @@ build internals, test scripts, detector work and conventions here.
   side, a count (`3l`) and pages whose panels are not known yet are not
   held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or Settings turns
   it off (`guided.pauseWhole`).
+- Parts of a page (`H1` `H2`, `T1`-`T3`, `Q1`-`Q4`, `lib/src/reader/region.dart`):
+  `ReaderState.region` is the split, the part and the page of the unit it
+  is on. ReaderView frames it with guided view's camera and dim, in guided
+  view or out of it (`_aimCamera`). Steps go through the parts in reading
+  order, across a spread's other page, then to the whole page; in guided
+  view that whole page is held like a page without panels. Leaving the
+  page, a mode switch, Esc or the same keys end it.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -273,6 +280,7 @@ tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step wit
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
+tool/e2e_regions.sh book.cbz [page]  # H1 H2, T1-T3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 ```
 
 ## Detection spike (M1)
