@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:drift/native.dart';
@@ -161,10 +162,27 @@ void main() {
     final file = File('${tmp.path}/index.sqlite');
     final old = AppDatabase(NativeDatabase(file));
     await old.customStatement('DROP TABLE analysed_pages');
+    await old.customStatement('ALTER TABLE progress DROP COLUMN view_json');
     await old.customStatement('PRAGMA user_version = 1');
     await old.close();
     final upgraded = AppDatabase(NativeDatabase(file));
     expect(await upgraded.select(upgraded.analysedPages).get(), isEmpty);
+    expect(await upgraded.select(upgraded.progress).get(), isEmpty);
+    await upgraded.close();
+  });
+
+  test('an M5 index keeps its positions and gains the saved view', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await old.customStatement('ALTER TABLE progress DROP COLUMN view_json');
+    await old.customStatement(
+      "INSERT INTO progress (content_key, page, panel, percent, finished, updated_at) VALUES ('k', 4, 2, 0.5, 0, 0)",
+    );
+    await old.customStatement('PRAGMA user_version = 2');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    final at = await ProgressStore(upgraded).load('k');
+    expect((at?.page, at?.panel, at?.guided, at?.view), (4, 2, null, null));
     await upgraded.close();
   });
 }

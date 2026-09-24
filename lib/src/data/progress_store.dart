@@ -1,13 +1,91 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 
 import 'app_database.dart';
 
+/// Zoom and scroll outside guided view: the fit, the zoom on top of it, and
+/// the point at the middle of the screen as a fraction of the laid-out page,
+/// so it lands on the same spot in a window of another size.
+typedef ViewSpot = ({String fit, double zoom, double cx, double cy});
+
+/// Where reading stopped, down to the view: everything a reopen needs to put
+/// the reader back on the same spot. The view fields are null in a row
+/// saved before they existed; the reader keeps its current mode for those.
+class ReadingPosition {
+  const ReadingPosition({
+    required this.page,
+    this.panel,
+    this.balloon = -1,
+    this.guided,
+    this.balloons,
+    this.spread,
+    this.coverAlone,
+    this.rightToLeft,
+    this.view,
+  });
+
+  final int page;
+
+  /// The panel guided view was on, or would return to on `v`.
+  final int? panel;
+
+  /// The balloon inside [panel], -1 for the panel as a whole.
+  final int balloon;
+  final bool? guided;
+  final bool? balloons;
+  final bool? spread;
+  final bool? coverAlone;
+  final bool? rightToLeft;
+  final ViewSpot? view;
+
+  Map<String, Object?> _viewJson() => {
+    'balloon': balloon,
+    'guided': guided,
+    'balloons': balloons,
+    'spread': spread,
+    'coverAlone': coverAlone,
+    'rightToLeft': rightToLeft,
+    if (view case final v?) 'view': {'fit': v.fit, 'zoom': v.zoom, 'cx': v.cx, 'cy': v.cy},
+  };
+
+  static ReadingPosition _fromRow(ProgressData row) {
+    Map<String, Object?> j = const {};
+    try {
+      if (row.viewJson case final s?) j = (jsonDecode(s) as Map).cast<String, Object?>();
+    } catch (e) {
+      debugPrint('Ignoring a broken saved view: $e');
+    }
+    final v = j['view'];
+    return ReadingPosition(
+      page: row.page,
+      panel: row.panel,
+      balloon: (j['balloon'] as num?)?.toInt() ?? -1,
+      guided: j['guided'] as bool?,
+      balloons: j['balloons'] as bool?,
+      spread: j['spread'] as bool?,
+      coverAlone: j['coverAlone'] as bool?,
+      rightToLeft: j['rightToLeft'] as bool?,
+      view: v is Map
+          ? (
+              fit: v['fit'] as String? ?? 'page',
+              zoom: (v['zoom'] as num?)?.toDouble() ?? 1,
+              cx: (v['cx'] as num?)?.toDouble() ?? 0.5,
+              cy: (v['cy'] as num?)?.toDouble() ?? 0.5,
+            )
+          : null,
+    );
+  }
+}
+
 /// Reading position, keyed by content key. Writes are debounced so a burst
 /// of page turns costs one write, and [flush] runs on pause and close, so a
-/// killed app loses at most the last page (design plan section 6).
+/// killed app loses at most the last half second (design plan section 6).
+///
+/// This is the one seam for positions: the per-comic sidecar (M8) takes the
+/// storage over behind the same [load], [save] and [flush].
 class ProgressStore {
   ProgressStore(this._db, {this.debounce = const Duration(milliseconds: 500)});
 
@@ -16,20 +94,20 @@ class ProgressStore {
   Timer? _timer;
   ProgressCompanion? _pendingRow;
 
-  /// The saved page, and the panel when reading stopped in guided view.
-  Future<({int page, int? panel})?> load(String contentKey) async {
+  Future<ReadingPosition?> load(String contentKey) async {
     final row = await (_db.select(_db.progress)..where((p) => p.contentKey.equals(contentKey))).getSingleOrNull();
-    return row == null ? null : (page: row.page, panel: row.panel);
+    return row == null ? null : ReadingPosition._fromRow(row);
   }
 
-  void save(String contentKey, int page, int pageCount, {int? panel}) {
+  void save(String contentKey, ReadingPosition at, int pageCount) {
     _pendingRow = ProgressCompanion.insert(
       contentKey: contentKey,
-      page: page,
-      panel: Value(panel),
-      percent: pageCount <= 1 ? 1 : page / (pageCount - 1),
-      finished: Value(page >= pageCount - 1),
+      page: at.page,
+      panel: Value(at.panel),
+      percent: pageCount <= 1 ? 1 : at.page / (pageCount - 1),
+      finished: Value(at.page >= pageCount - 1),
       updatedAt: DateTime.now(),
+      viewJson: Value(jsonEncode(at._viewJson())),
     );
     _timer?.cancel();
     _timer = Timer(debounce, flush);
