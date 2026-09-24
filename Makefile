@@ -7,9 +7,12 @@
 #   make uninstall        remove what make install put there
 #   make install-model MODEL=comicredr-panels.onnx
 #   make test             flutter analyze + all tests
+#   make analyze          flutter analyze only
+#   make icons            re-render the PNG icons from the SVG
+#   make clean            flutter clean
 #
 # PREFIX=/usr/local (with sudo) installs system-wide; DESTDIR stages a
-# package build. Run `make help` for the full list.
+# package build.
 
 APP_ID  := org.snonux.comicredr
 FLUTTER ?= flutter
@@ -34,7 +37,7 @@ MODELDIR ?= $(HOME)/.local/share/$(APP_ID)/models
 all: build
 
 help:
-	@sed -n '2,13p' Makefile | sed 's/^# \{0,1\}//'
+	@sed -n '2,16p' Makefile | sed 's/^# \{0,1\}//'
 
 deps:
 	$(FLUTTER) pub get
