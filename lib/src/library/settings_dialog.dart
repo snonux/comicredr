@@ -33,6 +33,7 @@ class SettingsDialog extends ConsumerStatefulWidget {
 
 class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   bool? _wholePage;
+  bool? _pauseWhole;
   bool? _cleanUp;
   bool? _sidecars;
   bool? _detectLibrary;
@@ -49,6 +50,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   Future<void> _load() async {
     final settings = ref.read(settingsStoreProvider);
     final whole = await settings.loadBool(SettingsStore.wholePageSteps);
+    final pause = await settings.loadBool(SettingsStore.pauseWhole);
     final cleanUp = await settings.loadBool(SettingsStore.cleanUp);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final detectLibrary = await settings.loadBool(SettingsStore.detectLibrary);
@@ -57,6 +59,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     if (!mounted) return;
     setState(() {
       _wholePage = whole ?? true;
+      _pauseWhole = pause ?? true;
       _cleanUp = cleanUp ?? false;
       _sidecars = sidecars ?? true;
       _detectLibrary = detectLibrary ?? detectLibraryByDefault;
@@ -211,6 +214,17 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       subtitle: const Text('w switches it while reading'),
                       value: _wholePage!,
                       onChanged: (v) => _set(SettingsStore.wholePageSteps, v),
+                    ),
+                    SwitchListTile(
+                      key: const Key('setting-pauseWhole'),
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Hold on a page without panels before turning'),
+                      subtitle: const Text(
+                        'The first step shows a short zoom cue and stays on the page; the next one turns. '
+                        'W switches it while reading.',
+                      ),
+                      value: _pauseWhole!,
+                      onChanged: (v) => _set(SettingsStore.pauseWhole, v),
                     ),
                     Text('Panel detector', style: theme.textTheme.bodyMedium),
                     Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),
