@@ -107,6 +107,27 @@ def contact_sheet(paths, out, cols=6, thumb_w=360):
     cv2.imwrite(str(out), np.vstack(rows), [cv2.IMWRITE_JPEG_QUALITY, 82])
 
 
+def by_style(results):
+    """Gate pass rate, mean panel count and mean time per style (first path component)."""
+    groups = {}
+    for r in results:
+        groups.setdefault(r["page"].split("__")[0] if "__" in r["page"] else "", []).append(r)
+    out = {}
+    for style, rows in sorted(groups.items()):
+        n = len(rows)
+        s = {"pages": n,
+             "cv_gate_pass": sum(r["cv"]["passed"] for r in rows),
+             "cv_mean_panels": round(sum(len(r["cv"]["panels"]) for r in rows) / n, 1),
+             "cv_mean_ms": round(sum(r["cv"]["ms"] for r in rows) / n)}
+        if all("yolo" in r for r in rows):
+            s["yolo_gate_pass"] = sum(r["yolo"]["passed"] for r in rows)
+            s["yolo_mean_frames"] = round(sum(len(r["yolo"]["detections"].get("frame", [])) for r in rows) / n, 1)
+            s["yolo_mean_balloons"] = round(sum(len(r["yolo"]["detections"].get("balloon", [])) for r in rows) / n, 1)
+            s["yolo_mean_ms"] = round(sum(r["yolo"]["ms"] for r in rows) / n)
+        out[style or "."] = s
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pages")
@@ -191,9 +212,14 @@ def main():
                           "f1": round(2 * prec * rec / max(prec + rec, 1e-9), 3), "order_ok": ok}
     passed = sum(r["cv"]["passed"] for r in results)
     summary["cv_gate_pass"] = f"{passed}/{len(results)}"
+    summary["by_style"] = by_style(results)
     (out / "results.json").write_text(json.dumps({"summary": summary, "pages": results}, indent=1))
     if overlays:
         contact_sheet(overlays, out / "contact.jpg")
+        # One sheet per style, classic CV and pretrained side by side for each page.
+        for style in {o.name.split("__")[0] for o in overlays if "__" in o.name}:
+            contact_sheet([o for o in overlays if o.name.startswith(style + "__")],
+                          out / f"contact-{style}.jpg", cols=4 if model else 6)
     print(json.dumps(summary, indent=1))
 
 

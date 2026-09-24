@@ -108,4 +108,7 @@ cd spike && python3 run_spike.py pages out --weights ../test/corpus/models/<mode
 
 `out/contact.jpg` shows every overlay: green boxes passed the confidence
 gate, red ones fell back to plain paging, blue are the pretrained detector's
-frames, magenta its balloons.
+frames, magenta its balloons. Pages are sampled into one folder per style
+(from the manifest's `style` field), `out/contact-<style>.jpg` puts classic
+CV and the pretrained model side by side for each style, and `results.json`
+carries a per-style summary.
