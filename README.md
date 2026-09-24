@@ -38,6 +38,8 @@ Potion Contest*, by David Revoy, licensed
   small detector that runs on your own CPU.
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins.
+- **See before you jump**: `p` opens a grid of page thumbnails, and
+  dragging along the progress bar previews the page under your finger.
 - **A library** of your comics folders: covers, series, search,
   collections, a folder view, bookmarks and a reading history.
 - **Picks up where you left off**, on the same page, panel and zoom, even
@@ -152,7 +154,9 @@ starts one from [docs/keys.toml](docs/keys.toml), which lists every action.
 ### Touch
 
 Tap or swipe at the left and right edges to turn, pinch or double-tap to
-zoom, drag to pan, and tap the middle to hide the status line. Android's
+zoom, drag to pan, and tap the middle to hide the status line. Drag along
+the progress bar to scrub through the book, or tap the grid button for
+every page at once. Android's
 back gesture leaves guided view, then the book.
 
 ### The CBR files you already have

@@ -17,6 +17,8 @@ import 'library/providers.dart';
 import 'providers.dart';
 import 'reader/guided.dart';
 import 'reader/layout.dart';
+import 'reader/page_grid.dart';
+import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
 import 'reader/reset_dialog.dart';
@@ -62,11 +64,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _view = GlobalKey<ReaderViewState>();
   final _library = GlobalKey<LibraryScreenState>();
   final _overlay = GlobalKey<KeymapOverlayState>();
+  final _grid = GlobalKey<PageGridState>();
   final _keys = FocusNode(debugLabel: 'keys');
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _watch;
   String _pending = '';
   bool _showKeymap = false;
+
+  /// The page grid (`p`) is open over the reader.
+  bool _showPages = false;
   bool _picking = false;
 
   @override
@@ -318,6 +324,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!(_overlay.currentState?.back() ?? false)) setState(() => _showKeymap = false);
       return;
     }
+    if (c.intent == ReaderIntent.pageGrid && ref.read(readerProvider).book != null) {
+      _setShowPages(!_showPages);
+      return;
+    }
+    if (_showPages) {
+      _grid.currentState?.handle(c);
+      return;
+    }
     if (c.intent == ReaderIntent.openFile) {
       unawaited(_pickFile());
       return;
@@ -350,9 +364,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     unawaited(ref.read(readerProvider.notifier).handle(c));
   }
 
+  void _setShowPages(bool on) {
+    setState(() => _showPages = on);
+    _keys.requestFocus();
+  }
+
+  /// A page picked in the grid or on the progress bar.
+  void _jumpTo(int page) {
+    ref.read(readerProvider.notifier).jumpTo(page);
+    if (_showPages) _setShowPages(false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(readerProvider);
+    ref.listen(readerProvider.select((s) => s.book), (was, book) {
+      if (!identical(was, book) && _showPages) setState(() => _showPages = false);
+    });
     ref.listen(readerProvider.select((s) => s.fullscreen), (_, full) {
       SystemChrome.setEnabledSystemUIMode(full ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge);
     });
@@ -410,12 +438,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: ReaderView(key: _view),
                               ),
                             ),
-                            Positioned(left: 0, right: 0, bottom: 0, child: _ProgressBar(state: s)),
+                            Positioned.fill(child: PageScrubber(onPick: _jumpTo)),
+                            if (_showPages)
+                              Positioned.fill(
+                                child: PageGrid(key: _grid, onPick: _jumpTo, onClose: () => _setShowPages(false)),
+                              ),
                           ],
                         ),
                       ),
                       if (!s.fullscreen || s.message != null || _pending.isNotEmpty)
-                        _StatusLine(state: s, pending: _pending, onCommand: _onCommand),
+                        _StatusLine(state: s, pending: _pending, gridOpen: _showPages, onCommand: _onCommand),
                     ],
                   ),
                 if (_showKeymap)
@@ -435,32 +467,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-/// How far through the book you are, as a thin bar along the bottom of the
-/// page. It stays when fullscreen hides the status line. In guided view it
-/// also moves panel by panel within the page.
-class _ProgressBar extends StatelessWidget {
-  const _ProgressBar({required this.state});
-
-  final ReaderState state;
-
-  @override
-  Widget build(BuildContext context) {
-    final n = state.pageCount;
-    final stops = state.guided ? state.stopsOn(state.page).length : 0;
-    final within = stops == 0 || state.panel >= pageEnd ? 1.0 : (state.panelIndex + 1) / stops;
-    final read = state.guided ? state.page + within : state.unit.last + 1.0;
-    return LinearProgressIndicator(
-      key: const Key('progress'),
-      value: n == 0 ? 0 : (read / n).clamp(0.0, 1.0),
-      minHeight: 3,
-      backgroundColor: Colors.white12,
-      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
-    );
-  }
-}
-
 class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.state, required this.pending, required this.onCommand});
+  const _StatusLine({required this.state, required this.pending, required this.onCommand, this.gridOpen = false});
 
   /// Where guided view is on the page, or why it shows the whole page.
   static String _guided(ReaderState s) {
@@ -484,6 +492,9 @@ class _StatusLine extends StatelessWidget {
 
   final ReaderState state;
   final String pending;
+
+  /// Whether the page grid is open.
+  final bool gridOpen;
 
   /// For the buttons: a phone without a keyboard has no other way into
   /// guided view, balloons or bookmarks.
@@ -566,6 +577,7 @@ class _StatusLine extends StatelessWidget {
                   ReaderIntent.toggleGuided,
                   on: state.guided,
                 ),
+                _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
                 _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
               ],
             ],

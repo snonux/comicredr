@@ -7,6 +7,14 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Page thumbnails:** `p` (or the grid button on the status line) opens
+  a grid of the book's pages, the current one outlined and bookmarked or
+  marked pages flagged; arrows, `hjkl`, `G` with a count, a click or a tap
+  pick a page, and `''` goes back. Dragging along the progress bar, or
+  hovering over it with the mouse, shows a small picture of the page under
+  the pointer before you let go. Thumbnails are made only for the pages
+  shown, off the UI thread, and kept on disk beside the covers.
+
 - **Wide scanned margins:** guided view no longer shows a page whole just
   because it was scanned with a wide blank margin. The trained detector
   looks at such a page with the margin cut off, whether or not `t` is on;

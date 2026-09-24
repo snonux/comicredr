@@ -452,6 +452,9 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
           children: [
             for (final (k, p) in ordered.indexed)
               Semantics(
+                // Its own node, so the page's label is not merged into the
+                // status line's.
+                container: true,
                 image: true,
                 label: k < numbers.length ? 'Page ${numbers[k] + 1} of ${s.pageCount}' : null,
                 child: CustomPaint(
