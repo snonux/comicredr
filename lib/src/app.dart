@@ -111,6 +111,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (e) {
       debugPrint('Could not add a library folder: $e');
     }
+    // Listens for the scan's end, so it is there before the first scan.
+    ref.read(libraryDetectionProvider);
     await _rescan();
   }
 
