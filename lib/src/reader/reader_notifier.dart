@@ -18,6 +18,7 @@ import 'layout.dart';
 import 'model_detector.dart';
 import 'open_book.dart';
 import 'panel_detector.dart';
+import 'reset_dialog.dart';
 
 /// Everything about the open book that page navigation changes. Zoom and pan
 /// are view concerns and live in the reader screen instead.
@@ -408,6 +409,34 @@ class ReaderNotifier extends Notifier<ReaderState> {
     unawaited(_sidecars.flush().catchError((Object e) => debugPrint('Sidecar write failed: $e')));
   }
 
+  /// Resets the open book (see [SidecarSync.reset]) and opens it again:
+  /// where it was, finding its panels anew, after [ResetScope.panels]; on
+  /// the first page, as if never opened, after [ResetScope.everything].
+  Future<void> reset(ResetScope scope) async {
+    final book = state.book;
+    if (book == null) return;
+    await close();
+    var ok = true;
+    try {
+      ok = await _sidecars.reset(book.key, everything: scope == ResetScope.everything);
+    } catch (e) {
+      debugPrint('Reset failed: $e');
+      state = state.copyWith(message: 'Could not reset ${book.title}: $e');
+      return;
+    }
+    await open(book.path);
+    if (state.book?.key != book.key) return; // It could not be opened again; open() said why.
+    _notice(
+      !ok
+          ? "Reset here, but the file beside the comic can't be changed, so the next open may bring it back"
+          : scope == ResetScope.everything
+          ? 'Started ${book.title} from scratch'
+          : state.guided
+          ? 'Finding the panels again'
+          : 'Panels forgotten; guided view (v) finds them again',
+    );
+  }
+
   /// Goes to [page], at [panel] or where guided view enters a page.
   void _goTo(int page, {int? panel, int balloon = -1, bool jump = false}) {
     final book = state.book!;
@@ -745,6 +774,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.showKeymap:
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
+      case ReaderIntent.resetBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:
         break; // Handled by the screen, or only mean something in the library.
