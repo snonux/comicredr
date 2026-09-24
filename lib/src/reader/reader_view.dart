@@ -331,6 +331,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with SingleTickerProvide
           transformationController: _transform,
           constrained: false,
           minScale: s.guided ? 0.5 : 1,
+          // In guided view a one-finger drag is a swipe to the next panel
+          // (ReaderTouch); letting it pan too would leave the drag's inertia
+          // fighting the camera's glide.
+          panEnabled: !s.guided,
           maxScale: 8,
           boundaryMargin: s.guided ? const EdgeInsets.all(double.infinity) : EdgeInsets.zero,
           child: SizedBox(

@@ -192,8 +192,7 @@ void main() {
     await tester.tapAt(Offset(r.right - 40, r.center.dy), kind: PointerDeviceKind.touch);
     await settle(tester);
     expect((s().page, s().panelIndex), (0, 1));
-    // The camera is zoomed on the panel, so the drag moves it too; a swipe
-    // still steps, and the camera glides on to the next panel.
+    // The camera is zoomed on the panel, but a swipe steps rather than pans.
     await swipe(-300);
     expect((s().page, s().panelIndex), (0, 2));
     await swipe(300);

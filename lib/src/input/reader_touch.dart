@@ -13,9 +13,8 @@ import 'package:reader_input/reader_input.dart';
 /// - Tap the left or right edge: previous or next step (a panel in guided
 ///   view, a page otherwise), like `←` and `→`.
 /// - Swipe left or right: next or previous step, unless the swipe panned a
-///   zoomed page instead. In guided view a swipe always steps: the camera
-///   is always zoomed there, and it glides on to the next panel from
-///   wherever the finger left it.
+///   zoomed page instead. In guided view, where one finger doesn't pan, a
+///   swipe always steps.
 /// - Tap the middle: status line on or off. Double-tap the middle: zoom in
 ///   on that spot, or back out when zoomed; in guided view, re-centre the
 ///   panel.

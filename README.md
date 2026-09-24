@@ -148,7 +148,7 @@ so clicking into the window is safe.
 The edges are the outer 30% of the screen on each side. A swipe on a
 zoomed page pans it instead of turning; swipe again once it stops at the
 edge of the page to turn. In guided view a swipe always moves to the
-next or previous panel. Right to left books mirror taps and swipes just
+next or previous panel, and one finger does not pan there. Right to left books mirror taps and swipes just
 as they mirror the arrow keys. A touchpad pinch zooms too.
 
 ## Layout
