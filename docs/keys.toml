@@ -99,7 +99,7 @@ autoTrim = ["t"]
 nightFilter = ["i"]
 # Clean up old scans: paper, contrast, sharpness
 cleanUp = ["c"]
-# Fullscreen: only the comic, no title bar, border or status line; Esc leaves it too
+# Fullscreen: no title bar or border; in the reader only the comic. Esc at the top of the library leaves it too
 fullscreen = ["f", "F11"]
 # Bookmark this page, or this panel in guided view; again to take the bookmark off
 bookmark = ["mm"]
@@ -137,14 +137,22 @@ activate = ["Enter"]
 addRoot = ["A"]
 # Rescan the library folders
 rescan = ["R"]
+# Shuffle in the library's Folders tab: each comic shows a random page instead of its cover, on and off
+toggleShuffle = ["S"]
+# Pick other random pages for shuffle in the Folders tab
+reshuffle = ["gs"]
 # Reset this comic: find its panels again, or forget its bookmarks and position too
 resetBook = ["X"]
+# Delete this comic and its sidecar, after asking; the selected book in the library
+deleteBook = ["gd", "S-Delete"]
 # Edit the selected book's title, series, issue and creators in the library; on a series, rename it
 editBook = ["e"]
 # Show the keymap
 showKeymap = ["?"]
 # Show the touch zones for a moment
 showTouchZones = ["gt"]
+# The time, large, for two seconds, then it fades
+showTime = ["T"]
 
 [touch]
 # Touch gestures, on top of the preset picked in Settings (Standard,
@@ -168,7 +176,11 @@ showTouchZones = ["gt"]
 #   "", "zoomToggle", "",
 # ]
 #
-# longPress = ""
+# longPress = [
+#   "", "", "",
+#   "", "showTime", "",
+#   "", "", "",
+# ]
 #
 # swipeLeft = "nextStep"
 #

@@ -983,6 +983,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   void _notice(String message) => state = state.copyWith(message: message);
 
+  /// Takes up the fullscreen saved last time, at launch.
+  Future<void> loadFullscreen() async {
+    final on = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen));
+    if (on != null && on != state.fullscreen) state = state.copyWith(fullscreen: on);
+  }
+
   /// Fullscreen on or off, remembered for the next book and launch. The
   /// window follows it (HomeScreen); the window manager leaving fullscreen
   /// by itself comes back here too.
@@ -1183,11 +1189,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
         back == null ? _notice('No jump to go back from') : _goTo(back.page, panel: back.panel, jump: true);
       case ReaderIntent.back:
         // Esc goes back to the whole page from a part of it, then leaves
-        // fullscreen, as everywhere else, then guided view, then the book.
+        // guided view before it means anything else. Fullscreen stays: the
+        // library is fullscreen too, and Esc at its top leaves it.
         if (state.region != null) {
           state = state.copyWith(clearRegion: true, message: 'Whole page');
-        } else if (state.fullscreen) {
-          setFullscreen(false);
         } else {
           state.guided ? _setGuided(false) : await close();
         }
@@ -1228,12 +1233,16 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.zoomReset:
       case ReaderIntent.zoomToggle:
       case ReaderIntent.showTouchZones:
+      case ReaderIntent.showTime:
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:
       case ReaderIntent.showKeymap:
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
+      case ReaderIntent.toggleShuffle:
+      case ReaderIntent.reshuffle:
       case ReaderIntent.resetBook:
+      case ReaderIntent.deleteBook:
       case ReaderIntent.editBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:

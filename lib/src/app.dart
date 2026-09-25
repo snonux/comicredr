@@ -16,6 +16,7 @@ import 'input/reader_touch.dart';
 import 'input/touch_providers.dart';
 import 'input/touch_zones.dart';
 import 'library/default_folder.dart';
+import 'library/delete_book.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'library/scanner.dart';
@@ -24,6 +25,7 @@ import 'reader/comic_details.dart';
 import 'reader/guided.dart';
 import 'reader/layout.dart';
 import 'reader/bookmark_list.dart';
+import 'reader/clock_flash.dart';
 import 'reader/open_book.dart';
 import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
@@ -112,6 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// The touch zones drawn over the reader for a moment.
   bool _showZones = false;
+  final _clock = GlobalKey<ClockFlashState>();
   Timer? _zonesTimer;
 
   @override
@@ -200,6 +203,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _start() async {
+    unawaited(ref.read(readerProvider.notifier).loadFullscreen());
     final warnings = ref.read(keymapLoadProvider).load.warnings;
     if (warnings.isNotEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -426,6 +430,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (scope != null) await ref.read(readerProvider.notifier).reset(scope);
   }
 
+  /// `gd` or Shift+Delete in the reader: asks, then deletes the open comic
+  /// and goes back to the library with the cover next to it selected. When
+  /// the delete fails the comic opens again where it was.
+  Future<void> _delete(OpenBook book) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final reader = ref.read(readerProvider.notifier);
+    final facts = await deleteFacts(
+      book.title,
+      book.path,
+      folder: book.folder,
+      pages: ref.read(readerProvider).pageCount,
+    );
+    if (!mounted) return;
+    final go = await askDelete(context, facts);
+    _keys.requestFocus();
+    if (!go) return;
+    _library.currentState?.selectNeighbourOf(book.key);
+    await reader.close();
+    try {
+      final stuck = await deleteComic(
+        path: book.path,
+        contentKey: book.key,
+        folder: book.folder,
+        sidecars: ref.read(sidecarSyncProvider),
+        store: ref.read(libraryStoreProvider),
+        coverDir: ref.read(coverDirProvider),
+      );
+      messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.title, stuck))));
+    } on FileSystemException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not delete ${book.title}: ${e.message}')));
+      await reader.open(book.path);
+    }
+  }
+
   /// Another device read further in the book just opened: ask, don't jump.
   Future<void> _offer(PositionOffer offer) async {
     final at = offer.at;
@@ -509,6 +547,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onCommand(ReaderCommand c) {
+    // The time, anywhere: the library, the reader, fullscreen.
+    if (c.intent == ReaderIntent.showTime) {
+      _clock.currentState?.flash();
+      return;
+    }
     if (c.intent == ReaderIntent.showTouchZones) {
       if (ref.read(readerProvider).book == null) {
         _library.currentState?.handle(c);
@@ -580,8 +623,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       return;
     }
+    if (c.intent == ReaderIntent.deleteBook) {
+      if (ref.read(readerProvider).book case final book?) {
+        unawaited(_delete(book));
+      } else {
+        _library.currentState?.handle(c);
+      }
+      return;
+    }
     if (ref.read(readerProvider).book == null) {
-      _library.currentState?.handle(c);
+      final reader = ref.read(readerProvider.notifier);
+      if (c.intent == ReaderIntent.fullscreen) {
+        reader.setFullscreen(!ref.read(readerProvider).fullscreen);
+        return;
+      }
+      final handled = _library.currentState?.handle(c) ?? false;
+      // Esc with nothing left to back out of in the library leaves
+      // fullscreen.
+      if (c.intent == ReaderIntent.back && !handled) reader.setFullscreen(false);
       return;
     }
     if (_view.currentState?.handle(c) ?? false) return;
@@ -669,6 +728,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 if (s.book != null) s.fullscreen ? _fullscreenReader(s) : _windowedReader(s),
+                Positioned.fill(child: ClockFlash(key: _clock)),
                 if (_showKeymap)
                   KeymapOverlay(
                     key: _overlay,
@@ -949,7 +1009,7 @@ class _StatusLine extends StatelessWidget {
                 _button(
                   'fullscreenButton',
                   state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                  state.fullscreen ? 'Leave fullscreen (f, Esc)' : 'Fullscreen (f)',
+                  state.fullscreen ? 'Leave fullscreen (f)' : 'Fullscreen (f)',
                   ReaderIntent.fullscreen,
                 ),
               ],
