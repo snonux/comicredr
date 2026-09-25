@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import '../data/app_database.dart';
 import '../data/meta_edits.dart';
+import '../data/panel_store.dart' show newId;
 
 /// One book as the library shows it: what it is, where it is, and how far
 /// through it you are.
@@ -56,6 +57,9 @@ class LibraryBook {
 
   /// The hand-made collections the book is in, by name.
   final List<String> collections;
+
+  /// In the [favouritesCollection].
+  bool get favourite => collections.contains(favouritesCollection);
 
   /// The facts edited by hand, each with what the file itself says (null
   /// where it says nothing). The edited values are the ones above.
@@ -143,6 +147,11 @@ class LibrarySeries {
 String _name(List<LibraryBook> books) =>
     books.where((b) => b.fromFile.containsKey(MetaField.series)).firstOrNull?.series ?? books.first.series;
 
+/// The collection `*` and the star put a book in: an ordinary collection,
+/// shown with the others. Renamed or emptied, the next favourite makes it
+/// again.
+const favouritesCollection = 'Favourites';
+
 /// The hand-made collections among [books], as groups the library shows
 /// like series: collections in name order, books in series order. Ids are
 /// negative, so they never meet a series id.
@@ -217,15 +226,58 @@ class RootInfo {
   final int books;
 }
 
-/// A bookmark or a vi mark, for the book's detail page.
+/// A bookmark or a vi mark, for the reader's bookmark list, the book's
+/// detail page and the library's Bookmarks tab.
 class BookmarkInfo {
-  const BookmarkInfo({required this.id, required this.page, this.panel, this.mark, required this.createdAt});
+  const BookmarkInfo({
+    required this.id,
+    this.contentKey = '',
+    required this.page,
+    this.panel,
+    this.mark,
+    this.note,
+    required this.createdAt,
+  });
+
+  factory BookmarkInfo.of(Bookmark r) => BookmarkInfo(
+    id: r.id,
+    contentKey: r.contentKey,
+    page: r.page,
+    panel: r.panel,
+    mark: r.mark,
+    note: r.note,
+    createdAt: r.createdAt,
+  );
 
   final String id;
+  final String contentKey;
   final int page;
+
+  /// The panel in reading order; null for the page as a whole.
   final int? panel;
+
+  /// The vi register a–z, null for a bookmark.
   final String? mark;
+
+  /// A short note of the reader's own, null when there is none.
+  final String? note;
   final DateTime createdAt;
+
+  /// Reading order in the book: by page, a whole-page bookmark first.
+  static int order(BookmarkInfo a, BookmarkInfo b) =>
+      a.page != b.page ? a.page.compareTo(b.page) : (a.panel ?? -1).compareTo(b.panel ?? -1);
+
+  @override
+  bool operator ==(Object other) =>
+      other is BookmarkInfo &&
+      other.id == id &&
+      other.page == page &&
+      other.panel == panel &&
+      other.mark == mark &&
+      other.note == note;
+
+  @override
+  int get hashCode => Object.hash(id, page, panel, mark, note);
 }
 
 /// The library's side of the app index: roots, books, series, and the
@@ -286,6 +338,41 @@ class LibraryStore {
     if (list.isEmpty) return;
     await (db.delete(db.files)..where((f) => f.rootId.equals(rootId) & f.relPath.isIn(list))).go();
   }
+
+  /// The book at [path] was deleted from disk: forgets that file, and when
+  /// no other copy of [contentKey] is left, everything kept about the book
+  /// (position, bookmarks, panels, edits, collections, reading history).
+  /// True when that was the last copy.
+  Future<bool> forgetDeleted(String path, String contentKey) => db.transaction(() async {
+    final rows = await db
+        .customSelect(
+          'SELECT f.root_id, f.rel_path, r.path AS root FROM files f JOIN roots r ON r.id = f.root_id '
+          'WHERE f.content_key = ?',
+          variables: [Variable(contentKey)],
+        )
+        .get();
+    var left = 0;
+    for (final r in rows) {
+      final rel = r.read<String>('rel_path');
+      final at = rel.isEmpty ? r.read<String>('root') : p.join(r.read<String>('root'), rel);
+      if (p.equals(at, path)) {
+        await forgetFiles(r.read<int>('root_id'), [rel]);
+      } else {
+        left++;
+      }
+    }
+    if (left > 0) return false;
+    final key = contentKey;
+    await (db.delete(db.analysedPages)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.panels)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.bookmarks)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.progress)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.readLog)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.overrides)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.collectionBooks)..where((r) => r.contentKey.equals(key))).go();
+    await removeOrphans();
+    return true;
+  });
 
   /// Books no file points at any more.
   Future<void> removeOrphans() =>
@@ -424,6 +511,7 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
 
     // A series cannot be blank: clearing it shows the file's again.
     final series = get(MetaField.series) ?? file[MetaField.series]!;
+    final collections = r.readNullable<String>('collections')?.split('\x1f') ?? const <String>[];
     return LibraryBook(
       key: r.read<String>('content_key'),
       series: series,
@@ -444,7 +532,7 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       percent: r.readNullable<double>('p_percent'),
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,
       readAt: time('p_updated'),
-      collections: (r.readNullable<String>('collections')?.split('\x1f') ?? <String>[])..sort(naturalCompare),
+      collections: [...collections]..sort(naturalCompare),
     );
   }
 
@@ -461,26 +549,41 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
     return (path: i >= 0 && i < series.length ? series[i].path : null);
   }
 
-  Stream<List<BookmarkInfo>> watchBookmarks(String contentKey) => _live(
-    {db.bookmarks},
-    () =>
-        (db.select(db.bookmarks)
-              ..where((b) => b.contentKey.equals(contentKey) & b.deletedAt.isNull())
-              ..orderBy([(b) => OrderingTerm(expression: b.page), (b) => OrderingTerm(expression: b.panel)]))
-            .get()
-            .then(
-              (rows) => [
-                for (final r in rows)
-                  BookmarkInfo(id: r.id, page: r.page, panel: r.panel, mark: r.mark, createdAt: r.createdAt),
-              ],
-            ),
-  );
+  Stream<List<BookmarkInfo>> watchBookmarks(String contentKey) =>
+      _live({db.bookmarks}, () => _bookmarks((b) => b.contentKey.equals(contentKey)));
+
+  /// Every book's bookmarks and marks, for the library's Bookmarks tab.
+  Stream<List<BookmarkInfo>> watchAllBookmarks() => _live({db.bookmarks}, () => _bookmarks(null));
+
+  Future<List<BookmarkInfo>> _bookmarks(Expression<bool> Function($BookmarksTable)? where) async {
+    final rows = await (db.select(
+      db.bookmarks,
+    )..where((b) => b.deletedAt.isNull() & (where?.call(b) ?? const Constant(true)))).get();
+    return [for (final r in rows) BookmarkInfo.of(r)]..sort(BookmarkInfo.order);
+  }
 
   /// Removes a bookmark. The row stays with a removal time, so the sidecar
   /// can tell other copies it is gone.
-  Future<void> deleteBookmark(String id) => (db.update(
+  Future<void> deleteBookmark(String id) => deleteBookmarks([id]);
+
+  Future<void> deleteBookmarks(Iterable<String> ids) => (db.update(
     db.bookmarks,
-  )..where((b) => b.id.equals(id))).write(BookmarksCompanion(deletedAt: Value(DateTime.now())));
+  )..where((b) => b.id.isIn(ids) & b.deletedAt.isNull())).write(BookmarksCompanion(deletedAt: Value(DateTime.now())));
+
+  /// Gives bookmark [id] the note [note]; empty takes the note off. The
+  /// bookmark is replaced by a new one with the same place and time, and
+  /// the old one removed, so the sidecar merge, a union by id where a
+  /// removal wins, carries the change to every copy with no edit times.
+  /// Returns the new id.
+  Future<String?> setNote(String id, String note) => db.transaction(() async {
+    final old = await (db.select(db.bookmarks)..where((b) => b.id.equals(id))).getSingleOrNull();
+    if (old == null || old.deletedAt != null) return null;
+    final text = note.trim();
+    final fresh = old.copyWith(id: newId(), note: Value(text.isEmpty ? null : text));
+    await deleteBookmark(id);
+    await db.into(db.bookmarks).insert(fresh);
+    return fresh.id;
+  });
 
   /// Puts the book [contentKey] in the collection [name], making the
   /// collection if it is new.
@@ -501,6 +604,20 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       (db.update(db.collectionBooks)..where((c) => c.contentKey.equals(contentKey) & c.name.equals(name))).write(
         CollectionBooksCompanion(removedAt: Value(DateTime.now())),
       );
+
+  /// Whether the book [contentKey] is a favourite.
+  Future<bool> isFavourite(String contentKey) async =>
+      await (db.select(
+            db.collectionBooks,
+          )..where((c) => c.contentKey.equals(contentKey) & c.name.equals(favouritesCollection) & c.removedAt.isNull()))
+          .getSingleOrNull() !=
+      null;
+
+  /// Makes the book [contentKey] a favourite, or takes it out of the
+  /// favourites. Favourites is a collection, so it travels in the sidecar
+  /// the same way: the later of adding and taking out wins.
+  Future<void> setFavourite(String contentKey, bool on) =>
+      on ? addToCollection(contentKey, favouritesCollection) : removeFromCollection(contentKey, favouritesCollection);
 
   /// Sittings with books, newest first, for the History tab.
   Stream<List<HistoryEntry>> watchHistory({int limit = 300}) => _live(

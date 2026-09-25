@@ -73,7 +73,8 @@ differ() { # pixels that differ between two shots' page areas
   compare -metric AE "$out/crop_$1.png" "$out/crop_$2.png" /dev/null 2>&1 || true
 }
 # Panels detected on page 1, as the sidecar beside the image has them.
-panels() { [[ -f "$1.crdb" ]] && q "$1.crdb" 'select count(*) from panels where page = 0' 2>/dev/null || echo none; }
+side() { echo "$(dirname "$1")/.$(basename "$1").crdb"; }
+panels() { [[ -f "$(side "$1")" ]] && q "$(side "$1")" 'select count(*) from panels where page = 0' 2>/dev/null || echo none; }
 wait_for() { for _ in $(seq 1 60); do "$@" && return 0; sleep 0.5; done; return 1; }
 
 # 1. The library: three one-pagers, the CBZ and the folder book.
@@ -101,7 +102,7 @@ for img in "Pepper Carrot 6 page 1.jpg" "Pepper Carrot 6 page 3.png" "Pepper Car
   key l; sleep 1; shot "12_${tag}_panel_2"
   stop
   check "$img: guided view moved the camera" "$( (( $(differ "10_${tag}_page" "12_${tag}_panel_2") > 10000 )) && echo yes || echo no)" yes
-  wait_for test -f "$comics/$img.crdb" || true
+  wait_for test -f "$(side "$comics/$img")" || true
   check "$img: panels in its sidecar" "$( (( $(panels "$comics/$img") > 1 )) 2>/dev/null && echo yes || echo "$(panels "$comics/$img")")" yes
 done
 
@@ -117,7 +118,7 @@ start "$comics/Pages only/E06P05.jpg"; shot 30_folder_page_alone
 key l; sleep 1; shot 31_folder_page_next
 stop
 check "the next page key stays on a one-page comic" "$(differ 30_folder_page_alone 31_folder_page_next)" 0
-check "its sidecar beside the image" "$(ls "$comics/Pages only/" | grep -c 'E06P05.jpg.crdb')" 1
+check "its sidecar beside the image" "$(ls -A "$comics/Pages only/" | grep -cx '.E06P05.jpg.crdb')" 1
 
 # 5. The launcher offers ComicRedr for images, but not as their default:
 # (a) the system names a default viewer, as Fedora's GNOME does; (b) it
@@ -126,6 +127,8 @@ check "its sidecar beside the image" "$(ls "$comics/Pages only/" | grep -c 'E06P
 mkdir -p "$out/sys/applications"
 printf '[Desktop Entry]\nType=Application\nName=Image Viewer\nExec=true %%U\nMimeType=image/png;image/jpeg;image/webp;\n' \
   >"$out/sys/applications/org.gnome.Loupe.desktop"
+printf '[Desktop Entry]\nType=Application\nName=Files\nExec=true %%U\nMimeType=inode/directory;\n' \
+  >"$out/sys/applications/org.gnome.Nautilus.desktop"
 update-desktop-database -q "$out/sys/applications"
 env_of() { echo HOME="$1" XDG_CURRENT_DESKTOP=GNOME XDG_DATA_HOME="$1/.local/share" XDG_CONFIG_HOME="$1/.config" XDG_DATA_DIRS="$PWD/$out/sys"; }
 pick() { env $(env_of "$1") gio mime "$2" 2>/dev/null | sed -n 's/^Default application for .*: //p'; }
@@ -133,7 +136,7 @@ for case in a b; do
   home="$PWD/$out/install-home-$case"
   mkdir -p "$home/.local/share/applications" "$home/.config"
   if [[ $case == a ]]; then
-    printf '[Default Applications]\nimage/png=org.gnome.Loupe.desktop\nimage/jpeg=org.gnome.Loupe.desktop\nimage/webp=org.gnome.Loupe.desktop\n' \
+    printf '[Default Applications]\nimage/png=org.gnome.Loupe.desktop\nimage/jpeg=org.gnome.Loupe.desktop\nimage/webp=org.gnome.Loupe.desktop\ninode/directory=org.gnome.Nautilus.desktop\n' \
       >"$out/sys/applications/gnome-mimeapps.list"
   else
     rm -f "$out/sys/applications/gnome-mimeapps.list"
@@ -143,6 +146,9 @@ for case in a b; do
   check "$case: launcher validates" "$(desktop-file-validate "$desktop" && echo valid)" valid
   check "$case: launcher lists image types" "$(grep -o 'image/[a-z]*' "$desktop" | tr '\n' ' ')" "image/png image/jpeg image/webp "
   for t in image/png image/jpeg image/webp; do check "$case: default for $t" "$(pick "$home" "$t")" org.gnome.Loupe.desktop; done
+  check "$case: default for folders" "$(pick "$home" inode/directory)" org.gnome.Nautilus.desktop
+  check "$case: ComicRedr under Open With for folders" \
+    "$(env $(env_of "$home") gio mime inode/directory 2>/dev/null | grep -c 'org.snonux.comicredr.desktop')" 2
   check "$case: default for application/x-cbz" "$(pick "$home" application/x-cbz)" org.snonux.comicredr.desktop
   check "$case: ComicRedr under Open With for PNG" \
     "$(env $(env_of "$home") gio mime image/png 2>/dev/null | grep -c 'org.snonux.comicredr.desktop')" 2

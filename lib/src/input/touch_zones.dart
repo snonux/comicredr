@@ -26,6 +26,8 @@ String touchLabel(ReaderIntent intent, {bool rightToLeft = false}) {
       return 'Keys';
     case ReaderIntent.showTouchZones:
       return 'Zones';
+    case ReaderIntent.showTime:
+      return 'Time';
     case ReaderIntent.back:
       return 'Library';
     default:

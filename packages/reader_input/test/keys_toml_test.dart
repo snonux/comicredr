@@ -32,14 +32,14 @@ void main() {
       final load = keymapFromToml('''
 # my keys
 [keys]
-autoTrim = "T"
+autoTrim = "U"
 nextStep = [
   "Space",   # just the space bar
   "x",
 ]
 ''');
       expect(load.warnings, isEmpty);
-      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['T']);
+      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['U']);
       expect(keysFor(load.keymap, ReaderIntent.nextStep), ['Space', 'x']);
       expect(keysFor(load.keymap, ReaderIntent.prevStep), ['h', 'Left', 'S-Space']);
     });
@@ -61,11 +61,11 @@ nextStep = [
       final load = keymapFromToml('''
 [keys]
 nopeAction = "q"
-autoTrim = ["Pagedown", "T"]
+autoTrim = ["Pagedown", "U"]
 zoomIn = "5"
 setMark = "M"
 ''');
-      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['T']);
+      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['U']);
       expect(keysFor(load.keymap, ReaderIntent.zoomIn), isEmpty);
       expect(load.warnings, hasLength(4));
       expect(load.warnings.join('\n'), allOf(contains('nopeAction'), contains('Pagedown'), contains('digit')));
@@ -79,14 +79,21 @@ setMark = "M"
 
     test('warns when a short key hides a longer one', () {
       final load = keymapFromToml('[keys]\nautoTrim = "g"\n');
-      expect(load.warnings, [contains('hides gg'), contains('hides gt')]);
+      expect(load.warnings, [
+        contains('hides gg'),
+        contains('hides gw'),
+        contains('hides gf'),
+        contains('hides gs'),
+        contains('hides gd'),
+        contains('hides gt'),
+      ]);
     });
 
     test('mark keys need their letter slot', () {
-      final load = keymapFromToml('[keys]\nsetMark = "M<a-z>"\njumpMark = "`<a-z>"\n');
+      final load = keymapFromToml('[keys]\nsetMark = "Q<a-z>"\njumpMark = "`<a-z>"\n');
       expect(load.warnings, isEmpty);
       final r = KeySequenceResolver(load.keymap);
-      expect(r.feed('M', DateTime(2026)), isNull);
+      expect(r.feed('Q', DateTime(2026)), isNull);
       expect(r.feed('q', DateTime(2026)), const ReaderCommand(ReaderIntent.setMark, register: 'q'));
     });
   });

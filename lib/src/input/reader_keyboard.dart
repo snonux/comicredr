@@ -38,9 +38,27 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
   FocusNode get _focus => widget.focusNode ?? _own!;
 
   @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_focusChanged);
+  }
+
+  @override
   void dispose() {
+    FocusManager.instance.removeListener(_focusChanged);
     _own?.dispose();
     super.dispose();
+  }
+
+  /// Focus can fall back to a scope above us, where no key reaches [_onKey]:
+  /// clicking a folder open while the library search had the cursor did
+  /// that, and every key went dead. Take it back, so `/` and the rest work.
+  void _focusChanged() {
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary is! FocusScopeNode || !_focus.ancestors.contains(primary)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && FocusManager.instance.primaryFocus == primary) _focus.requestFocus();
+    });
   }
 
   @override
@@ -49,11 +67,28 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     if (old.keymap != widget.keymap) _resolver = KeySequenceResolver(widget.keymap);
   }
 
+  static final _functionKeys = {
+    LogicalKeyboardKey.f1,
+    LogicalKeyboardKey.f2,
+    LogicalKeyboardKey.f3,
+    LogicalKeyboardKey.f4,
+    LogicalKeyboardKey.f5,
+    LogicalKeyboardKey.f6,
+    LogicalKeyboardKey.f7,
+    LogicalKeyboardKey.f8,
+    LogicalKeyboardKey.f9,
+    LogicalKeyboardKey.f10,
+    LogicalKeyboardKey.f11,
+    LogicalKeyboardKey.f12,
+  };
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     // Typing into a text field (the library search) is not a command; Esc
-    // leaves the field and comes back to the keys.
-    if (FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null) {
+    // leaves the field and comes back to the keys. Function keys type
+    // nothing, so they still work there (F11 for fullscreen).
+    if (FocusManager.instance.primaryFocus?.context?.findAncestorWidgetOfExactType<EditableText>() != null &&
+        !_functionKeys.contains(event.logicalKey)) {
       if (event.logicalKey != LogicalKeyboardKey.escape) return KeyEventResult.ignored;
       _focus.requestFocus();
       return KeyEventResult.handled;

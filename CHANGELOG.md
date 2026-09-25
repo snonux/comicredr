@@ -7,6 +7,58 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Everything in ~/Comics:** on Linux, when `~/Comics` exists and the app
+  has no database in `~/.local/share` yet, it keeps its database, covers,
+  thumbnails, `keys.toml` and installed models in `~/Comics/.comicredr/`,
+  so all of it lives in one folder with the comics. Existing installs stay
+  where they are; Android is unchanged. `?` names the folder.
+
+- **The time at a glance (`T`, or a long press in the middle of the
+  page):** the current time, large and centred on a dim backing, for two
+  seconds, then it fades away; in the library, the reader and fullscreen.
+  It follows the system's 12 or 24 hour setting and takes no taps.
+
+- **Hidden sidecars:** a comic's sidecar is now `.book.cbz.crdb`, a
+  hidden file, beside the comic and in the one sidecar folder alike (a
+  folder book's `.comicredr.crdb` already was). A sidecar under the old
+  visible name is renamed the next time the comic is opened or scanned,
+  keeping its panels, bookmarks and positions; when both names exist the
+  two are merged.
+
+- **Zoom the page grid:** in the `p` grid, `+` and `-` (or Ctrl and the
+  scroll wheel, a pinch, or the header's buttons) go from many small
+  thumbnails to one page a row, keeping the selected page in view. Bigger
+  tiles get sharper thumbnails (512 or 1024 px, made when first needed),
+  and the size is remembered.
+
+- **Comic details (`I`, the info button on the status line, or Details
+  in the library):** the file (format as its bytes say, size, content key,
+  sidecar), the pages (pixel sizes, wide spreads, what they are stored as,
+  JPEG quality estimated from the quantisation tables, how sharp they are
+  on this screen; for a PDF its page size and the scanned images inside,
+  read from the file), metadata with hand edits marked, progress and time
+  read, and detection: the detector, pages analysed, panels, balloons and
+  captions found, why pages are shown whole, confidence and time, and
+  every page on its own line. A page picked in the list is gone to, and
+  Redo panels finds the comic's panels again. Only page headers are read.
+
+- **Getting the detector:** `make train-model` rebuilds the model from the
+  free training comics on the CPU, and `make fetch-model URL=...` downloads
+  your own copy; both check the file before the build packs it. The
+  README says why the model can't be in the repository.
+
+- **Bookmarks you can use:** `mm` (or the bookmark button) now takes a
+  bookmark off again when the page, or in guided view the panel, already
+  has one, instead of adding another. A ribbon at the top right of the
+  page and amber notches on the progress bar show where bookmarks are.
+  `M` (or the list button) lists the book's bookmarks and marks with a
+  picture of each page: Enter or a tap jumps, `e` writes a short note,
+  `x` or Delete removes one. `}` and `{` jump to the next and previous
+  bookmark. The library has a Bookmarks tab across every book (`M` there
+  too), searchable by note; a book's details show and edit the notes.
+  Notes travel in the sidecar: a note replaces the bookmark with a new
+  one and marks the old one removed, so the merge needs no edit times.
+
 - **One-page image comics:** a PNG, JPEG or WebP file opens as a comic of
   one page, from the command line, Open With or the open dialog, with
   guided view, balloons and its own sidecar. In the library, an image
@@ -14,6 +66,7 @@ the `?` overlay.
   images (and folders of them) is still one folder book. The Linux
   launcher lists the image types under Open With, and the install keeps
   the image viewer you had as the default.
+
 - **Page thumbnails:** `p` (or the grid button on the status line) opens
   a grid of the book's pages, the current one outlined and bookmarked or
   marked pages flagged; arrows, `hjkl`, `G` with a count, a click or a tap

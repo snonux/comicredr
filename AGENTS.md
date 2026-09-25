@@ -78,8 +78,33 @@ build internals, test scripts, detector work and conventions here.
   holds page images directly and no comic file anywhere under it
   (`isFolderBook`); otherwise each loose PNG/JPEG/WebP in it is its own
   book. GIF and BMP are only ever pages. The launcher lists the image types
-  for Open With; `linux/packaging/keep-viewer.sh` pins the previous default
-  viewer when installing into `~/.local` would otherwise take it over.
+  and `inode/directory` for Open With; `linux/packaging/keep-viewer.sh`
+  pins the previous default viewer and file manager when installing into
+  `~/.local` would otherwise take them over.
+- A folder given on the command line, by Open With, a drop or `O` opens as
+  a book when `findBooks` sees it as one folder book; otherwise, when
+  books are under it, the Folders tab opens at it (`HomeScreen._openPath`),
+  adding it as a library folder unless one already holds it. `--add-root`
+  only adds, so the e2e scripts start on the usual tab.
+- App data (`appDirs`, `lib/src/data/data_dirs.dart`): on Linux, when
+  `~/Comics` exists and there is no `comicredr.sqlite` in
+  `~/.local/share/org.snonux.comicredr` (or `$XDG_DATA_HOME`, or the old
+  executable-named folder), the index database, installed models,
+  `cache/` (covers, thumbnails) and `keys.toml` all go in
+  `~/Comics/.comicredr/`; otherwise the XDG folders as before. Decided at
+  every start from what is on disk, nothing migrated. `keys.toml` and
+  models in the XDG places are still read as a fallback, and the Makefile
+  (`APPDATA`, `MODELDIR`, `KEYS`) uses the same rule. The scanner skips
+  dot folders and the watcher ignores `.comicredr`. Android keeps its
+  private folders. `?` shows the folder (`appDataDirProvider`). A
+  `~/Comics` symlink to a folder counts (`.comicredr` lands in the real
+  folder, the library folder keeps the link's path); a dangling one doesn't.
+- Every start, while the library has no folder at all, `~/Comics`
+  (Android: `/storage/emulated/0/Comics`, once All files access is
+  granted, also checked on resume) is added if it exists
+  (`addDefaultFolder`, `lib/src/library/default_folder.dart`). It runs
+  after `--add-root`, so the e2e scripts are unaffected. Taking it out of
+  the library sets `library.defaultFolderRemoved` and it stays out.
 - The library's first scan reads each book once in the background (about a
   third of a second a book); later starts only compare sizes and dates. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
@@ -96,20 +121,31 @@ build internals, test scripts, detector work and conventions here.
   puts it there). `make` and `make apk` refuse to build without it unless
   `NO_MODEL=1`. `findModel` (lib/src/reader/model_detector.dart) looks, in
   order, at `COMICREDR_MODEL=/path/to/file.onnx` (`none` forces classic
-  CV), a user-installed model in `~/.local/share/org.snonux.comicredr/models/`
+  CV), a user-installed model in the app data folder's `models/` (`~/Comics/.comicredr/models/` or `~/.local/share/org.snonux.comicredr/models/`)
   (`make install-model`; on the phone also
   `Android/data/org.snonux.comicredr/files/models/`, `make push-model`),
   then the built-in one. On Linux the built-in file is opened in place in
   `bundle/data/flutter_assets/assets/models/`; on Android it is copied out
   of the APK into `<app support>/bundled-model/` once per model version.
-- Sidecars: `book.cbz.crdb` beside the file, `.comicredr.crdb` inside a
-  folder book. They hold metadata, panels and balloons, bookmarks, marks,
-  collections and per-device positions. Removed bookmarks stay removed
+- Sidecars: `.book.cbz.crdb` beside the file, `.comicredr.crdb` inside a
+  folder book; both hidden. One under the old visible name
+  (`book.cbz.crdb`) is renamed on open, scan, reset or move
+  (`adoptLegacySidecar`), merged into the hidden one when both exist.
+  They hold metadata, panels and balloons, bookmarks, marks, collections
+  and per-device positions. Removed bookmarks stay removed
   when an older sidecar comes back. Unwritable folders fall back to the
   app database; Settings → Export sidecars writes them to a tree elsewhere.
   `X` (or Reset in the book's details) resets a comic: `SidecarSync.reset`
   deletes its rows and rewrites every copy's sidecar without them, since a
   sidecar left alone would merge them straight back in.
+  Delete (`gd`, Shift+Delete, or the button in the book's details;
+  `lib/src/library/delete_book.dart`) asks first with Cancel focused,
+  closes the book, then `SidecarSync.forget` flushes and stops writing
+  its sidecar and returns every copy of it (`sidecarsOf`). The comic goes
+  first, for good and not to the trash (snonux's choice); if that fails nothing else changes. Then its sidecars,
+  and `LibraryStore.forgetDeleted` drops the file's row, and when no other
+  copy of the content key is left, every row about it plus its cover and
+  page thumbnails.
   Metadata edits (`e`, `lib/src/library/edit_dialog.dart`) are rows in
   `overrides`, field to a JSON `MetaEdit` with a time; the later edit per
   field wins a sidecar merge, and an undo is a row too, so it travels.
@@ -122,7 +158,24 @@ build internals, test scripts, detector work and conventions here.
   move them, merging into a sidecar already there. Anything that finds a
   book's sidecar goes through `SidecarSync.sidecarsOf`/`sidecarFor`.
   Inspect one with
-  `sqlite3 'book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
+  `sqlite3 '.book.cbz.crdb' 'select page, kind, x, y, w, h from panels'`.
+- Bookmarks and vi marks are rows in `bookmarks` (mark null for a
+  bookmark, panel null for a whole page). The reader follows the open
+  book's rows through `LibraryStore.watchBookmarks`, so the list (`M`,
+  `lib/src/reader/bookmark_list.dart`), the ribbon, the progress bar's
+  notches and `}` `{` see changes from anywhere. `mm` takes off whatever
+  `ReaderState.bookmarksHere` holds, else adds one. A note
+  (`LibraryStore.setNote`) replaces the row with a new id and removes the
+  old one, which the sidecar merge's "union by id, removal wins" carries
+  to every copy.
+- Favourites are the ordinary collection named `Favourites`
+  (`favouritesCollection` in `library_store.dart`), so they travel in the
+  sidecar under the collection rule. `*` (`toggleFavourite`) adds or takes
+  out the open book or the selected cover; `gf` (`showFavourites`), or the
+  header's star, opens that collection on the Collections tab
+  (`LibraryScreenState._favourites`), where `*`, `x` and the details' star
+  take a comic out with an Undo notice. Renamed or emptied, the next
+  favourite makes the collection again.
 - Touch: `ReaderTouch` looks every gesture up in a `TouchMap`
   (`reader_input` touch_map.dart): taps, double-taps and long presses on a
   3x3 grid (30% side columns, rows in thirds), four swipes and a
@@ -137,6 +190,27 @@ build internals, test scripts, detector work and conventions here.
   by Flutter's decoder, JPEG-encoded on a short isolate and kept in
   `<cache>/covers/pages/<content key>/<page>.jpg`. Newest request first,
   two at a time; tiles evict their images when they scroll away.
+- Shuffle (`S` on the Folders tab, `gs` picks again; setting
+  `library.shuffle`): each book tile shows page `shufflePage(key, pages,
+  seed)` instead of its cover, never page 1, from a seed made anew when
+  shuffle turns on, a folder is entered or `gs`, so scrolling keeps the
+  picks. `ShufflePages` (`lib/src/library/shuffle.dart`) makes them into
+  the page grid's thumbnail files (`<cache>/covers/pages/<key>/<n>.jpg`,
+  256 px) for tiles on screen only, newest first, two at a time; each opens
+  the book through `BackgroundDocument` and closes it straight after. The
+  cover shows until the page is ready. On a phone-wide header the
+  reshuffle button is left out; `gs` or `S` twice picks again.
+- The details view (`I`, `lib/src/reader/comic_details.dart`, gathered by
+  `readComicReport` in `comic_report.dart`) reads no pixels: each page's
+  format, size, bytes and JPEG quality come from `ComicDocument.pageFacts`
+  (the header, as `pageSizes` reads it; quality estimated from the
+  luminance quantisation table the way libjpeg scales it), through the
+  book's own worker, so a PDF stays on the PDFium isolate. A PDF's images
+  come from `pdfImages` (comic_formats), which scans the file's bytes for
+  image XObjects on a short isolate, no PDFium: about 50 ms for 10 MB.
+  Both are cached per content key for the session. Detection numbers are
+  `PanelStore.load` for this install's detector, judged by the same gate
+  guided view uses.
 - Scan clean-up (`c`): `findLevels` (comic_analysis `cleanup.dart`) reads
   the paper colour off the 240 px copy auto-trim also measures, and the
   page is drawn through that colour matrix, so it costs nothing to show.
@@ -148,6 +222,23 @@ build internals, test scripts, detector work and conventions here.
   Detection decodes its own copy, so it never sees the clean-up.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
+- A page guided view shows whole (no panels that pass the gate) holds
+  for one step: the first step onward stays and sets `ReaderState.held`,
+  the next one turns, however soon. Mirrored going back. The cue
+  (`guided.pauseCue`, `gw` cycles it) is the Scaffold background turning
+  `heldColour` (#3A0D16) in app.dart until the page is left, the default,
+  or ReaderView's zoom pulse (colour instead with reduced motion). The
+  status line explains the first three. A page arrived on from the other
+  side, a count (`3l`) and pages whose panels are not known yet are not
+  held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or Settings turns
+  it off (`guided.pauseWhole`).
+- Parts of a page (`H1` `H2`, `B1`-`B3`, `Q1`-`Q4`, `lib/src/reader/region.dart`):
+  `ReaderState.region` is the split, the part and the page of the unit it
+  is on. ReaderView frames it with guided view's camera and dim, in guided
+  view or out of it (`_aimCamera`). Steps go through the parts in reading
+  order, across a spread's other page, then to the whole page; in guided
+  view that whole page is held like a page without panels. Leaving the
+  page, a mode switch, Esc or the same keys end it.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -156,6 +247,26 @@ build internals, test scripts, detector work and conventions here.
   decode again at the new size a quarter second after the size settles.
   Android handles rotation in the running activity (`configChanges` in
   the manifest), so nothing restarts.
+- Fullscreen (`f`, F11, a status-line button, a tap in the middle):
+  `ReaderState.fullscreen`, in the library as in the reader, saved as
+  `reader.fullscreen` and loaded at launch and when a book opens. `HomeScreen._applyFullscreen` makes the window follow: on
+  Linux through the `org.snonux.comicredr/window` channel in
+  `linux/runner/my_application.cc` (`gtk_window_fullscreen`, which also
+  hides the GNOME header bar; a `window-state-event` reports the window
+  manager leaving fullscreen back as `fullscreenChanged`), on Android
+  immersive mode. In fullscreen the page keeps the whole screen; the
+  status line and progress bar come over it on a notice, while keys are
+  typed, or while the mouse is in the bottom 96 px, and the pointer hides
+  1.5 s after the mouse stops. The library keeps its tabs and search in
+  fullscreen. Esc keeps its meanings (guided view, the book, the search, a
+  folder up) and leaves fullscreen only when the library has nothing left
+  to back out of (`LibraryScreenState.handle` returns false).
+- The time (`T`, and a long press in the middle zone of every touch
+  preset): `ReaderIntent.showTime`, handled in `HomeScreen._onCommand`
+  before the library or reader see it, flashes `ClockFlash`
+  (`lib/src/reader/clock_flash.dart`) over everything for 2 s, then a
+  0.6 s fade (none with reduced motion). It sits in an `IgnorePointer`
+  and formats with `MediaQuery.alwaysUse24HourFormat`. No setting.
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
   settings page. The APK was tested on an Android 14 emulator only; a real
   phone, pinch zoom and real speed and memory are untested.
@@ -199,16 +310,31 @@ tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with ke
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
 tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3
-tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart
+tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart, grid zoom with + and Ctrl+wheel kept across a restart
 tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
 tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
+tool/e2e_hidden_sidecars.sh   # sidecars written hidden; a fresh install renames old visible ones and merges a pair, keeping bookmarks and position; makes its own books
 tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
 tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
 tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
+tool/e2e_open_folder.sh       # comicredr FOLDER: inside the library, outside it (added), a folder book and a CBZ still read; Backspace up
+tool/e2e_default_folder.sh    # ~/Comics as the default library folder, fresh HOMEs: with it, without it (empty library, Settings from there, made later), taken out and restarted, a folder of one's own; makes its own books
+tool/e2e_folders_live.sh      # Folders tab open while comics, sub-folders and the shown folder are added, moved and deleted
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
+tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
+tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
+COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
+tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
+tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
+tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
+tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
+tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
+tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 ```
 
 ## Detection spike (M1)
@@ -230,8 +356,17 @@ carries a per-style summary.
 
 ## Train the detector (M5)
 
-Everything runs on the CPU; a 40-epoch fine-tune takes about an hour and a
-half on 4 cores. The labels are committed in `spike/labels/` (how they were
+Everything runs on the CPU. `make train-model` (tool/train_model.sh) runs
+the steps that build the shipped model, from fetching the training comics
+and the ShadowB checkpoint to exporting the float ONNX, then validates the
+file and puts it in `assets/models/` through tool/fetch_model.sh, which
+`make fetch-model URL=...` also uses (URL or path; `HF_TOKEN` goes to
+huggingface.co only; the check loads the file with onnxruntime and wants a
+[1, 300, 6] output). Measured 2026-09-24 in a 4-core cloud container:
+3.5 minutes an epoch over the 305 training pages, 7 minutes for
+`EPOCHS=1` end to end with downloads cached; 733 MB of comics, 465 MB of
+pages, 45 MB base model. fetch_corpus.py `--skip-books` fetches only the
+checkpoint. The manual steps, including evaluation: The labels are committed in `spike/labels/` (how they were
 drawn: `spike/LABELLING.md`); the comics are fetched.
 
 ```sh

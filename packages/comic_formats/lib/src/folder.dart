@@ -5,6 +5,7 @@ import 'comic_info.dart';
 import 'document.dart';
 import 'image_size.dart';
 import 'natural_sort.dart';
+import 'page_facts.dart';
 
 /// A directory of page images read as one book (design plan section 3).
 ///
@@ -63,6 +64,24 @@ class FolderDocument implements ComicDocument {
   }
 
   @override
+  Future<List<PageFacts>> pageFacts() async => [for (var i = 0; i < _pages.length; i++) await _facts(i)];
+
+  Future<PageFacts> _facts(int index) async {
+    try {
+      final f = await File('$root/${_pages[index]}').open();
+      try {
+        final total = await f.length();
+        final facts = imageFacts(await f.read(headBytes), total: total);
+        return facts.width != null || total <= headBytes ? facts : imageFacts(await _read(index), total: total);
+      } finally {
+        await f.close();
+      }
+    } on FileSystemException {
+      return PageFacts.unknown;
+    }
+  }
+
+  @override
   Future<ComicMeta?> embeddedMetadata() async {
     final info = File('$root/ComicInfo.xml');
     if (!info.existsSync()) return null;
@@ -97,18 +116,44 @@ bool isComicFileName(String name) => !name.startsWith('.') && comicFileExtension
 bool isSingleImageName(String name) => !name.startsWith('.') && singleImageExtensions.contains(_ext(name));
 
 /// Whether [path] is a folder that reads as a book: one holding page images
-/// directly, not only in subfolders, and no comic file anywhere under it.
-/// A folder of CBZ files or of chapter folders is not itself a book, and
-/// neither is one where a loose image sits beside a CBZ: that image is a
-/// one-page comic of its own.
+/// directly, not only in subfolders, and no other books under it (see
+/// [holdsOtherBooks]). A folder of CBZ files or of image folders is not
+/// itself a book, and neither is one where a loose image sits beside a CBZ,
+/// or a cover.jpg beside image-folder comics: that image is a one-page
+/// comic of its own.
 bool isFolderBook(String path) {
   final dir = Directory(path);
   if (!dir.existsSync()) return false;
   try {
     final entries = dir.listSync(followLinks: false);
-    return entries.any((e) => e is File && isPageEntry(e.path.split('/').last)) && !holdsComicFiles(entries);
+    return entries.any((e) => e is File && isPageEntry(e.path.split('/').last)) && !holdsOtherBooks(entries);
   } on FileSystemException {
     return false;
+  }
+}
+
+/// Whether [entries], the contents of a folder, hold books besides the
+/// folder's own loose images: a comic file anywhere under it, or more
+/// subfolders of page images than it has loose images. So a folder of
+/// pages with an extras folder is one book, while a folder.jpg or cover.jpg
+/// beside two or more image-folder comics is not what makes it one.
+bool holdsOtherBooks(List<FileSystemEntity> entries) {
+  if (holdsComicFiles(entries)) return true;
+  final images = entries.where((e) => e is File && isPageEntry(e.path.split('/').last)).length;
+  final folders = entries
+      .where((e) => e is Directory && !e.path.split('/').last.startsWith('.') && _holdsPages(e))
+      .length;
+  return folders > images;
+}
+
+/// Whether [dir], or any folder under it, holds page images directly.
+bool _holdsPages(Directory dir) {
+  try {
+    final inner = dir.listSync(followLinks: false);
+    if (inner.any((f) => f is File && isPageEntry(f.path.split('/').last))) return true;
+    return inner.any((e) => e is Directory && !e.path.split('/').last.startsWith('.') && _holdsPages(e));
+  } on FileSystemException {
+    return false; // Unreadable: nothing in it the library could list either.
   }
 }
 

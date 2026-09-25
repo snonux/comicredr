@@ -168,8 +168,9 @@ String keymapToToml(Keymap keymap) {
     byIntent.putIfAbsent(b.intent, () => []).add(b);
   }
   final out = StringBuffer()
-    ..writeln('# ComicRedr keys. Copy this file to ~/.config/comicredr/keys.toml')
-    ..writeln('# (on the phone: Android/data/org.snonux.comicredr/files/keys.toml)')
+    ..writeln('# ComicRedr keys. Copy this file to ~/.config/comicredr/keys.toml,')
+    ..writeln('# or ~/Comics/.comicredr/keys.toml when ComicRedr keeps its data there')
+    ..writeln('# (? says where; on the phone: Android/data/org.snonux.comicredr/files/keys.toml)')
     ..writeln('# and keep only the lines you change: an action listed here replaces')
     ..writeln('# all of its default keys, [] unbinds it, and actions left out keep')
     ..writeln('# their defaults. Restart ComicRedr to load it; ? shows what is live.')

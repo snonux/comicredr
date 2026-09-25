@@ -1,5 +1,6 @@
-# ComicRedr keys. Copy this file to ~/.config/comicredr/keys.toml
-# (on the phone: Android/data/org.snonux.comicredr/files/keys.toml)
+# ComicRedr keys. Copy this file to ~/.config/comicredr/keys.toml,
+# or ~/Comics/.comicredr/keys.toml when ComicRedr keeps its data there
+# (? says where; on the phone: Android/data/org.snonux.comicredr/files/keys.toml)
 # and keep only the lines you change: an action listed here replaces
 # all of its default keys, [] unbinds it, and actions left out keep
 # their defaults. Restart ComicRedr to load it; ? shows what is live.
@@ -33,6 +34,8 @@ firstPage = ["gg", "Home"]
 lastPage = ["G", "End"]
 # Page thumbnails: pick a page to jump to
 pageGrid = ["p"]
+# Details of this comic: file, pages and scan quality, metadata, reading, panels and balloons found; the selected book's in the library
+showDetails = ["I"]
 # Next book in the series, or in the same folder
 nextBook = ["]"]
 # Previous book in the series, or in the same folder
@@ -43,6 +46,10 @@ toggleGuided = ["v"]
 toggleBalloons = ["b"]
 # Whole page before and after its panels in guided view, on and off
 toggleWholePage = ["w"]
+# Hold one step on a page guided view shows whole before turning, on and off
+togglePauseWhole = ["W"]
+# How a held page shows it: wine-red background or zoom out and back
+cyclePauseCue = ["gw"]
 # Cycle single, double, continuous, guided; next library tab
 cycleModeForward = ["Tab"]
 # Cycle modes backwards; previous library tab
@@ -69,16 +76,46 @@ zoomOut = ["-"]
 zoomReset = ["="]
 # Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view
 zoomToggle = ["Z"]
+# Upper half of the page, enlarged; l and h step to the other half, then on; again or Esc for the whole page
+regionUpperHalf = ["H1"]
+# Lower half of the page, enlarged
+regionLowerHalf = ["H2"]
+# Upper third of the page, enlarged; l and h step through the thirds, then on; again or Esc for the whole page
+regionUpperThird = ["B1"]
+# Middle third of the page, enlarged
+regionMiddleThird = ["B2"]
+# Lower third of the page, enlarged
+regionLowerThird = ["B3"]
+# Top-left quarter of the page, enlarged; l and h step through the quarters in reading order, then on; again or Esc for the whole page
+regionTopLeft = ["Q1"]
+# Top-right quarter of the page, enlarged
+regionTopRight = ["Q2"]
+# Bottom-left quarter of the page, enlarged
+regionBottomLeft = ["Q3"]
+# Bottom-right quarter of the page, enlarged
+regionBottomRight = ["Q4"]
 # Auto-trim scan margins
 autoTrim = ["t"]
 # Night filter
 nightFilter = ["i"]
 # Clean up old scans: paper, contrast, sharpness
 cleanUp = ["c"]
-# Fullscreen
+# Fullscreen: no title bar or border; in the reader only the comic. Esc at the top of the library leaves it too
 fullscreen = ["f", "F11"]
-# Bookmark here
+# Bookmark this page, or this panel in guided view; again to take the bookmark off
 bookmark = ["mm"]
+# Next bookmark in this book
+nextBookmark = ["}"]
+# Previous bookmark in this book
+prevBookmark = ["{"]
+# Bookmarks and marks in this book: jump, add a note, remove; the Bookmarks tab in the library
+bookmarkList = ["M"]
+# Add this comic to the Favourites collection, or take it out; the selected book in the library
+toggleFavourite = ["*"]
+# The Favourites collection in the library
+showFavourites = ["gf"]
+# Remove the selected bookmark in a bookmark list; take the selected comic out of the Favourites
+remove = ["x", "Delete"]
 # Set mark a-z
 setMark = ["m<a-z>"]
 # Jump to mark a-z
@@ -101,18 +138,26 @@ back = ["Esc"]
 up = ["Backspace"]
 # Open the selected book, series or folder in the library
 activate = ["Enter"]
-# Add a folder to the library
+# Add a folder to the library (~/Comics is in it by default, if it exists)
 addRoot = ["A"]
 # Rescan the library folders
 rescan = ["R"]
+# Shuffle in the library's Folders tab: each comic shows a random page instead of its cover, on and off
+toggleShuffle = ["S"]
+# Pick other random pages for shuffle in the Folders tab
+reshuffle = ["gs"]
 # Reset this comic: find its panels again, or forget its bookmarks and position too
 resetBook = ["X"]
+# Delete this comic and its sidecar, after asking; the selected book in the library
+deleteBook = ["gd", "S-Delete"]
 # Edit the selected book's title, series, issue and creators in the library; on a series, rename it
 editBook = ["e"]
 # Show the keymap
 showKeymap = ["?"]
 # Show the touch zones for a moment
 showTouchZones = ["gt"]
+# The time, large, for two seconds, then it fades
+showTime = ["T"]
 
 [touch]
 # Touch gestures, on top of the preset picked in Settings (Standard,
@@ -136,7 +181,11 @@ showTouchZones = ["gt"]
 #   "", "zoomToggle", "",
 # ]
 #
-# longPress = ""
+# longPress = [
+#   "", "", "",
+#   "", "showTime", "",
+#   "", "", "",
+# ]
 #
 # swipeLeft = "nextStep"
 #

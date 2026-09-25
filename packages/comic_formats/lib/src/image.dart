@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'document.dart';
 import 'image_size.dart';
+import 'page_facts.dart';
 
 /// A single PNG, JPEG or WebP file read as a one-page comic: a strip or a
 /// one-pager that never went into an archive.
@@ -40,6 +41,22 @@ class ImageDocument implements ComicDocument {
       }
     } on FileSystemException {
       return [null];
+    }
+  }
+
+  @override
+  Future<List<PageFacts>> pageFacts() async {
+    try {
+      final f = await File(path).open();
+      try {
+        final total = await f.length();
+        final facts = imageFacts(await f.read(headBytes), total: total);
+        return [facts.width != null || total <= headBytes ? facts : imageFacts(await _read(0), total: total)];
+      } finally {
+        await f.close();
+      }
+    } on FileSystemException {
+      return [PageFacts.unknown];
     }
   }
 

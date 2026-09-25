@@ -22,3 +22,7 @@ final keymapLoadProvider = Provider<({KeymapLoad load, String? path})>(
 
 /// The live keymap.
 final keymapProvider = Provider<Keymap>((ref) => ref.watch(keymapLoadProvider).load.keymap);
+
+/// The folder the index database, covers and thumbnails are in (see
+/// appDirs), shown in the `?` overlay. main.dart overrides this.
+final appDataDirProvider = Provider<String?>((ref) => null);

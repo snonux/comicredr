@@ -11,9 +11,19 @@ class SettingsStore {
   /// Guided view shows each page whole before and after its panels.
   static const wholePageSteps = 'guided.wholePageSteps';
 
+  /// Guided view holds on a page shown whole for one step before turning.
+  static const pauseWhole = 'guided.pauseWhole';
+
+  /// How a held page shows it: a PauseCue name, `colour` by default.
+  static const pauseCue = 'guided.pauseCue';
+
   /// The night filter (`i`) and auto-trim (`t`), kept across restarts.
   static const night = 'reader.night';
   static const autoTrim = 'reader.autoTrim';
+
+  /// Fullscreen (`f`, F11), in the library and the reader: the next book
+  /// and the next launch come back the way it was left.
+  static const fullscreen = 'reader.fullscreen';
 
   /// Scan clean-up (`c`): levels on the paper colour, and small pages
   /// enlarged and sharpened. Off by default.
@@ -31,6 +41,18 @@ class SettingsStore {
   /// Find the panels of the whole library in the background
   /// (LibraryDetection). On by default on the laptop, off on the phone.
   static const detectLibrary = 'detect.library';
+
+  /// How big the page grid's (`p`) thumbnails are: an index into its zoom
+  /// levels, kept across openings and restarts.
+  static const gridZoom = 'grid.zoom';
+
+  /// Shuffle on the library's Folders tab (`S`): random pages instead of
+  /// covers. Off by default.
+  static const shuffle = 'library.shuffle';
+
+  /// The default library folder (~/Comics) was taken out of the library,
+  /// so starts no longer add it back.
+  static const defaultFolderRemoved = 'library.defaultFolderRemoved';
 
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';

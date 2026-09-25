@@ -153,7 +153,7 @@ class SidecarSync {
     _where[contentKey] = (path: path, folder: folder);
     final SidecarData? side;
     try {
-      side = await _readAll(path, contentKey, folder, await sidecarsOf(path, folder: folder));
+      side = await _readAll(path, contentKey, folder, await sidecarsOf(path, folder: folder), (await device()).id);
     } catch (e) {
       debugPrint('Could not read the sidecar of $path: $e');
       return SidecarImport.none;
@@ -333,6 +333,8 @@ class SidecarSync {
   Future<bool> write(String contentKey) async {
     final at = _where[contentKey];
     if (at == null) return false;
+    // Deleted meanwhile: a sidecar would be left behind with nothing to go with.
+    if (FileSystemEntity.typeSync(at.path) == FileSystemEntityType.notFound) return true;
     if (!await (writeAllowed?.call() ?? Future.value(true))) return true; // Nothing to do is not a failure.
     final target = await sidecarFor(at.path, folder: at.folder);
     final ok = await _writeTo(target, contentKey, makeDir: !p.equals(target, sidecarPath(at.path, folder: at.folder)));
@@ -358,6 +360,21 @@ class SidecarSync {
     }
     return false;
   });
+
+  /// The book at [path] is about to be deleted: writes anything pending
+  /// for it, stops writing its sidecar from here on, and returns every
+  /// sidecar of it there is on disk, for the caller to delete with it.
+  Future<List<String>> forget(String path, String contentKey, {required bool folder}) async {
+    await flush();
+    return _serial(() async {
+      _dirty.remove(contentKey);
+      if (_where[contentKey] case final w? when p.equals(w.path, path)) _where.remove(contentKey);
+      return [
+        for (final s in await sidecarsOf(path, folder: folder))
+          if (FileSystemEntity.typeSync(s) != FileSystemEntityType.notFound) s,
+      ];
+    });
+  }
 
   /// Forgets what the app knows about [contentKey], so the book starts from
   /// scratch: its detected panels and balloons, which are found again, and
@@ -466,7 +483,8 @@ class SidecarSync {
   Future<int> countIn(String? dir) async {
     var n = 0;
     for (final b in await _copies()) {
-      if (await File(await _placeIn(dir, b.path, b.folder)).exists()) n++;
+      final at = await _placeIn(dir, b.path, b.folder);
+      if (await File(at).exists() || await File(legacySidecarPath(at) ?? at).exists()) n++;
     }
     return n;
   }
@@ -498,21 +516,30 @@ class SidecarSync {
 Future<void> _writeOnWorker(String target, SidecarData data, String device) =>
     Isolate.run(() => writeSidecar(target, data, device: device, appVersion: appVersion));
 
-Future<int> _moveOnWorker(List<({String from, String to})> moves, String device) =>
-    Isolate.run(() => moves.where((m) => moveSidecar(m.from, m.to, device: device, appVersion: appVersion)).length);
+Future<int> _moveOnWorker(List<({String from, String to})> moves, String device) => Isolate.run(
+  () => moves.where((m) {
+    adoptLegacySidecar(m.from, device: device, appVersion: appVersion);
+    return moveSidecar(m.from, m.to, device: device, appVersion: appVersion);
+  }).length,
+);
 
 /// Reads the sidecars of the book at [path] from [places], the one written
-/// first, merged; that one wins where they differ.
-Future<SidecarData?> _readAll(String path, String contentKey, bool folder, List<String> places) => Isolate.run(() {
-  if (!folder) relinkOrphan(path, contentKey, sidecar: places.first);
-  SidecarData? merged;
-  for (final at in places.reversed) {
-    final side = readSidecar(at);
-    if (side == null || side.contentKey != contentKey) continue;
-    merged = merged == null ? side : mergeSidecars(merged, side);
-  }
-  return merged;
-});
+/// first, merged; that one wins where they differ. A sidecar still under
+/// its old visible name is renamed to its hidden one first.
+Future<SidecarData?> _readAll(String path, String contentKey, bool folder, List<String> places, String device) =>
+    Isolate.run(() {
+      for (final at in places) {
+        adoptLegacySidecar(at, device: device, appVersion: appVersion);
+      }
+      if (!folder) relinkOrphan(path, contentKey, sidecar: places.first);
+      SidecarData? merged;
+      for (final at in places.reversed) {
+        final side = readSidecar(at);
+        if (side == null || side.contentKey != contentKey) continue;
+        merged = merged == null ? side : mergeSidecars(merged, side);
+      }
+      return merged;
+    });
 
 Future<void> _resetOnWorker(
   String target,
@@ -537,6 +564,8 @@ void _resetSidecar(
   required String device,
   required String version,
 }) {
+  // One under the old visible name would be merged back in on the next open.
+  adoptLegacySidecar(target, device: device, appVersion: version);
   final file = File(target);
   final old = readSidecar(target);
   if (old != null && old.schemaVersion > sidecarSchemaVersion) {

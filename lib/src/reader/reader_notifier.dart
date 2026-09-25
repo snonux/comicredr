@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Color;
 
 import 'package:comic_analysis/comic_analysis.dart';
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,7 @@ import '../data/read_log_store.dart';
 import '../data/settings_store.dart';
 import '../data/sidecar.dart';
 import '../data/sidecar_sync.dart';
+import '../library/library_store.dart';
 import '../library/providers.dart';
 import '../providers.dart';
 import 'guided.dart';
@@ -18,7 +20,21 @@ import 'layout.dart';
 import 'model_detector.dart';
 import 'open_book.dart';
 import 'panel_detector.dart';
+import 'region.dart';
 import 'reset_dialog.dart';
+
+/// How guided view shows that it holds on a page shown whole.
+enum PauseCue {
+  /// The background around the page turns [heldColour] until it is left.
+  colour,
+
+  /// The page zooms out a little and back in.
+  zoom,
+}
+
+/// The background of a held page: a deep wine red, dim enough for a dark
+/// room yet plainly not black.
+const heldColour = Color(0xFF3A0D16);
 
 /// Everything about the open book that page navigation changes. Zoom and pan
 /// are view concerns and live in the reader screen instead.
@@ -32,6 +48,10 @@ class ReaderState {
     this.guided = false,
     this.balloons = false,
     this.wholePageSteps = true,
+    this.pauseWhole = true,
+    this.pauseCue = PauseCue.colour,
+    this.held = false,
+    this.cue = 0,
     this.coverAlone = true,
     this.wide = const {},
     this.rightToLeft = false,
@@ -41,7 +61,9 @@ class ReaderState {
     this.cleanUp = false,
     this.panels = const {},
     this.marks = const {},
+    this.bookmarks = const [],
     this.jumpedFrom,
+    this.region,
     this.loading = false,
     this.message,
   });
@@ -72,6 +94,23 @@ class ReaderState {
   /// and again after its last one, before moving on. A setting, on by
   /// default; `w` toggles it.
   final bool wholePageSteps;
+
+  /// On a page guided view shows whole, the first step onward stays on the
+  /// page and shows a cue ([pauseCue]); the next one turns. So a page
+  /// without usable panels is not skipped before it is looked at. A
+  /// setting, on by default; `W` toggles it.
+  final bool pauseWhole;
+
+  /// How a held page shows it is held: the background turns wine red
+  /// until the page is left (the default), or the page zooms out and back.
+  final PauseCue pauseCue;
+
+  /// Guided view is holding on this page: the next step leaves it.
+  final bool held;
+
+  /// Counts the pauses on whole pages; the reader screen plays its cue
+  /// each time it goes up.
+  final int cue;
   final bool coverAlone;
 
   /// Pages wider than tall: scanned double-page spreads, shown alone in
@@ -97,8 +136,18 @@ class ReaderState {
   /// vi-style marks a–z for this book.
   final Map<String, Place> marks;
 
+  /// This book's bookmarks and marks, in reading order, as the index has
+  /// them: the list (`M`), the markers and `}` `{` read them.
+  final List<BookmarkInfo> bookmarks;
+
   /// Where `''` goes back to: the place before the last jump.
   final Place? jumpedFrom;
+
+  /// The part of a page shown enlarged by hand (`H1`, `B2`, `Q3`...), in
+  /// guided view or out of it; null for the view as it would be. Steps go
+  /// through the split's parts before moving on; leaving the page, a mode
+  /// switch or Esc ends it.
+  final Region? region;
   final bool loading;
 
   /// A short notice for the status line: an error, or why a key did nothing.
@@ -157,6 +206,21 @@ class ReaderState {
     return n == 0 || panel < 0 || panel >= pageEnd ? -1 : panel.clamp(0, n - 1);
   }
 
+  /// The bookmarks on what is shown, which the marker on the page stands
+  /// for and `mm` takes off: in guided view on a panel, that panel's and
+  /// its page's own; otherwise every bookmark on the pages shown. Marks
+  /// a–z are not bookmarks here.
+  List<BookmarkInfo> get bookmarksHere {
+    if (book == null) return const [];
+    final i = guided ? panelIndex : -1;
+    final shown = unit;
+    return [
+      for (final b in bookmarks)
+        if (b.mark == null && (i >= 0 ? b.page == page && (b.panel == null || b.panel == i) : shown.contains(b.page)))
+          b,
+    ];
+  }
+
   /// Where guided view lands on arriving at a page.
   int get entryPanel => wholePageSteps ? pageStart : 0;
 
@@ -169,6 +233,10 @@ class ReaderState {
     bool? guided,
     bool? balloons,
     bool? wholePageSteps,
+    bool? pauseWhole,
+    PauseCue? pauseCue,
+    bool? held,
+    int? cue,
     bool? coverAlone,
     Set<int>? wide,
     bool? rightToLeft,
@@ -178,7 +246,10 @@ class ReaderState {
     bool? cleanUp,
     Map<int, PagePanels>? panels,
     Map<String, Place>? marks,
+    List<BookmarkInfo>? bookmarks,
     Place? jumpedFrom,
+    Region? region,
+    bool clearRegion = false,
     bool? loading,
     String? message,
   }) => ReaderState(
@@ -190,6 +261,10 @@ class ReaderState {
     guided: guided ?? this.guided,
     balloons: balloons ?? this.balloons,
     wholePageSteps: wholePageSteps ?? this.wholePageSteps,
+    pauseWhole: pauseWhole ?? this.pauseWhole,
+    pauseCue: pauseCue ?? this.pauseCue,
+    held: held ?? this.held,
+    cue: cue ?? this.cue,
     coverAlone: coverAlone ?? this.coverAlone,
     wide: wide ?? this.wide,
     rightToLeft: rightToLeft ?? this.rightToLeft,
@@ -199,7 +274,9 @@ class ReaderState {
     cleanUp: cleanUp ?? this.cleanUp,
     panels: panels ?? this.panels,
     marks: marks ?? this.marks,
+    bookmarks: bookmarks ?? this.bookmarks,
     jumpedFrom: jumpedFrom ?? this.jumpedFrom,
+    region: clearRegion ? null : region ?? this.region,
     loading: loading ?? this.loading,
     message: message, // Notices never carry over to the next state.
   );
@@ -326,10 +403,16 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final whole =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.wholePageSteps)) ??
         state.wholePageSteps;
+    final pause =
+        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.pauseWhole)) ?? state.pauseWhole;
+    final cueName = await _orNull(() => ref.read(settingsStoreProvider).loadString(SettingsStore.pauseCue));
+    final pauseCue = PauseCue.values.asNameMap()[cueName] ?? state.pauseCue;
     final night = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.night)) ?? state.night;
     final trim = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.autoTrim)) ?? state.trim;
     final cleanUp =
         await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.cleanUp)) ?? state.cleanUp;
+    final fullscreen =
+        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen)) ?? state.fullscreen;
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -350,9 +433,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
       guided: guided,
       balloons: saved?.balloons ?? state.balloons,
       wholePageSteps: whole,
+      pauseWhole: pause,
+      pauseCue: pauseCue,
+      cue: state.cue,
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
-      fullscreen: state.fullscreen,
+      fullscreen: fullscreen,
       night: night,
       trim: trim,
       cleanUp: cleanUp,
@@ -377,8 +463,162 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
     _ensurePanels();
+    _watchBookmarks(book);
     unawaited(_readWidePages(book));
     unawaited(_writeSidecar(book));
+  }
+
+  StreamSubscription<List<BookmarkInfo>>? _bookmarkWatch;
+
+  /// Follows [book]'s bookmarks and marks in the index, so a change from
+  /// the list, the library or a sidecar shows at once.
+  void _watchBookmarks(OpenBook book) {
+    unawaited(_bookmarkWatch?.cancel());
+    _bookmarkWatch = ref.read(libraryStoreProvider).watchBookmarks(book.key).listen((all) {
+      if (!identical(state.book, book)) return;
+      state = state.copyWith(
+        bookmarks: all,
+        marks: {for (final b in all) ?b.mark: (page: b.page, panel: b.panel ?? 0)},
+        message: state.message,
+      );
+    }, onError: (Object e) => debugPrint('Could not read bookmarks: $e'));
+  }
+
+  /// Goes to bookmark [b]: its panel in guided view, its page otherwise. A
+  /// jump, so `''` comes back.
+  void jumpToBookmark(BookmarkInfo b) {
+    if (state.book == null) return;
+    // Without a panel, guided view shows the page whole.
+    _goTo(b.page, panel: b.panel ?? pageStart, jump: true);
+    _notice(
+      '${b.mark == null ? 'Bookmark' : "Mark '${b.mark}"}: ${describePlace(b)}'
+      '${b.note == null ? '' : '  ·  ${b.note}'}',
+    );
+  }
+
+  /// Removes bookmark [id] of the open book, from the list (`M`).
+  Future<void> removeBookmark(String id) async {
+    final key = state.book?.key;
+    if (key == null) return;
+    state = state.copyWith(bookmarks: [...state.bookmarks.where((b) => b.id != id)]);
+    try {
+      await ref.read(libraryStoreProvider).deleteBookmark(id);
+      _sidecars.touch(key);
+    } catch (e) {
+      debugPrint('Could not remove the bookmark: $e');
+    }
+  }
+
+  /// Gives bookmark [id] of the open book a note; empty takes it off.
+  Future<void> setBookmarkNote(String id, String note) async {
+    final key = state.book?.key;
+    if (key == null) return;
+    try {
+      await ref.read(libraryStoreProvider).setNote(id, note);
+      _sidecars.touch(key);
+    } catch (e) {
+      debugPrint('Could not save the note: $e');
+    }
+  }
+
+  /// `}` and `{`: the next or previous bookmark in reading order, from the
+  /// panel guided view is on, or from the pages shown.
+  void _stepBookmark(int by) {
+    final all = [...state.bookmarks.where((b) => b.mark == null)]..sort(BookmarkInfo.order);
+    if (all.isEmpty) {
+      _notice('No bookmarks in this book yet: mm adds one');
+      return;
+    }
+    // Where we are, in the same order: page, then panel, the whole page
+    // before its panels and after them once they are read.
+    final i = state.panelIndex;
+    final here = state.guided ? (page: state.page, panel: i >= 0 ? i : (state.panel >= pageEnd ? 1 << 30 : -1)) : null;
+    int compare(BookmarkInfo b, int page, int panel) =>
+        b.page != page ? b.page.compareTo(page) : (b.panel ?? -1).compareTo(panel);
+    BookmarkInfo? target;
+    if (by > 0) {
+      final after = [
+        for (final b in all)
+          if (here != null ? compare(b, here.page, here.panel) > 0 : b.page > state.unit.last) b,
+      ];
+      if (after.isNotEmpty) target = after[(by - 1).clamp(0, after.length - 1)];
+    } else {
+      final before = [
+        for (final b in all)
+          if (here != null ? compare(b, here.page, here.panel) < 0 : b.page < state.unit.first) b,
+      ];
+      if (before.isNotEmpty) target = before[(before.length + by).clamp(0, before.length - 1)];
+    }
+    if (target == null) {
+      _notice(by > 0 ? 'No bookmark after this one' : 'No bookmark before this one');
+      return;
+    }
+    jumpToBookmark(target);
+    final n = all.indexOf(target) + 1;
+    _notice(
+      'Bookmark $n of ${all.length}: ${describePlace(target)}'
+      '${target.note == null ? '' : '  ·  ${target.note}'}',
+    );
+  }
+
+  /// `mm`: bookmarks the page, or the panel in guided view; when what is
+  /// shown already has one ([ReaderState.bookmarksHere]), takes it off.
+  Future<void> _toggleBookmark() async {
+    final book = state.book!;
+    final here = state.bookmarksHere;
+    final store = ref.read(libraryStoreProvider);
+    if (here.isNotEmpty) {
+      final ids = {for (final b in here) b.id};
+      state = state.copyWith(
+        bookmarks: [...state.bookmarks.where((b) => !ids.contains(b.id))],
+        message: here.length == 1
+            ? 'Bookmark removed from ${describePlace(here.first)}'
+            : 'Removed ${here.length} bookmarks from page ${state.page + 1}',
+      );
+      try {
+        await store.deleteBookmarks(ids);
+        _sidecars.touch(book.key);
+      } catch (e) {
+        debugPrint('Could not remove the bookmark: $e');
+      }
+      return;
+    }
+    final i = state.panelIndex;
+    final panel = state.guided && i >= 0 ? i : null;
+    final page = state.page;
+    _notice('Bookmarked page ${page + 1}${panel != null ? ', panel ${panel + 1}' : ''}  ·  M lists them');
+    try {
+      final id = await ref.read(markStoreProvider).addBookmark(book.key, page, panel);
+      _sidecars.touch(book.key);
+      // Shown at once; the index's own update follows.
+      if (identical(state.book, book) && !state.bookmarks.any((b) => b.id == id)) {
+        state = state.copyWith(
+          bookmarks: [
+            ...state.bookmarks,
+            BookmarkInfo(id: id, contentKey: book.key, page: page, panel: panel, createdAt: DateTime.now()),
+          ]..sort(BookmarkInfo.order),
+          message: state.message,
+        );
+      }
+    } catch (e) {
+      debugPrint('Could not save bookmark: $e');
+    }
+  }
+
+  /// `*`: puts the book in the Favourites collection, or takes it out.
+  Future<void> _toggleFavourite() async {
+    final book = state.book!;
+    final store = ref.read(libraryStoreProvider);
+    try {
+      final on = !await store.isFavourite(book.key);
+      await store.setFavourite(book.key, on);
+      _sidecars.touch(book.key);
+      if (identical(state.book, book)) {
+        _notice(on ? 'Added to Favourites  ·  gf lists them' : 'Taken out of Favourites');
+      }
+    } catch (e) {
+      _notice('Could not change the favourites: $e');
+    }
   }
 
   /// Writes the sidecar as the book opens, so a folder that refuses it says
@@ -414,6 +654,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
   Future<void> close() async {
     final book = state.book;
     if (book == null) return;
+    unawaited(_bookmarkWatch?.cancel());
+    _bookmarkWatch = null;
     await _progress.flush();
     await _endSitting();
     _wanted.clear();
@@ -423,6 +665,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       guided: state.guided,
       balloons: state.balloons,
       wholePageSteps: state.wholePageSteps,
+      pauseWhole: state.pauseWhole,
+      pauseCue: state.pauseCue,
+      cue: state.cue,
       fullscreen: state.fullscreen,
       night: state.night,
       trim: state.trim,
@@ -486,9 +731,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final target = page.clamp(0, state.pageCount - 1);
     state = state.copyWith(
       page: target,
+      held: target == state.page && !jump && state.held,
       panel: panel ?? state.entryPanel,
       balloon: balloon,
       jumpedFrom: jump ? (page: state.page, panel: state.panel) : null,
+      clearRegion: true,
     );
     _saveProgress(book);
     _ensurePanels();
@@ -547,6 +794,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// on, a page with panels is shown whole on arrival and again after its
   /// last panel, in both directions.
   void _stepGuided(int steps) {
+    if (steps.abs() == 1 && _pauseOnWhole(forward: steps > 0)) return;
     final whole = state.wholePageSteps;
     var page = state.page;
     var panel = state.panel;
@@ -612,8 +860,136 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _goTo(page, panel: panel, balloon: state.balloons ? balloon : -1);
   }
 
+  /// `H1`, `B2`, `Q3`...: shows [part] of [split] enlarged on the page the
+  /// reader is on (in a spread, the page it already shows a part of, else
+  /// the first in reading order). The same keys again go back to the whole
+  /// page.
+  void _showRegion(PageSplit split, int part) {
+    final r = state.region;
+    if (r != null && r.split == split && r.part == part) {
+      state = state.copyWith(clearRegion: true, message: 'Whole page');
+      return;
+    }
+    final unit = state.unit;
+    if (unit.isEmpty) return;
+    final region = (split: split, part: part, page: r != null && unit.contains(r.page) ? r.page : unit.first);
+    state = state.copyWith(
+      region: region,
+      held: false,
+      message:
+          '${_capitalised(describeRegion(region, rightToLeft: state.rightToLeft))}'
+          '  ·  l and h step through the ${split.name}, Esc shows the whole page',
+    );
+  }
+
+  static String _capitalised(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  /// A step while a part of the page is enlarged: the next or previous part
+  /// in reading order, onto the other page of a spread, and past the last
+  /// (or first) part the whole page again, where the step after it moves
+  /// on. In guided view that whole page is held like a page without
+  /// panels (the wine red), and the next step turns.
+  void _stepRegion(int steps) {
+    final r = state.region!;
+    final order = partOrder(r.split, rightToLeft: state.rightToLeft);
+    final unit = state.unit;
+    var at = unit.indexOf(r.page);
+    var i = order.indexOf(r.part);
+    if (at < 0) {
+      state = state.copyWith(clearRegion: true);
+      return;
+    }
+    for (var k = 0; k < steps.abs(); k++) {
+      if (steps > 0) {
+        if (i < order.length - 1) {
+          i++;
+        } else if (at < unit.length - 1) {
+          at++;
+          i = 0;
+        } else {
+          _leaveRegion(forward: true);
+          return;
+        }
+      } else {
+        if (i > 0) {
+          i--;
+        } else if (at > 0) {
+          at--;
+          i = order.length - 1;
+        } else {
+          _leaveRegion(forward: false);
+          return;
+        }
+      }
+    }
+    final region = (split: r.split, part: order[i], page: unit[at]);
+    state = state.copyWith(
+      region: region,
+      message: _capitalised(describeRegion(region, rightToLeft: state.rightToLeft)),
+    );
+  }
+
+  /// Past the last part going on, or the first going back: the whole page,
+  /// on its far side, so the next step leaves it.
+  void _leaveRegion({required bool forward}) {
+    if (!state.guided) {
+      state = state.copyWith(clearRegion: true, message: 'Whole page');
+      return;
+    }
+    final hold = state.pauseWhole && state.stopsOn(state.page).isEmpty;
+    state = state.copyWith(
+      clearRegion: true,
+      panel: forward ? pageEnd : pageStart,
+      balloon: -1,
+      held: hold,
+      cue: hold ? state.cue + 1 : state.cue,
+      message: 'Whole page: press again for the ${forward ? 'next' : 'previous'} page',
+    );
+  }
+
+  /// Pauses of the step that would leave a page shown whole: the first
+  /// step onward stays on the page, moved to its far side ([pageEnd] going
+  /// forward, [pageStart] going back), and plays the cue; the step after it
+  /// turns. It stays held, [ReaderState.held], until left. A page arrived
+  /// on from the other side, or jumped to, starts on
+  /// the near side. After one pause the page is left by the next step
+  /// either way. Pages whose panels are not known yet are not held, nor is
+  /// a count (`3l`).
+  bool _pauseOnWhole({required bool forward}) {
+    if (!state.pauseWhole ||
+        state.held ||
+        !state.panels.containsKey(state.page) ||
+        state.stopsOn(state.page).isNotEmpty) {
+      return false;
+    }
+    // Arriving from behind lands on pageStart or 0, from ahead on pageEnd
+    // or lastPanel.
+    final farSide = state.panel >= lastPanel;
+    if (forward == farSide) return false;
+    final shown = _pauseHints++ < 3 || _reduceMotion;
+    state = state.copyWith(
+      panel: forward ? pageEnd : pageStart,
+      balloon: -1,
+      held: true,
+      cue: state.cue + 1,
+      message: shown ? 'Whole page: press again for the ${forward ? 'next' : 'previous'} page' : state.message,
+    );
+    if (state.book case final book?) _saveProgress(book);
+    return true;
+  }
+
+  /// Pauses on whole pages so far in this run: the status line explains
+  /// the first few.
+  int _pauseHints = 0;
+
+  /// The system asks for reduced motion, so the zoom cue gives way to the
+  /// colour and the status line's hint shows every time. The reader
+  /// screen tells it.
+  bool _reduceMotion = false;
+  set reduceMotion(bool on) => _reduceMotion = on;
+
   void _setGuided(bool on, {PageMode? mode}) {
-    state = state.copyWith(guided: on, mode: mode);
+    state = state.copyWith(guided: on, mode: mode, clearRegion: true);
     if (on) {
       _ensurePanels();
     } else if (state.book case final book?) {
@@ -622,6 +998,21 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   void _notice(String message) => state = state.copyWith(message: message);
+
+  /// Takes up the fullscreen saved last time, at launch.
+  Future<void> loadFullscreen() async {
+    final on = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen));
+    if (on != null && on != state.fullscreen) state = state.copyWith(fullscreen: on);
+  }
+
+  /// Fullscreen on or off, remembered for the next book and launch. The
+  /// window follows it (HomeScreen); the window manager leaving fullscreen
+  /// by itself comes back here too.
+  void setFullscreen(bool on) {
+    if (on == state.fullscreen) return;
+    state = state.copyWith(fullscreen: on);
+    _saveSetting(SettingsStore.fullscreen, on);
+  }
 
   /// Shows [message] on the status line until the next change.
   void notice(String message) => _notice(message);
@@ -693,8 +1084,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // Right to left mirrors the step keys (l, h, arrows), so the key pointing
     // at the next page on screen still turns to it. Page keys stay logical.
     final mirror = state.rightToLeft ? -1 : 1;
-    final step = state.guided ? _stepGuided : _step;
+    final step = state.region != null ? _stepRegion : (state.guided ? _stepGuided : _step);
     final pageStep = state.guided ? (int n) => _goTo(state.page + n) : _step;
+    final shownBefore = (state.guided, state.mode);
+    if (regionFor(c.intent) case final r?) {
+      _showRegion(r.split, r.part);
+      _saveProgress(state.book!);
+      return;
+    }
     switch (c.intent) {
       case ReaderIntent.nextStep:
         step(mirror * c.times);
@@ -725,6 +1122,28 @@ class ReaderNotifier extends Notifier<ReaderState> {
           message: on ? 'Whole page before and after the panels' : 'Straight from panel to panel across pages',
         );
         _saveSetting(SettingsStore.wholePageSteps, on);
+      case ReaderIntent.togglePauseWhole:
+        final on = !state.pauseWhole;
+        state = state.copyWith(
+          pauseWhole: on,
+          message: on ? 'Pages shown whole hold for one more step' : 'Pages shown whole turn at once',
+        );
+        _saveSetting(SettingsStore.pauseWhole, on);
+      case ReaderIntent.cyclePauseCue:
+        final cue = PauseCue.values[(state.pauseCue.index + 1) % PauseCue.values.length];
+        state = state.copyWith(
+          pauseCue: cue,
+          message: switch (cue) {
+            PauseCue.colour => 'Held pages: wine-red background',
+            PauseCue.zoom => 'Held pages: zoom out and back',
+          },
+        );
+        unawaited(
+          ref
+              .read(settingsStoreProvider)
+              .saveString(SettingsStore.pauseCue, cue.name)
+              .catchError((Object e) => debugPrint('Could not save a setting: $e')),
+        );
       case ReaderIntent.toggleSpread:
         // Guided view shows one page, so d from there goes to the spread.
         state.guided
@@ -755,7 +1174,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
           message: state.rightToLeft ? 'Left to right' : 'Right to left',
         );
       case ReaderIntent.fullscreen:
-        state = state.copyWith(fullscreen: !state.fullscreen);
+        setFullscreen(!state.fullscreen);
       case ReaderIntent.nightFilter:
         final on = !state.night;
         state = state.copyWith(night: on, message: on ? 'Night filter on' : 'Night filter off');
@@ -785,24 +1204,26 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final back = state.jumpedFrom;
         back == null ? _notice('No jump to go back from') : _goTo(back.page, panel: back.panel, jump: true);
       case ReaderIntent.back:
-        // Esc leaves guided view before it means anything else.
-        state.guided ? _setGuided(false) : await close();
+        // Esc goes back to the whole page from a part of it, then leaves
+        // guided view before it means anything else. Fullscreen stays: the
+        // library is fullscreen too, and Esc at its top leaves it.
+        if (state.region != null) {
+          state = state.copyWith(clearRegion: true, message: 'Whole page');
+        } else {
+          state.guided ? _setGuided(false) : await close();
+        }
       case ReaderIntent.toggleContinuous:
       case ReaderIntent.halfPageDown:
       case ReaderIntent.halfPageUp:
         _notice('Continuous scroll arrives in a later milestone');
       case ReaderIntent.bookmark:
-        final key = state.book!.key;
-        final i = state.panelIndex;
-        final panel = state.guided && i >= 0 ? i : null;
-        _notice('Bookmarked page ${state.page + 1}${panel != null ? ', panel ${panel + 1}' : ''}');
-        unawaited(
-          ref
-              .read(markStoreProvider)
-              .addBookmark(key, state.page, panel)
-              .then((_) => _sidecars.touch(key))
-              .catchError((Object e) => debugPrint('Could not save bookmark: $e')),
-        );
+        await _toggleBookmark();
+      case ReaderIntent.toggleFavourite:
+        await _toggleFavourite();
+      case ReaderIntent.nextBookmark:
+        _stepBookmark(c.times);
+      case ReaderIntent.prevBookmark:
+        _stepBookmark(-c.times);
       case ReaderIntent.search:
       case ReaderIntent.searchNext:
       case ReaderIntent.searchPrev:
@@ -830,17 +1251,38 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.zoomReset:
       case ReaderIntent.zoomToggle:
       case ReaderIntent.showTouchZones:
+      case ReaderIntent.showTime:
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:
       case ReaderIntent.showKeymap:
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
+      case ReaderIntent.toggleShuffle:
+      case ReaderIntent.reshuffle:
       case ReaderIntent.resetBook:
+      case ReaderIntent.deleteBook:
       case ReaderIntent.editBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:
       case ReaderIntent.pageGrid:
+      case ReaderIntent.showDetails:
+      case ReaderIntent.bookmarkList:
+      case ReaderIntent.remove:
+      case ReaderIntent.showFavourites:
+      case ReaderIntent.regionUpperHalf:
+      case ReaderIntent.regionLowerHalf:
+      case ReaderIntent.regionUpperThird:
+      case ReaderIntent.regionMiddleThird:
+      case ReaderIntent.regionLowerThird:
+      case ReaderIntent.regionTopLeft:
+      case ReaderIntent.regionTopRight:
+      case ReaderIntent.regionBottomLeft:
+      case ReaderIntent.regionBottomRight:
         break; // Handled by the screen, or only mean something in the library.
+    }
+    // A part of the page belongs to the view it was picked in.
+    if (state.region != null && (state.guided, state.mode) != shownBefore) {
+      state = state.copyWith(clearRegion: true, message: state.message);
     }
     // Mode switches (guided, balloons, spread, direction) are part of the
     // spot too. Saves are debounced, so this costs nothing per key.
@@ -889,3 +1331,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
     await _sidecars.flush();
   }
 }
+
+/// "page 5" or "page 5, panel 2", for notices and lists.
+String describePlace(BookmarkInfo b) => 'page ${b.page + 1}${isPanel(b.panel) ? ', panel ${b.panel! + 1}' : ''}';

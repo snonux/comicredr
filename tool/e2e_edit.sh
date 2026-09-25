@@ -21,7 +21,7 @@ rm -rf "$out" && mkdir -p "$out/laptop" "$out/phone" "$out/Comics"
 for b in "$@"; do cp -r "$b" "$out/Comics/"; done
 first="$PWD/$out/Comics/$(basename "$1")"
 second="$PWD/$out/Comics/$(basename "$2")"
-side() { if [[ -d "$1" ]]; then echo "$1/.comicredr.crdb"; else echo "$1.crdb"; fi; }
+side() { if [[ -d "$1" ]]; then echo "$1/.comicredr.crdb"; else echo "$(dirname "$1")/.$(basename "$1").crdb"; fi; }
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
 cc -o "$out/close_window" tool/close_window.c -lX11
 
