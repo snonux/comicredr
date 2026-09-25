@@ -51,10 +51,9 @@ the `?` overlay.
   every page on its own line. A page picked in the list is gone to, and
   Redo panels finds the comic's panels again. Only page headers are read.
 
-- **Getting the detector:** `make train-model` rebuilds the model from the
-  free training comics on the CPU, and `make fetch-model URL=...` downloads
-  your own copy; both check the file before the build packs it. The
-  README says why the model can't be in the repository.
+- **Rebuilding the detector:** `make train-model` rebuilds the model from
+  the free training comics on the CPU and checks the file before the
+  build packs it.
 
 - **Bookmarks you can use:** `mm` (or the bookmark button) now takes a
   bookmark off again when the page, or in guided view the panel, already

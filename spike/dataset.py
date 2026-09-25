@@ -1,4 +1,4 @@
-"""The labelled pages as a training set (spike/train_dfine.py).
+"""The labelled pages as a training set (spike/train.py).
 
 Every page image with a label (<page>.json from spike/labelkit.py) becomes a
 training sample, written in YOLO text format (class cx cy w h, normalised).
