@@ -31,6 +31,7 @@ import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
+import 'reader/region.dart';
 import 'reader/reset_dialog.dart';
 import 'version.dart';
 
@@ -744,6 +745,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     key: _overlay,
                     keymap: keymap,
                     keysFile: keysLoad.path,
+                    dataDir: ref.watch(appDataDirProvider),
                     warnings: keysLoad.load.warnings,
                     onDone: _keys.requestFocus,
                   ),
@@ -941,6 +943,7 @@ class _StatusLine extends StatelessWidget {
       if (book != null) pages,
       if (book != null && state.guided) _guided(state),
       if (book != null && !state.guided && state.mode == PageMode.spread) 'spread',
+      if (book != null && state.region != null) describeRegion(state.region!, rightToLeft: state.rightToLeft),
       if (state.rightToLeft) 'RTL',
     ];
     return LayoutBuilder(
@@ -1034,12 +1037,22 @@ class _StatusLine extends StatelessWidget {
 /// cannot drift from the real keys. `/` searches it: fuzzy words, or a
 /// regular expression between slashes. Esc clears the search, then closes.
 class KeymapOverlay extends StatefulWidget {
-  const KeymapOverlay({super.key, required this.keymap, this.keysFile, this.warnings = const [], this.onDone});
+  const KeymapOverlay({
+    super.key,
+    required this.keymap,
+    this.keysFile,
+    this.dataDir,
+    this.warnings = const [],
+    this.onDone,
+  });
 
   final Keymap keymap;
 
   /// The `keys.toml` the keymap was read from, if there was one.
   final String? keysFile;
+
+  /// Where the app keeps its index, covers and thumbnails.
+  final String? dataDir;
 
   /// What was wrong in that file.
   final List<String> warnings;
@@ -1140,6 +1153,16 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                     ),
                   ),
                 ),
+              if (widget.dataDir case final dir?)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: Text(
+                    'Library, settings, covers and history are kept in $dir; '
+                    'everything else about a comic is in its sidecar.',
+                    key: const Key('app-data'),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
               Expanded(
                 child: Stack(
                   children: [
@@ -1148,7 +1171,17 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                         : ListView(
                             padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
                             children: [
-                              for (final e in found.entries)
+                              for (final e in found.entries) ...[
+                                if (e.intent == ReaderIntent.regionUpperHalf && _query.text.isEmpty)
+                                  Padding(
+                                    key: const Key('keymap-parts'),
+                                    padding: const EdgeInsets.only(top: 12, bottom: 4),
+                                    child: Text(
+                                      'Part of the page, enlarged: halves, thirds and quarters, '
+                                      'numbered top to bottom, left to right',
+                                      style: theme.textTheme.titleSmall,
+                                    ),
+                                  ),
                                 MergeSemantics(
                                   child: Padding(
                                     key: ValueKey('keymap-${e.intent.name}'),
@@ -1165,6 +1198,7 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                                     ),
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                     // In a corner, so the keymap list keeps its whole height.

@@ -20,6 +20,7 @@ import 'layout.dart';
 import 'model_detector.dart';
 import 'open_book.dart';
 import 'panel_detector.dart';
+import 'region.dart';
 import 'reset_dialog.dart';
 
 /// How guided view shows that it holds on a page shown whole.
@@ -62,6 +63,7 @@ class ReaderState {
     this.marks = const {},
     this.bookmarks = const [],
     this.jumpedFrom,
+    this.region,
     this.loading = false,
     this.message,
   });
@@ -140,6 +142,12 @@ class ReaderState {
 
   /// Where `''` goes back to: the place before the last jump.
   final Place? jumpedFrom;
+
+  /// The part of a page shown enlarged by hand (`H1`, `B2`, `Q3`...), in
+  /// guided view or out of it; null for the view as it would be. Steps go
+  /// through the split's parts before moving on; leaving the page, a mode
+  /// switch or Esc ends it.
+  final Region? region;
   final bool loading;
 
   /// A short notice for the status line: an error, or why a key did nothing.
@@ -240,6 +248,8 @@ class ReaderState {
     Map<String, Place>? marks,
     List<BookmarkInfo>? bookmarks,
     Place? jumpedFrom,
+    Region? region,
+    bool clearRegion = false,
     bool? loading,
     String? message,
   }) => ReaderState(
@@ -266,6 +276,7 @@ class ReaderState {
     marks: marks ?? this.marks,
     bookmarks: bookmarks ?? this.bookmarks,
     jumpedFrom: jumpedFrom ?? this.jumpedFrom,
+    region: clearRegion ? null : region ?? this.region,
     loading: loading ?? this.loading,
     message: message, // Notices never carry over to the next state.
   );
@@ -724,6 +735,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       panel: panel ?? state.entryPanel,
       balloon: balloon,
       jumpedFrom: jump ? (page: state.page, panel: state.panel) : null,
+      clearRegion: true,
     );
     _saveProgress(book);
     _ensurePanels();
@@ -848,6 +860,93 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _goTo(page, panel: panel, balloon: state.balloons ? balloon : -1);
   }
 
+  /// `H1`, `B2`, `Q3`...: shows [part] of [split] enlarged on the page the
+  /// reader is on (in a spread, the page it already shows a part of, else
+  /// the first in reading order). The same keys again go back to the whole
+  /// page.
+  void _showRegion(PageSplit split, int part) {
+    final r = state.region;
+    if (r != null && r.split == split && r.part == part) {
+      state = state.copyWith(clearRegion: true, message: 'Whole page');
+      return;
+    }
+    final unit = state.unit;
+    if (unit.isEmpty) return;
+    final region = (split: split, part: part, page: r != null && unit.contains(r.page) ? r.page : unit.first);
+    state = state.copyWith(
+      region: region,
+      held: false,
+      message:
+          '${_capitalised(describeRegion(region, rightToLeft: state.rightToLeft))}'
+          '  ·  l and h step through the ${split.name}, Esc shows the whole page',
+    );
+  }
+
+  static String _capitalised(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  /// A step while a part of the page is enlarged: the next or previous part
+  /// in reading order, onto the other page of a spread, and past the last
+  /// (or first) part the whole page again, where the step after it moves
+  /// on. In guided view that whole page is held like a page without
+  /// panels (the wine red), and the next step turns.
+  void _stepRegion(int steps) {
+    final r = state.region!;
+    final order = partOrder(r.split, rightToLeft: state.rightToLeft);
+    final unit = state.unit;
+    var at = unit.indexOf(r.page);
+    var i = order.indexOf(r.part);
+    if (at < 0) {
+      state = state.copyWith(clearRegion: true);
+      return;
+    }
+    for (var k = 0; k < steps.abs(); k++) {
+      if (steps > 0) {
+        if (i < order.length - 1) {
+          i++;
+        } else if (at < unit.length - 1) {
+          at++;
+          i = 0;
+        } else {
+          _leaveRegion(forward: true);
+          return;
+        }
+      } else {
+        if (i > 0) {
+          i--;
+        } else if (at > 0) {
+          at--;
+          i = order.length - 1;
+        } else {
+          _leaveRegion(forward: false);
+          return;
+        }
+      }
+    }
+    final region = (split: r.split, part: order[i], page: unit[at]);
+    state = state.copyWith(
+      region: region,
+      message: _capitalised(describeRegion(region, rightToLeft: state.rightToLeft)),
+    );
+  }
+
+  /// Past the last part going on, or the first going back: the whole page,
+  /// on its far side, so the next step leaves it.
+  void _leaveRegion({required bool forward}) {
+    if (!state.guided) {
+      state = state.copyWith(clearRegion: true, message: 'Whole page');
+      return;
+    }
+    final hold = state.pauseWhole && state.stopsOn(state.page).isEmpty;
+    state = state.copyWith(
+      clearRegion: true,
+      panel: forward ? pageEnd : pageStart,
+      balloon: -1,
+      held: hold,
+      cue: hold ? state.cue + 1 : state.cue,
+      message: 'Whole page: press again for the ${forward ? 'next' : 'previous'} page',
+    );
+  }
+
   /// Pauses of the step that would leave a page shown whole: the first
   /// step onward stays on the page, moved to its far side ([pageEnd] going
   /// forward, [pageStart] going back), and plays the cue; the step after it
@@ -890,7 +989,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   set reduceMotion(bool on) => _reduceMotion = on;
 
   void _setGuided(bool on, {PageMode? mode}) {
-    state = state.copyWith(guided: on, mode: mode);
+    state = state.copyWith(guided: on, mode: mode, clearRegion: true);
     if (on) {
       _ensurePanels();
     } else if (state.book case final book?) {
@@ -985,8 +1084,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // Right to left mirrors the step keys (l, h, arrows), so the key pointing
     // at the next page on screen still turns to it. Page keys stay logical.
     final mirror = state.rightToLeft ? -1 : 1;
-    final step = state.guided ? _stepGuided : _step;
+    final step = state.region != null ? _stepRegion : (state.guided ? _stepGuided : _step);
     final pageStep = state.guided ? (int n) => _goTo(state.page + n) : _step;
+    final shownBefore = (state.guided, state.mode);
+    if (regionFor(c.intent) case final r?) {
+      _showRegion(r.split, r.part);
+      _saveProgress(state.book!);
+      return;
+    }
     switch (c.intent) {
       case ReaderIntent.nextStep:
         step(mirror * c.times);
@@ -1099,9 +1204,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final back = state.jumpedFrom;
         back == null ? _notice('No jump to go back from') : _goTo(back.page, panel: back.panel, jump: true);
       case ReaderIntent.back:
-        // Esc leaves guided view before it means anything else. Fullscreen
-        // stays: the library is fullscreen too, and Esc at its top leaves it.
-        state.guided ? _setGuided(false) : await close();
+        // Esc goes back to the whole page from a part of it, then leaves
+        // guided view before it means anything else. Fullscreen stays: the
+        // library is fullscreen too, and Esc at its top leaves it.
+        if (state.region != null) {
+          state = state.copyWith(clearRegion: true, message: 'Whole page');
+        } else {
+          state.guided ? _setGuided(false) : await close();
+        }
       case ReaderIntent.toggleContinuous:
       case ReaderIntent.halfPageDown:
       case ReaderIntent.halfPageUp:
@@ -1159,7 +1269,20 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.bookmarkList:
       case ReaderIntent.remove:
       case ReaderIntent.showFavourites:
+      case ReaderIntent.regionUpperHalf:
+      case ReaderIntent.regionLowerHalf:
+      case ReaderIntent.regionUpperThird:
+      case ReaderIntent.regionMiddleThird:
+      case ReaderIntent.regionLowerThird:
+      case ReaderIntent.regionTopLeft:
+      case ReaderIntent.regionTopRight:
+      case ReaderIntent.regionBottomLeft:
+      case ReaderIntent.regionBottomRight:
         break; // Handled by the screen, or only mean something in the library.
+    }
+    // A part of the page belongs to the view it was picked in.
+    if (state.region != null && (state.guided, state.mode) != shownBefore) {
+      state = state.copyWith(clearRegion: true, message: state.message);
     }
     // Mode switches (guided, balloons, spread, direction) are part of the
     // spot too. Saves are debounced, so this costs nothing per key.

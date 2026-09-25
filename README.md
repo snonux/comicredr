@@ -43,6 +43,10 @@ Potion Contest*, by David Revoy, licensed
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins. A scanned double-page
   spread stays whole, and the pages after it keep their sides.
+- **Enlarge part of a page** by key, in guided view or out of it: `H1`
+  `H2` for the upper or lower half, `B1` to `B3` for thirds, `Q1` to `Q4`
+  for quarters. `→` steps through the parts before the page turns; `Esc`
+  shows the whole page again.
 - **Fullscreen** (`f` or F11), for the library and the comic: no title
   bar or border, and in the reader only the comic; move the mouse to the
   bottom edge to see where you are.
@@ -240,7 +244,7 @@ window, opens the Folders tab there, and is added to the library if it
 isn't in it yet. To take a comic to the phone or another laptop, copy its
 hidden `.crdb` file along with it (`.book.cbz.crdb` beside `book.cbz`).
 
-Any key can be changed in `~/.config/comicredr/keys.toml`: `make keys`
+Any key can be changed in `keys.toml` (see below for where): `make keys`
 starts one from [docs/keys.toml](docs/keys.toml), which lists every action.
 
 ### Touch
@@ -255,6 +259,25 @@ Settings has a left-handed and a one-thumb layout, and `gt` shows the
 zones while reading. The `[touch]` section of `keys.toml` gives any action
 to a tap, double-tap or long press in each of nine zones, to a swipe, or
 to a two-finger tap.
+
+### Where your data lives
+
+Each comic's panels, bookmarks, position and edits are in its hidden
+`.crdb` sidecar. Everything else (the library folders, settings, history,
+covers and thumbnails, `keys.toml`, an installed model) is in one folder,
+which `?` names:
+
+- `~/Comics/.comicredr/` when `~/Comics` existed on the first start.
+  Nothing of ComicRedr's is then written outside `~/Comics`.
+- Otherwise `~/.local/share/org.snonux.comicredr/`, with covers in
+  `~/.cache/org.snonux.comicredr/` and keys in `~/.config/comicredr/keys.toml`.
+  An install that already has its database there keeps it there.
+- On Android the app's private storage; `keys.toml` and an added model go
+  in `Android/data/org.snonux.comicredr/files/`.
+
+Deleting that folder starts the app afresh: add your comic folders again
+and one scan brings back everything the sidecars hold. Settings and the
+reading history are lost.
 
 ### The CBR files you already have
 

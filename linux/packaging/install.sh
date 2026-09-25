@@ -52,7 +52,7 @@ elif [ -d "$ICONDIR" ]; then touch "$ICONDIR"; fi
 rm -f "$defaults"
 
 if [ -n "$uninstall" ]; then
-  echo "Uninstalled. Your reading progress in ~/.local/share/$APP_ID is kept."
+  echo "Uninstalled. Your reading progress in ~/Comics/.comicredr or ~/.local/share/$APP_ID is kept."
 else
   echo "Installed. ComicRedr is in the app grid; $BINDIR/comicredr starts it from a shell."
 fi

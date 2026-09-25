@@ -1,6 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
-import 'package:path_provider/path_provider.dart';
+import 'data_dirs.dart';
 
 part 'app_database.g.dart';
 
@@ -205,14 +205,15 @@ class Settings extends Table {
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  /// Lives in the app support directory (`~/.local/share/org.snonux.comicredr`
-  /// on Linux), not in Documents, which may not exist.
+  /// Lives in the app's data folder ([appDirs]: `~/Comics/.comicredr` or
+  /// `~/.local/share/org.snonux.comicredr` on Linux), not in Documents,
+  /// which may not exist.
   AppDatabase([QueryExecutor? executor])
     : super(
         executor ??
             driftDatabase(
               name: 'comicredr',
-              native: const DriftNativeOptions(databaseDirectory: getApplicationSupportDirectory),
+              native: const DriftNativeOptions(databaseDirectory: appDataDirectory),
             ),
       );
 

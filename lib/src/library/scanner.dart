@@ -7,6 +7,7 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../data/data_dirs.dart';
 import '../data/sidecar.dart';
 import 'library_store.dart';
 
@@ -153,11 +154,12 @@ class LibraryScanner {
         if (closed) return;
         for (final dir in await _folders(root.path)) {
           try {
-            // The app's own sidecar writes are not library changes.
+            // The app's own sidecar writes, and its data folder appearing in
+            // ~/Comics, are not library changes.
             subs.add(
               Directory(dir)
                   .watch()
-                  .where((e) => !isSidecarFile(e.path))
+                  .where((e) => !isSidecarFile(e.path) && p.basename(e.path) != comicsDataName)
                   .listen((_) => events.add(null), onError: (_) {}),
             );
           } catch (e) {

@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:onnxruntime/onnxruntime.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../data/data_dirs.dart';
+
 /// The file name the app looks for in its models folder.
 const modelFileName = 'comicredr-panels.onnx';
 
@@ -19,8 +21,9 @@ const modelInputSize = 800;
 /// `COMICREDR_MODEL` names a file directly (the end-to-end tests use it);
 /// `COMICREDR_MODEL=none` forces classic CV. Otherwise a model the user
 /// installed wins: [modelFileName] in a `models` folder in the app's data
-/// directory, `~/.local/share/org.snonux.comicredr/models/` on Fedora, and
-/// on Android also the app's folder on shared storage,
+/// directory ([appDirs]: `~/Comics/.comicredr/models/` or
+/// `~/.local/share/org.snonux.comicredr/models/` on Fedora, the latter
+/// looked at either way), and on Android also the app's folder on shared storage,
 /// `Android/data/org.snonux.comicredr/files/models/`, which `adb push` can
 /// reach. Last comes the model built into the app (see [bundledModel]).
 Future<String?> findModel() async {
@@ -28,7 +31,11 @@ Future<String?> findModel() async {
   if (named == 'none') return null;
   if (named != null && named.isNotEmpty) return File(named).existsSync() ? named : null;
   final dirs = <Future<Directory?> Function()>[
-    getApplicationSupportDirectory,
+    appDataDirectory,
+    if (!Platform.isAndroid) () async => switch (xdgDataFolder()) {
+      final d? => Directory(d),
+      null => null,
+    },
     if (Platform.isAndroid) getExternalStorageDirectory,
   ];
   for (final dir in dirs) {
@@ -60,7 +67,7 @@ Future<String?> bundledModel() async {
       return f.existsSync() ? f.path : null;
     }
     final bytes = (await rootBundle.load(bundledModelAsset)).buffer.asUint8List();
-    final dir = Directory('${(await getApplicationSupportDirectory()).path}/bundled-model');
+    final dir = Directory('${(await appDataDirectory()).path}/bundled-model');
     return await Isolate.run(() => extractModel(bytes, dir.path));
   } catch (_) {
     // No asset (built without the model) or no data folder.

@@ -32,14 +32,14 @@ void main() {
       final load = keymapFromToml('''
 # my keys
 [keys]
-autoTrim = "T"
+autoTrim = "U"
 nextStep = [
   "Space",   # just the space bar
   "x",
 ]
 ''');
       expect(load.warnings, isEmpty);
-      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['T']);
+      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['U']);
       expect(keysFor(load.keymap, ReaderIntent.nextStep), ['Space', 'x']);
       expect(keysFor(load.keymap, ReaderIntent.prevStep), ['h', 'Left', 'S-Space']);
     });
@@ -61,11 +61,11 @@ nextStep = [
       final load = keymapFromToml('''
 [keys]
 nopeAction = "q"
-autoTrim = ["Pagedown", "T"]
+autoTrim = ["Pagedown", "U"]
 zoomIn = "5"
 setMark = "M"
 ''');
-      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['T']);
+      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['U']);
       expect(keysFor(load.keymap, ReaderIntent.zoomIn), isEmpty);
       expect(load.warnings, hasLength(4));
       expect(load.warnings.join('\n'), allOf(contains('nopeAction'), contains('Pagedown'), contains('digit')));
