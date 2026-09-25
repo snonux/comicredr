@@ -7,10 +7,17 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Everything in ~/Comics:** on Linux, when `~/Comics` exists and the app
+  has no database in `~/.local/share` yet, it keeps its database, covers,
+  thumbnails, `keys.toml` and installed models in `~/Comics/.comicredr/`,
+  so all of it lives in one folder with the comics. Existing installs stay
+  where they are; Android is unchanged. `?` names the folder.
+
 - **The time at a glance (`T`, or a long press in the middle of the
   page):** the current time, large and centred on a dim backing, for two
   seconds, then it fades away; in the library, the reader and fullscreen.
   It follows the system's 12 or 24 hour setting and takes no taps.
+
 - **Hidden sidecars:** a comic's sidecar is now `.book.cbz.crdb`, a
   hidden file, beside the comic and in the one sidecar folder alike (a
   folder book's `.comicredr.crdb` already was). A sidecar under the old

@@ -273,6 +273,7 @@ void main() {
           databaseProvider.overrideWithValue(db),
           classicCvOnly,
           keymapLoadProvider.overrideWithValue((load: load, path: '/home/me/.config/comicredr/keys.toml')),
+          appDataDirProvider.overrideWithValue('/home/me/Comics/.comicredr'),
         ],
         child: const ComicRedrApp(),
       ),
@@ -291,6 +292,7 @@ void main() {
     final file = tester.widget<Text>(find.byKey(const Key('keymap-file'))).data!;
     expect(file, contains('Keys from /home/me/.config/comicredr/keys.toml'));
     expect(file, contains('noSuchAction'));
+    expect(tester.widget<Text>(find.byKey(const Key('app-data'))).data, contains('kept in /home/me/Comics/.comicredr'));
   });
 
   testWidgets('? shows the keymap generated from the bindings', (tester) async {
