@@ -3,16 +3,19 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/scanner.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
 import 'support/fixtures.dart';
@@ -291,6 +294,37 @@ void main() {
       expect(find.text('Barefoot Bride'), findsOneWidget);
     });
 
+    testWidgets('/ still reaches the search after a folder opens while it is typed in', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.slash, character: '/');
+      await tester.enterText(find.byKey(const Key('search')), 'spirit');
+      await settle(tester);
+      // A click on the folder while the cursor is in the search box.
+      await tester.tap(find.text('Comics'), kind: PointerDeviceKind.mouse);
+      await settle(tester);
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+      expect(find.text('Barefoot Bride'), findsNothing);
+
+      bool searching() => tester.widget<TextField>(find.byKey(const Key('search'))).focusNode!.hasFocus;
+      // The click took the cursor out of the box, and the keys still work.
+      expect(searching(), isFalse);
+      await key(tester, LogicalKeyboardKey.slash, character: '/');
+      expect(searching(), isTrue);
+      // The last search is selected, so typing replaces it.
+      final text = tester.widget<TextField>(find.byKey(const Key('search'))).controller!;
+      expect(text.selection, const TextSelection(baseOffset: 0, extentOffset: 6));
+      // Enter goes to the first result; the keys work again.
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester);
+      expect(searching(), isFalse);
+      await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
+      expect(c.read(readerProvider).book?.title, startsWith('The Spirit'));
+    });
+
     testWidgets('the Folders tab walks into sub-folders and back out', (tester) async {
       writeShelf(root);
       final old = Directory('${root.path}/Indie/Old')..createSync();
@@ -365,6 +399,78 @@ void main() {
       expect(find.text('Old'), findsNothing);
       expect(find.text('The Spirit #1'), findsWidgets);
       expect(find.text('No books in this folder any more.'), findsNothing);
+    });
+
+    testWidgets('shuffle shows a random page of each book in a folder, remembered across starts', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.enter); // Into Comics.
+      Finder shuffled() => find.byWidgetPredicate(
+        (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('shuffled-'),
+      );
+      expect(shuffled(), findsNothing);
+
+      // S turns it on: every book tile makes a page other than its cover.
+      await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+      for (var i = 0; i < 50 && shuffled().evaluate().length < 3; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+      }
+      final keys = {for (final e in shuffled().evaluate()) (e.widget.key! as ValueKey<String>).value};
+      expect(keys, hasLength(3), reason: 'Pepper Carrot and both Spirit books; Indie is a folder');
+      final pages = Directory('$covers/pages')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .map((f) => p.basename(f.path));
+      expect(pages, isNot(contains('1.jpg')), reason: 'the cover is never the pick');
+      expect(find.byKey(const Key('reshuffle')), findsOneWidget);
+      final saved = await tester.runAsync(() => SettingsStore(db).loadBool(SettingsStore.shuffle));
+      expect(saved, isTrue);
+
+      // gs picks again; the grid scrolling or rebuilding does not.
+      await tester.pump();
+      expect({for (final e in shuffled().evaluate()) (e.widget.key! as ValueKey<String>).value}, keys);
+      var changed = false;
+      for (var round = 0; round < 8 && !changed; round++) {
+        await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+        await key(tester, LogicalKeyboardKey.keyS, character: 's');
+        for (var i = 0; i < 5; i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+          await tester.pump();
+        }
+        changed = !{for (final e in shuffled().evaluate()) (e.widget.key! as ValueKey<String>).value}.containsAll(keys);
+      }
+      expect(changed, isTrue, reason: 'Spirit #2 has four pages to pick from');
+
+      // A book still opens where it was.
+      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.keyL);
+      await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
+      expect(c.read(readerProvider).book, isNotNull);
+      expect(c.read(readerProvider).page, 0);
+      await key(tester, LogicalKeyboardKey.escape);
+
+      // A new start keeps shuffle on; S turns it off.
+      await tester.pumpWidget(const SizedBox());
+      final c2 = await pumpApp(tester);
+      await settle(tester);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.enter);
+      for (var i = 0; i < 50 && shuffled().evaluate().length < 3; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+      }
+      expect(shuffled(), findsNWidgets(3));
+      await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+      expect(shuffled(), findsNothing);
+      expect(find.byKey(const Key('reshuffle')), findsNothing);
+      expect(c2.read(readerProvider).book, isNull);
     });
 
     /// The app's own start: first frame, the start-up scan, the books.

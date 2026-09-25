@@ -21,8 +21,8 @@ class SettingsStore {
   static const night = 'reader.night';
   static const autoTrim = 'reader.autoTrim';
 
-  /// Fullscreen (`f`, F11): the reader opens the next book, and the next
-  /// launch, the way it was left.
+  /// Fullscreen (`f`, F11), in the library and the reader: the next book
+  /// and the next launch come back the way it was left.
   static const fullscreen = 'reader.fullscreen';
 
   /// Scan clean-up (`c`): levels on the paper colour, and small pages
@@ -45,6 +45,10 @@ class SettingsStore {
   /// How big the page grid's (`p`) thumbnails are: an index into its zoom
   /// levels, kept across openings and restarts.
   static const gridZoom = 'grid.zoom';
+
+  /// Shuffle on the library's Folders tab (`S`): random pages instead of
+  /// covers. Off by default.
+  static const shuffle = 'library.shuffle';
 
   /// The default library folder (~/Comics) was taken out of the library,
   /// so starts no longer add it back.
