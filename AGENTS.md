@@ -291,6 +291,10 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 
 ## Develop and test
 
+The e2e scripts use the detector built into the release build (and pass
+its file where they need one); `COMICREDR_MODEL=file.onnx` tries another,
+`COMICREDR_MODEL=none` forces classic CV.
+
 ```sh
 make dev                         # debug build with hot reload (r in the terminal)
 make test                        # analyzer and every test

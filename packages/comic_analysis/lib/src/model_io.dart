@@ -44,7 +44,7 @@ class ModelDetection {
 /// The model's input: an RGBA image of [w] x [h] (the page, already scaled
 /// so its long side is at most [size]) placed top-left on a [size] x [size]
 /// grey (114) canvas, as float32 planes R, G, B in 0..1. This is the
-/// letterbox the model was trained and exported with (spike/export_onnx.py).
+/// letterbox the model was trained and exported with (spike/train.py).
 Float32List letterboxTensor(Uint8List rgba, int w, int h, int size) {
   final plane = size * size;
   final out = Float32List(3 * plane)..fillRange(0, 3 * plane, 114 / 255);
@@ -64,7 +64,7 @@ Float32List letterboxTensor(Uint8List rgba, int w, int h, int size) {
 
 /// Turns the model's output rows into frames and balloons.
 ///
-/// [rows] is the flat [N, 6] output of the NMS-free YOLO26 head: x0, y0,
+/// [rows] is the flat [N, 6] output of the NMS-free D-FINE head: x0, y0,
 /// x1, y1 in input pixels, score, class. [w] and [h] are the size of the
 /// page inside the letterbox, in the same pixels. Boxes are clipped to the
 /// page, thresholded per class, and near-duplicates (IoU above 0.7) folded

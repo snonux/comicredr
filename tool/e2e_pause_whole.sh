@@ -11,8 +11,8 @@
 #
 # The page must be shown whole in guided view and the next one must have
 # panels: in reptisaurus-v2-005.cbz from the corpus, page 3 is a splash and
-# page 4 has panels. Set COMICREDR_MODEL to the trained .onnx file, or build
-# with it (make model). Checks work like e2e_whole_page.sh: shots against
+# page 4 has panels. The build has the detector built in; COMICREDR_MODEL=
+# file.onnx tries another. Checks work like e2e_whole_page.sh: shots against
 # reference shots of both pages taken in single-page mode.
 #
 # Needs: Xvfb, xdotool, ImageMagick, a C compiler and GTK 3 and X11 headers.
