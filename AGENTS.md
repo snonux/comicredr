@@ -117,8 +117,9 @@ build internals, test scripts, detector work and conventions here.
   resumes after a restart, and is off by default on Android. Settings turns
   it off.
 - The detector model is built into the app from
-  `assets/models/comicredr-panels.onnx` (gitignored; `make model MODEL=...`
-  puts it there). `make` and `make apk` refuse to build without it unless
+  `assets/models/comicredr-panels.onnx` (committed: D-FINE-S, Apache-2.0,
+  see "Train the detector"; `make model MODEL=...` swaps in another file).
+  `make` and `make apk` refuse to build without it unless
   `NO_MODEL=1`. `findModel` (lib/src/reader/model_detector.dart) looks, in
   order, at `COMICREDR_MODEL=/path/to/file.onnx` (`none` forces classic
   CV), a user-installed model in the app data folder's `models/` (`~/Comics/.comicredr/models/` or `~/.local/share/org.snonux.comicredr/models/`)
@@ -342,7 +343,7 @@ tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole
 ```sh
 pip install opencv-python-headless numpy pillow pypdfium2 huggingface_hub ultralytics
 python3 spike/make_synthetic.py                       # synthetic pages with ground truth
-python3 spike/fetch_corpus.py                         # real comics + pretrained model
+python3 spike/fetch_corpus.py --manga109-model        # real comics + the Manga109 model (comparison only)
 python3 spike/extract_pages.py test/corpus spike/pages
 cd spike && python3 run_spike.py pages out --weights ../test/corpus/models/<model>.pt
 ```
@@ -354,42 +355,55 @@ frames, magenta its balloons. Pages are sampled into one folder per style
 CV and the pretrained model side by side for each style, and `results.json`
 carries a per-style summary.
 
-## Train the detector (M5)
+## Train the detector
+
+The model built into the app is D-FINE-S (Apache-2.0 code and weights),
+fine-tuned from its COCO-only checkpoint (`ustc-community/dfine-small-coco`
+on Hugging Face) on our own labels, and committed at
+`assets/models/comicredr-panels.onnx`. Keep it clean: no Ultralytics code
+or weights (they are AGPL, trained models included), no Objects365
+checkpoints (academic use only) and nothing trained on Manga109. Only
+public-domain, CC0 and CC BY books go in `test/train.manifest.toml`, each
+credited in NOTICE; NC, ND and share-alike books live in
+`test/train-local.manifest.toml` with labels in `spike/labels/train-local/`,
+for a model kept at home. The test sets (`test/corpus.manifest.toml`,
+`test/modern.manifest.toml`) only score models and never ship.
 
 Everything runs on the CPU. `make train-model` (tool/train_model.sh) runs
 the steps that build the shipped model, from fetching the training comics
-and the ShadowB checkpoint to exporting the float ONNX, then validates the
-file and puts it in `assets/models/` through tool/fetch_model.sh, which
-`make fetch-model URL=...` also uses (URL or path; `HF_TOKEN` goes to
-huggingface.co only; the check loads the file with onnxruntime and wants a
-[1, 300, 6] output). Measured 2026-09-24 in a 4-core cloud container:
-3.5 minutes an epoch over the 305 training pages, 7 minutes for
-`EPOCHS=1` end to end with downloads cached; 733 MB of comics, 465 MB of
-pages, 45 MB base model. fetch_corpus.py `--skip-books` fetches only the
-checkpoint. The manual steps, including evaluation: The labels are committed in `spike/labels/` (how they were
-drawn: `spike/LABELLING.md`); the comics are fetched.
+to exporting the ONNX file, then validates it and puts it in
+`assets/models/` through tool/fetch_model.sh (the check loads the file with
+onnxruntime and wants a [1, 300, 6] output). The export folds constants
+with onnxslim, without which the ONNX Runtime 1.15 the app bundles cannot
+load it. The labels are committed in `spike/labels/` (how they were drawn:
+`spike/LABELLING.md`); the comics are fetched.
 
 ```sh
-pip install opencv-python-headless numpy pillow pypdfium2 huggingface_hub ultralytics onnx onnxruntime onnxslim
-python3 spike/fetch_corpus.py                                   # eval comics + the Manga109 model
+pip install opencv-python-headless numpy pillow pypdfium2 torch transformers onnx onnxruntime onnxslim
+python3 spike/fetch_corpus.py                                   # eval comics
 python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train
-python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern --skip-model
+python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern
 python3 spike/extract_pages.py test/corpus spike/eval_pages --per-book 400
 python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 400 --manifest test/train.manifest.toml
 python3 spike/extract_pages.py test/corpus-modern spike/modern_pages --per-book 400 --manifest test/modern.manifest.toml
 python3 spike/labelkit.py import spike/labels/eval spike/eval_pages
 python3 spike/labelkit.py import spike/labels/train spike/train_pages
 python3 spike/labelkit.py import spike/labels/modern spike/modern_pages
-python3 spike/train.py spike/train_pages --out spike/out/train --epochs 45  # -> spike/out/train/run/weights/best.pt
-python3 spike/export_onnx.py spike/out/train/run/weights/best.pt --out spike/out/comicredr-panels.onnx --int8 spike/train_pages
-cd spike && python3 evaluate.py eval_pages --out out/eval --pretrained ../test/corpus/models/best.pt \
+python3 spike/train.py spike/train_pages --out spike/out/train --epochs 30 --imgsz 640   # -> spike/out/train/best/
+python3 spike/train.py --export spike/out/train/best --out-onnx spike/out/comicredr-panels.onnx
+cd spike && python3 evaluate.py eval_pages --out out/eval --no-cv --trim \
     --trained out/comicredr-panels.onnx                          # out/eval/report.md
 ```
 
-`evaluate.py` scores classic CV, the downloaded Manga109 model and the
-fine-tune on the same 100 labelled pages, none of them from a training
+`labelkit.py candidates PAGES --weights model.onnx` suggests boxes from any
+model in the app's format when labelling new pages.
+
+`evaluate.py` scores classic CV and a trained model on the same 100 labelled pages, none of them from a training
 book: panel and balloon F1 at IoU 0.5, and per page whether guided view
 would move the camera right, show the page whole, or move it wrong.
+
+The sections below are the history of the earlier YOLO26s models, which
+started from a Manga109-trained checkpoint and are no longer shipped.
 
 Results on the 100 eval pages (2026-09-24, 4-core CPU):
 

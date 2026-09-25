@@ -59,13 +59,11 @@ app.*.map.json
 /spike/eval_pages/
 /spike/train_pages/
 /spike/modern_pages/
+/spike/label_new/
 __pycache__/
 # The release keystore must be backed up, never committed.
 *.jks
 *.keystore
 /android/key.properties
 /test/corpus-formats/
-# The detector model is packed into the app from here but not committed:
-# it starts from a Manga109-trained model (README, step 7).
-/assets/models/*.onnx
 packages/*/build/

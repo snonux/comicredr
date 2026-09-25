@@ -4,7 +4,10 @@
 # test/corpus-train/ by spike/fetch_corpus.py, never committed. None of these
 # books is in the eval corpus, so the eval set measures pages the model has
 # never seen. Public-domain status of golden-age and Charlton scans rests on
-# copyright non-renewal; the CC-NC/ND books are for local training only.
+# copyright non-renewal. Only public-domain, CC0 and CC BY books belong here: this
+# set trains the detector built into the app, which is published (Apache-2.0).
+# Anything non-commercial, no-derivatives or share-alike goes in
+# test/train-local.manifest.toml.
 #
 #   python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train
 
@@ -81,28 +84,10 @@ url = "https://archive.org/download/war-heroes-022/War%20Heroes%20006.cbz"
 licence = "public domain (copyright not renewed), Charlton"
 
 [[book]]
-name = "modern-indie/fodongo-issue-2digital.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/fodongo-issue-2/Fodongo%20Issue%202_Digital.pdf"
-licence = "CC BY-SA 4.0, Fodongo free culture comics zine"
-
-[[book]]
-name = "modern-indie/ocbshorts1.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/ocb-shorts-1/OCB_Shorts1.pdf"
-licence = "CC BY-NC 4.0, Old City Blues shorts"
-
-[[book]]
 name = "bw-indie/the-dying-shadows-final.pdf"
 style = "black-and-white"
 url = "https://archive.org/download/thedyingshadows/The%20Dying%20Shadows%20%28final%29.pdf"
 licence = "CC0, The Dying Shadows"
-
-[[book]]
-name = "bw-indie/yogi-and-his-toy-6.pdf"
-style = "black-and-white"
-url = "https://archive.org/download/YogiandHisToy6/Yogi%20and%20His%20Toy%20%236.pdf"
-licence = "CC BY-NC-ND 4.0, local training only"
 
 [[book]]
 name = "modern/pepper-carrot-e08/en_Pepper-and-Carrot_by-David-Revoy_E08P02.jpg"
@@ -283,36 +268,6 @@ licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
 # in test/modern.manifest.toml.
 
 [[book]]
-name = "modern-digital/first-woman-002.pdf"
-style = "modern-digital"
-url = "https://archive.org/download/first-woman-issue-2-expanding-our-universe-nasa/First_Woman_issue_2_Expanding_Our_Universe%20%20%28NASA%29.pdf"
-licence = "public domain, US government work (NASA, First Woman issue 2, 2023)"
-
-[[book]]
-name = "modern-indie/wolfs-head-006.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/wolfs-head-006-by-von-allan/Wolf%27s%20Head%20006%20by%20Von%20Allan.pdf"
-licence = "CC BY-NC-ND 4.0 (Von Allan, Wolf's Head 006)"
-
-[[book]]
-name = "modern-indie/wolfs-head-010.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/wolfs-head-010-by-von-allan/Wolf%27s%20Head%20010%20by%20Von%20Allan.pdf"
-licence = "CC BY-NC-ND 4.0 (Von Allan, Wolf's Head 010)"
-
-[[book]]
-name = "modern-indie/hephaestion-part-one.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/hephaestion-part-one-final/Hephaestion%20Part%20One%20-%20Final.pdf"
-licence = "CC BY-ND 4.0 (Simon Braunstein, Hephaestion Part One)"
-
-[[book]]
-name = "modern-indie/calzers-clock.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/calzers_clock/calzers_clock_final_snowyworks.pdf"
-licence = "CC BY-NC-ND 4.0 (Drew D. Lenhart, Calzer's Clock)"
-
-[[book]]
 name = "modern/pepper-carrot-e01/en_Pepper-and-Carrot_by-David-Revoy_E01P03.jpg"
 style = "modern-painted"
 url = "https://www.peppercarrot.com/0_sources/ep01_Potion-of-Flight/low-res/en_Pepper-and-Carrot_by-David-Revoy_E01P03.jpg"
@@ -462,118 +417,6 @@ licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
 # pages. None shares a series with the test slice. The Federal Reserve
 # comics are free educational handouts, not public domain: local training
 # only.
-
-[[book]]
-name = "modern-digital/frbny-story-of-monetary-policy.pdf"
-style = "modern-digital"
-url = "https://archive.org/download/storyofmonetarypolicy/storyofmonetarypolicy.pdf"
-sha256 = "7bad77673d98dd02d86d509745da3f4ae75167175ae1a96e9147c6427910e5ee"
-licence = "Federal Reserve Bank of New York educational comic (2018), free distribution; IA tag CC BY-NC-ND 4.0, local training only"
-
-[[book]]
-name = "modern-digital/frbny-story-of-checks.pdf"
-style = "modern-digital"
-url = "https://archive.org/download/gov.frb.ny.comic.checks/gov.frb.ny.comic.checks.pdf"
-sha256 = "f5a7b9173afb71268d59d36471f99ad8dfb3dbbc38db10148a4a4ed9d68759a0"
-licence = "Federal Reserve Bank of New York educational comic (2000s), free distribution; local training only"
-
-[[book]]
-name = "modern-digital/frbny-story-of-the-fed.pdf"
-style = "modern-digital"
-url = "https://archive.org/download/gov.frb.ny.comic.federal/gov.frb.ny.comic.federal.pdf"
-sha256 = "09986aefd0b9837473afa324add64d7ce1673a5d6918666c453faf8a09b9a42c"
-licence = "Federal Reserve Bank of New York educational comic (c. 2006), free distribution; local training only"
-
-[[book]]
-name = "modern-digital/frbny-too-much-too-little.pdf"
-style = "modern-digital"
-url = "https://archive.org/download/gov.frb.ny.comic.much/gov.frb.ny.comic.much.pdf"
-sha256 = "d0cf9a594f798c378c6210569a6c052ce464ad0be34485046a3f5d9e6dede3a0"
-licence = "Federal Reserve Bank of New York educational comic (2000s), free distribution; local training only"
-
-[[book]]
-name = "modern-digital/frbb-wishes-and-rainbows.pdf"
-style = "modern-digital"
-url = "https://archive.org/download/gov.frb.boston.comic.wishes/gov.frb.boston.comic.wishes.pdf"
-sha256 = "a1f6895db89f7abe3e9058df8eb0eaebc7194acac69236ed0c7d4db3be35c124"
-licence = "Federal Reserve Bank of Boston educational comic (2000s), free distribution; local training only"
-
-[[book]]
-name = "modern-indie/sheba-the-great.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/sheba-the-great-by-von-allan/Sheba-the-Great-by-Von-Allan-High-Rez.pdf"
-sha256 = "ebb6e7c93672e811f9952f0047d7caa5d850b195668e4b1cc5cd26f7a7fc64a3"
-licence = "CC BY-NC-ND 4.0 (Von Allan, Sheba the Great, 2023)"
-
-[[book]]
-name = "modern-indie/wizards-for-hire-cheap.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/wizards-for-hire-cheap-by-von-allan_202311/Wizards-for-Hire-Cheap-by-Von-Allan-High-Rez.pdf"
-sha256 = "4dad97ca15641cdd767ef09e21f1a275749aa13b1d906fc085c288a4e83127ba"
-licence = "CC BY-NC-ND 4.0 (Von Allan, Wizards For Hire - Cheap!, 2017)"
-
-[[book]]
-name = "modern-indie/virtuoso-00-prologue.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/virtuoso-00-prologue/Virtuoso-00-Prologue.pdf"
-sha256 = "6aafea2f9e4d88fb022ad975e323c1052f0de2a22659521238d87e0cc9e7246b"
-licence = "CC BY-SA 4.0 (Jon Munger, Krista Brennan, Virtuoso Prologue, 2010)"
-
-[[book]]
-name = "modern-indie/topaz-chapter-01.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/topaz-chapters-one-through-twelve/topaz%20chapter%20one.pdf"
-sha256 = "1339cf5f36ae5dca48023ff4c47dcf2223960de03be18f26186348f34bcca4c8"
-licence = "CC BY-ND 4.0 (Warren West, Topaz chapter 1, 2024)"
-
-[[book]]
-name = "modern-indie/bio-whale-book-1.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/bio-whale-book-1/Bio-Whale%20Book%201.pdf"
-sha256 = "113f8fa00c3ac88feab5e332c1879515a981ed0511b05913914a060422fbad76"
-licence = "CC0 1.0 (Ville Kallio, Bio-Whale Book 1, 2015)"
-
-[[book]]
-name = "modern-indie/ski-ninjas-vol-1.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/SkiNinjasVolume1ThisIsFreeOnTheInternet/Ski%20Ninjas%20Volume%201%20-%20This%20is%20Free%20on%20the%20Internet.pdf"
-sha256 = "4ff3f5422bfef2cb96ecd58c8b1f50fc931275bc3fd431e3513e28c09be3ba09"
-licence = "CC BY-NC-ND 3.0 (Kyle Lees, Ski Ninjas Volume 1, 2017)"
-
-[[book]]
-name = "modern-indie/pawns.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/pawns_202502/Pawns.pdf"
-sha256 = "4b879617697ea313f6975f9ad1b751a61918b33740b8996a9609dff0fdd72dd3"
-licence = "CC BY-ND 4.0 (Bob Lynch, Pawns, 2025)"
-
-[[book]]
-name = "modern-indie/durpsville-pt1.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/durpsville/Durpsville%20Pt.%201.pdf"
-sha256 = "4df697da481b8064bebbce1a783bd26fc337ef0ffbef1d2dfee6c1bcb9800bfc"
-licence = "CC BY-SA 4.0 (Pacmation Studios, Durpsville Pt. 1, 2021)"
-
-[[book]]
-name = "modern-indie/fodongo-issue-1digital.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/fodongo-issue-1/Fodongo%20Issue%201_Digital.pdf"
-sha256 = "ea9787194a736496a00c56c9314df1064da4d8a1504d9e30de5c67028ed98fee"
-licence = "CC BY-SA 4.0, Fodongo free culture comics zine issue 1 (2023)"
-
-[[book]]
-name = "modern-indie/fodongo-issue-3digital.pdf"
-style = "modern-indie"
-url = "https://archive.org/download/fodongo-issue-3/Fodongo%20Issue%203_Digital.pdf"
-sha256 = "9af058d975d648e556d3683daec67b4d218ceef8d9208676569922c9d024f3ad"
-licence = "CC BY-SA 4.0, Fodongo free culture comics zine issue 3"
-
-[[book]]
-name = "bw-indie/dream-life-book-one.pdf"
-style = "black-and-white"
-url = "https://archive.org/download/dream-life-bookone/DreamLifebookone.pdf"
-sha256 = "0afefad32fe98b5038588a5288e1efd8015e2cb7b8ff1ecf0a93e7b0fa9260d0"
-licence = "CC BY-NC-ND 4.0 (Salgood Sam, Dream Life book one, 2014), local training only"
 
 [[book]]
 name = "modern/pepper-carrot-e13/en_Pepper-and-Carrot_by-David-Revoy_E13P02.jpg"
@@ -876,3 +719,338 @@ url = "https://www.peppercarrot.com/0_sources/ep39_The-Tavern/low-res/en_Pepper-
 sha256 = "646119db58c2abd44f24fef224e497745b0100dc2c2dcc83b08f6970ef5a01f9"
 licence = "CC-BY 4.0, David Revoy (Pepper&Carrot)"
 
+[[book]]
+name = "golden-age/plastic-man-017.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/PlasticManV1017/Plastic_Man_v1_017_c2c.pdf"
+licence = "public domain (copyright not renewed), Quality 1949; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/plastic-man-020.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/PlasticManV1020/Plastic_Man_v1_20.pdf"
+licence = "public domain (copyright not renewed), Quality 1949; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/police-comics-023.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/PoliceComics023/Police_023.pdf"
+licence = "public domain (copyright not renewed), Quality 1943; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/crime-does-not-pay-039.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/CrimeDoesNotPay039/Lev_Gleason___Crime_Does_Not_Pay_039.pdf"
+licence = "public domain (copyright not renewed), Lev Gleason 1945; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/forbidden-worlds-020.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/ForbiddenWorlds020/Forbidden_Worlds_020_ACG_-_Aug_1953_036_Ont.pdf"
+licence = "public domain (copyright not renewed), ACG 1953; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/adventures-into-the-unknown-050.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/AdventuresIntoTheUnknown050/ACG___Adventures_Into_The_Unknown_050.pdf"
+licence = "public domain (copyright not renewed), ACG 1953; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/web-of-evil-009.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/WebOfEvil009/Web_of_Evil_009__1953_.pdf"
+licence = "public domain (copyright not renewed), Quality 1953; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/weird-thrillers-002.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/WeirdThrillers002_jvjon/Weird_Thrillers_002_JVJon.pdf"
+licence = "public domain (copyright not renewed), Ziff-Davis 1951"
+
+[[book]]
+name = "golden-age/startling-terror-tales-v2-005.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/StartlingTerrorTalesV20051953/Startling_Terror_Tales_v2_005__1953_04.Star_.pdf"
+licence = "public domain (copyright not renewed), Star Publications 1953"
+
+[[book]]
+name = "golden-age/beware-010.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/Beware010trojan/0094_Beware_10_1954-07.Trojan_c2c.Cimmerian32Beware_10_-_01b_front_cover_-_Frank_Frazetta__Sid_Check.pdf"
+licence = "public domain (copyright not renewed), Trojan 1954; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/fighting-undersea-commandos-001.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/FightingUnderseaCommandos01fixed/Fighting_Undersea_Commandos_01__1952_.pdf"
+licence = "public domain (copyright not renewed), Avon 1952"
+
+[[book]]
+name = "golden-age/weird-terror-007.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/WeirdTerror007/Weird_Terror_007.pdf"
+licence = "public domain (copyright not renewed), Comic Media (Allen Hardy) 1953; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/planet-comics-023.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/planet-comics-011-gm-removed-cbpop/Planet_Comics_023__paper__Builderboy.cbz"
+licence = "public domain (copyright not renewed), Fiction House 1943"
+
+[[book]]
+name = "golden-age/planet-comics-054.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/planet-comics-011-gm-removed-cbpop/Planet_Comics_054_cvr_upgrade_FH1948_laszlozoyd_JVJon_fills.cbz"
+licence = "public domain (copyright not renewed), Fiction House 1948"
+
+[[book]]
+name = "golden-age/planet-comics-019.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/planet-comics-011-gm-removed-cbpop/Planet_Comics_019__FH1942__Soothsayr_a_nonny_moose_.cbz"
+licence = "public domain (copyright not renewed), Fiction House 1942"
+
+[[book]]
+name = "golden-age/planet-comics-041.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/planet-comics-011-gm-removed-cbpop/Planet_Comics__41__FH1946__now_c2c__Jon_ffly_Yoc.cbz"
+licence = "public domain (copyright not renewed), Fiction House 1946"
+
+[[book]]
+name = "golden-age/planet-comics-026.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/planet-comics-011-gm-removed-cbpop/planet26.paper_except_indicia_.ctc.ffly.cbz"
+licence = "public domain (copyright not renewed), Fiction House 1943"
+
+[[book]]
+name = "golden-age/jumbo-comics-093.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/jumbo-comics-08/Jumbo_Comics_093__c2c__JVJ_BB.cbz"
+licence = "public domain (copyright not renewed), Fiction House 1946"
+
+[[book]]
+name = "golden-age/jumbo-comics-090.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/jumbo-comics-08/Jumbo_Comics_090_c2c_52p_JVJ_Builderboy.cbz"
+licence = "public domain (copyright not renewed), Fiction House 1946"
+
+[[book]]
+name = "golden-age/jumbo-comics-104.cbz"
+style = "golden-age-irregular"
+url = "https://archive.org/download/jumbo-comics-08/Jumbo_Comics_104.cbz"
+licence = "public domain (copyright not renewed), Fiction House 1947"
+
+[[book]]
+name = "golden-age/this-magazine-is-haunted-014.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/This_Magazine_Is_Haunted_014/This_Magazine_Is_Haunted_014.pdf"
+licence = "public domain (copyright not renewed), Charlton 1953; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/this-magazine-is-haunted-016.pdf"
+style = "golden-age-irregular"
+url = "https://archive.org/download/This_Magazine_Is_Haunted_016/This_Magazine_Is_Haunted_016.pdf"
+licence = "public domain (copyright not renewed), Charlton 1954; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "silver-age/out-of-this-world-005.pdf"
+style = "silver-age"
+url = "https://archive.org/download/OutOfThisWorld005C2c/Out_Of_This_World_005_Charlton_Mar-1957_36p_c2cOut_Of_This_World_005-01.pdf"
+licence = "public domain (copyright not renewed), Charlton 1957; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "silver-age/out-of-this-world-008.pdf"
+style = "silver-age"
+url = "https://archive.org/download/OutOfThisWorld008C2c/Out_Of_This_World_008_Charlton_May-1958_68p_c2cOut_Of_This_World_008-01.pdf"
+licence = "public domain (copyright not renewed), Charlton 1958; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "silver-age/strange-suspense-stories-031.pdf"
+style = "silver-age"
+url = "https://archive.org/download/Strange_Suspense_Stories_031/Strange_Suspense_Stories_031__1957_Charlton.pdf"
+licence = "public domain (copyright not renewed), Charlton 1957; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "silver-age/mysteries-of-unexplored-worlds-004.pdf"
+style = "silver-age"
+url = "https://archive.org/download/MysteriesOfUnexploredWorlds004C2c/Mysteries_Of_Unexplored_Worlds_004_Charlton_Jul_1957_36p_c2c.pdf"
+licence = "public domain (copyright not renewed), Charlton 1957; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "silver-age/attack-056.pdf"
+style = "silver-age"
+url = "https://archive.org/download/Attack056C2c/Attack_056_Charlton_Feb_1959_36p_c2c.pdf"
+licence = "public domain (copyright not renewed), Charlton 1959; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "silver-age/fightin-air-force-008.pdf"
+style = "silver-age"
+url = "https://archive.org/download/FightinAirForce008/Fightin_Air_Force_008_c2c_Tugolith.pdf"
+licence = "public domain (copyright not renewed), Charlton 1957; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/plastic-man-005.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/PlasticManV1005/Plastic_Man_005-52.pdf"
+licence = "public domain (copyright not renewed), Quality 1946; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/police-comics-070.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/PoliceComics070/Police_Comics_070_.pdf"
+licence = "public domain (copyright not renewed), Quality 1947; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/crime-does-not-pay-066.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/CrimeDoesNotPay066/Crime_Does_Not_Pay_066_1948_c2c_Darkmark-DCP.pdf"
+licence = "public domain (copyright not renewed), Lev Gleason 1948; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/forbidden-worlds-010.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/ForbiddenWorlds010/Forbidden_Worlds_010-03.pdf"
+licence = "public domain (copyright not renewed), ACG 1952; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "golden-age/eerie-002-avon.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/Eerie008/Eerie_002__Avon_08_09.1951_JVJ_Ont.pdf"
+licence = "public domain (copyright not renewed), Avon 1951"
+
+[[book]]
+name = "golden-age/eerie-011.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/Eerie011/Eerie_011__Avon_04.1953_JVJ_Ont.pdf"
+licence = "public domain (copyright not renewed), Avon 1953"
+
+[[book]]
+name = "golden-age/tales-of-horror-004.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/TalesOfHorror004toby/Tales_Of_Horror_004__Toby_.pdf"
+licence = "public domain (copyright not renewed), Toby Press 1953"
+
+[[book]]
+name = "golden-age/dark-mysteries-008.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/DarkMysteries008master/Dark_Mysteries_008__Master_.pdf"
+licence = "public domain (copyright not renewed), Master/Merit 1952"
+
+[[book]]
+name = "golden-age/battle-cry-001.pdf"
+style = "golden-age-grid"
+url = "https://archive.org/download/BattleCry01/Battle_Cry_01.pdf"
+licence = "public domain (copyright not renewed), Stanmor 1952; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "silver-age/black-fury-016.pdf"
+style = "silver-age"
+url = "https://archive.org/download/BlackFuryV1016ditko/Black_Fury_v1_016__36p_c2c.pdf"
+licence = "public domain (copyright not renewed), Charlton 1959; archive.org upload tagged CC BY 3.0"
+
+[[book]]
+name = "silver-age/submarine-attack-011.pdf"
+style = "silver-age"
+url = "https://archive.org/download/Submarine_attack011/Submarine_Attack_011_Charlton_May_1958_36p_c2c.pdf"
+licence = "public domain (copyright not renewed), Charlton 1958"
+
+[[book]]
+name = "silver-age/ps-magazine-100.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/ps-magazine-1969-series-issue-197/PS%20Magazine%201961%20Series%20Issue%20100.pdf"
+licence = "public domain, US government work (US Army, PS: The Preventive Maintenance Monthly issue 100, 1961)"
+
+[[book]]
+name = "silver-age/ps-magazine-108.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/ps-magazine-1969-series-issue-197/PS%20Magazine%201961%20Series%20Issue%20108.pdf"
+licence = "public domain, US government work (US Army, PS: The Preventive Maintenance Monthly issue 108, 1961)"
+
+[[book]]
+name = "modern-indie/rogan-of-the-north-07.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/Rogan_issue7-9/Rogan%20Issue%2007.pdf"
+licence = "CC BY 4.0 (David D. Lanciani, Rogan of the North #7)"
+
+[[book]]
+name = "modern-indie/rogan-of-the-north-08.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/Rogan_issue7-9/Rogan%20Issue%2008.pdf"
+licence = "CC BY 4.0 (David D. Lanciani, Rogan of the North #8)"
+
+[[book]]
+name = "modern-indie/rogan-of-the-north-09.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/Rogan_issue7-9/Rogan%20Issue%2009.pdf"
+licence = "CC BY 4.0 (David D. Lanciani, Rogan of the North #9)"
+
+[[book]]
+name = "modern-indie/bushwalk.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/bushwalk/bushwalk.pdf"
+licence = "CC BY 4.0 (Wdking, Bushwalk)"
+
+[[book]]
+name = "modern/pepper-carrot-e05/en_Pepper-and-Carrot_by-David-Revoy_E05P01.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep05_Special-holiday-episode/low-res/en_Pepper-and-Carrot_by-David-Revoy_E05P01.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e05/en_Pepper-and-Carrot_by-David-Revoy_E05P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep05_Special-holiday-episode/low-res/en_Pepper-and-Carrot_by-David-Revoy_E05P02.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e05/en_Pepper-and-Carrot_by-David-Revoy_E05P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep05_Special-holiday-episode/low-res/en_Pepper-and-Carrot_by-David-Revoy_E05P03.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e05/en_Pepper-and-Carrot_by-David-Revoy_E05P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep05_Special-holiday-episode/low-res/en_Pepper-and-Carrot_by-David-Revoy_E05P04.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e05/en_Pepper-and-Carrot_by-David-Revoy_E05P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep05_Special-holiday-episode/low-res/en_Pepper-and-Carrot_by-David-Revoy_E05P05.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e10/en_Pepper-and-Carrot_by-David-Revoy_E10P01.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep10_Summer-Special/low-res/en_Pepper-and-Carrot_by-David-Revoy_E10P01.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e10/en_Pepper-and-Carrot_by-David-Revoy_E10P02.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep10_Summer-Special/low-res/en_Pepper-and-Carrot_by-David-Revoy_E10P02.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e10/en_Pepper-and-Carrot_by-David-Revoy_E10P03.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep10_Summer-Special/low-res/en_Pepper-and-Carrot_by-David-Revoy_E10P03.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e10/en_Pepper-and-Carrot_by-David-Revoy_E10P04.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep10_Summer-Special/low-res/en_Pepper-and-Carrot_by-David-Revoy_E10P04.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e10/en_Pepper-and-Carrot_by-David-Revoy_E10P05.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep10_Summer-Special/low-res/en_Pepper-and-Carrot_by-David-Revoy_E10P05.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"
+
+[[book]]
+name = "modern/pepper-carrot-e10/en_Pepper-and-Carrot_by-David-Revoy_E10P06.jpg"
+style = "modern-painted"
+url = "https://www.peppercarrot.com/0_sources/ep10_Summer-Special/low-res/en_Pepper-and-Carrot_by-David-Revoy_E10P06.jpg"
+licence = "CC BY 4.0 (David Revoy, Pepper&Carrot)"

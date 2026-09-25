@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Label panels and balloons on page images, for the M5 eval and training sets.
 
-  python3 spike/labelkit.py candidates PAGES_DIR [--weights best.pt]
+  python3 spike/labelkit.py candidates PAGES_DIR [--weights model.onnx|best.pt]
   python3 spike/labelkit.py show PAGE [--out img.jpg]
   python3 spike/labelkit.py set PAGE --panels SPEC --balloons SPEC [--captions SPEC]
   python3 spike/labelkit.py check PAGE [--out img.jpg]
@@ -89,13 +89,24 @@ def label_path(page):
 # ---------------------------------------------------------------- candidates
 
 def candidates(folder, weights):
-    from ultralytics import YOLO
-    model = YOLO(weights) if weights else None
+    onnx = weights and str(weights).endswith(".onnx")
+    if onnx:
+        # The app's own model (e.g. the bundled D-FINE detector): T are its captions.
+        from evaluate import Onnx
+        model = Onnx(weights)
+    elif weights:
+        from ultralytics import YOLO
+        model = YOLO(weights)
+    else:
+        model = None
     for p in pages_in(folder):
         img = cv2.imread(str(p))
         h, w = img.shape[:2]
         out = {"w": w, "h": h, "C": detect_cv.detect(img).panels, "F": [], "B": [], "T": []}
-        if model:
+        if onnx:
+            out["F"], out["B"] = (sorted(b, key=lambda r: (r[1], r[0])) for b in model(img))
+            out["T"] = sorted(model.captions, key=lambda r: (r[1], r[0]))
+        elif model:
             r = model.predict(str(p), imgsz=1024, device="cpu", verbose=False, conf=0.25)[0]
             key = {"frame": "F", "balloon": "B", "text": "T"}
             rows = sorted(zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist()),
