@@ -58,6 +58,9 @@ Potion Contest*, by David Revoy, licensed
   note if you like. `mm` or the bookmark button sets one and takes it off
   again, `M` lists them with a picture of each page, `}` and `{` jump
   between them, and the library's Bookmarks tab gathers every book's.
+- **Favourites**: `*` adds the comic you are reading, or the cover you
+  picked in the library, to your Favourites collection, and takes it out
+  again. `gf` or the star at the top of the library lists them.
 - **Details of every comic** (`I`): file and format, page sizes and how
   sharp the scans are on your screen, JPEG quality, the images inside a
   PDF, metadata, reading time, and what panel and balloon detection found

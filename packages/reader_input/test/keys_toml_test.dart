@@ -82,6 +82,7 @@ setMark = "M"
       expect(load.warnings, [
         contains('hides gg'),
         contains('hides gw'),
+        contains('hides gf'),
         contains('hides gs'),
         contains('hides gd'),
         contains('hides gt'),

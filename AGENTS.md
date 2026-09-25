@@ -168,6 +168,14 @@ build internals, test scripts, detector work and conventions here.
   (`LibraryStore.setNote`) replaces the row with a new id and removes the
   old one, which the sidecar merge's "union by id, removal wins" carries
   to every copy.
+- Favourites are the ordinary collection named `Favourites`
+  (`favouritesCollection` in `library_store.dart`), so they travel in the
+  sidecar under the collection rule. `*` (`toggleFavourite`) adds or takes
+  out the open book or the selected cover; `gf` (`showFavourites`), or the
+  header's star, opens that collection on the Collections tab
+  (`LibraryScreenState._favourites`), where `*`, `x` and the details' star
+  take a comic out with an Undo notice. Renamed or emptied, the next
+  favourite makes the collection again.
 - Touch: `ReaderTouch` looks every gesture up in a `TouchMap`
   (`reader_input` touch_map.dart): taps, double-taps and long presses on a
   3x3 grid (30% side columns, rows in thirds), four swipes and a
@@ -320,6 +328,7 @@ tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step wit
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
+tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
 tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars

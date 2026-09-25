@@ -615,6 +615,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       unawaited(_rescan());
       return;
     }
+    if (c.intent == ReaderIntent.showFavourites) {
+      // From the reader it leaves fullscreen and the book, as Esc would,
+      // and goes there.
+      unawaited(() async {
+        final reader = ref.read(readerProvider.notifier);
+        if (ref.read(readerProvider).fullscreen) reader.setFullscreen(false);
+        await reader.close();
+        _library.currentState?.handle(c);
+      }());
+      return;
+    }
     if (c.intent == ReaderIntent.resetBook) {
       if (ref.read(readerProvider).book case final book?) {
         unawaited(_reset(book.title));
