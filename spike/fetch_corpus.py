@@ -21,6 +21,7 @@ import hashlib
 import json
 import sys
 import tomllib
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -29,7 +30,13 @@ UA = {"User-Agent": "comicredr-spike/0.1 (personal test corpus)"}
 
 
 def get(url, timeout=120):
-    return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout)
+    try:
+        return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout)
+    except urllib.error.HTTPError as e:
+        # cdc.gov refuses unknown user agents but serves Python's own.
+        if e.code != 403:
+            raise
+        return urllib.request.urlopen(url, timeout=timeout)
 
 
 def download(url, dest: Path, sha256=None):

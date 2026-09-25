@@ -166,3 +166,22 @@ style = "modern-indie"
 url = "https://archive.org/download/bio-whale-book-1/Bio-Whale%20Book%201.pdf"
 sha256 = "113f8fa00c3ac88feab5e332c1879515a981ed0511b05913914a060422fbad76"
 licence = "CC0 tag on archive.org, but not added by the author (Ville Kallio, Bio-Whale Book 1, 2015); local training only"
+
+# Modern pages whose licence is likely but not certain (2026-09-25): kept
+# out of the published model like First Woman #2.
+
+[[book]]
+name = "modern-digital/cdc-junior-disease-detectives.pdf"
+style = "modern-digital"
+url = "https://www.cdc.gov/flu-resources/media/pdfs/2024/07/junior-detectives-print-web.pdf"
+licence = "US federal work, public domain: CDC with USDA and 4-H, The Junior Disease Detectives: Operation Outbreak (2024), https://www.cdc.gov/flu-resources/graphic-novel/index.html; CDC policy https://www.cdc.gov/other/agencymaterials.html (not subject to copyright); no copyright notice in the PDF, but made with partners USDA and 4-H, so the art may be contractor work"
+purpose = "digital colour, insets, borderless panels on black"
+sha256 = "a7fc19b7a7221b4e01a379bbf501a97738ecce14d568f3128b781840a85dc55a"
+
+[[book]]
+name = "modern-indie/just-go-for-it.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/justgoforitpdfversion/Just%20Go%20For%20It%20PDF%20VERSION.pdf"
+licence = "CC BY 4.0, @lilyellowtags, Just Go For It (2019; archive.org item justgoforitpdfversion, licenseurl; uploaded by someone other than the author, so who set the licence is unconfirmed)"
+purpose = "webcomic digital colour, borderless panels"
+sha256 = "64a9ef779dd560c3e572bc18443af8a70a8e449b778f9d9af8241b4b3dbfdbbd"

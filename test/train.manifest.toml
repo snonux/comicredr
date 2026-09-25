@@ -1329,3 +1329,64 @@ url = "https://archive.org/download/page-121/Page%20178.png"
 licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
 purpose = "frames on a black page, dark art on black gutters"
 sha256 = "2eebd3a72e8b785fb75db323c26707d82b3eb5a59ea7cb5aea54443d56cec01d"
+
+# Modern digital and indie layouts (clean licences), 2026-09-25: digital
+# colouring, webcomic grids that touch without gutters, borderless and
+# collage pages, irregular and slanted frames, panels on black. Public
+# domain, PDM or CC BY only; the licence line gives the evidence.
+
+[[book]]
+name = "modern-indie/moms-boyfriend.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/moms-boyfriend/Moms%20boyfriend.pdf"
+licence = "CC BY 4.0, Norman Bargo, Mom's Boyfriend (archive.org item moms-boyfriend, licenseurl, author's own upload)"
+purpose = "flat digital colour, four-panel grid touching without gutters, dark pages"
+sha256 = "d6afe01a2cfa297734a7a10ca31ecc7eaf178c89bdb9bd155bc325102b286e82"
+
+[[book]]
+name = "modern-indie/in-the-era.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/in-the-era/In%20the%20Era.pdf"
+licence = "CC BY 4.0, Norman Bargo, In The Era (2025; archive.org item in-the-era, licenseurl, author's own upload)"
+purpose = "greyscale digital, touching panels, borderless figures"
+sha256 = "e2079b0fc042fa7467b4eef2623be818971728d87d06dd5462eae5fd1a5bf249"
+
+[[book]]
+name = "modern-indie/taken-for-a-ride.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/taken-for-a-ride_202609/Taken%20for%20a%20Ride.pdf"
+licence = "CC BY 4.0, Norman Bargo, Taken For A Ride (2025; archive.org item taken-for-a-ride_202609, licenseurl, author's own upload)"
+purpose = "pencil and watercolour on paper, hand-drawn thin borders, jagged frames"
+sha256 = "9531955c4ceeb21fdaa94d5d3d396d4e549b467cbca951ec6adfce077c84f01c"
+
+[[book]]
+name = "modern-indie/men-dont-bark.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/men-dont-bark/Men%20dont%20Bark.pdf"
+licence = "Public Domain Mark 1.0, Norman Bargo, Men Don't Bark (2025; archive.org item men-dont-bark, licenseurl, author's own upload)"
+purpose = "greyscale digital sketches, borderless and touching panels, no balloons"
+sha256 = "5b98d827b7beb417241b823fc88b45c60c708c00706276c729092de1dd230b08"
+
+[[book]]
+name = "modern-indie/la-traversee-dune-semaine.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/comics-yvang-2014-11-latraverseedunesemaine/version%20issuu%20La%20Traverse%CC%81e%20d%27une%20Semaine%20par%20Yvang.pdf"
+licence = "CC BY 3.0, Yvang, La Traversée d'une semaine (2014; archive.org item comics-yvang-2014-11-latraverseedunesemaine, licenseurl, author's own upload)"
+purpose = "irregular, round and slanted frames, borderless art on paper"
+sha256 = "a56d3a704d6b43a6a759b0a258d31b449e3e17cf10e683877a0e9f9c16d7159b"
+
+[[book]]
+name = "modern-indie/pickmans-model.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/PickmansModel/PickmansModelArchive.pdf"
+licence = "CC BY 3.0, Kim Holm, Pickman's Model (2012, after H. P. Lovecraft; archive.org item PickmansModel, licenseurl, author's own upload)"
+purpose = "black-and-white ink, panels on black, borderless and full-bleed art"
+sha256 = "21f9dc0845b7de15d882e8bc7ecadd43091e9a80e2913adc67a0da604cb4cb84"
+
+[[book]]
+name = "modern-indie/they-lived-too-long.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/they-lived-too-long-2025/THEY%20LIVED%20TOO%20LONG%202025.pdf"
+licence = "Public Domain Mark 1.0, TREHERN, They Lived Too Long (2020; archive.org item they-lived-too-long-2025, licenseurl, author's own upload)"
+purpose = "collage pages: framed and borderless panels overlapping on a parchment ground"
+sha256 = "43d715a425bd2f760241bd7793137b94092d009c88934c7067268f1e6ffeb161"

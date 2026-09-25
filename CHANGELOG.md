@@ -11,8 +11,9 @@ the `?` overlay.
   trained only on public-domain and CC BY comics, now ships in the
   repository and in every build, under Apache 2.0 like the rest of
   ComicRedr (LICENSE, NOTICE). No more `make model` step. It learned from
-  884 labelled pages, including 37 books with slanted, curved,
-  wedge-shaped and irregular frames, and nothing in it comes from Manga109 or Ultralytics.
+  998 labelled pages, including 37 books with slanted, curved,
+  wedge-shaped and irregular frames and 7 modern indie books, and nothing
+  in it comes from Manga109 or Ultralytics.
   Narration captions are their own class, so balloon mode stops only on
   speech and thought balloons. Panels are detected again on first open.
 
