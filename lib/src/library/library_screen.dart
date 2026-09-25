@@ -650,7 +650,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               )
             : Column(
                 children: [
-                  _header(context, books, narrow: !rail),
+                  _header(context, books),
                   Expanded(
                     child: switch (tab) {
                       LibraryTab.history => _History(books: books, query: _query.trim(), onRead: read),
@@ -731,7 +731,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  Widget _header(BuildContext context, List<LibraryBook> books, {required bool narrow}) {
+  Widget _header(BuildContext context, List<LibraryBook> books) {
     final theme = Theme.of(context);
     final series = _series == null ? null : _groups(books).where((s) => s.id == _series).firstOrNull;
     // A phone's header is tight: smaller buttons, and gs alone reshuffles.
@@ -763,7 +763,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               tooltip: 'Up a folder (Esc)',
               onPressed: back,
             ),
-            Flexible(flex: 2, child: _breadcrumb(theme)),
+            Flexible(flex: 3, child: _breadcrumb(theme)),
             const SizedBox(width: 12),
           ] else if (!narrow) ...[
             // A phone's bottom tabs name the tab already.
