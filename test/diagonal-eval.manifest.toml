@@ -1,6 +1,6 @@
 # Diagonal and tilted frames, eval pages (2026-09-25). Two books never
 # trained on, labelled in spike/labels/diagonal-eval/. See
-# test/diagonal.manifest.toml.
+# test/train.manifest.toml.
 #
 #   python3 spike/fetch_corpus.py --manifest test/diagonal-eval.manifest.toml --out test/corpus-diagonal-eval --skip-model
 

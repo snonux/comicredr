@@ -4,7 +4,8 @@
 # (test/train.manifest.toml: public domain, CC0 and CC BY only), extracts
 # the pages the committed labels in spike/labels/train/ belong to,
 # fine-tunes D-FINE-S from its COCO checkpoint (Apache-2.0) and exports the
-# ONNX model. `make train-model` runs this, then `make model`.
+# ONNX model. `make train-model` runs this, then tool/fetch_model.sh puts
+# the result in assets/models/.
 #
 #   tool/train_model.sh            # EPOCHS epochs, as the shipped model
 #   EPOCHS=1 tool/train_model.sh   # a quick check that the pipeline runs
@@ -36,6 +37,8 @@ for try in 1 2 3; do
 done
 echo "== Extracting the labelled pages"
 python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 400 --manifest test/train.manifest.toml
+# Only the committed labels: a label left from an earlier set would train too.
+find spike/train_pages -name '*.json' ! -name '*.cand.json' -delete
 python3 spike/labelkit.py import spike/labels/train spike/train_pages
 echo "== Training for $EPOCHS epochs at $IMGSZ px (about 7 minutes an epoch on 4 cores)"
 rm -rf "$OUT/train"

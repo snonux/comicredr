@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+- **The panel detector is built in and open:** a new D-FINE-S model,
+  trained only on public-domain and CC BY comics, now ships in the
+  repository and in every build, under Apache 2.0 like the rest of
+  ComicRedr (LICENSE, NOTICE). No more `make model` step. It learned from
+  884 labelled pages, including 37 books with slanted, curved,
+  wedge-shaped and irregular frames, and nothing in it comes from Manga109 or Ultralytics.
+  Narration captions are their own class, so balloon mode stops only on
+  speech and thought balloons. Panels are detected again on first open.
+
 - **Everything in ~/Comics:** on Linux, when `~/Comics` exists and the app
   has no database in `~/.local/share` yet, it keeps its database, covers,
   thumbnails, `keys.toml` and installed models in `~/Comics/.comicredr/`,

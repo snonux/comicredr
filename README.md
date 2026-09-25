@@ -104,7 +104,6 @@ Then build and install ComicRedr:
 
 ```sh
 git clone https://github.com/snonux/comicredr.git && cd comicredr
-make model MODEL=path/to/comicredr-panels.onnx   # once; The trained detector below has other ways
 make                  # build it
 make run              # try it without installing
 make install          # add it to the GNOME app grid, no sudo needed
@@ -125,23 +124,13 @@ builds `build/comicredr-VERSION-linux-x64.tar.gz`; unpack it there and run
 
 The trained model finds panels much more reliably than classic computer
 vision and is the only way to get balloon mode. It is one file,
-`comicredr-panels.onnx`.
+`assets/models/comicredr-panels.onnx`, and it is part of this repository,
+so every build includes it.
 
-**Why it isn't included.** The model is fine-tuned from a public
-checkpoint that was trained partly on Manga109, a manga dataset licensed
-for academic research only. Weights derived from it shouldn't be handed
-out publicly, so the file is neither in this repository nor downloadable
-from anywhere public. Everything needed to build it yourself is here,
-though: the training comics are free, and their labels are in the repo.
-
-Get the model into the checkout once, in one of three ways:
-
-- **Train it yourself:** `make train-model` (below).
-- **Fetch your own copy** from wherever you keep it (your own server, a
-  private Hugging Face repository with `HF_TOKEN` set):
-  `make fetch-model URL=https://your.server/comicredr-panels.onnx`. It
-  checks the file is the detector before using it.
-- **Use a file you already have:** `make model MODEL=path/to/comicredr-panels.onnx`.
+It is a D-FINE-S detector fine-tuned on about 900 labelled pages of
+public-domain and CC BY comics, and it is published under the same Apache
+2.0 licence as the rest of ComicRedr. [NOTICE](NOTICE) credits the model
+it starts from and the comics it learned from.
 
 #### Train it yourself
 
@@ -151,38 +140,26 @@ archive.org, peppercarrot.com and huggingface.co. Install the
 Python packages once, then run the one command:
 
 ```sh
-python3 -m pip install --user opencv-python-headless numpy pillow pypdfium2 huggingface_hub ultralytics onnx onnxruntime onnxslim
+python3 -m pip install --user opencv-python-headless numpy pillow pypdfium2 torch transformers onnx onnxruntime onnxslim
 make train-model
 ```
 
-It downloads the training comics (public-domain golden- and silver-age
-books from archive.org, Pepper&Carrot and other freely shared comics,
-about 750 MB) and the base checkpoint from Hugging Face, cuts out the 305
-labelled pages, and fine-tunes for 45 epochs on the CPU: about three and
-a half minutes an epoch on 4 cores, so two and a half to three hours in
-all. The result lands in `spike/out/comicredr-panels.onnx` and is copied
-into the checkout, so the next `make` or `make apk` uses it.
-
-To check it worked: the last step prints `Checked: ONNX model, output
-[1, 300, 6]`. Then `make run`, open a comic and press `v` and `b`: balloon
-mode steps through the speech balloons instead of saying `no balloons
-found`. `make train-model EPOCHS=1` runs the whole pipeline in about ten
-minutes, to try your setup before the long run. How the labels were
-drawn and how to score a model are in [AGENTS.md](AGENTS.md).
-
-With the model in the checkout, `make` builds it into the Linux app and
-`make apk` into the Android APK, so an installed app needs nothing else:
+It downloads the training comics (about 2 GB), cuts out the labelled
+pages, and fine-tunes for 30 epochs on the CPU, several hours on 4 cores.
+The result lands in `spike/out/comicredr-panels.onnx` and replaces the
+model in the checkout, so the next `make` or `make apk` uses it.
+`make train-model EPOCHS=1` runs the whole pipeline once, to try your
+setup before the long run. How the labels were drawn and how to score a
+model are in [AGENTS.md](AGENTS.md).
 
 | Make target | What it does |
 |---|---|
-| `make && make install` | Builds and installs the Linux app with the model inside. |
-| `make apk && make install-apk` | Builds and installs the Android APK with the model inside. |
-| `make install-model MODEL=file.onnx` | Adds a model to the installed Linux app without rebuilding; it wins over the built-in one. |
+| `make install-model MODEL=file.onnx` | Adds another model to the installed Linux app without rebuilding; it wins over the built-in one. |
 | `make push-model MODEL=file.onnx` | The same on the phone, over USB. |
+| `make model MODEL=file.onnx` | Replaces the built-in model in the checkout. |
 | `make NO_MODEL=1` | Builds without a model; the app uses classic computer vision. |
 
-Without the model, `make` and `make apk` stop and say what to run. Restart
-the app after `install-model` or `push-model`.
+Restart the app after `install-model` or `push-model`.
 
 ## Install on an Android phone
 
