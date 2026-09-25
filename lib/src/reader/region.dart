@@ -33,6 +33,16 @@ Rect partRect(PageSplit split, int part) {
   return Rect.fromLTWH(col / split.columns, row / split.rows, 1 / split.columns, 1 / split.rows);
 }
 
+/// [r], in fractions of the page as the screen shows it turned [turns]
+/// quarter turns clockwise, in fractions of the page itself. So `H1` is the
+/// upper half of a turned comic as it is seen.
+Rect unturnRect(Rect r, int turns) => switch (turns % 4) {
+  1 => Rect.fromLTRB(r.top, 1 - r.right, r.bottom, 1 - r.left),
+  2 => Rect.fromLTRB(1 - r.right, 1 - r.bottom, 1 - r.left, 1 - r.top),
+  3 => Rect.fromLTRB(1 - r.bottom, r.left, 1 - r.top, r.right),
+  _ => r,
+};
+
 /// The parts of [split] in reading order: rows top to bottom, each row in
 /// the book's direction.
 List<int> partOrder(PageSplit split, {required bool rightToLeft}) => [
