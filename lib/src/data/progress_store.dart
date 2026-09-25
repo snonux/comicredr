@@ -24,6 +24,7 @@ class ReadingPosition {
     this.spread,
     this.coverAlone,
     this.rightToLeft,
+    this.rotation,
     this.view,
   });
 
@@ -39,6 +40,9 @@ class ReadingPosition {
   final bool? spread;
   final bool? coverAlone;
   final bool? rightToLeft;
+
+  /// Quarter turns clockwise the comic is shown at, 0 to 3.
+  final int? rotation;
   final ViewSpot? view;
 
   Map<String, Object?> _viewJson() => {
@@ -48,6 +52,7 @@ class ReadingPosition {
     'spread': spread,
     'coverAlone': coverAlone,
     'rightToLeft': rightToLeft,
+    if (rotation case final r? when r != 0) 'rotation': r,
     if (view case final v?) 'view': {'fit': v.fit, 'zoom': v.zoom, 'cx': v.cx, 'cy': v.cy},
   };
 
@@ -68,6 +73,7 @@ class ReadingPosition {
       spread: j['spread'] as bool?,
       coverAlone: j['coverAlone'] as bool?,
       rightToLeft: j['rightToLeft'] as bool?,
+      rotation: (j['rotation'] as num?)?.toInt(),
       view: v is Map
           ? (
               fit: v['fit'] as String? ?? 'page',
