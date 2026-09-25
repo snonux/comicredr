@@ -339,6 +339,41 @@ class LibraryStore {
     await (db.delete(db.files)..where((f) => f.rootId.equals(rootId) & f.relPath.isIn(list))).go();
   }
 
+  /// The book at [path] was deleted from disk: forgets that file, and when
+  /// no other copy of [contentKey] is left, everything kept about the book
+  /// (position, bookmarks, panels, edits, collections, reading history).
+  /// True when that was the last copy.
+  Future<bool> forgetDeleted(String path, String contentKey) => db.transaction(() async {
+    final rows = await db
+        .customSelect(
+          'SELECT f.root_id, f.rel_path, r.path AS root FROM files f JOIN roots r ON r.id = f.root_id '
+          'WHERE f.content_key = ?',
+          variables: [Variable(contentKey)],
+        )
+        .get();
+    var left = 0;
+    for (final r in rows) {
+      final rel = r.read<String>('rel_path');
+      final at = rel.isEmpty ? r.read<String>('root') : p.join(r.read<String>('root'), rel);
+      if (p.equals(at, path)) {
+        await forgetFiles(r.read<int>('root_id'), [rel]);
+      } else {
+        left++;
+      }
+    }
+    if (left > 0) return false;
+    final key = contentKey;
+    await (db.delete(db.analysedPages)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.panels)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.bookmarks)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.progress)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.readLog)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.overrides)..where((r) => r.contentKey.equals(key))).go();
+    await (db.delete(db.collectionBooks)..where((r) => r.contentKey.equals(key))).go();
+    await removeOrphans();
+    return true;
+  });
+
   /// Books no file points at any more.
   Future<void> removeOrphans() =>
       db.customStatement('DELETE FROM books WHERE content_key NOT IN (SELECT content_key FROM files)');

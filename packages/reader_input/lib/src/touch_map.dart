@@ -80,6 +80,8 @@ class TouchMap {
   factory TouchMap.preset(TouchPreset preset) {
     const back = ReaderIntent.prevStep, next = ReaderIntent.nextStep, status = ReaderIntent.fullscreen;
     const zoom = ReaderIntent.zoomToggle;
+    // A long press in the middle shows the time, in every preset.
+    const longPress = [null, null, null, null, ReaderIntent.showTime, null, null, null, null];
     // Double-tap only where it has always worked, the middle column, so the
     // edges turn pages at once rather than waiting to see if a second tap
     // follows.
@@ -95,6 +97,7 @@ class TouchMap {
         TouchPreset.oneThumb => const [back, back, back, next, status, next, next, next, next],
       },
       TouchGesture.doubleTap: doubleTap,
+      TouchGesture.longPress: longPress,
       ...swipes,
     });
   }

@@ -14,7 +14,9 @@ enum ReaderIntent {
   firstPage('First page; first cover in the library'),
   lastPage('Last page, or page N with a count; last cover in the library'),
   pageGrid('Page thumbnails: pick a page to jump to'),
-  showDetails("Details of this comic: file, pages and scan quality, metadata, reading, panels and balloons found; the selected book's in the library"),
+  showDetails(
+    "Details of this comic: file, pages and scan quality, metadata, reading, panels and balloons found; the selected book's in the library",
+  ),
   nextBook('Next book in the series, or in the same folder'),
   prevBook('Previous book in the series, or in the same folder'),
   toggleGuided('Guided view, there and back'),
@@ -59,10 +61,16 @@ enum ReaderIntent {
   activate('Open the selected book, series or folder in the library'),
   addRoot('Add a folder to the library (~/Comics is in it by default, if it exists)'),
   rescan('Rescan the library folders'),
+  toggleShuffle(
+    "Shuffle in the library's Folders tab: each comic shows a random page instead of its cover, on and off",
+  ),
+  reshuffle('Pick other random pages for shuffle in the Folders tab'),
   resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
+  deleteBook('Delete this comic and its sidecar, after asking; the selected book in the library'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),
   showKeymap('Show the keymap'),
-  showTouchZones('Show the touch zones for a moment');
+  showTouchZones('Show the touch zones for a moment'),
+  showTime('The time, large, for two seconds, then it fades');
 
   const ReaderIntent(this.description);
 

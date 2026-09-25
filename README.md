@@ -46,6 +46,8 @@ Potion Contest*, by David Revoy, licensed
 - **Fullscreen** (`f` or F11), for the library and the comic: no title
   bar or border, and in the reader only the comic; move the mouse to the
   bottom edge to see where you are.
+- **The time at a glance** (`T`, or a long press in the middle): the
+  time, large, for two seconds, then it fades. Handy in fullscreen.
 - **See before you jump**: `p` opens a grid of page thumbnails, and
   dragging along the progress bar previews the page under your finger.
 - **Bookmarks** on a page, or on a panel in guided view, with a short
@@ -64,6 +66,10 @@ Potion Contest*, by David Revoy, licensed
 - **A library** of your comics folders: covers, series, search,
   collections, a folder view and a reading history. Fix a
   book's title, series or issue in the app; the comic file stays as it is.
+  Shuffle in the folder view shows a random page of each comic instead
+  of its cover, for rediscovering what you have.
+- **Done with a comic?** Shift+Delete (or `gd`) deletes it and its `.crdb`
+  file for good after asking; they don't go to the trash.
 - **Picks up where you left off**, on the same page, panel and zoom, even
   after you rename or copy the file.
 - **Keyboard first**, with a vi layer on top of the usual keys and your
