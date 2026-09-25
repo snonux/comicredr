@@ -43,6 +43,10 @@ Potion Contest*, by David Revoy, licensed
 - **Single page or two-page spreads**, with zoom, a night filter and
   automatic trimming of white scanner margins. A scanned double-page
   spread stays whole, and the pages after it keep their sides.
+- **Enlarge part of a page** by key, in guided view or out of it: `H1`
+  `H2` for the upper or lower half, `B1` to `B3` for thirds, `Q1` to `Q4`
+  for quarters. `→` steps through the parts before the page turns; `Esc`
+  shows the whole page again.
 - **Fullscreen** (`f` or F11), for the library and the comic: no title
   bar or border, and in the reader only the comic; move the mouse to the
   bottom edge to see where you are.

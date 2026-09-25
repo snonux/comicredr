@@ -31,6 +31,7 @@ import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
+import 'reader/region.dart';
 import 'reader/reset_dialog.dart';
 import 'version.dart';
 
@@ -930,6 +931,7 @@ class _StatusLine extends StatelessWidget {
       if (book != null) pages,
       if (book != null && state.guided) _guided(state),
       if (book != null && !state.guided && state.mode == PageMode.spread) 'spread',
+      if (book != null && state.region != null) describeRegion(state.region!, rightToLeft: state.rightToLeft),
       if (state.rightToLeft) 'RTL',
     ];
     return LayoutBuilder(
@@ -1137,7 +1139,17 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                         : ListView(
                             padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
                             children: [
-                              for (final e in found.entries)
+                              for (final e in found.entries) ...[
+                                if (e.intent == ReaderIntent.regionUpperHalf && _query.text.isEmpty)
+                                  Padding(
+                                    key: const Key('keymap-parts'),
+                                    padding: const EdgeInsets.only(top: 12, bottom: 4),
+                                    child: Text(
+                                      'Part of the page, enlarged: halves, thirds and quarters, '
+                                      'numbered top to bottom, left to right',
+                                      style: theme.textTheme.titleSmall,
+                                    ),
+                                  ),
                                 MergeSemantics(
                                   child: Padding(
                                     key: ValueKey('keymap-${e.intent.name}'),
@@ -1154,6 +1166,7 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                                     ),
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                     // In a corner, so the keymap list keeps its whole height.

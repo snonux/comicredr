@@ -75,6 +75,24 @@ zoomOut = ["-"]
 zoomReset = ["="]
 # Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view
 zoomToggle = ["Z"]
+# Upper half of the page, enlarged; l and h step to the other half, then on; again or Esc for the whole page
+regionUpperHalf = ["H1"]
+# Lower half of the page, enlarged
+regionLowerHalf = ["H2"]
+# Upper third of the page, enlarged; l and h step through the thirds, then on; again or Esc for the whole page
+regionUpperThird = ["B1"]
+# Middle third of the page, enlarged
+regionMiddleThird = ["B2"]
+# Lower third of the page, enlarged
+regionLowerThird = ["B3"]
+# Top-left quarter of the page, enlarged; l and h step through the quarters in reading order, then on; again or Esc for the whole page
+regionTopLeft = ["Q1"]
+# Top-right quarter of the page, enlarged
+regionTopRight = ["Q2"]
+# Bottom-left quarter of the page, enlarged
+regionBottomLeft = ["Q3"]
+# Bottom-right quarter of the page, enlarged
+regionBottomRight = ["Q4"]
 # Auto-trim scan margins
 autoTrim = ["t"]
 # Night filter
