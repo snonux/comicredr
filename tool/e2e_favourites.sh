@@ -43,7 +43,8 @@ failed=0
 check() { # check "what" actual expected
   if [[ "$2" == "$3" ]]; then echo "ok    $1: $2"; else echo "FAIL  $1: $2, expected $3"; failed=1; fi
 }
-sql() { sqlite3 -batch -noheader "$home/.local/share/org.snonux.comicredr/comicredr.sqlite" "$1"; }
+# The index lives in ~/Comics/.comicredr when ~/Comics exists.
+sql() { sqlite3 -batch -noheader "$home/Comics/.comicredr/comicredr.sqlite" "$1"; }
 favourites() {
   sql "select group_concat(rel_path, ', ') from (select f.rel_path from collection_books c
        join files f on f.content_key = c.content_key
