@@ -1,0 +1,283 @@
+# Diagonal and tilted frames, training pages (2026-09-25).
+#
+# Free books whose panels are slanted wedges, diagonal gutters, or frames on
+# a black page, the layouts the detector knew least. Only public domain,
+# CC0 and CC BY, so they may train the bundled model. Same rules as the
+# other manifests: fetched into the git-ignored test/corpus-diagonal/,
+# never committed. Labels in spike/labels/diagonal/. No book here is in any
+# other manifest; the eval slice (test/diagonal-eval.manifest.toml) holds
+# two other books.
+#
+#   python3 spike/fetch_corpus.py --manifest test/diagonal.manifest.toml --out test/corpus-diagonal --skip-model
+
+[[book]]
+name = "modern-diagonal/the-scream-of-joy-1.pdf"
+style = "modern-diagonal"
+url = "https://archive.org/download/the-scream-of-joy-1/The%20scream%20of%20joy%20%281%29.pdf"
+licence = "CC BY 4.0, Norman Bargo (archive.org licenseurl, author's own upload)"
+purpose = "slanted wedge panels touching with thin borders, no gutters; dark pages"
+sha256 = "a2a007df06d65b9496acdff0a1313a4769718dbbe67c906e658ad045b78349a5"
+
+[[book]]
+name = "modern-diagonal/dark-sun-chronicles-ch2.pdf"
+style = "modern-diagonal"
+url = "https://archive.org/download/dsc-chapter-2/Dark%20Sun%20Chronicles%20Chapter%202.pdf"
+licence = "Public Domain Mark 1.0, Paul Winchester (archive.org licenseurl, author's own upload)"
+purpose = "pencil, diagonal and wedge gutters, low contrast"
+sha256 = "2c2a40ca34239958bde2a1fe5fc32196fa93d90b38ac65dbffd8bc473ffbc832"
+
+[[book]]
+name = "modern-diagonal/dark-sun-chronicles-ch2-pt2.pdf"
+style = "modern-diagonal"
+url = "https://archive.org/download/dsc_ch2_pt2/Dark%20Sun%20Chronicles%20Chapter%202%20part%202.pdf"
+licence = "Public Domain Mark 1.0, Paul Winchester (archive.org licenseurl, author's own upload)"
+purpose = "pencil, diagonal and wedge gutters, overlapping tilted panels"
+sha256 = "97723a5cf9425db4e93465b26bda7a0a458e9531e1ff75a7b315b3e2f78fa864"
+
+[[book]]
+name = "modern-diagonal/dark-sun-chronicles-ch3.pdf"
+style = "modern-diagonal"
+url = "https://archive.org/download/dsc_ch3/dsc_ch3.pdf"
+licence = "Public Domain Mark 1.0, Paul Winchester (archive.org licenseurl, author's own upload)"
+purpose = "pencil, diagonal and wedge gutters"
+sha256 = "df90728142ddc3718efc51d37dc0e201b796e9dadecdb8314fd14624ec254798"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-001.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%201.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "c590eb47b4911a2a47295425021f2bea732e9318a1549d7cbb21ce1e9fbcbde0"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-010.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2010.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "5d8d41b26b9043895473758b548114f42399c0f469a452466f695d9f0a7bac64"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-012.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2012.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "d21c7fdb5e73fcea4ad5e04548c554ff58c622fa9fe046b5577c31bf3ee5acd9"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-014.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2014.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "19bdc168db804b9e39427bc7ee4941b7c9166d127b316206a2552332d9cce7e1"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-017.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2017.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "afc21d4d96be0184a6ffb772cec225df1f90c10dabdaec8eef18f1fc80fec487"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-020.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2020.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "0c9e3b20f908fa8cbd19313d667f5adcbc6ae70b5f3b5c4b7e259a7cd3864189"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-024.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2024.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "95a2524a413c77a51f7c37863fc8f5b4f19660b1a441ebe47b63dea7855de6d8"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-028.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2028.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "28927574787f86ab5e8dd816b531875ef9ea6c84003ed48eacfa6d1ee85339f8"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-032.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2032.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "9edfde430399ac2feeb3779bd44f2f285ba5fa67fb748b1e9110fbb920091d25"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-037.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2037.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "08666ca680c99041a3fddc0d2b1c2a77329a60633648819662cf2654e3aa7c09"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-038.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2038.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "45d05d72c2f07fc10c0de33a7da3116744fb14a57740e3b0e7cefdc20a82e8c3"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-040.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2040.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "6cf39a3d4e28312f3050a5c4273c8d4d6202be36a208d28ffe263a9400172c26"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-041.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2041.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "7fb33501326ad0d31bcb9ca787eef6cca5a4956aead9f7a877ac7d84c475bf55"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-045.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2045.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "033bd5924a9c99766fb5147bb4a448bc6cb420ab57113bc027e1222ec597905f"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-050.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2050.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "acfaed3881788fad63af9f4db007442877eab0030ece09b378358e493830fb88"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-055.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2055.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "c8088220739a2585ebfbfa04f0de08dbc14971767c3b96bf99fdbe998a986341"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-060.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2060.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "639f0055e2cfe9a87791ef2fed0f2f0e85a9ee136229e33be264d1eb0efa48ce"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-064.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2064.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "952aa04346063fcbb7007e15235b92ad3d4784359efc2c00d7bc53754549ea76"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-066.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2066.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "c903a038f0291b7c4dff0e52b6d06a1feb138c94860caf308dfc30127deb78dc"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-070.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2070.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "b979fb1bd9fceeda22b69544016fa4fa6a6bccbeee9da0072a5a6697083561a0"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-073.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2073.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "0503fd6ca64614aff73c8dc84be8d9d115bcd40a2efba9fc930a64393347281f"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-074.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2074.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "d5a7b6a70f630441b3c189bb17e486521afd7a0fc9e61442c0a66a99dade8064"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-075.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2075.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "b31f31a7618a944e6ab4c0723712cdfd6cfaf4576402d89b84a0bd396a5bf39d"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-080.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2080.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "4b6809b0178d3c2f43c8c57575f08de34fa7c76f6eea86b7d1317340ef37206c"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-090.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%2090.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "23eb4e73ef0e43ce062b4e22ff9e9c1be98bdb8c61b57adb485a0bf0eee9e964"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-100.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%20100.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "1ccfc0d729b508c70b068f66223186e819792f8af21b9f5b67918301fb4ac4c1"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-110.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%20110.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "0c7fffa5a6f440fd1d0b43fceb32354bb851d7965cacb393c06db0bd940806e4"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-130.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%20130.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "6e89da57c7db06b2d630d781e445a73c62827d10327b7dce96a0348b527e0a53"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-150.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%20150.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "1c1b976523875bc76ec6cfcec0e6040c28955b264c01dd33ea249bbcddbb5aae"
+
+[[book]]
+name = "modern-dark/wood-of-holoferm/page-178.png"
+style = "modern-dark"
+url = "https://archive.org/download/page-121/Page%20178.png"
+licence = "CC BY 4.0, Norman Bargo, The Wood of Holoferm (archive.org item page-121, licenseurl, author's own upload)"
+purpose = "frames on a black page, dark art on black gutters"
+sha256 = "2eebd3a72e8b785fb75db323c26707d82b3eb5a59ea7cb5aea54443d56cec01d"
