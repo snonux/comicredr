@@ -1,0 +1,21 @@
+# Diagonal and tilted frames, eval pages (2026-09-25). Two books never
+# trained on, labelled in spike/labels/diagonal-eval/. See
+# test/diagonal.manifest.toml.
+#
+#   python3 spike/fetch_corpus.py --manifest test/diagonal-eval.manifest.toml --out test/corpus-diagonal-eval --skip-model
+
+[[book]]
+name = "modern-diagonal/dark-sun-chronicles-ch3-pt2.pdf"
+style = "modern-diagonal"
+url = "https://archive.org/download/00_20240930_202409/dsc_ch3_pt2.pdf"
+licence = "Public Domain Mark 1.0, Paul Winchester (archive.org licenseurl, author's own upload)"
+purpose = "pencil, diagonal gutters, triangular panels"
+sha256 = "5a1d52667d43974a7a584e3533b5e9a64d387f9a9f9134daffe7df3e96c53672"
+
+[[book]]
+name = "modern-diagonal/latuda.pdf"
+style = "modern-diagonal"
+url = "https://archive.org/download/Latuda/Latuda.pdf"
+licence = "CC BY 4.0, Norman Bargo (archive.org licenseurl, author's own upload)"
+purpose = "slanted thin dashed borders on touching panels"
+sha256 = "46248c5d5f5ed20d913bb9022a9dcab52d2b51fa530338feea6861465d703ba2"
