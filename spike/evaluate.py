@@ -44,6 +44,7 @@ import cv2
 import numpy as np
 
 import detect_cv
+import outlines as frame_outlines
 import trim as autotrim
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
@@ -143,8 +144,24 @@ def reading_order(boxes, tol=0.01, aspect=1.0):
     return rec(boxes)
 
 
-def gate(panels):
-    """The app's confidence gate (packages/comic_analysis/lib/src/gate.dart)."""
+def _overlap(a, b, pa, pb):
+    """Shared area of two panels, by their outlines when either has one
+    (Panel.overlap in the app): slanted panels' boxes overlap, they don't."""
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    if ix * iy == 0 or (pa is None and pb is None):
+        return ix * iy
+    box = lambda r: np.array([[r[0], r[1]], [r[0] + r[2], r[1]], [r[0] + r[2], r[1] + r[3]], [r[0], r[1] + r[3]]])
+    pa = box(a) if pa is None else pa
+    pb = box(b) if pb is None else pb
+    area, _ = cv2.intersectConvexConvex(np.float32(pa), np.float32(pb))
+    return float(area)
+
+
+def gate(panels, shapes=None):
+    """The app's confidence gate (packages/comic_analysis/lib/src/gate.dart).
+    [shapes] holds each panel's outline (N x 2, same coordinates) or None."""
+    shapes = shapes or [None] * len(panels)
     reasons, n = [], len(panels)
     if n < 2:
         reasons.append(f"{n} panel(s)")
@@ -153,9 +170,7 @@ def gate(panels):
     for i in range(n):
         for j in range(i + 1, n):
             a, b = panels[i], panels[j]
-            ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
-            iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
-            if ix * iy > 0.15 * min(a[2] * a[3], b[2] * b[3]):
+            if _overlap(a, b, shapes[i], shapes[j]) > 0.15 * min(a[2] * a[3], b[2] * b[3]):
                 reasons.append(f"panels {i + 1} and {j + 1} overlap")
         if n > 1 and panels[i][2] * panels[i][3] > 0.92:
             reasons.append(f"panel {i + 1} is the whole page")
@@ -310,12 +325,22 @@ def clip(boxes):
     return out
 
 
-def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL):
+def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL, shapes=None):
+    """[shapes]: each detected panel's outline on the page (N x 2, 0..1) or None."""
+    found = panels
     panels = reading_order(clip(panels), aspect=aspect)
     pm = match(panels, gt_panels)
     bm = match(clip(balloons), gt_balloons)
+    crop_shapes = None
+    if shapes:
+        tw, th = trim[2] - trim[0], trim[3] - trim[1]
+        crop_shapes = []
+        for p in panels:
+            k = max(range(len(found)), key=lambda i: iou(p, found[i]))
+            s = shapes[k]
+            crop_shapes.append(None if s is None else (s - [trim[0], trim[1]]) / [tw, th])
     # The app judges a trimmed page by the part it detected on.
-    passed, reasons = gate(autotrim.to_crop(panels, trim))
+    passed, reasons = gate(autotrim.to_crop(panels, trim), crop_shapes)
     story = len(gt_panels) >= 2
     exact = len(pm) == len(panels) == len(gt_panels) and all(i == j for i, j in pm)
     if not story:
@@ -415,6 +440,8 @@ def main():
     ap.add_argument("--overlays", action="store_true")
     ap.add_argument("--panel-conf", type=float, default=PANEL_CONF)
     ap.add_argument("--balloon-conf", type=float, default=BALLOON_CONF)
+    ap.add_argument("--no-outlines", action="store_true",
+                    help="judge overlap by boxes only, not by slanted frames' outlines as the app does")
     ap.add_argument("--trim", action="store_true",
                     help="detect on the page with its scanned margins cut off, as the app does")
     ap.add_argument("--trim-pad", type=float, default=autotrim.DETECT_PAD,
@@ -459,9 +486,18 @@ def main():
             dt, d_img = (autotrim.FULL, img) if d.name == "cv" else (t, page_img)
             t0 = time.perf_counter()
             panels, balloons = d(d_img)
-            panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
             ms = (time.perf_counter() - t0) * 1000
-            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt)
+            shapes = None
+            if d.name != "cv" and not a.no_outlines:
+                # The app finds slanted frames' outlines on the page it detected on.
+                dh, dw = d_img.shape[:2]
+                px = lambda r: [r[0] * dw, r[1] * dh, (r[0] + r[2]) * dw, (r[1] + r[3]) * dh]
+                polys = frame_outlines.outlines(d_img, [px(p) for p in panels], [px(b) for b in balloons])
+                tw, th = dt[2] - dt[0], dt[3] - dt[1]
+                shapes = [None if q is None else np.asarray(q) / [dw, dh] * [tw, th] + [dt[0], dt[1]] for q in polys]
+            panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
+            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt, shapes=shapes)
+            res["outlines"] = sum(q is not None for q in shapes or [])
             score_captions(res, autotrim.to_page(getattr(d, "captions", []), dt), gt["captions"])
             res["ms"] = ms
             row["det"][d.name] = res
