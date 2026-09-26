@@ -209,4 +209,43 @@ void main() {
     expect(windowAsked().last, true);
     expect(status(), findsNothing);
   });
+
+  testWidgets("the status line stays clear of a phone's system bars", (tester) async {
+    // A phone drawing edge to edge: 24 dp status bar, 48 dp navigation bar.
+    final dpr = tester.view.devicePixelRatio;
+    tester.view.padding = FakeViewPadding(top: 24 * dpr, bottom: 48 * dpr);
+    tester.view.viewPadding = FakeViewPadding(top: 24 * dpr, bottom: 48 * dpr);
+    addTearDown(tester.view.reset);
+    await openBook(tester);
+    final screen = tester.getRect(find.byType(Scaffold));
+    expect(tester.getRect(bar()).bottom, lessThanOrEqualTo(screen.bottom - 48));
+    expect(tester.getRect(status()).bottom, lessThanOrEqualTo(screen.bottom - 48));
+    expect(tester.getRect(find.byType(ReaderView)).top, greaterThanOrEqualTo(24));
+
+    await key(tester, LogicalKeyboardKey.keyF, character: 'f');
+    expect(tester.getRect(find.byType(ReaderView)), screen, reason: 'fullscreen keeps the whole screen');
+    await key(tester, LogicalKeyboardKey.keyI, character: 'i');
+    expect(tester.getRect(status()).bottom, lessThanOrEqualTo(screen.bottom - 48), reason: 'a notice while the bars are swiped in');
+  });
+
+  testWidgets('Android back in a fullscreen library leaves fullscreen before the app', (tester) async {
+    final popped = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemNavigator.pop') popped.add(call.method);
+      return null;
+    });
+    final c = await openBook(tester);
+    await key(tester, LogicalKeyboardKey.escape);
+    await key(tester, LogicalKeyboardKey.keyF, character: 'f');
+    expect(c.read(readerProvider).fullscreen, isTrue);
+
+    await tester.binding.handlePopRoute();
+    await settle(tester);
+    expect(c.read(readerProvider).fullscreen, isFalse);
+    expect(popped, isEmpty);
+
+    await tester.binding.handlePopRoute();
+    await settle(tester);
+    expect(popped, ['SystemNavigator.pop']);
+  });
 }

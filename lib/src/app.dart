@@ -533,7 +533,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_showKeymap || ref.read(readerProvider).book != null) {
       _onCommand(const ReaderCommand(ReaderIntent.back));
     } else if (!(_library.currentState?.back() ?? false)) {
-      unawaited(SystemNavigator.pop());
+      // As Esc: fullscreen goes first, then the app.
+      if (ref.read(readerProvider).fullscreen) {
+        ref.read(readerProvider.notifier).setFullscreen(false);
+      } else {
+        unawaited(SystemNavigator.pop());
+      }
     }
   }
 
@@ -829,19 +834,23 @@ extension on _HomeScreenState {
     onCommand: _onCommand,
   );
 
-  /// The page above the status line.
-  Widget _windowedReader(ReaderState s) => Column(
-    children: [
-      Expanded(
-        child: Stack(
-          children: [
-            Positioned.fill(child: _page),
-            ..._overPage(s),
-          ],
+  /// The page above the status line, clear of the phone's status and
+  /// navigation bars, which Android 15 and a return from fullscreen draw
+  /// over the app.
+  Widget _windowedReader(ReaderState s) => SafeArea(
+    child: Column(
+      children: [
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(child: _page),
+              ..._overPage(s),
+            ],
+          ),
         ),
-      ),
-      _statusLine(s),
-    ],
+        _statusLine(s),
+      ],
+    ),
   );
 
   /// Only the page, over the whole screen. The status line and progress
@@ -866,7 +875,8 @@ extension on _HomeScreenState {
                     Expanded(
                       child: Stack(children: _overPage(s, chrome: chrome)),
                     ),
-                    if (chrome) _statusLine(s),
+                    // Above the navigation bar while a swipe brings it back.
+                    if (chrome) SafeArea(top: false, child: _statusLine(s)),
                   ],
                 ),
               ),
