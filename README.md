@@ -24,6 +24,9 @@ cloud or network.
   touch, and every key can be changed.
 - Free software under the Apache License 2.0.
 
+How it works inside, with diagrams and the panel detector model
+explained: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Screenshots
 
 ![The library: series of covers, with the selected book's details beside them](docs/screenshots/library.webp)
