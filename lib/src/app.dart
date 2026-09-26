@@ -512,11 +512,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       return await _storage.invokeMethod<String>(method);
     } on PlatformException catch (e) {
-      ref.read(readerProvider.notifier).notice(
-        e.code == 'no-path'
-            ? 'That has no path on the phone ComicRedr can read; pick it from the phone\'s own storage'
-            : 'Could not open the picker: ${e.message}',
-      );
+      ref
+          .read(readerProvider.notifier)
+          .notice(
+            e.code == 'no-path'
+                ? 'That has no path on the phone ComicRedr can read; pick it from the phone\'s own storage'
+                : 'Could not open the picker: ${e.message}',
+          );
       return null;
     }
   }
@@ -995,79 +997,95 @@ class _StatusLine extends StatelessWidget {
         final narrow = constraints.maxWidth < 600;
         final left = (narrow ? [...details, if (book != null) book.title] : [if (book != null) book.title, ...details])
             .join('  ·  ');
+        final status = Expanded(
+          // A live region, so a screen reader reads out each notice and page
+          // turn as it happens.
+          child: Semantics(
+            liveRegion: true,
+            child: Text(
+              state.message ?? left,
+              key: const Key('status'),
+              maxLines: narrow ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        );
+        final pendingKeys = Text(
+          pending,
+          key: const Key('pending'),
+          style: const TextStyle(fontFamily: 'monospace'),
+        );
+        final buttons = [
+          if (book != null) ...[
+            const SizedBox(width: 4),
+            if (state.guided)
+              _button(
+                'balloonsButton',
+                state.balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
+                'Balloon by balloon (b)',
+                ReaderIntent.toggleBalloons,
+                on: state.balloons,
+              ),
+            _button(
+              'guidedButton',
+              state.guided ? Icons.view_quilt : Icons.view_quilt_outlined,
+              'Guided view (v)',
+              ReaderIntent.toggleGuided,
+              on: state.guided,
+            ),
+            _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
+            // A phone has no room for it here; the page grid has one.
+            if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
+            if (state.bookmarksHere.isNotEmpty)
+              _button(
+                'bookmarkButton',
+                Icons.bookmark,
+                'Remove the bookmark here (mm)',
+                ReaderIntent.bookmark,
+                on: true,
+              )
+            else
+              _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+            _button(
+              'bookmarksButton',
+              Icons.bookmarks_outlined,
+              'Bookmarks (M)',
+              ReaderIntent.bookmarkList,
+              on: bookmarksOpen,
+            ),
+            _button(
+              'fullscreenButton',
+              state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+              state.fullscreen ? 'Leave fullscreen (f)' : 'Fullscreen (f)',
+              ReaderIntent.fullscreen,
+            ),
+          ],
+        ];
         return Container(
           color: theme.colorScheme.surfaceContainer,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            children: [
-              Expanded(
-                // A live region, so a screen reader reads out each notice
-                // and page turn as it happens.
-                child: Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    state.message ?? left,
-                    key: const Key('status'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          // On a phone the buttons left the text a dozen characters, so a
+          // notice or why guided view shows the page whole could not be
+          // read: there the text has a line of its own above the buttons.
+          child: narrow && book != null
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(children: [status, pendingKeys]),
+                    Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
+                  ],
+                )
+              : Row(
+                  children: [
+                    status,
+                    pendingKeys,
+                    if (book != null && !narrow) ...[
+                      const SizedBox(width: 12),
+                      Text(p.basename(book.path), style: theme.textTheme.bodySmall),
+                    ],
+                    ...buttons,
+                  ],
                 ),
-              ),
-              Text(
-                pending,
-                key: const Key('pending'),
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-              if (book != null && !narrow) ...[
-                const SizedBox(width: 12),
-                Text(p.basename(book.path), style: theme.textTheme.bodySmall),
-              ],
-              if (book != null) ...[
-                const SizedBox(width: 4),
-                if (state.guided)
-                  _button(
-                    'balloonsButton',
-                    state.balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
-                    'Balloon by balloon (b)',
-                    ReaderIntent.toggleBalloons,
-                    on: state.balloons,
-                  ),
-                _button(
-                  'guidedButton',
-                  state.guided ? Icons.view_quilt : Icons.view_quilt_outlined,
-                  'Guided view (v)',
-                  ReaderIntent.toggleGuided,
-                  on: state.guided,
-                ),
-                _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
-                // A phone has no room for it here; the page grid has one.
-                if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
-                if (state.bookmarksHere.isNotEmpty)
-                  _button(
-                    'bookmarkButton',
-                    Icons.bookmark,
-                    'Remove the bookmark here (mm)',
-                    ReaderIntent.bookmark,
-                    on: true,
-                  )
-                else
-                  _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
-                _button(
-                  'bookmarksButton',
-                  Icons.bookmarks_outlined,
-                  'Bookmarks (M)',
-                  ReaderIntent.bookmarkList,
-                  on: bookmarksOpen,
-                ),
-                _button(
-                  'fullscreenButton',
-                  state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                  state.fullscreen ? 'Leave fullscreen (f)' : 'Fullscreen (f)',
-                  ReaderIntent.fullscreen,
-                ),
-              ],
-            ],
-          ),
         );
       },
     );

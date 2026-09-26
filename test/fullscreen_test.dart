@@ -248,4 +248,16 @@ void main() {
     await settle(tester);
     expect(popped, ['SystemNavigator.pop']);
   });
+
+  testWidgets('on a phone the status line has the whole width for its text', (tester) async {
+    tester.view.physicalSize = const Size(411, 914);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await openBook(tester);
+    await key(tester, LogicalKeyboardKey.keyV, character: 'v');
+    expect(find.byKey(const Key('balloonsButton')), findsOneWidget);
+    // Beside six buttons it had about a hundred pixels: "page 1 / 6  ·  gu…".
+    expect(tester.getSize(status()).width, greaterThan(350));
+    expect(tester.getRect(find.byKey(const Key('fullscreenButton'))).top, greaterThan(tester.getRect(status()).bottom - 1));
+  });
 }
