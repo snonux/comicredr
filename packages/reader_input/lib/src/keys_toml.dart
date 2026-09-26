@@ -223,7 +223,8 @@ Layer _layerOf(ReaderIntent intent, List<String> keys, Keymap base) {
 Map<String, Map<String, Object>> _parseToml(String text, List<String> warnings) {
   const known = {'keys', 'touch'};
   final out = <String, Map<String, Object>>{};
-  var i = 0;
+  // A byte-order mark, as some editors save UTF-8, is not text.
+  var i = text.startsWith('\uFEFF') ? 1 : 0;
   var line = 1;
   String? table;
 
@@ -316,9 +317,14 @@ Map<String, Map<String, Object>> _parseToml(String text, List<String> warnings) 
       }
       i = end + 1;
     } else {
-      final m = RegExp(r'[A-Za-z0-9_-]+').matchAsPrefix(text, i) ?? fail('expected an action or gesture name');
-      final name = m.group(0)!;
-      i = m.end;
+      final String name;
+      if (text[i] == '"' || text[i] == "'") {
+        name = readString(); // TOML allows a quoted name: "nextStep" = "l".
+      } else {
+        final m = RegExp(r'[A-Za-z0-9_-]+').matchAsPrefix(text, i) ?? fail('expected an action or gesture name');
+        name = m.group(0)!;
+        i = m.end;
+      }
       skipSpace();
       if (i >= text.length || text[i] != '=') fail('expected = after $name');
       i++;
