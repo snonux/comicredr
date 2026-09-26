@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.3.0
+
+Back up and restore your settings.
+
 - **Export and import settings:** Settings → Back up saves every
   setting, the library folders, `keys.toml`, and each comic's position,
   bookmarks, collections, edits and reading history in one JSON file,

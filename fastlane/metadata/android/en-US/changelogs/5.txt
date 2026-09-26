@@ -1,0 +1,1 @@
+* Settings > Back up: Export settings saves every setting, the library folders, your keys and each comic's position, bookmarks, collections and history to one file. Import settings restores it, for example after a reinstall.
