@@ -48,12 +48,24 @@ Digital Comic Museum's archive.org mirror (*All Top Comics* 6, Norlen,
 Potion Contest*, by David Revoy, licensed
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-## Get it
+## Quick start
 
-ComicRedr is built from source with `make` and `make install` on Linux,
-and as a sideloaded APK for Android. The steps, including the tools to
-install first, are in [Installing](docs/guide/01-installing.md). Once it
-runs, press `?` for every key.
+1. **Install it.** On Linux, `make` and `make install` from a checkout;
+   the tools to install first, and the Android APK, are in
+   [Installing](docs/guide/01-installing.md).
+2. **Add your comics.** Put them in `~/Comics` and they are in the
+   library the first time ComicRedr starts, or press `A` to add another
+   folder.
+3. **Read.** Pick a book and press `Enter`. `→` and `←` turn pages, `Esc`
+   goes back to the library.
+4. **Try guided view.** Press `v` to go panel by panel, and `b` to step
+   through the speech balloons too.
+5. **Press `?` whenever you need a key.** It lists every key and `/`
+   searches them.
+
+**Carry on with [the guide](docs/guide/README.md)**: the library,
+reading, guided view, bookmarks, touch, the phone, your data and
+settings, one chapter each.
 
 ## More
 

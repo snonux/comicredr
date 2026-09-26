@@ -17,9 +17,10 @@ it in step when the architecture or the model changes.
   (`make test`).
 - The README is as lean as it can be (snonux, 2026-09-26): an intro, a
   link to the usage guide near the top, a few highlights, the
-  screenshots, one line pointing to the install chapter, and the links to
-  ARCHITECTURE.md, training.md, this file and the changelog at the
-  bottom. Installing and every feature, with examples and screenshots,
+  screenshots, a five-step quick start that ends with a link to carry on
+  in the guide, and the links to ARCHITECTURE.md, training.md, this file
+  and the changelog at the bottom. Nothing else: touch, data, CBR and the
+  like are guide chapters. Installing and every feature, with examples and screenshots,
   belong in the guide. Internals go here, and training in
   `docs/training.md`. The `?` overlay and `docs/keys.toml` are generated
   from the keymap and are the key reference.
