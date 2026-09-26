@@ -9,10 +9,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
+import '../data/progress_store.dart';
 import 'guided.dart';
 import 'layout.dart';
-import '../data/progress_store.dart';
 import 'page_cache.dart';
+import 'page_painters.dart';
 import 'reader_notifier.dart';
 import 'region.dart';
 
@@ -215,7 +216,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     if (_viewport == Size.zero) return;
     final box = _box(s.guided, unit.length);
     final sharpen = s.cleanUp;
-    final sameUnit = _listEquals(unit, _shownUnit);
+    final sameUnit = listEquals(unit, _shownUnit);
     // A new size alone waits for the resize to settle.
     if (sameUnit && sharpen == _shownSharpened && (box == _shownBox || (_resizeTimer?.isActive ?? false))) {
       // Back on the shown pages before another unit's decode landed (`G`
@@ -225,12 +226,21 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     }
     final request = ++_request;
     final cache = _cache!;
-    Future.wait([for (final p in unit) cache.get(p, box, sharpen: sharpen)]).then(
+    _decodeAll(cache, unit, box, sharpen).then(
       (images) async {
+        if (!mounted || request != _request) {
+          _disposeImages(images);
+          return;
+        }
         // Measured before the swap, so a trimmed page never shows whole
         // first, nor a cleaned-up page yellow.
         final now = ref.read(readerProvider);
-        if (now.trim || now.cleanUp) await _measure(unit, images, trim: now.trim, levels: now.cleanUp);
+        try {
+          if (now.trim || now.cleanUp) await _measure(unit, images, trim: now.trim, levels: now.cleanUp);
+        } on Object {
+          _disposeImages(images);
+          rethrow;
+        }
         if (!mounted || request != _request) {
           _disposeImages(images);
           return;
@@ -238,7 +248,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         final old = _images;
         // The same pages sharper or smaller after a resize, or sharpened or
         // not (`c`), keep the view.
-        final samePages = _listEquals(unit, _shownUnit);
+        final samePages = listEquals(unit, _shownUnit);
         setState(() {
           _clearTiles();
           _images = images;
@@ -274,9 +284,32 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         );
       },
       onError: (Object e) {
-        if (mounted) ref.read(readerProvider.notifier).notice('Could not decode page ${unit.first + 1}: $e');
+        if (e is PageCacheClosed || !mounted || request != _request) return;
+        ref.read(readerProvider.notifier).notice('Could not decode page ${unit.first + 1}: $e');
       },
     );
+  }
+
+  /// Decodes every page of [unit]; if one fails, the others are disposed
+  /// before the error goes on, rather than left to leak.
+  static Future<List<ui.Image>> _decodeAll(PageCache cache, List<int> unit, Box box, bool sharpen) async {
+    final pending = [for (final p in unit) cache.get(p, box, sharpen: sharpen)];
+    final images = <ui.Image>[];
+    Object? error;
+    StackTrace? trace;
+    for (final f in pending) {
+      try {
+        images.add(await f);
+      } on Object catch (e, st) {
+        error ??= e;
+        trace ??= st;
+      }
+    }
+    if (error == null) return images;
+    for (final i in images) {
+      i.dispose();
+    }
+    Error.throwWithStackTrace(error, trace!);
   }
 
   /// Finds the margins ([trim]) and the levels ([levels]) of [pages] not
@@ -324,9 +357,6 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   /// The levels shown page [k] (in unit order) is drawn with.
   Levels _levelsOf(ReaderState s, int k) =>
       s.cleanUp && k < _shownUnit.length ? _levels[_shownUnit[k]] ?? Levels.none : Levels.none;
-
-  static bool _listEquals(List<int> a, List<int> b) =>
-      a.length == b.length && Iterable.generate(a.length).every((i) => a[i] == b[i]);
 
   /// View intents: zoom, fit and pan. Returns false for anything else.
   bool handle(ReaderCommand c) {
@@ -735,15 +765,25 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     _tiles = keep;
     final generation = ++_tileGeneration;
     for (final w in wanted) {
-      cache.tile(w.page, w.fullWidth, w.region, sharpen: s.cleanUp).then((tile) {
-        if (!mounted || generation != _tileGeneration || !identical(cache, _cache) || !_shownUnit.contains(w.page)) {
-          tile.image.dispose();
-          return;
-        }
-        final old = _tiles[w.page];
-        setState(() => _tiles = {..._tiles, w.page: tile});
-        old?.image.dispose();
-      }, onError: (Object e) => debugPrint('Could not decode a sharp tile of page ${w.page + 1}: $e'));
+      cache
+          .tile(w.page, w.fullWidth, w.region, sharpen: s.cleanUp)
+          .then(
+            (tile) {
+              if (!mounted ||
+                  generation != _tileGeneration ||
+                  !identical(cache, _cache) ||
+                  !_shownUnit.contains(w.page)) {
+                tile.image.dispose();
+                return;
+              }
+              final old = _tiles[w.page];
+              setState(() => _tiles = {..._tiles, w.page: tile});
+              old?.image.dispose();
+            },
+            onError: (Object e) {
+              if (e is! PageCacheClosed) debugPrint('Could not decode a sharp tile of page ${w.page + 1}: $e');
+            },
+          );
     }
   }
 
@@ -884,7 +924,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
                 child: CustomPaint(
                   key: const Key('page-image'),
                   size: Size(p.image.width * p.trim.width * h / (p.image.height * p.trim.height), h),
-                  painter: _PagePainter(p.image, p.trim, p.levels, k < numbers.length ? _tiles[numbers[k]] : null),
+                  painter: PagePainter(p.image, p.trim, p.levels, k < numbers.length ? _tiles[numbers[k]] : null),
                 ),
               ),
           ],
@@ -894,7 +934,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
             children: [
               pages,
               Positioned.fill(
-                child: CustomPaint(key: const Key('guided-dim'), painter: _DimPainter(_focus!, _holeShape)),
+                child: CustomPaint(key: const Key('guided-dim'), painter: DimPainter(_focus!, _holeShape)),
               ),
             ],
           );
@@ -908,7 +948,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
               : child!,
         );
         if (s.night) {
-          pages = ColorFiltered(colorFilter: const ColorFilter.matrix(_night), child: pages);
+          pages = ColorFiltered(colorFilter: const ColorFilter.matrix(nightMatrix), child: pages);
         }
         final child = _childSize;
         return InteractiveViewer(
@@ -932,135 +972,4 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     // Upright or turned, the view is laid out in its own frame (see the class).
     return RotatedBox(quarterTurns: s.rotation, child: view);
   }
-}
-
-/// A decoded page, drawn with auto-trim's margins cut off, a sharp [tile]
-/// of part of it on top when zoomed in, and scan clean-up's levels, a
-/// colour matrix that costs nothing to draw.
-class _PagePainter extends CustomPainter {
-  const _PagePainter(this.image, this.trim, this.levels, [this.tile]);
-
-  final ui.Image image;
-  final Trim trim;
-  final Levels levels;
-  final Tile? tile;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = image.width.toDouble(), h = image.height.toDouble();
-    final paint = Paint()
-      ..filterQuality = FilterQuality.medium
-      ..colorFilter = levels.isNone ? null : ColorFilter.matrix(levels.matrix);
-    canvas.drawImageRect(
-      image,
-      Rect.fromLTRB(trim.left * w, trim.top * h, trim.right * w, trim.bottom * h),
-      Offset.zero & size,
-      paint,
-    );
-    final tile = this.tile;
-    if (tile == null) return;
-    final r = tile.region;
-    final sx = size.width / trim.width, sy = size.height / trim.height;
-    canvas
-      ..save()
-      ..clipRect(Offset.zero & size)
-      ..drawImageRect(
-        tile.image,
-        Rect.fromLTWH(0, 0, tile.image.width.toDouble(), tile.image.height.toDouble()),
-        Rect.fromLTWH((r.left - trim.left) * sx, (r.top - trim.top) * sy, r.width * sx, r.height * sy),
-        paint,
-      )
-      ..restore();
-  }
-
-  @override
-  bool shouldRepaint(_PagePainter old) =>
-      !identical(old.image, image) ||
-      old.trim != trim ||
-      old.levels != levels ||
-      !identical(old.tile?.image, tile?.image);
-}
-
-/// Finds a decoded page's scanned margins, for auto-trim (`t`), on a
-/// [smallCopy] of it.
-Future<Trim> measureTrim(ui.Image image) async {
-  final (rgba, w, h) = await smallCopy(image);
-  return findTrim(rgba, w, h);
-}
-
-/// A decoded page drawn 240 px wide as RGBA, which smooths away paper
-/// grain: what auto-trim and scan clean-up measure.
-Future<(Uint8List, int, int)> smallCopy(ui.Image image) async {
-  const w = 240;
-  final h = math.max(16, (image.height * w / image.width).round());
-  final recorder = ui.PictureRecorder();
-  Canvas(recorder).drawImageRect(
-    image,
-    Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
-    Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
-    Paint()..filterQuality = FilterQuality.medium,
-  );
-  final picture = recorder.endRecording();
-  final small = await picture.toImage(w, h);
-  picture.dispose();
-  final data = await small.toByteData(format: ui.ImageByteFormat.rawRgba);
-  small.dispose();
-  if (data == null) throw StateError('page could not be read back');
-  return (data.buffer.asUint8List(), w, h);
-}
-
-/// Dimmed and warmed, for reading in the dark. A colour matrix costs nothing.
-const _night = <double>[
-  0.55, 0.10, 0.05, 0, 0, //
-  0.05, 0.45, 0.05, 0, 0, //
-  0.02, 0.05, 0.30, 0, 0, //
-  0, 0, 0, 1, 0,
-];
-
-/// The part of [outline] (a frame's real shape, page coordinates) inside
-/// [hole], as points relative to [hole]; null when there is no outline and
-/// the hole is its rectangle.
-List<Offset>? holeShape(Rect hole, List<double>? outline) {
-  if (outline == null || hole.isEmpty) return null;
-  final clipped = clipConvex(
-    [for (var i = 0; i + 1 < outline.length; i += 2) (outline[i], outline[i + 1])],
-    [(hole.left, hole.top), (hole.right, hole.top), (hole.right, hole.bottom), (hole.left, hole.bottom)],
-  );
-  if (clipped.length < 3) return null;
-  return [for (final (x, y) in clipped) Offset((x - hole.left) / hole.width, (y - hole.top) / hole.height)];
-}
-
-/// Dims the page outside [hole] (page coordinates, 0..1) to 45%, so the
-/// panel stands out and the reader keeps their place on the page. With a
-/// [shape] (relative to [hole]) the hole is that polygon, so the corners
-/// of the neighbours around a slanted panel are dimmed too.
-class _DimPainter extends CustomPainter {
-  const _DimPainter(this.hole, [this.shape]);
-
-  final Rect hole;
-  final List<Offset>? shape;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final page = Offset.zero & size;
-    final cut = Rect.fromLTRB(
-      hole.left * size.width,
-      hole.top * size.height,
-      hole.right * size.width,
-      hole.bottom * size.height,
-    );
-    final shape = this.shape;
-    final path = shape == null
-        ? (Path()..addRect(cut))
-        : (Path()..addPolygon([
-            for (final p in shape) Offset(cut.left + p.dx * cut.width, cut.top + p.dy * cut.height),
-          ], true));
-    canvas.drawPath(
-      Path.combine(PathOperation.difference, Path()..addRect(page), path),
-      Paint()..color = const Color(0x8C000000),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_DimPainter old) => old.hole != hole || !listEquals(old.shape, shape);
 }

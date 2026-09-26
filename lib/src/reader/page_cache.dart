@@ -8,6 +8,8 @@ import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/foundation.dart';
 
+import 'decode_image.dart';
+
 /// The most device pixels a page may decode to: it is fitted inside, never
 /// enlarged. 0 leaves that side free, as fit-to-width does with the height.
 typedef Box = ({int width, int height});
@@ -15,6 +17,15 @@ typedef Box = ({int width, int height});
 /// A sharp copy of part of a page, for a zoomed-in view: [image] shows
 /// [region] of the page.
 typedef Tile = ({ui.Image image, PageRegion region});
+
+/// What a page or tile asked for fails with when its [PageCache] was
+/// disposed before it decoded: the book is gone, so there is nothing to say.
+class PageCacheClosed implements Exception {
+  const PageCacheClosed();
+
+  @override
+  String toString() => 'PageCacheClosed';
+}
 
 /// Decoded pages for one open book, least recently used first out, within a
 /// byte budget sized to the device ([pageBudgetBytes]).
@@ -130,23 +141,18 @@ class PageCache {
     final boxW = key.width == 0 ? 1 << 16 : key.width;
     final boxH = key.height == 0 ? 1 << 16 : key.height;
     final page = await doc.page(key.index, targetWidth: boxW, targetHeight: boxH, region: region);
-    final buffer = await ui.ImmutableBuffer.fromUint8List(page.bytes);
-    final descriptor = page.bgra
-        ? ui.ImageDescriptor.raw(buffer, width: page.width!, height: page.height!, pixelFormat: ui.PixelFormat.bgra8888)
-        : await ui.ImageDescriptor.encoded(buffer);
-    if (!page.bgra) _storedWidths[key.index] = descriptor.width;
-    // A region the source already drew is decoded as it is.
-    final scale = page.region != null
-        ? 1.0
-        : math.min(1.0, math.min(boxW / descriptor.width, boxH / descriptor.height));
-    final codec = await descriptor.instantiateCodec(
-      targetWidth: scale < 1 ? math.max(1, (descriptor.width * scale).round()) : null,
-      targetHeight: scale < 1 ? math.max(1, (descriptor.height * scale).round()) : null,
+    var (image, sourceWidth) = await decodeImage(
+      page.bytes,
+      raw: page.bgra ? (width: page.width!, height: page.height!) : null,
+      size: (w, h) {
+        // A region the source already drew is decoded as it is.
+        final scale = page.region != null ? 1.0 : math.min(1.0, math.min(boxW / w, boxH / h));
+        return scale < 1
+            ? (width: math.max(1, (w * scale).round()), height: math.max(1, (h * scale).round()))
+            : (width: null, height: null);
+      },
     );
-    var image = (await codec.getNextFrame()).image;
-    codec.dispose();
-    descriptor.dispose();
-    buffer.dispose();
+    if (!page.bgra) _storedWidths[key.index] = sourceWidth;
     var drawn = page.region;
     if (region != null && drawn == null) {
       final (crop, cut) = await _crop(image, region);
@@ -165,10 +171,9 @@ class PageCache {
       }
     }
     if (_disposed) {
-      // The book closed while this page decoded: hand out a clone and drop ours.
-      final clone = image.clone();
+      // The book closed while this page decoded: nobody is left to show it.
       image.dispose();
-      return clone;
+      throw const PageCacheClosed();
     }
     // A page asked for twice (a prefetch overtaken by a page turn) is kept
     // once.
@@ -242,13 +247,7 @@ class PageCache {
     final sw = Stopwatch()..start();
     final big = await Isolate.run(() => upscaleSharpen(pixels, w, h, ow, oh), debugName: 'sharpen');
     debugPrint('Clean-up: ${w}x$h enlarged to ${ow}x$oh in ${sw.elapsedMilliseconds} ms');
-    final buffer = await ui.ImmutableBuffer.fromUint8List(big);
-    final descriptor = ui.ImageDescriptor.raw(buffer, width: ow, height: oh, pixelFormat: ui.PixelFormat.rgba8888);
-    final codec = await descriptor.instantiateCodec();
-    final out = (await codec.getNextFrame()).image;
-    codec.dispose();
-    descriptor.dispose();
-    buffer.dispose();
+    final (out, _) = await decodeImage(big, raw: (width: ow, height: oh), format: ui.PixelFormat.rgba8888);
     return out;
   }
 

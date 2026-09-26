@@ -5,17 +5,16 @@ import 'dart:typed_data';
 
 import 'comic_info.dart';
 import 'document.dart';
-import 'image_size.dart';
 import 'natural_sort.dart';
-import 'page_facts.dart';
 import 'sniff.dart';
+import 'stored_pages.dart';
 
 /// A tar comic: `.cbt`.
 ///
 /// Tar has no index, so opening walks the headers once, seeking past each
 /// entry's data, and remembers where every page starts. A page is then one
 /// seek and one read, and nothing stays in memory but that list.
-class CbtDocument implements ComicDocument {
+class CbtDocument with StoredPages implements ComicDocument {
   CbtDocument._(this._file, this._pages, this._comicInfo);
 
   /// Opens [path]. Throws [FormatException] when it is not a readable tar
@@ -26,7 +25,7 @@ class CbtDocument implements ComicDocument {
       final entries = _index(file, path);
       final pages = entries.where((e) => isPageEntry(e.name)).toList()..sort((a, b) => naturalCompare(a.name, b.name));
       if (pages.isEmpty) throw FormatException('No page images in $path');
-      final info = entries.where((e) => e.name.split('/').last.toLowerCase() == 'comicinfo.xml').firstOrNull;
+      final info = entries.where((e) => isComicInfoName(e.name)).firstOrNull;
       return CbtDocument._(file, pages, info);
     } catch (e) {
       file.closeSync();
@@ -46,25 +45,13 @@ class CbtDocument implements ComicDocument {
   int get pageCount => _pages.length;
 
   @override
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async =>
-      PageImage(_read(_pages[index]));
+  Future<Uint8List> storedPage(int index) async => _read(_pages[index]);
 
   @override
-  Future<Uint8List?> rawPage(int index) async => _read(_pages[index]);
+  Future<Uint8List> storedHead(int index, int n) async => _read(_pages[index], n);
 
   @override
-  Future<List<(int, int)?>> pageSizes() async => [
-    for (final p in _pages) imageSize(_read(p, headBytes)) ?? (p.size > headBytes ? imageSize(_read(p)) : null),
-  ];
-
-  @override
-  Future<List<PageFacts>> pageFacts() async => [
-    for (final p in _pages)
-      switch (imageFacts(_read(p, headBytes), total: p.size)) {
-        final f when f.width == null && p.size > headBytes => imageFacts(_read(p), total: p.size),
-        final f => f,
-      },
-  ];
+  Future<int> storedLength(int index) async => _pages[index].size;
 
   @override
   Future<ComicMeta?> embeddedMetadata() async {

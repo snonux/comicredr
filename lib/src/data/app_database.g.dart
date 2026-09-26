@@ -4913,6 +4913,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CollectionBooksTable collectionBooks = $CollectionBooksTable(
     this,
   );
+  late final Index filesContentKey = Index(
+    'files_content_key',
+    'CREATE INDEX files_content_key ON files (content_key)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4930,6 +4934,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     readLog,
     settings,
     collectionBooks,
+    filesContentKey,
   ];
 }
 

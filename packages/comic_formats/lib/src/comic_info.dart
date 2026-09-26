@@ -69,3 +69,7 @@ class _XmlUnescape extends Converter<String, String> {
   static String _char(int? code, String written) =>
       code == null || code > 0x10FFFF ? written : String.fromCharCode(code);
 }
+
+/// Whether [name], a path inside an archive, is a ComicInfo.xml, in any
+/// folder and any case.
+bool isComicInfoName(String name) => name.split('/').last.toLowerCase() == 'comicinfo.xml';

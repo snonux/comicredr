@@ -225,7 +225,11 @@ void main() {
     await key(tester, LogicalKeyboardKey.keyF, character: 'f');
     expect(tester.getRect(find.byType(ReaderView)), screen, reason: 'fullscreen keeps the whole screen');
     await key(tester, LogicalKeyboardKey.keyI, character: 'i');
-    expect(tester.getRect(status()).bottom, lessThanOrEqualTo(screen.bottom - 48), reason: 'a notice while the bars are swiped in');
+    expect(
+      tester.getRect(status()).bottom,
+      lessThanOrEqualTo(screen.bottom - 48),
+      reason: 'a notice while the bars are swiped in',
+    );
   });
 
   testWidgets('Android back in a fullscreen library leaves fullscreen before the app', (tester) async {
@@ -258,6 +262,9 @@ void main() {
     expect(find.byKey(const Key('balloonsButton')), findsOneWidget);
     // Beside six buttons it had about a hundred pixels: "page 1 / 6  ·  gu…".
     expect(tester.getSize(status()).width, greaterThan(350));
-    expect(tester.getRect(find.byKey(const Key('fullscreenButton'))).top, greaterThan(tester.getRect(status()).bottom - 1));
+    expect(
+      tester.getRect(find.byKey(const Key('fullscreenButton'))).top,
+      greaterThan(tester.getRect(status()).bottom - 1),
+    );
   });
 }

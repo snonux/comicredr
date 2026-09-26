@@ -34,7 +34,9 @@ books=(
 export DISPLAY=:96
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
-trap 'kill $xvfb 2>/dev/null || true' EXIT
+app=
+# A failed step exits early: the app goes too, not just Xvfb.
+trap 'kill $app $xvfb 2>/dev/null || true' EXIT
 sleep 1
 
 for entry in "${books[@]}"; do

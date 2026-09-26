@@ -213,10 +213,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       value: _wholePage!,
                       onChanged: (v) => _set(SettingsStore.wholePageSteps, v),
                     ),
-                    ListTile(
+                    const ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('On a page without panels, the first step stays'),
-                      subtitle: const Text(
+                      title: Text('On a page without panels, the first step stays'),
+                      subtitle: Text(
                         'and shows it: the background turns wine red, or the page zooms out and back. The next step '
                         'turns. W switches it off and on while reading, gw picks the cue.',
                       ),
@@ -246,7 +246,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       key: const Key('setting-sidecars'),
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Save panels, bookmarks and position in a file for each comic'),
-                      subtitle: const Text('Hidden files, like .book.cbz.crdb. Sidecars already there are always read.'),
+                      subtitle: const Text(
+                        'Hidden files, like .book.cbz.crdb. Sidecars already there are always read.',
+                      ),
                       value: _sidecars!,
                       onChanged: (v) => _set(SettingsStore.writeSidecars, v),
                     ),

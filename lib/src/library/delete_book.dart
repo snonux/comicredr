@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../data/book_paths.dart';
 import '../data/sidecar_sync.dart';
 import 'library_store.dart';
 
@@ -156,9 +157,9 @@ Future<List<String>> deleteComic({
   final last = await store.forgetDeleted(path, contentKey);
   if (last) {
     try {
-      final cover = File(p.join(coverDir, '$contentKey.jpg'));
+      final cover = File(coverFile(coverDir, contentKey));
       if (await cover.exists()) await cover.delete();
-      final pages = Directory(p.join(coverDir, 'pages', contentKey));
+      final pages = Directory(pageThumbDir(coverDir, contentKey));
       if (await pages.exists()) await pages.delete(recursive: true);
     } on FileSystemException catch (e) {
       debugPrint('Could not delete the cached pictures of $path: $e');

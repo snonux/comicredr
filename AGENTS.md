@@ -3,7 +3,7 @@
 Notes for coding agents and contributors working on ComicRedr. The
 [README](README.md) is for people using the app; keep it short and put
 build internals, test scripts, detector work and conventions here.
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the overview with
+[docs/architecture.md](docs/architecture.md) is the overview with
 diagrams (parts, page pipeline, input, detection, the model, data); keep
 it in step when the architecture or the model changes.
 
@@ -15,10 +15,14 @@ it in step when the architecture or the model changes.
   plainly in the PR.
 - Merge with merge commits, not squash, and keep `main` green
   (`make test`).
+- Lints: each package has its own `analysis_options.yaml` on
+  `package:lints` with strict casts, inference and raw types, the app the
+  same over `flutter_lints`; `make analyze` also fails on unformatted
+  Dart. Code is written to 120 columns.
 - The README is as lean as it can be (snonux, 2026-09-26): an intro, a
   link to the usage guide near the top, a few highlights, the
   screenshots, a five-step quick start that ends with a link to carry on
-  in the guide, and the links to ARCHITECTURE.md, training.md, this file
+  in the guide, and the links to architecture.md, training.md, this file
   and the changelog at the bottom. Nothing else: touch, data, CBR and the
   like are guide chapters. Install steps live in `docs/install-linux.md`
   and `docs/install-android.md` (F-Droid first, via snonux's repo
@@ -253,6 +257,12 @@ refreshes right away instead of within six hours.
   keys.toml over it. A tap only waits for a possible second tap in a zone
   that has a double-tap action, so edge taps turn at once. Pinch zoom and
   panning stay with the InteractiveViewer and can't be remapped.
+  Nothing in it is per platform: Flutter's Linux engine turns GTK touch
+  events into touch pointers (`FlTouchManager`; the view selects
+  `GDK_TOUCH_MASK`, which `tool/touch_inject.c` reports), so a Linux
+  touchscreen gets every gesture. Android's back gesture is the one thing
+  Linux lacked; there the status line starts with a back arrow sending
+  `ReaderIntent.back` (`_StatusLine.showBack`).
 - Page thumbnails (the `p` grid and the progress bar's preview) come from
   `Thumbnails` in `lib/src/reader/thumbnails.dart`: made on demand through
   the book's own document (so PDFs use the shared PDFium isolate), scaled
@@ -391,7 +401,8 @@ its file where they need one); `COMICREDR_MODEL=file.onnx` tries another,
 
 ```sh
 make dev                         # debug build with hot reload (r in the terminal)
-make test                        # analyzer and every test
+make test                        # analyzer, format check and every test
+make format                      # dart format at 120 columns (generated *.g.dart left alone)
 dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done   # make test runs all three
@@ -408,6 +419,7 @@ tool/e2e_margins.sh           # guided view on eval pages padded with a wide sca
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_ahead.sh [corpus]     # panels found only for the open comic, ahead of the reader, guided view off; nothing with no comic open; stops on close; sidecar filled
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_touch_linux.sh       # touch alone, no key or mouse: a comic opened from the library, every default reader gesture, the progress bar, the page grid pinched, scrolled and tapped, guided view, the back arrow out to the library, a long press on a cover; checks the view selects touch events and the index with sqlite3
 tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3
 tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart, grid zoom with + and Ctrl+wheel kept across a restart
 tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times

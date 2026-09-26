@@ -13,6 +13,10 @@ the `?` overlay.
   on or off, and stops when the comic is closed. The library's
   "Finding panels" line, its pause button and the setting are gone. The
   same on Linux and Android.
+- **Touch on Linux:** the status line starts with a back arrow, so a
+  Linux touchscreen can leave guided view and the comic the way the
+  phone's back gesture does. Every other gesture already worked there;
+  `tool/e2e_touch_linux.sh` now checks all of them by touch alone.
 
 ## 0.2.1
 

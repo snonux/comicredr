@@ -3,11 +3,11 @@ import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
-import 'cbz.dart';
 import 'comic_info.dart';
 import 'document.dart';
 import 'natural_sort.dart';
-import 'page_facts.dart';
+import 'stored_pages.dart';
+import 'zip_entries.dart';
 
 /// A comic EPUB: fixed-layout or image-based, one page image per spine item.
 ///
@@ -23,99 +23,30 @@ import 'page_facts.dart';
 /// text ebook, where fewer than half the spine items are pages, and a book
 /// whose items mix text with several cut-out pictures, which is what the
 /// Internet Archive makes out of scanned comics.
-class EpubDocument implements ComicDocument {
+class EpubDocument with StoredPages implements ComicDocument {
   EpubDocument._(this._input, this._pages, this._meta);
 
   /// Reads the EPUB whose ZIP directory is [archive], which owns [input].
   /// Throws [FormatException] when it has no readable package or no pages,
   /// or reads as a text book; [input] is left for the caller to close then.
   factory EpubDocument.fromArchive(InputStream input, Archive archive, String path) {
-    final files = {for (final f in archive.files) if (f.isFile) f.name: f};
-    String text(ArchiveFile f) => utf8.decode(_inflate(f), allowMalformed: true);
-
-    final container = files['META-INF/container.xml'];
-    if (container == null) throw FormatException('Not an EPUB, no META-INF/container.xml: $path');
-    final opfPath = _attr(RegExp(r'<(?:\w+:)?rootfile\b[^>]*>').firstMatch(text(container))?[0] ?? '', 'full-path');
-    final opfFile = opfPath == null ? null : files[_decode(opfPath)];
-    if (opfFile == null) throw FormatException('The EPUB names no readable package file: $path');
-    final opf = text(opfFile);
-    final opfDir = _dir(opfFile.name);
-
-    final manifest = <String, _Item>{};
-    for (final m in RegExp(r'<(?:\w+:)?item\b[^>]*>').allMatches(opf)) {
-      final tag = m[0]!;
-      final id = _attr(tag, 'id');
-      final href = _attr(tag, 'href');
-      if (id == null || href == null) continue;
-      manifest[id] = _Item(_resolve(opfDir, href), _attr(tag, 'media-type') ?? '', _attr(tag, 'properties') ?? '');
-    }
-    final spineTag = RegExp(r'<(?:\w+:)?spine\b[^>]*>').firstMatch(opf)?[0] ?? '';
-    final spine = [
-      for (final m in RegExp(r'<(?:\w+:)?itemref\b[^>]*>').allMatches(opf))
-        if (_attr(m[0]!, 'linear') != 'no') manifest[_attr(m[0]!, 'idref')],
-    ].nonNulls.toList();
-    if (spine.isEmpty) throw FormatException('The EPUB has an empty spine: $path');
-
-    final fixedLayout = RegExp(r'''property\s*=\s*["']rendition:layout["'][^>]*>\s*pre-paginated''').hasMatch(opf) ||
-        RegExp(r'''name\s*=\s*["']fixed-layout["']\s+content\s*=\s*["']true''').hasMatch(opf);
-
-    final pages = <ArchiveFile>[];
-    var pageItems = 0, mixed = 0, cut = 0;
-    for (final item in spine) {
-      if (item.mediaType.startsWith('image/') || isPageEntry(item.path)) {
-        final f = files[item.path];
-        if (f != null) {
-          pages.add(f);
-          pageItems++;
-        }
-        continue;
-      }
-      final doc = files[item.path];
-      if (doc == null) continue;
-      final body = text(doc);
-      final images = [
-        for (final src in _imageRefs(body))
-          if (files[_resolve(_dir(item.path), src)] case final f? when isPageEntry(f.name)) f,
-      ];
-      if (images.isEmpty) continue;
-      final words = fixedLayout ? 0 : _visibleText(body).length;
-      if (fixedLayout) {
-        pages.add(images.reduce((a, b) => b.size > a.size ? b : a));
-      } else if (images.length == 1 && words < 200) {
-        pages.add(images.single);
-      } else if (words < 20) {
-        pages.addAll(images);
-      } else {
-        // Paragraphs beside a picture, or a page cut into pictures.
-        mixed++;
-        if (images.length > 1) cut++;
-        continue;
-      }
-      pageItems++;
-    }
-    if (pages.isEmpty || pageItems * 2 < spine.length || mixed * 10 > pageItems + mixed) {
+    final files = {
+      for (final f in archive.files)
+        if (f.isFile) f.name: f,
+    };
+    final package = _readPackage(files, path);
+    final found = _collectPages(files, package.spine, fixedLayout: package.fixedLayout);
+    if (found.pages.isEmpty ||
+        found.pageItems * 2 < package.spine.length ||
+        found.mixed * 10 > found.pageItems + found.mixed) {
       // The status line shows the start of this, so the reason comes first.
-      final what = cut * 2 > mixed ? 'text beside cut-out pictures' : 'a text ebook';
+      final what = found.cut * 2 > found.mixed ? 'text beside cut-out pictures' : 'a text ebook';
       throw FormatException(
         'Not a comic EPUB, $what rather than page images '
-        '($pageItems of ${spine.length} parts are page images)',
+        '(${found.pageItems} of ${package.spine.length} parts are page images)',
       );
     }
-
-    // Metadata: a ComicInfo.xml if the book carries one, the OPF otherwise.
-    final comicInfo = files.values.where((f) => f.name.split('/').last.toLowerCase() == 'comicinfo.xml').firstOrNull;
-    final ComicMeta meta;
-    if (comicInfo != null) {
-      meta = parseComicInfo(text(comicInfo));
-    } else {
-      final coverId = _attr(RegExp(r'''<(?:\w+:)?meta\b[^>]*name\s*=\s*["']cover["'][^>]*>''').firstMatch(opf)?[0] ?? '', 'content');
-      final cover =
-          manifest.values.where((i) => i.properties.split(' ').contains('cover-image')).firstOrNull?.path ??
-          manifest[coverId]?.path;
-      final coverPage = pages.indexWhere((p) => p.name == cover);
-      meta = parseOpfMetadata(opf, coverPage: coverPage < 0 ? null : coverPage, spineTag: spineTag);
-    }
-    return EpubDocument._(input, pages, meta);
+    return EpubDocument._(input, found.pages, _readMeta(files, package, found.pages));
   }
 
   final InputStream _input;
@@ -129,17 +60,13 @@ class EpubDocument implements ComicDocument {
   int get pageCount => _pages.length;
 
   @override
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async =>
-      PageImage(_inflate(_pages[index]));
+  Future<Uint8List> storedPage(int index) => readEntry(_pages[index]);
 
   @override
-  Future<Uint8List?> rawPage(int index) async => _inflate(_pages[index]);
+  Future<Uint8List> storedHead(int index, int n) async => entryHead(_pages[index], n);
 
   @override
-  Future<List<(int, int)?>> pageSizes() async => [for (final p in _pages) zipPageSize(p)];
-
-  @override
-  Future<List<PageFacts>> pageFacts() async => [for (final p in _pages) zipPageFacts(p)];
+  Future<int> storedLength(int index) async => _pages[index].size;
 
   @override
   Future<ComicMeta?> embeddedMetadata() async => _meta;
@@ -155,10 +82,109 @@ class _Item {
   final String properties;
 }
 
-Uint8List _inflate(ArchiveFile f) {
-  final out = OutputMemoryStream(size: f.size > 0 ? f.size : 1 << 16);
-  f.decompress(out);
-  return out.getBytes();
+String _text(ArchiveFile f) => utf8.decode(inflateEntry(f), allowMalformed: true);
+
+/// What the OPF package document says: its text, its manifest by id, the
+/// spine's linear items in order and whether the book is fixed-layout.
+typedef _Package = ({String opf, Map<String, _Item> manifest, List<_Item> spine, String spineTag, bool fixedLayout});
+
+/// Finds the package document through META-INF/container.xml and reads it.
+/// Throws [FormatException] when there is none or its spine is empty.
+_Package _readPackage(Map<String, ArchiveFile> files, String path) {
+  final container = files['META-INF/container.xml'];
+  if (container == null) throw FormatException('Not an EPUB, no META-INF/container.xml: $path');
+  final opfPath = _attr(RegExp(r'<(?:\w+:)?rootfile\b[^>]*>').firstMatch(_text(container))?[0] ?? '', 'full-path');
+  final opfFile = opfPath == null ? null : files[_decode(opfPath)];
+  if (opfFile == null) throw FormatException('The EPUB names no readable package file: $path');
+  final opf = _text(opfFile);
+  final opfDir = _dir(opfFile.name);
+
+  final manifest = <String, _Item>{};
+  for (final m in RegExp(r'<(?:\w+:)?item\b[^>]*>').allMatches(opf)) {
+    final tag = m[0]!;
+    final id = _attr(tag, 'id');
+    final href = _attr(tag, 'href');
+    if (id == null || href == null) continue;
+    manifest[id] = _Item(_resolve(opfDir, href), _attr(tag, 'media-type') ?? '', _attr(tag, 'properties') ?? '');
+  }
+  final spineTag = RegExp(r'<(?:\w+:)?spine\b[^>]*>').firstMatch(opf)?[0] ?? '';
+  final spine = [
+    for (final m in RegExp(r'<(?:\w+:)?itemref\b[^>]*>').allMatches(opf))
+      if (_attr(m[0]!, 'linear') != 'no') manifest[_attr(m[0]!, 'idref')],
+  ].nonNulls.toList();
+  if (spine.isEmpty) throw FormatException('The EPUB has an empty spine: $path');
+
+  final fixedLayout =
+      RegExp(r'''property\s*=\s*["']rendition:layout["'][^>]*>\s*pre-paginated''').hasMatch(opf) ||
+      RegExp(r'''name\s*=\s*["']fixed-layout["']\s+content\s*=\s*["']true''').hasMatch(opf);
+  return (opf: opf, manifest: manifest, spine: spine, spineTag: spineTag, fixedLayout: fixedLayout);
+}
+
+/// Up to this many visible characters, an XHTML item wrapping one image
+/// is still that image's page (a caption, a page number).
+const _pageTextLimit = 200;
+
+/// Up to this many, an item of several images is a run of pages.
+const _imagesOnlyTextLimit = 20;
+
+/// The page images in [spine] order, with the counts that decide whether
+/// the book is a comic: [pageItems] spine items that gave pages, [mixed]
+/// items of text beside pictures and, of those, [cut] with several.
+({List<ArchiveFile> pages, int pageItems, int mixed, int cut}) _collectPages(
+  Map<String, ArchiveFile> files,
+  List<_Item> spine, {
+  required bool fixedLayout,
+}) {
+  final pages = <ArchiveFile>[];
+  var pageItems = 0, mixed = 0, cut = 0;
+  for (final item in spine) {
+    if (item.mediaType.startsWith('image/') || isPageEntry(item.path)) {
+      final f = files[item.path];
+      if (f != null) {
+        pages.add(f);
+        pageItems++;
+      }
+      continue;
+    }
+    final doc = files[item.path];
+    if (doc == null) continue;
+    final body = _text(doc);
+    final images = [
+      for (final src in _imageRefs(body))
+        if (files[_resolve(_dir(item.path), src)] case final f? when isPageEntry(f.name)) f,
+    ];
+    if (images.isEmpty) continue;
+    final words = fixedLayout ? 0 : _visibleText(body).length;
+    if (fixedLayout) {
+      pages.add(images.reduce((a, b) => b.size > a.size ? b : a));
+    } else if (images.length == 1 && words < _pageTextLimit) {
+      pages.add(images.single);
+    } else if (words < _imagesOnlyTextLimit) {
+      pages.addAll(images);
+    } else {
+      // Paragraphs beside a picture, or a page cut into pictures.
+      mixed++;
+      if (images.length > 1) cut++;
+      continue;
+    }
+    pageItems++;
+  }
+  return (pages: pages, pageItems: pageItems, mixed: mixed, cut: cut);
+}
+
+/// A ComicInfo.xml if the book carries one, the OPF's metadata otherwise.
+ComicMeta _readMeta(Map<String, ArchiveFile> files, _Package package, List<ArchiveFile> pages) {
+  final comicInfo = files.values.where((f) => isComicInfoName(f.name)).firstOrNull;
+  if (comicInfo != null) return parseComicInfo(_text(comicInfo));
+  final coverId = _attr(
+    RegExp(r'''<(?:\w+:)?meta\b[^>]*name\s*=\s*["']cover["'][^>]*>''').firstMatch(package.opf)?[0] ?? '',
+    'content',
+  );
+  final cover =
+      package.manifest.values.where((i) => i.properties.split(' ').contains('cover-image')).firstOrNull?.path ??
+      package.manifest[coverId]?.path;
+  final coverPage = pages.indexWhere((p) => p.name == cover);
+  return parseOpfMetadata(package.opf, coverPage: coverPage < 0 ? null : coverPage, spineTag: package.spineTag);
 }
 
 /// The book's metadata from the OPF package document: Dublin Core title,
@@ -172,7 +198,10 @@ ComicMeta parseOpfMetadata(String opf, {int? coverPage, String spineTag = ''}) {
   }
 
   String? metaProperty(String property) {
-    final m = RegExp('<(?:\\w+:)?meta\\b[^>]*property\\s*=\\s*["\']$property["\'][^>]*>(.*?)</(?:\\w+:)?meta>', dotAll: true).firstMatch(opf);
+    final m = RegExp(
+      '<(?:\\w+:)?meta\\b[^>]*property\\s*=\\s*["\']$property["\'][^>]*>(.*?)</(?:\\w+:)?meta>',
+      dotAll: true,
+    ).firstMatch(opf);
     final v = m == null ? null : _unescape(m[1]!.trim());
     return v == null || v.isEmpty ? null : v;
   }
@@ -194,9 +223,10 @@ ComicMeta parseOpfMetadata(String opf, {int? coverPage, String spineTag = ''}) {
     var role = _attr(m[1]!, 'opf:role') ?? _attr(m[1]!, 'role');
     final id = _attr(m[1]!, 'id');
     if (role == null && id != null) {
-      role = RegExp('<(?:\\w+:)?meta\\b[^>]*refines\\s*=\\s*["\']#$id["\'][^>]*property\\s*=\\s*["\']role["\'][^>]*>(.*?)<', dotAll: true)
-          .firstMatch(opf)?[1]
-          ?.trim();
+      role = RegExp(
+        '<(?:\\w+:)?meta\\b[^>]*refines\\s*=\\s*["\']#${RegExp.escape(id)}["\'][^>]*property\\s*=\\s*["\']role["\'][^>]*>(.*?)<',
+        dotAll: true,
+      ).firstMatch(opf)?[1]?.trim();
     }
     (const {'ill', 'art', 'pnc', 'ink', 'clr', 'cov'}.contains(role) ? artists : writers).add(name);
   }
@@ -239,8 +269,12 @@ String _visibleText(String xhtml) {
   ).replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
+/// One pattern per attribute name, since [_attr] runs for every tag.
+final _attrPatterns = <String, RegExp>{};
+
 String? _attr(String tag, String name) {
-  final m = RegExp('(?:^|\\s)${RegExp.escape(name)}\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\')').firstMatch(tag);
+  final pattern = _attrPatterns[name] ??= RegExp('(?:^|\\s)${RegExp.escape(name)}\\s*=\\s*(?:"([^"]*)"|\'([^\']*)\')');
+  final m = pattern.firstMatch(tag);
   final v = m == null ? null : (m[1] ?? m[2]);
   return v == null ? null : _unescape(v);
 }

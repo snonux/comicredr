@@ -4,6 +4,7 @@ import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/keymap_overlay.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
@@ -126,6 +127,22 @@ void main() {
     expect(c.read(readerProvider).guided, isFalse);
     expect(c.read(readerProvider).book, isNotNull);
     expect(await back(), isTrue);
+    expect(c.read(readerProvider).book, isNull);
+  });
+
+  testWidgets("the status line's back arrow does the same on Linux, for a touchscreen", (tester) async {
+    final path = writeBook(tmp, 'Arrow.cbz', 4);
+    final c = await pumpApp(tester);
+    await open(tester, c, path);
+    await key(tester, LogicalKeyboardKey.keyV);
+    expect(c.read(readerProvider).guided, isTrue);
+
+    await tester.tap(find.byKey(const Key('backButton')));
+    await settle(tester);
+    expect(c.read(readerProvider).guided, isFalse);
+    expect(c.read(readerProvider).book, isNotNull);
+    await tester.tap(find.byKey(const Key('backButton')));
+    await settle(tester);
     expect(c.read(readerProvider).book, isNull);
   });
 

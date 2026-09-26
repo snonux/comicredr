@@ -40,3 +40,4 @@ final allBookmarksProvider = StreamProvider<List<BookmarkInfo>>(
 );
 
 final historyProvider = StreamProvider<List<HistoryEntry>>((ref) => ref.watch(libraryStoreProvider).watchHistory());
+

@@ -30,11 +30,12 @@ Uint8List tarHeader(String name, int size, {int type = 0x30, String magic = 'ust
 }
 
 /// A header, the data, and the padding to the next block.
-List<int> tarEntry(String name, List<int> data, {int type = 0x30, String magic = 'ustar\x0000', String prefix = ''}) => [
-  ...tarHeader(name, data.length, type: type, magic: magic, prefix: prefix),
-  ...data,
-  ...List.filled((512 - data.length % 512) % 512, 0),
-];
+List<int> tarEntry(String name, List<int> data, {int type = 0x30, String magic = 'ustar\x0000', String prefix = ''}) =>
+    [
+      ...tarHeader(name, data.length, type: type, magic: magic, prefix: prefix),
+      ...data,
+      ...List.filled((512 - data.length % 512) % 512, 0),
+    ];
 
 List<int> tarEnd() => List.filled(1024, 0);
 
@@ -114,7 +115,11 @@ void main() {
 
   test('opens in the background and reads for the library', () async {
     final cover = img.encodePng(img.Image(width: 8, height: 12));
-    final path = write('Space War 002 (1959).cbt', [...tarEntry('b.png', page(2)), ...tarEntry('a.png', cover), ...tarEnd()]);
+    final path = write('Space War 002 (1959).cbt', [
+      ...tarEntry('b.png', page(2)),
+      ...tarEntry('a.png', cover),
+      ...tarEnd(),
+    ]);
     final doc = await BackgroundDocument.open(path);
     expect(doc.pageCount, 2);
     expect(await doc.rawPage(1), page(2));
@@ -129,7 +134,11 @@ void main() {
 
   test('page sizes come from the image headers', () async {
     final wide = img.encodePng(img.Image(width: 30, height: 12));
-    final path = write('sizes.cbt', [...tarEntry('1.png', wide), ...tarEntry('2.png', [1, 2, 3]), ...tarEnd()]);
+    final path = write('sizes.cbt', [
+      ...tarEntry('1.png', wide),
+      ...tarEntry('2.png', [1, 2, 3]),
+      ...tarEnd(),
+    ]);
     final doc = CbtDocument.open(path);
     expect(await doc.pageSizes(), [(30, 12), null]);
     await doc.close();
