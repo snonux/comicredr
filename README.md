@@ -128,7 +128,8 @@ vision and is the only way to get balloon mode. It is one file,
 so every build includes it.
 
 It is a D-FINE-S detector fine-tuned on about 1,000 labelled pages of
-public-domain and CC BY comics, and it is published under the same Apache
+public-domain and CC BY comics, plus 400 modern-style pages laid out from
+their art, and it is published under the same Apache
 2.0 licence as the rest of ComicRedr. [NOTICE](NOTICE) credits the model
 it starts from and the comics it learned from.
 

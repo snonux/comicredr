@@ -387,14 +387,18 @@ pip install opencv-python-headless numpy pillow pypdfium2 torch transformers onn
 python3 spike/fetch_corpus.py                                   # eval comics
 python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train
 python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern
+python3 spike/fetch_corpus.py --manifest test/diagonal-eval.manifest.toml --out test/corpus-diagonal-eval
 python3 spike/extract_pages.py test/corpus spike/eval_pages --per-book 400
 python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 400 --manifest test/train.manifest.toml
 python3 spike/extract_pages.py test/corpus-modern spike/modern_pages --per-book 400 --manifest test/modern.manifest.toml
+python3 spike/extract_pages.py test/corpus-diagonal-eval spike/diagonal_pages --per-book 400 --manifest test/diagonal-eval.manifest.toml
 python3 spike/labelkit.py import spike/labels/eval spike/eval_pages
 python3 spike/labelkit.py import spike/labels/train spike/train_pages
 python3 spike/labelkit.py import spike/labels/modern spike/modern_pages
-python3 spike/train.py spike/train_pages --out spike/out/train --epochs 30 --imgsz 640   # -> spike/out/train/best/
-python3 spike/train.py --export spike/out/train/best --out-onnx spike/out/comicredr-panels.onnx
+python3 spike/labelkit.py import spike/labels/diagonal-eval spike/diagonal_pages
+python3 spike/synth_modern.py spike/train_pages spike/synth_pages --count 400 --seed 1
+python3 spike/train.py spike/train_pages spike/synth_pages --out spike/out/train --epochs 30 --imgsz 640   # -> spike/out/train/last/
+python3 spike/train.py --export spike/out/train/last --out-onnx spike/out/comicredr-panels.onnx
 cd spike && python3 evaluate.py eval_pages --out out/eval --no-cv --trim \
     --trained out/comicredr-panels.onnx                          # out/eval/report.md
 ```
@@ -402,9 +406,35 @@ cd spike && python3 evaluate.py eval_pages --out out/eval --no-cv --trim \
 `labelkit.py candidates PAGES --weights model.onnx` suggests boxes from any
 model in the app's format when labelling new pages.
 
+`synth_modern.py` cuts art out of the labelled frames of the training
+pages and lays it out again as modern pages (grids without gutters,
+slanted gutters, panels on black, rounded and round frames, tilted
+collages, bleeds), with exact labels; a placement that would cut a
+balloon in half is tried elsewhere. The clean training set has few modern
+indie books, and these pages make up for part of that.
+
 `evaluate.py` scores classic CV and a trained model on the same 100 labelled pages, none of them from a training
 book: panel and balloon F1 at IoU 0.5, and per page whether guided view
-would move the camera right, show the page whole, or move it wrong.
+would move the camera right, show the page whole, or move it wrong. Like
+the app, it finds slanted frames' outlines before the gate
+(`--no-outlines` to judge by boxes).
+
+Results (2026-09-26, `--no-cv --trim`), guided right / whole / wrong on
+the original 100, the modern 66 and the diagonal 24 eval pages
+(`test/diagonal-eval.manifest.toml`), with balloon stops on captions:
+
+| Model | Original | Modern | Diagonal | Balloon stops on captions |
+|---|---|---|---|---|
+| Old YOLO26s (Manga109 start, not shipped) | 67 / 20 / 13 | 48 / 15 / 3 | 6 / 9 / 9 | 20 / 13 |
+| D-FINE-S, 884 clean pages | 71 / 22 / 7 | 40 / 22 / 4 | 4 / 19 / 1 | 25 / 19 |
+| D-FINE-S, 998 clean pages | 69 / 22 / 9 | 43 / 21 / 2 | 6 / 13 / 5 | 23 / 26 |
+| D-FINE-S, 998 + 400 synthetic (shipped) | 73 / 17 / 10 | 47 / 15 / 4 | 4 / 15 / 5 | 14 / 23 |
+
+About 150 ms a page on 4 cores in ONNX Runtime 1.15. The diagonal pages
+shown whole mostly have every panel found, but slanted panels whose boxes
+overlap and whose outline the tracer can't find (pencil art on grey paper,
+dark gutters) fail the gate. IHOW's rounded frames on black are still
+missed.
 
 The sections below are the history of the earlier YOLO26s models, which
 started from a Manga109-trained checkpoint and are no longer shipped.

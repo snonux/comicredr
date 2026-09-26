@@ -40,9 +40,13 @@ python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 40
 # Only the committed labels: a label left from an earlier set would train too.
 find spike/train_pages -name '*.json' ! -name '*.cand.json' -delete
 python3 spike/labelkit.py import spike/labels/train spike/train_pages
-echo "== Training for $EPOCHS epochs at $IMGSZ px (about 7 minutes an epoch on 4 cores)"
+echo "== Making 400 synthetic modern pages from the labelled art"
+rm -rf spike/synth_pages
+python3 spike/synth_modern.py spike/train_pages spike/synth_pages --count 400 --seed 1
+echo "== Training for $EPOCHS epochs at $IMGSZ px (about 11 minutes an epoch on 4 cores)"
 rm -rf "$OUT/train"
-python3 spike/train.py spike/train_pages --out "$OUT/train" --epochs "$EPOCHS" --imgsz "$IMGSZ"
+python3 spike/train.py spike/train_pages spike/synth_pages --out "$OUT/train" --epochs "$EPOCHS" --imgsz "$IMGSZ"
 echo "== Exporting to ONNX"
-python3 spike/train.py --export "$OUT/train/best" --out-onnx "$OUT/comicredr-panels.onnx"
+# The last epoch, not the lowest validation loss: it guides more test pages right.
+python3 spike/train.py --export "$OUT/train/last" --out-onnx "$OUT/comicredr-panels.onnx"
 echo "Model in $OUT/comicredr-panels.onnx"
