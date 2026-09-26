@@ -24,9 +24,6 @@ cloud or network.
   touch, and every key can be changed.
 - Free software under the Apache License 2.0.
 
-How it works inside, with diagrams and the panel detector model
-explained: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
 ## Screenshots
 
 ![The library: series of covers, with the selected book's details beside them](docs/screenshots/library.webp)
@@ -224,5 +221,6 @@ A `.cbr` that is really a ZIP opens as it is.
 ## More
 
 - What changed in each version: [CHANGELOG.md](CHANGELOG.md)
+- How it works inside, with diagrams and the detector model explained: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Training the panel detector: [docs/training.md](docs/training.md)
 - Notes for developers, the test scripts and conventions: [AGENTS.md](AGENTS.md)
