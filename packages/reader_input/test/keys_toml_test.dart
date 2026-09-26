@@ -59,7 +59,7 @@ nextStep = [
       expect(load.warnings, isEmpty);
       expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['U']);
       expect(keysFor(load.keymap, ReaderIntent.nextStep), ['Space', 'x']);
-      expect(keysFor(load.keymap, ReaderIntent.prevStep), ['h', 'Left', 'S-Space']);
+      expect(keysFor(load.keymap, ReaderIntent.prevStep), ['h', 'S-Space']);
     });
 
     test('a key given to another action leaves its default one', () {

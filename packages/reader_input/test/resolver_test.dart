@@ -25,7 +25,7 @@ void main() {
 
   test('single keys resolve at once, in both layers', () {
     expect(press('l'), const ReaderCommand(ReaderIntent.nextStep));
-    expect(press('Right'), const ReaderCommand(ReaderIntent.nextStep));
+    expect(press('Right'), const ReaderCommand(ReaderIntent.scrollRight));
     expect(press('C-f'), const ReaderCommand(ReaderIntent.nextPage));
     expect(press('v'), const ReaderCommand(ReaderIntent.toggleGuided));
   });

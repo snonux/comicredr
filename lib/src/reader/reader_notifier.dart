@@ -865,9 +865,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
       return;
     }
     switch (c.intent) {
+      // Left and Right reach here when the view had no zoomed page to pan.
       case ReaderIntent.nextStep:
+      case ReaderIntent.scrollRight:
         step(mirror * c.times);
       case ReaderIntent.prevStep:
+      case ReaderIntent.scrollLeft:
         step(-mirror * c.times);
       case ReaderIntent.nextPage:
         pageStep(c.times);

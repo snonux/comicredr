@@ -35,8 +35,8 @@ class Keymap {
       // Moving.
       Binding(['l'], ReaderIntent.nextStep),
       Binding(['h'], ReaderIntent.prevStep),
-      Binding(['Right'], ReaderIntent.nextStep, layer: s),
-      Binding(['Left'], ReaderIntent.prevStep, layer: s),
+      Binding(['Right'], ReaderIntent.scrollRight, layer: s),
+      Binding(['Left'], ReaderIntent.scrollLeft, layer: s),
       Binding(['Space'], ReaderIntent.nextStep, layer: s),
       Binding(['S-Space'], ReaderIntent.prevStep, layer: s),
       Binding(['C-f'], ReaderIntent.nextPage),
