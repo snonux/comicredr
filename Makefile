@@ -39,11 +39,17 @@ NO_MODEL ?=
 # Where the app keeps its data (lib/src/data/data_dirs.dart): ~/Comics/.comicredr
 # when ~/Comics exists and there is no index database in the usual place yet.
 XDG_DATA := $(or $(XDG_DATA_HOME),$(HOME)/.local/share)
+# An install whose index is still in the old executable-named folder keeps
+# it there: path_provider only moves to $(APP_ID) once that folder exists,
+# so making it (install-model) would start the app on an empty library.
 APPDATA  ?= $(shell if [ ! -f "$(XDG_DATA)/$(APP_ID)/comicredr.sqlite" ] && [ ! -f "$(XDG_DATA)/comicredr/comicredr.sqlite" ] \
-              && [ -d "$(HOME)/Comics" ]; then echo "$(HOME)/Comics/.comicredr"; else echo "$(XDG_DATA)/$(APP_ID)"; fi)
+              && [ -d "$(HOME)/Comics" ]; then echo "$(HOME)/Comics/.comicredr"; \
+              elif [ ! -d "$(XDG_DATA)/$(APP_ID)" ] && [ -f "$(XDG_DATA)/comicredr/comicredr.sqlite" ]; then echo "$(XDG_DATA)/comicredr"; \
+              else echo "$(XDG_DATA)/$(APP_ID)"; fi)
 XDG_KEYS := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/comicredr/keys.toml
-# In ~/Comics/.comicredr unless only the old ~/.config one exists.
-KEYS    ?= $(if $(filter %/Comics/.comicredr,$(APPDATA)),$(if $(wildcard $(XDG_KEYS)),$(XDG_KEYS),$(APPDATA)/keys.toml),$(XDG_KEYS))
+# In ~/Comics/.comicredr unless only the old ~/.config one exists, as the
+# app reads it (keysFilePath).
+KEYS    ?= $(if $(filter %/Comics/.comicredr,$(APPDATA)),$(if $(and $(wildcard $(XDG_KEYS)),$(if $(wildcard $(APPDATA)/keys.toml),,y)),$(XDG_KEYS),$(APPDATA)/keys.toml),$(XDG_KEYS))
 
 ARCH := $(shell uname -m | sed -e 's/x86_64/x64/' -e 's/aarch64/arm64/')
 BUNDLE := build/linux/$(ARCH)/release/bundle
@@ -104,18 +110,18 @@ test: analyze
 # `sudo make install PREFIX=/usr/local` never runs Flutter as root.
 install:
 	@test -x $(BUNDLE)/comicredr || { echo "No release build yet: run make first."; exit 1; }
-	@if [ -z "$(DESTDIR)" ]; then $(PKG)/keep-viewer.sh save build/viewer-defaults $(APPSDIR); fi
-	rm -rf $(DESTDIR)$(LIBDIR)
-	mkdir -p $(DESTDIR)$(LIBDIR) $(DESTDIR)$(BINDIR) $(DESTDIR)$(APPSDIR)
-	cp -a $(BUNDLE)/. $(DESTDIR)$(LIBDIR)/
-	ln -sfn $(LIBDIR)/comicredr $(DESTDIR)$(BINDIR)/comicredr
-	sed 's|@BINDIR@|$(BINDIR)|g' $(PKG)/$(APP_ID).desktop.in > $(DESTDIR)$(APPSDIR)/$(APP_ID).desktop
-	install -Dm644 $(PKG)/$(APP_ID).svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(APP_ID).svg
+	@if [ -z "$(DESTDIR)" ]; then $(PKG)/keep-viewer.sh save build/viewer-defaults "$(APPSDIR)"; fi
+	rm -rf "$(DESTDIR)$(LIBDIR)"
+	mkdir -p "$(DESTDIR)$(LIBDIR)" "$(DESTDIR)$(BINDIR)" "$(DESTDIR)$(APPSDIR)"
+	cp -a $(BUNDLE)/. "$(DESTDIR)$(LIBDIR)/"
+	ln -sfn "$(LIBDIR)/comicredr" "$(DESTDIR)$(BINDIR)/comicredr"
+	$(PKG)/fill-desktop.sh "$(BINDIR)" < $(PKG)/$(APP_ID).desktop.in > "$(DESTDIR)$(APPSDIR)/$(APP_ID).desktop"
+	install -Dm644 $(PKG)/$(APP_ID).svg "$(DESTDIR)$(ICONDIR)/scalable/apps/$(APP_ID).svg"
 	for s in $(ICON_SIZES); do \
-	  install -Dm644 $(PKG)/icons/$${s}.png $(DESTDIR)$(ICONDIR)/$${s}x$${s}/apps/$(APP_ID).png || exit 1; \
+	  install -Dm644 $(PKG)/icons/$${s}.png "$(DESTDIR)$(ICONDIR)/$${s}x$${s}/apps/$(APP_ID).png" || exit 1; \
 	done
 	$(MAKE) --no-print-directory _refresh
-	@if [ -z "$(DESTDIR)" ]; then $(PKG)/keep-viewer.sh restore build/viewer-defaults $(APPSDIR); fi
+	@if [ -z "$(DESTDIR)" ]; then $(PKG)/keep-viewer.sh restore build/viewer-defaults "$(APPSDIR)"; fi
 	@if [ -z "$(DESTDIR)$(KEEP_MODEL)" ]; then $(MAKE) --no-print-directory _retire-models; fi
 	@echo "Installed. ComicRedr is in the app grid; $(BINDIR)/comicredr starts it from a shell."
 
@@ -133,10 +139,10 @@ _retire-models:
 	done
 
 uninstall:
-	rm -rf $(DESTDIR)$(LIBDIR)
-	rm -f $(DESTDIR)$(BINDIR)/comicredr $(DESTDIR)$(APPSDIR)/$(APP_ID).desktop
-	rm -f $(DESTDIR)$(ICONDIR)/scalable/apps/$(APP_ID).svg
-	for s in $(ICON_SIZES); do rm -f $(DESTDIR)$(ICONDIR)/$${s}x$${s}/apps/$(APP_ID).png; done
+	rm -rf "$(DESTDIR)$(LIBDIR)"
+	rm -f "$(DESTDIR)$(BINDIR)/comicredr" "$(DESTDIR)$(APPSDIR)/$(APP_ID).desktop"
+	rm -f "$(DESTDIR)$(ICONDIR)/scalable/apps/$(APP_ID).svg"
+	for s in $(ICON_SIZES); do rm -f "$(DESTDIR)$(ICONDIR)/$${s}x$${s}/apps/$(APP_ID).png"; done
 	$(MAKE) --no-print-directory _refresh
 	@echo "Uninstalled. Your reading progress and the model in $(APPDATA) are kept."
 
@@ -145,11 +151,11 @@ uninstall:
 .PHONY: _refresh
 _refresh:
 ifeq ($(DESTDIR),)
-	@if command -v update-desktop-database >/dev/null; then update-desktop-database -q $(APPSDIR) || true; fi
+	@if command -v update-desktop-database >/dev/null; then update-desktop-database -q "$(APPSDIR)" || true; fi
 	@# A cache GNOME already has is refreshed; none is created, since a stale
 	@# per-user cache would later hide other apps' icons.
-	@if test -f $(ICONDIR)/icon-theme.cache; then gtk-update-icon-cache -qtf $(ICONDIR) || true; \
-	 elif test -d $(ICONDIR); then touch $(ICONDIR); fi
+	@if test -f "$(ICONDIR)/icon-theme.cache"; then gtk-update-icon-cache -qtf "$(ICONDIR)" || true; \
+	 elif test -d "$(ICONDIR)"; then touch "$(ICONDIR)"; fi
 endif
 
 # The Linux release as one file to copy to another machine: unpack it, then
@@ -158,7 +164,7 @@ tarball: build
 	rm -rf build/tarball
 	mkdir -p build/tarball/$(TARNAME)/packaging
 	cp -a $(BUNDLE) build/tarball/$(TARNAME)/bundle
-	cp -a $(PKG)/icons $(PKG)/$(APP_ID).desktop.in $(PKG)/$(APP_ID).svg $(PKG)/keep-viewer.sh build/tarball/$(TARNAME)/packaging/
+	cp -a $(PKG)/icons $(PKG)/$(APP_ID).desktop.in $(PKG)/$(APP_ID).svg $(PKG)/keep-viewer.sh $(PKG)/fill-desktop.sh build/tarball/$(TARNAME)/packaging/
 	install -m755 $(PKG)/install.sh build/tarball/$(TARNAME)/install.sh
 	cp README.md CHANGELOG.md docs/keys.toml build/tarball/$(TARNAME)/
 	tar -C build/tarball -czf $(TARBALL) $(TARNAME)
@@ -199,7 +205,7 @@ model:
 # model without rebuilding.
 install-model:
 	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
-	install -Dm644 "$(MODEL)" $(MODELDIR)/comicredr-panels.onnx
+	install -Dm644 "$(MODEL)" "$(MODELDIR)/comicredr-panels.onnx"
 	@echo "Model installed in $(MODELDIR). Restart ComicRedr to use it."
 
 # One release key per person, made once. The password is random and kept in

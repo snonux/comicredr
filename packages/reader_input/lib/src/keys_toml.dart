@@ -144,7 +144,7 @@ List<String>? parseKeySpec(String spec) {
       keys.add('C-$rest');
     } else if (ctrl || shift) {
       return null; // C- or S- on something that is not a key.
-    } else if (RegExp(r'^[A-Z][a-z]+[0-9]*$').hasMatch(chunk)) {
+    } else if (_misspeltName(chunk)) {
       return null; // A misspelt key name, not the keys P, a, g, e...
     } else {
       // Printable keys typed one after another: `gg`, `zw`, `m<a-z>`.
@@ -223,7 +223,8 @@ Layer _layerOf(ReaderIntent intent, List<String> keys, Keymap base) {
 Map<String, Map<String, Object>> _parseToml(String text, List<String> warnings) {
   const known = {'keys', 'touch'};
   final out = <String, Map<String, Object>>{};
-  var i = 0;
+  // A byte-order mark, as some editors save UTF-8, is not text.
+  var i = text.startsWith('\uFEFF') ? 1 : 0;
   var line = 1;
   String? table;
 
@@ -316,9 +317,14 @@ Map<String, Map<String, Object>> _parseToml(String text, List<String> warnings) 
       }
       i = end + 1;
     } else {
-      final m = RegExp(r'[A-Za-z0-9_-]+').matchAsPrefix(text, i) ?? fail('expected an action or gesture name');
-      final name = m.group(0)!;
-      i = m.end;
+      final String name;
+      if (text[i] == '"' || text[i] == "'") {
+        name = readString(); // TOML allows a quoted name: "nextStep" = "l".
+      } else {
+        final m = RegExp(r'[A-Za-z0-9_-]+').matchAsPrefix(text, i) ?? fail('expected an action or gesture name');
+        name = m.group(0)!;
+        i = m.end;
+      }
       skipSpace();
       if (i >= text.length || text[i] != '=') fail('expected = after $name');
       i++;
@@ -336,4 +342,17 @@ Map<String, Map<String, Object>> _parseToml(String text, List<String> warnings) 
     if (i < text.length && text[i] != '\n') fail('unexpected text after a value');
   }
   return out;
+}
+
+/// Whether [chunk] reads as a key name spelt wrong (`Pagedown`, `ESC`,
+/// `LEFT`, `PgDn`, `BackSpace`, `F13`) rather than keys typed one after
+/// another (`gg`, `zw`, `ZZ`), which would bind a string of letters and
+/// leave the key it meant unbound.
+bool _misspeltName(String chunk) {
+  if (chunk.length < 2) return false;
+  final lower = chunk.toLowerCase();
+  if (namedKeys.any((n) => n.toLowerCase() == lower)) return true;
+  if (RegExp(r'^F[0-9]+$').hasMatch(chunk)) return true;
+  // A capital, then letters with at least one lowercase: a word.
+  return RegExp(r'^[A-Z](?=[A-Za-z]*[a-z])[A-Za-z]+[0-9]*$').hasMatch(chunk);
 }

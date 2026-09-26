@@ -13,6 +13,7 @@ import 'package:comicredr/src/library/scanner.dart';
 import 'package:comicredr/src/reader/panel_detector.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 import 'support/fixtures.dart';
@@ -163,6 +164,23 @@ void main() {
     expect((await laptop.bookmarks(key)).where((b) => b.mark == null), isEmpty);
     await laptop.sync.write(key);
     expect(readSidecar(hidden(path))!.bookmarks.where((b) => b.mark == null).single.deletedAt, isNotNull);
+  });
+
+  test('a mark moved and then removed on the phone does not come back from the laptop', () async {
+    final (path, key) = await readOnLaptop(); // Mark a on page 2.
+    await phone.sync.attach(path, key, folder: false);
+    // The index keeps times to the second.
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    await phone.marks.save(key, 'a', 3, 0);
+    final moved = (await phone.bookmarks(key)).firstWhere((b) => b.mark == 'a');
+    await phone.library.deleteBookmark(moved.id);
+    await phone.sync.write(key);
+    expect(await phone.marks.load(key), isEmpty);
+
+    await laptop.sync.attach(path, key, folder: false);
+    expect(await laptop.marks.load(key), isEmpty, reason: "the laptop's older a was replaced, then removed");
+    await phone.sync.attach(path, key, folder: false);
+    expect(await phone.marks.load(key), isEmpty);
   });
 
   test('a sidecar under the old visible name is renamed to the hidden one and keeps everything', () async {
@@ -402,6 +420,27 @@ void main() {
     expect(await phone.sync.exportAll(out), 2);
     expect(readSidecar('$out/Indie/.Barefoot Bride.cbz.crdb')?.contentKey, keys[0]);
     expect(readSidecar('$out/Pepper Carrot e06/.comicredr.crdb')?.contentKey, keys[1]);
+  });
+
+  test('export keeps two books at the same place in two library folders apart', () async {
+    final a = writeBook(dir('A/Comics'), 'X.cbz', 3);
+    final b = writeBook(dir('B/Manga'), 'X.cbz', 4);
+    final store = phone.library;
+    await store.addRoot(p.dirname(a));
+    await store.addRoot(p.dirname(b));
+    await LibraryScanner(
+      store,
+      coverDir: '${tmp.path}/covers',
+      workers: 1,
+      onBookRead: (path, key, {required folder}) => phone.sync.attach(path, key, folder: folder),
+    ).scan();
+    final keys = [await contentKey(a), await contentKey(b)];
+    expect(keys[0], isNot(keys[1]));
+
+    final out = '${tmp.path}/export';
+    expect(await phone.sync.exportAll(out), 2);
+    expect(readSidecar('$out/Comics/.X.cbz.crdb')?.contentKey, keys[0]);
+    expect(readSidecar('$out/Manga/.X.cbz.crdb')?.contentKey, keys[1]);
   });
 
   test('sidecar files are recognised for the folder watch to ignore', () {
