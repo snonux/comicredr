@@ -6,8 +6,9 @@ ways to get it onto a phone.
 ## From F-Droid
 
 The easiest way is snonux's own F-Droid repository,
-[snonux/fdroid](https://github.com/snonux/fdroid), which also brings
-updates.
+[snonux/fdroid](https://github.com/snonux/fdroid). It serves the signed
+APK of each tagged ComicRedr release, for arm64 phones, and F-Droid then
+keeps the app updated.
 
 1. Install the [F-Droid](https://f-droid.org) app on the phone.
 2. Add the repository: open
@@ -53,15 +54,18 @@ The APK carries the same built-in panel detector.
 > Android only installs an update over the old app, keeping your library
 > and positions, when it is signed with the same key. On a new laptop,
 > restore both files instead of running `make keystore` again.
+> Built with the project's own release key, an APK and the F-Droid one
+> update each other.
 
 What to do on the phone the first time is in
 [On the phone](guide/10-phone.md#first-start) in the guide.
 
-Pick one way and stay with it. Android only updates an app with an APK
-signed by the same key, so an APK signed with your own key and the one
-from F-Droid can't replace each other without uninstalling first, which
-loses the app's library, settings and history (the sidecars beside your
-comics, with positions and bookmarks, stay).
+The F-Droid APKs are signed with the project's release key. Android only
+updates an app with an APK signed by the same key, so an APK you build
+with a key of your own (`make keystore`) and the one from F-Droid can't
+replace each other: switching means uninstalling first, which loses the
+app's library, settings and history (the sidecars beside your comics,
+with positions and bookmarks, stay). Pick one way and stay with it.
 
 ## Another detector model
 

@@ -49,6 +49,34 @@ it in step when the architecture or the model changes.
   (`lib/src/library/settings_dialog.dart`). Keep those headings or update
   the strings.
 
+## Releases
+
+A release is a `vX.Y.Z` tag on a commit whose `pubspec.yaml` says
+`version: X.Y.Z+N`, with `N` one more than the last release:
+
+1. Bump `version:` in `pubspec.yaml` and move the `Unreleased` notes in
+   `CHANGELOG.md` under the new version.
+2. Write `fastlane/metadata/android/en-US/changelogs/N.txt`, a few lines
+   (at most 500 characters) that F-Droid shows as *What's new*.
+3. Commit, `git tag vX.Y.Z`, `git push && git push --tags`.
+
+The tag starts `.github/workflows/release.yml`, which builds the arm64 APK with
+the release key and attaches it to the GitHub release of the tag. The
+[F-Droid repository](https://github.com/snonux/fdroid) picks it up with the
+store listing in `fastlane/` at that tag. The workflow needs these
+repository secrets, taken from `android/key.properties`:
+
+```sh
+base64 -w0 ~/.config/comicredr/release.jks | gh secret set ANDROID_KEYSTORE
+gh secret set ANDROID_KEY_ALIAS          # comicredr
+gh secret set ANDROID_KEYSTORE_PASSWORD  # storePassword
+gh secret set ANDROID_KEY_PASSWORD       # keyPassword
+```
+
+With an optional `FDROID_DISPATCH_TOKEN` (a fine-grained token with
+*Contents: read and write* on snonux/fdroid) the F-Droid repository
+refreshes right away instead of within six hours.
+
 ## Cloud container setup
 
 - The Linux e2e scripts need

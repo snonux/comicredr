@@ -1,0 +1,3 @@
+* The panel detector is built in: trained only on public-domain and CC BY comics, Apache 2.0 like the app. Narration captions are their own class.
+* Turn the comic a quarter turn at a time; the turn is kept per comic.
+* The time at a glance with a long press in the middle of the page.

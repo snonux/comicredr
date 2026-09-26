@@ -5,7 +5,7 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
-## Unreleased
+## 0.2.0
 
 - **The panel detector is built in and open:** a new D-FINE-S model,
   trained only on public-domain and CC BY comics, now ships in the
