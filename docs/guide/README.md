@@ -28,6 +28,7 @@ come back here for a key you forgot.
    - [What it reads](02-getting-started.md#what-it-reads)
    - [Add your comics](02-getting-started.md#add-your-comics)
    - [Open a comic](02-getting-started.md#open-a-comic)
+     and [carry on where you stopped: `C`](02-getting-started.md#carry-on-where-you-stopped-c)
    - [Try guided view](02-getting-started.md#try-guided-view)
    - [When you need a key: `?`](02-getting-started.md#when-you-need-a-key-)
 3. [The library](03-library.md)

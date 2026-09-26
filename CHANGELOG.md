@@ -14,6 +14,11 @@ the `?` overlay.
   library's search box is no longer squeezed. More decoded pages are
   kept in memory on a tablet's bigger screen, so page turns stay quick.
   The guide and install docs cover tablets.
+- **Continue reading (`C`):** opens the comic read last on the page it
+  was left at, even after a restart, guided view and panel included; in
+  a comic, the one read before it. The library's header has the same as
+  a play button for touch. A comic moved in the library is found by its
+  content; a deleted one gets a notice.
 - **Smooth scrolling:** on a zoomed page the arrow keys and `j` `k`
   glide instead of jumping, and a held key keeps the page sliding
   evenly. `←` `→` now move across a zoomed page and turn the page only
