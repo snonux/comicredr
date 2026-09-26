@@ -6,8 +6,7 @@ to what you need from the contents below. Every picture is taken from the
 app itself.
 
 ComicRedr runs on a Linux laptop and an Android phone. It should work on
-any Linux distribution, but it has only been tested on Fedora, and the
-install steps use Fedora's package names.
+any Linux distribution, but it has only been tested on Fedora.
 
 ![Guided view stepping from panel to panel](images/guided.gif)
 
@@ -21,7 +20,7 @@ come back here for a key you forgot.
 ## Contents
 
 1. [Installing](01-installing.md)
-   - [On Fedora](01-installing.md#on-fedora)
+   - [On Linux](01-installing.md#on-linux)
    - [On an Android phone](01-installing.md#on-an-android-phone)
    - [The panel detector](01-installing.md#the-panel-detector)
    - [The CBR files you already have](01-installing.md#the-cbr-files-you-already-have)

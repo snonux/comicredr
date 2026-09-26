@@ -53,9 +53,11 @@ Potion Contest*, by David Revoy, licensed
 
 ## Quick start
 
-1. **Install it.** On Linux, `make` and `make install` from a checkout;
-   the tools to install first, and the Android APK, are in
-   [Installing](docs/guide/01-installing.md).
+1. **Install it.** On Linux, build it from source:
+   [Installing on Linux](docs/install-linux.md). On Android, add the
+   [snonux F-Droid repository](https://github.com/snonux/fdroid) to
+   F-Droid and install ComicRedr from there, or build the APK yourself:
+   [Installing on Android](docs/install-android.md).
 2. **Add your comics.** Put them in `~/Comics` and they are in the
    library the first time ComicRedr starts, or press `A` to add another
    folder.

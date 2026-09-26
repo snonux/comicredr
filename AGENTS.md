@@ -20,7 +20,10 @@ it in step when the architecture or the model changes.
   screenshots, a five-step quick start that ends with a link to carry on
   in the guide, and the links to ARCHITECTURE.md, training.md, this file
   and the changelog at the bottom. Nothing else: touch, data, CBR and the
-  like are guide chapters. Installing and every feature, with examples and screenshots,
+  like are guide chapters. Install steps live in `docs/install-linux.md`
+  and `docs/install-android.md` (F-Droid first, via snonux's repo
+  github.com/snonux/fdroid, then building the APK); the README's quick
+  start and the guide's Installing chapter only point to them. Installing and every feature, with examples and screenshots,
   belong in the guide. Internals go here, and training in
   `docs/training.md`. The `?` overlay and `docs/keys.toml` are generated
   from the keymap and are the key reference.
