@@ -69,5 +69,7 @@ __pycache__/
 *.jks
 *.keystore
 /android/key.properties
+# Fetched by make apk for the x86_64 emulator.
+/android/app/src/main/jniLibs/
 /test/corpus-formats/
 packages/*/build/
