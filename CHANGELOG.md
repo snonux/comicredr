@@ -5,6 +5,13 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## Unreleased
+
+- **Touch on Linux:** the status line starts with a back arrow, so a
+  Linux touchscreen can leave guided view and the comic the way the
+  phone's back gesture does. Every other gesture already worked there;
+  `tool/e2e_touch_linux.sh` now checks all of them by touch alone.
+
 ## 0.2.1
 
 Android fixes.

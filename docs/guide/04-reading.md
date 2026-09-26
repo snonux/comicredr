@@ -18,7 +18,9 @@ are in. Its buttons on the right switch [guided view](05-guided-view.md),
 open the [page grid](#see-every-page-at-once), the
 [details](07-managing-comics.md#details-of-a-comic), set a
 [bookmark](06-bookmarks.md), list the bookmarks, and go
-[fullscreen](#fullscreen). Hover over a button to see its key.
+[fullscreen](#fullscreen). Hover over a button to see its key. The
+arrow on the left does what `Esc` does: out of guided view, then back to
+the library (on the phone, the back gesture does that).
 
 ## Turning pages
 

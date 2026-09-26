@@ -2,8 +2,9 @@
 
 [Contents](README.md) · Previous: [Managing your comics](07-managing-comics.md) · Next: [The keyboard](09-keyboard.md)
 
-Everything in ComicRedr works by touch, on the phone and on a laptop's
-touchscreen alike.
+Everything in ComicRedr works by touch, on the phone and on a Linux
+laptop's touchscreen alike: every gesture below, the tap zones and your
+own gestures are the same on both.
 
 ## Gestures
 
@@ -18,10 +19,17 @@ touchscreen alike.
 | Drag | Move around a zoomed page |
 | Hold a finger on the middle | [The time](04-reading.md#what-time-is-it) |
 | Drag along the progress bar | Preview pages, and let go to jump |
+| Pinch the page grid | Bigger or smaller pages; drag to scroll, tap one to go there |
 
 The buttons on the status line do the rest: guided view, balloons, the
 page grid, bookmarks and fullscreen. On Android, the back gesture works
-like `Esc`: it leaves guided view, then the book.
+like `Esc`: it leaves guided view, then the book. On Linux the status
+line starts with a back arrow that does the same. In fullscreen, tap the
+middle first to bring the status line back.
+
+In the library, tap a cover to pick it and tap it again to open it (on
+the phone the first tap shows its details, with a **Read** button). A
+long press shows a cover's details, and a finger scrolls the covers.
 
 ## The tap zones
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
@@ -18,6 +20,10 @@ class StatusLine extends StatelessWidget {
     this.gridOpen = false,
     this.bookmarksOpen = false,
   });
+
+  /// Whether the status line has a back button: everywhere but Android,
+  /// whose back gesture does the same.
+  static bool get showBack => !Platform.isAndroid;
 
   /// Where guided view is on the page, or why it shows the whole page.
   static String _guided(ReaderState s) {
@@ -104,6 +110,11 @@ class StatusLine extends StatelessWidget {
           key: const Key('pending'),
           style: const TextStyle(fontFamily: 'monospace'),
         );
+        // Esc in a button: Android has its back gesture for this, but a
+        // Linux touchscreen had no way out of guided view or the book.
+        final back = book != null && showBack
+            ? _button('backButton', Icons.arrow_back, 'Back (Esc)', ReaderIntent.back)
+            : null;
         final buttons = [
           if (book != null) ...[
             const SizedBox(width: 4),
@@ -161,11 +172,12 @@ class StatusLine extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(children: [status, pendingKeys]),
-                    Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
+                    Row(children: [?back, const Spacer(), ...buttons]),
                   ],
                 )
               : Row(
                   children: [
+                    if (back != null) ...[back, const SizedBox(width: 4)],
                     status,
                     pendingKeys,
                     if (book != null && !narrow) ...[

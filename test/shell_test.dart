@@ -130,6 +130,22 @@ void main() {
     expect(c.read(readerProvider).book, isNull);
   });
 
+  testWidgets("the status line's back arrow does the same on Linux, for a touchscreen", (tester) async {
+    final path = writeBook(tmp, 'Arrow.cbz', 4);
+    final c = await pumpApp(tester);
+    await open(tester, c, path);
+    await key(tester, LogicalKeyboardKey.keyV);
+    expect(c.read(readerProvider).guided, isTrue);
+
+    await tester.tap(find.byKey(const Key('backButton')));
+    await settle(tester);
+    expect(c.read(readerProvider).guided, isFalse);
+    expect(c.read(readerProvider).book, isNotNull);
+    await tester.tap(find.byKey(const Key('backButton')));
+    await settle(tester);
+    expect(c.read(readerProvider).book, isNull);
+  });
+
   testWidgets('narrow screens put the page counter first and drop the file name', (tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.625;
