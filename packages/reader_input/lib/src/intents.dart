@@ -9,6 +9,8 @@ enum ReaderIntent {
   prevPage('Previous page, ignoring panels'),
   panDown('Pan down; the cover below in the library'),
   panUp('Pan up; the cover above in the library'),
+  scrollRight('Moves a zoomed page right (smoothly), else the next step, as l'),
+  scrollLeft('Moves a zoomed page left (smoothly), else the previous step, as h'),
   halfPageDown('A screen down in the page grid (continuous scroll is not built yet)'),
   halfPageUp('A screen up in the page grid (continuous scroll is not built yet)'),
   firstPage('First page; first cover in the library'),
@@ -102,7 +104,7 @@ enum ReaderIntent {
 /// before it (`5l`), the register letter for marks (`ma`, `'a`), and for a
 /// gesture the point on the reader it happened at, in logical pixels.
 class ReaderCommand {
-  const ReaderCommand(this.intent, {this.count, this.register, this.at});
+  const ReaderCommand(this.intent, {this.count, this.register, this.at, this.held = false});
 
   final ReaderIntent intent;
   final int? count;
@@ -111,6 +113,16 @@ class ReaderCommand {
   /// Where a touch landed, so a double-tap zooms in on that spot rather
   /// than the middle of the screen. Keys leave it null.
   final Point<double>? at;
+
+  /// The key is held down and this is its auto-repeat, so a smooth pan
+  /// keeps an even speed and stops at the page's edge.
+  final bool held;
+
+  /// This command with [intent] in place of its own.
+  ReaderCommand as(ReaderIntent intent) => ReaderCommand(intent, count: count, register: register, at: at, held: held);
+
+  /// This command as the auto-repeat of a held key.
+  ReaderCommand get asHeld => ReaderCommand(intent, count: count, register: register, at: at, held: true);
 
   /// The count to act on: a missing count means once.
   int get times => count ?? 1;
@@ -121,15 +133,17 @@ class ReaderCommand {
       other.intent == intent &&
       other.count == count &&
       other.register == register &&
-      other.at == at;
+      other.at == at &&
+      other.held == held;
 
   @override
-  int get hashCode => Object.hash(intent, count, register, at);
+  int get hashCode => Object.hash(intent, count, register, at, held);
 
   @override
   String toString() =>
       'ReaderCommand(${intent.name}'
       '${count != null ? ', count: $count' : ''}'
       '${register != null ? ', register: $register' : ''}'
-      '${at != null ? ', at: (${at!.x}, ${at!.y})' : ''})';
+      '${at != null ? ', at: (${at!.x}, ${at!.y})' : ''}'
+      '${held ? ', held' : ''})';
 }
