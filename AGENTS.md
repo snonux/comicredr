@@ -9,6 +9,19 @@ it in step when the architecture or the model changes.
 
 ## Conventions
 
+- **Always update the usage guide** (snonux, 2026-09-26). Every PR that
+  adds, changes or removes something a user sees, types or taps updates
+  [docs/guide/](docs/guide/README.md) in the same PR; a PR is not ready
+  without it. A new feature gets a section in the chapter it belongs to
+  (or a new chapter file), with an example, and its heading goes in the
+  contents page `docs/guide/README.md`. A changed feature has its text,
+  keys and pictures corrected where they are; a removed one is taken out,
+  contents line included. Retake the pictures that no longer match with
+  `tool/guide_shots.sh [section...]` from the release build (WebP stills,
+  small GIFs); if that can't be done in the container, say so in the PR.
+  The guide is `docs/guide/`: a contents page and one chapter a file,
+  written for people, starting with installing.
+
 - Every PR gets a real end-to-end test (see the `tool/e2e_*.sh` scripts
   below) before it is marked ready. If something can't be tested in a
   cloud container (a real phone, a real touchscreen, GNOME Shell), say so
@@ -31,12 +44,6 @@ it in step when the architecture or the model changes.
   belong in the guide. Internals go here, and training in
   `docs/training.md`. The `?` overlay and `docs/keys.toml` are generated
   from the keymap and are the key reference.
-- The usage guide is `docs/guide/`: a contents page (`README.md`) and one
-  chapter a file, written for people, starting with installing. A
-  feature that changes what a user sees or types gets its chapter updated
-  in the same PR, and new section headings go in the contents. Its
-  pictures are made by `tool/guide_shots.sh` from the release build (WebP
-  stills, small GIFs).
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
