@@ -5,6 +5,7 @@ import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/layout.dart';
+import 'package:comicredr/src/reader/page_painters.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
 import 'package:drift/native.dart';
