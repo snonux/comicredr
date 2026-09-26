@@ -150,6 +150,9 @@ comic to your phone.
 - To take a folder out of the library, select it at the top of the
   Folders tab and click **Take out of the library (the files stay)** in
   its details. Your comics are not touched.
+- Comics kept elsewhere, on a NAS or another disk, can be linked in: a
+  symlink to a comic or to a folder of comics inside a library folder is
+  listed like the real thing.
 
 The first scan reads each comic once, about a third of a second a book.
 After that, starting the app only checks what changed. The line at the

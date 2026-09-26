@@ -70,6 +70,8 @@ comic** in its details) deletes it, after asking.
 - **Cancel** is selected, so a stray `Enter` or `Esc` deletes nothing.
 - The comic and its sidecar are deleted for good. They do **not** go to
   the trash, so they can't be restored.
+- A comic that is a symlink loses only the link (the button says
+  **Delete the link**); the comic it points to stays where it is.
 - If you were reading it, you are back in the library with the next cover
   selected.
 
