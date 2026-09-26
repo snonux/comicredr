@@ -225,12 +225,21 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     }
     final request = ++_request;
     final cache = _cache!;
-    Future.wait([for (final p in unit) cache.get(p, box, sharpen: sharpen)]).then(
+    _decodeAll(cache, unit, box, sharpen).then(
       (images) async {
+        if (!mounted || request != _request) {
+          _disposeImages(images);
+          return;
+        }
         // Measured before the swap, so a trimmed page never shows whole
         // first, nor a cleaned-up page yellow.
         final now = ref.read(readerProvider);
-        if (now.trim || now.cleanUp) await _measure(unit, images, trim: now.trim, levels: now.cleanUp);
+        try {
+          if (now.trim || now.cleanUp) await _measure(unit, images, trim: now.trim, levels: now.cleanUp);
+        } on Object {
+          _disposeImages(images);
+          rethrow;
+        }
         if (!mounted || request != _request) {
           _disposeImages(images);
           return;
@@ -274,9 +283,32 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         );
       },
       onError: (Object e) {
-        if (mounted) ref.read(readerProvider.notifier).notice('Could not decode page ${unit.first + 1}: $e');
+        if (e is PageCacheClosed || !mounted || request != _request) return;
+        ref.read(readerProvider.notifier).notice('Could not decode page ${unit.first + 1}: $e');
       },
     );
+  }
+
+  /// Decodes every page of [unit]; if one fails, the others are disposed
+  /// before the error goes on, rather than left to leak.
+  static Future<List<ui.Image>> _decodeAll(PageCache cache, List<int> unit, Box box, bool sharpen) async {
+    final pending = [for (final p in unit) cache.get(p, box, sharpen: sharpen)];
+    final images = <ui.Image>[];
+    Object? error;
+    StackTrace? trace;
+    for (final f in pending) {
+      try {
+        images.add(await f);
+      } on Object catch (e, st) {
+        error ??= e;
+        trace ??= st;
+      }
+    }
+    if (error == null) return images;
+    for (final i in images) {
+      i.dispose();
+    }
+    Error.throwWithStackTrace(error, trace!);
   }
 
   /// Finds the margins ([trim]) and the levels ([levels]) of [pages] not
@@ -732,15 +764,25 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     _tiles = keep;
     final generation = ++_tileGeneration;
     for (final w in wanted) {
-      cache.tile(w.page, w.fullWidth, w.region, sharpen: s.cleanUp).then((tile) {
-        if (!mounted || generation != _tileGeneration || !identical(cache, _cache) || !_shownUnit.contains(w.page)) {
-          tile.image.dispose();
-          return;
-        }
-        final old = _tiles[w.page];
-        setState(() => _tiles = {..._tiles, w.page: tile});
-        old?.image.dispose();
-      }, onError: (Object e) => debugPrint('Could not decode a sharp tile of page ${w.page + 1}: $e'));
+      cache
+          .tile(w.page, w.fullWidth, w.region, sharpen: s.cleanUp)
+          .then(
+            (tile) {
+              if (!mounted ||
+                  generation != _tileGeneration ||
+                  !identical(cache, _cache) ||
+                  !_shownUnit.contains(w.page)) {
+                tile.image.dispose();
+                return;
+              }
+              final old = _tiles[w.page];
+              setState(() => _tiles = {..._tiles, w.page: tile});
+              old?.image.dispose();
+            },
+            onError: (Object e) {
+              if (e is! PageCacheClosed) debugPrint('Could not decode a sharp tile of page ${w.page + 1}: $e');
+            },
+          );
     }
   }
 

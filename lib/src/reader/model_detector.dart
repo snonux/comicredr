@@ -141,9 +141,11 @@ class ModelDetector {
   Future<SendPort> _spawn() async {
     final replies = ReceivePort();
     final ready = Completer<SendPort>();
+    var started = false;
     replies.listen((Object? msg) {
       switch (msg) {
         case final SendPort port:
+          started = true;
           ready.complete(port);
         case (final int id, final List<double> frames, final List<List<double>?> shapes, final List<double> balloons):
           _pending
@@ -158,14 +160,46 @@ class ModelDetector {
         case (final String error,):
           // The session could not load: fail everything, now and later.
           if (!ready.isCompleted) ready.completeError(StateError(error));
-          for (final c in _pending.values) {
-            c.completeError(StateError(error));
-          }
-          _pending.clear();
+          _failPending(error);
       }
     });
-    await Isolate.spawn(_serve, (replies.sendPort, path, inputSize, threads), debugName: 'model-detector');
+    // A worker that dies (an uncaught error, killed) fails what it was asked
+    // and is started again on the next page, rather than leaving every
+    // detection waiting for good. One that exits before it was ready
+    // failed to load, and already said why.
+    final exits = ReceivePort();
+    exits.listen((Object? msg) {
+      exits.close();
+      replies.close();
+      final why = msg is List && msg.isNotEmpty ? 'The detector stopped: ${msg.first}' : 'The detector stopped';
+      if (!ready.isCompleted) ready.completeError(StateError(why));
+      // A model that would not load stays failed; only a running one restarts.
+      if (started) _worker = null;
+      _failPending(why);
+    });
+    try {
+      await Isolate.spawn(
+        _serve,
+        (replies.sendPort, path, inputSize, threads),
+        debugName: 'model-detector',
+        onExit: exits.sendPort,
+        onError: exits.sendPort,
+      );
+    } on Object {
+      exits.close();
+      replies.close();
+      _worker = null;
+      rethrow;
+    }
     return ready.future;
+  }
+
+  void _failPending(String error) {
+    final waiting = _pending.values.toList();
+    _pending.clear();
+    for (final c in waiting) {
+      c.completeError(StateError(error));
+    }
   }
 }
 
