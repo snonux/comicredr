@@ -38,7 +38,7 @@ case "$name" in
   reset|whole_page|regions|resize)
                   set -- "tool/e2e_$name.sh" "$reptisaurus" ;;
   pause_whole)    set -- tool/e2e_pause_whole.sh "$reptisaurus" 3 ;;
-  resume)         set -- tool/e2e_resume.sh "$mercy" ;;
+  resume)         set -- tool/e2e_resume.sh "$reptisaurus" ;;
   spreads)        set -- tool/e2e_spreads.sh "$all_top" "$i_villain" ;;
   m9)             set -- tool/e2e_m9.sh "$mercy" ;;
   memory)         set -- tool/e2e_memory.sh "$all_top" ;;

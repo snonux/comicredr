@@ -89,6 +89,10 @@ for src in "$@"; do
   # 1. The laptop: page 3, guided view, mark a, a bookmark, panel 2.
   start laptop "$book"
   key 3 shift+g; key v; sleep 4
+  # A page guided view shows whole holds one step (e2e_pause_whole.sh checks
+  # that); off here, so `l` below always moves. The setting stays with the
+  # laptop, so W once.
+  [[ $n -gt 1 ]] || key shift+w
   key m a; key m m; key l; sleep 1 # A page with one panel steps on to page 4.
   shot "b${n}_laptop"
   stop
@@ -157,7 +161,7 @@ if [[ $EUID -eq 0 ]]; then
   check "read-only shelf: no sidecar written" test "$(ls -A "$out/ro-src" | wc -l)" = 1
   check "read-only shelf: position kept in the index" \
     test "$(q "$(index laptop)" "select page from progress order by updated_at desc limit 1")" = 1
-  grep -q "Cannot write a sidecar" "$out/laptop.log" && echo "PASS read-only notice logged" ||
+  grep -q "Cannot write the sidecar" "$out/laptop.log" && echo "PASS read-only notice logged" ||
     { echo "FAIL read-only notice"; failed=1; }
 else
   echo "SKIP read-only shelf (needs root for a read-only bind mount)"
