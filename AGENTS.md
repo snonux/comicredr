@@ -54,8 +54,16 @@ it in step when the architecture or the model changes.
 - Fetching the corpus needs archive.org, huggingface.co and
   peppercarrot.com. digitalcomicmuseum.com and comicbookplus.com refuse
   cloud containers.
-- The ONNX Runtime plugin has no x86_64 Android build, so the detector
-  can't run on the Android emulator.
+- The ONNX Runtime plugin has no x86_64 Android build; `make apk` with
+  `APK_ABI` including `android-x64` fetches ONNX Runtime's own x86_64
+  library into the gitignored `android/app/src/main/jniLibs/`
+  (`MAVEN=https://maven-central.storage-download.googleapis.com/maven2`
+  when Maven Central answers 429). The emulator has no KVM there, so a
+  page takes about 13 minutes to detect (0.2 s natively); the results
+  match Linux.
+- On that emulator every PNG fails to decode, in any Flutter app: its
+  emulated CPU breaks zlib's checksums (`ZLibCodec` throws, raw deflate
+  works). Use JPEG comics there; phones are not affected.
 
 ## How the reader works
 
@@ -296,13 +304,20 @@ it in step when the architecture or the model changes.
   0.6 s fade (none with reduced motion). It sits in an `IgnorePointer`
   and formats with `MediaQuery.alwaysUse24HourFormat`. No setting.
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
-  settings page. The APK was tested on an Android 14 emulator only; a real
-  phone, pinch zoom and real speed and memory are untested.
+  settings page; Android 7 to 10 ask for read and write storage at run
+  time instead, with legacy storage on 10. `o` and `O` go through
+  `MainActivity`'s own picker (`pickFile`, `pickFolder`), which answers
+  with the real path (`pathOf`), not file_selector's copy in the cache.
+  The reader sits in a SafeArea: Android 15 and a return from fullscreen
+  draw the app edge to edge. Below 600 dp the status line puts its text
+  above the buttons. The APK was tested on an Android 14 emulator only; a
+  real phone, pinch zoom and real speed and memory are untested.
 - `make install` puts the bundle in `~/.local/lib/comicredr`, a symlink in
   `~/.local/bin` and the launcher and icons in `~/.local/share`; it never
   runs Flutter, so `sudo make install PREFIX=/usr/local` is safe, and
   `DESTDIR` is supported. `APK_ABI=android-arm64,android-x64` adds the
-  emulator ABI to `make apk`. `make push-keys` copies keys.toml to the
+  emulator ABI to `make apk`; the APK carries only the ABIs asked for
+  (`abiFilters` from `--target-platform`). `make push-keys` copies keys.toml to the
   phone.
 
 ## Layout
