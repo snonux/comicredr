@@ -144,7 +144,7 @@ List<String>? parseKeySpec(String spec) {
       keys.add('C-$rest');
     } else if (ctrl || shift) {
       return null; // C- or S- on something that is not a key.
-    } else if (RegExp(r'^[A-Z][a-z]+[0-9]*$').hasMatch(chunk)) {
+    } else if (_misspeltName(chunk)) {
       return null; // A misspelt key name, not the keys P, a, g, e...
     } else {
       // Printable keys typed one after another: `gg`, `zw`, `m<a-z>`.
@@ -336,4 +336,17 @@ Map<String, Map<String, Object>> _parseToml(String text, List<String> warnings) 
     if (i < text.length && text[i] != '\n') fail('unexpected text after a value');
   }
   return out;
+}
+
+/// Whether [chunk] reads as a key name spelt wrong (`Pagedown`, `ESC`,
+/// `LEFT`, `PgDn`, `BackSpace`, `F13`) rather than keys typed one after
+/// another (`gg`, `zw`, `ZZ`), which would bind a string of letters and
+/// leave the key it meant unbound.
+bool _misspeltName(String chunk) {
+  if (chunk.length < 2) return false;
+  final lower = chunk.toLowerCase();
+  if (namedKeys.any((n) => n.toLowerCase() == lower)) return true;
+  if (RegExp(r'^F[0-9]+$').hasMatch(chunk)) return true;
+  // A capital, then letters with at least one lowercase: a word.
+  return RegExp(r'^[A-Z](?=[A-Za-z]*[a-z])[A-Za-z]+[0-9]*$').hasMatch(chunk);
 }

@@ -22,6 +22,13 @@ void main() {
 
     test('refuses a misspelt key name rather than typing its letters', () {
       expect(parseKeySpec('Pagedown'), isNull);
+      for (final typo in ['ESC', 'LEFT', 'PgDn', 'BackSpace', 'F13', 'pagedown']) {
+        expect(parseKeySpec(typo), isNull, reason: typo);
+      }
+      // Letters typed one after another stay allowed.
+      expect(parseKeySpec('ZZ'), ['Z', 'Z']);
+      expect(parseKeySpec('gg'), ['g', 'g']);
+      expect(parseKeySpec('F1'), ['F1']);
       expect(parseKeySpec('S-x'), isNull);
       expect(parseKeySpec(''), isNull);
     });
