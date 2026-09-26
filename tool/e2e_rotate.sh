@@ -57,13 +57,16 @@ app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
 sleep 1
 
+# The made pages are flat colour, which the built-in model does not see as
+# panels; classic CV finds their borders exactly. This checks the turn, not
+# the detector, so classic CV unless COMICREDR_MODEL says otherwise.
+export COMICREDR_MODEL="${COMICREDR_MODEL:-none}"
 failed=0
 fail() { echo "  FAIL: $*"; failed=1; }
 ok() { echo "  ok: $*"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 1.2; }
 start() {
-  # Classic CV: the bundled model finds no panels on these flat test pages.
-  COMICREDR_MODEL=none HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$@" >>"$out/app.log" 2>&1 &
+  HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$@" >>"$out/app.log" 2>&1 &
   app=$!
   sleep 6
   win=$(xdotool search --name ComicRedr | tail -1)

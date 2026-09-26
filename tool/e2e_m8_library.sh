@@ -88,7 +88,7 @@ shot 06_history
 # whole-page steps off.
 click 1258 28
 shot 07_settings
-click 870 308 # "Show each page whole", under Pages → Clean up old scans
+click 870 307 # "Show each page whole before and after its panels"
 shot 08_settings_changed
 check "whole-page steps saved off" \
   test "$(q "$db" "select value from settings where key = 'guided.wholePageSteps'")" = false

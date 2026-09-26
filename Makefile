@@ -76,7 +76,7 @@ VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
 TARNAME := comicredr-$(VERSION)-linux-$(ARCH)
 TARBALL := build/$(TARNAME).tar.gz
 
-.PHONY: all build deps run dev test analyze install uninstall model train-model install-model check-model icons clean help version \
+.PHONY: all build deps run dev test analyze install uninstall _retire-models model train-model install-model check-model icons clean help version \
 	keystore apk install-apk push-model push-keys tarball keys
 
 all: build
@@ -122,7 +122,20 @@ install:
 	done
 	$(MAKE) --no-print-directory _refresh
 	@if [ -z "$(DESTDIR)" ]; then $(PKG)/keep-viewer.sh restore build/viewer-defaults "$(APPSDIR)"; fi
+	@if [ -z "$(DESTDIR)" ]; then $(MAKE) --no-print-directory _retire-models; fi
 	@echo "Installed. ComicRedr is in the app grid; $(BINDIR)/comicredr starts it from a shell."
+
+# A model left by an earlier `make install-model` wins over the one built
+# into the app, so installing moves one that differs aside (as .old): the
+# app you just installed then uses the model it was built with.
+USER_MODELS := $(sort $(APPDATA)/models $(XDG_DATA)/$(APP_ID)/models $(XDG_DATA)/comicredr/models)
+_retire-models:
+	@for d in $(USER_MODELS); do \
+	  f=$$d/comicredr-panels.onnx; \
+	  if [ -f "$$f" ] && ! cmp -s "$$f" $(BUNDLED_MODEL); then \
+	    mv -f "$$f" "$$f.old" && echo "Moved the model installed earlier to $$f.old, so ComicRedr uses its built-in one."; \
+	  fi; \
+	done
 
 uninstall:
 	rm -rf "$(DESTDIR)$(LIBDIR)"
@@ -211,6 +224,13 @@ apk: deps check-model
 install-apk:
 	@test -f $(APK) || { echo "No APK yet: run make apk first."; exit 1; }
 	$(ADB) install -r $(APK)
+	@# A model pushed earlier wins over the built-in one; move it aside, as make install does.
+	@f=$(PHONE_MODELDIR)/comicredr-panels.onnx; \
+	if $(ADB) shell test -f $$f 2>/dev/null && \
+	   [ "$$($(ADB) shell md5sum $$f | cut -d' ' -f1)" != "$$(md5sum $(BUNDLED_MODEL) | cut -d' ' -f1)" ]; then \
+	  $(ADB) shell mv -f $(PHONE_MODELDIR)/comicredr-panels.onnx $(PHONE_MODELDIR)/comicredr-panels.onnx.old && \
+	  echo "Moved the model pushed earlier to $(PHONE_MODELDIR)/comicredr-panels.onnx.old, so ComicRedr uses its built-in one."; \
+	fi
 
 # adb may write into the app's folder on shared storage; most file managers
 # on Android 11 and later may not.
