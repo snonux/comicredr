@@ -46,6 +46,7 @@ cc -o "$out/close_window" tool/close_window.c -lX11
 export DISPLAY=:93
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
+for _ in $(seq 1 40); do xdpyinfo >/dev/null 2>&1 && break; sleep 0.25; done # Up before the app starts.
 app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
 
