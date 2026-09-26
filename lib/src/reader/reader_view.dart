@@ -156,6 +156,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     _disposeImages(_images);
     _cache?.dispose();
     _camera.dispose();
+    _glide.dispose();
     _pulse.dispose();
     _transform.dispose();
     super.dispose();
@@ -383,9 +384,13 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         if (_scale > 1.01) return handle(const ReaderCommand(ReaderIntent.zoomReset));
         _zoom(math.pow(1.25, 4).toDouble(), at: _unturned(c.at));
       case ReaderIntent.panDown:
-        _pan(0.15 * _screen.height * c.times);
+        _pan(Offset(0, 0.15 * _screen.height * c.times), held: c.held);
       case ReaderIntent.panUp:
-        _pan(-0.15 * _screen.height * c.times);
+        _pan(Offset(0, -0.15 * _screen.height * c.times), held: c.held);
+      case ReaderIntent.scrollRight:
+        return _panSideways(0.15 * _screen.width * c.times, guided: guided, held: c.held);
+      case ReaderIntent.scrollLeft:
+        return _panSideways(-0.15 * _screen.width * c.times, guided: guided, held: c.held);
       default:
         return false;
     }
@@ -645,15 +650,112 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     _transform.value = _clamped(m);
   }
 
-  /// Moves the view [dy] down the screen, whichever way the comic is turned.
-  void _pan(double dy) {
-    final (x, y) = switch (_turns) {
-      1 => (-dy, 0.0),
-      2 => (0.0, dy),
-      3 => (dy, 0.0),
-      _ => (0.0, -dy),
+  /// The distance a key glide still has to go, in the frame's coordinates
+  /// (the way the content moves), and the transform it last set: anything
+  /// else moving the page (a drag, a page turn, the camera) ends the glide.
+  Offset _glideLeft = Offset.zero;
+  Matrix4? _glideSet;
+  Duration _glideTime = Duration.zero;
+  late final _glide = createTicker(_onGlideTick);
+
+  /// Left or Right: pans a page zoomed in outside guided view and page
+  /// parts. False (so the key steps as before) when the page is not zoomed,
+  /// or it is already at that edge and the key was pressed afresh: a held
+  /// key stops at the edge rather than running on through the pages.
+  bool _panSideways(double dx, {required bool guided, required bool held}) {
+    final s = ref.read(readerProvider);
+    if (guided || s.region != null || _scale <= 1.01) return false;
+    return _pan(Offset(dx, 0), held: held) || held;
+  }
+
+  /// Moves the view by [d] on the screen (right and down positive),
+  /// whichever way the comic is turned: a short glide, which a held key
+  /// keeps going, or a jump with reduced motion. Returns whether the page
+  /// can move that way at all.
+  bool _pan(Offset d, {bool held = false}) {
+    // The content moves the other way, turned into the frame's coordinates.
+    final move = switch (_turns) {
+      1 => Offset(-d.dy, d.dx),
+      2 => d,
+      3 => Offset(d.dy, -d.dx),
+      _ => -d,
     };
-    final m = Matrix4.translationValues(x, y, 0)..multiply(_transform.value);
+    final now = _transform.value;
+    if (_glide.isActive && now != _glideSet) _stopGlide();
+    final t = now.getTranslation();
+    final left = _glide.isActive ? _glideLeft : Offset.zero;
+    // How far the page can go from where the glide is headed.
+    final to = _clamped(
+      Matrix4.translationValues(t.x + left.dx + move.dx, t.y + left.dy + move.dy, 0)
+        ..multiply(Matrix4.diagonal3Values(_scale, _scale, 1)),
+    ).getTranslation();
+    final end = _onPages(Offset(t.x, t.y), Offset(to.x, to.y));
+    final want = end - Offset(t.x, t.y);
+    if ((want - left).distance < 0.5) return false;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _stopGlide();
+      _moveBy(want);
+      return true;
+    }
+    // A held key's repeats keep adding steps; the glide stays at most a
+    // step ahead of the page, which sets an even top speed. Presses each go
+    // their whole way.
+    final cap = move.distance;
+    _glideLeft = held && want.distance > cap ? want * (cap / want.distance) : want;
+    if (!_glide.isActive) {
+      _glideTime = Duration.zero;
+      _glideSet = now;
+      _glide.start();
+    }
+    return true;
+  }
+
+  /// Where a key pan to [to] may go from [from]: the pages' own edges, not
+  /// the dark margin beside a tall page, and not at all along a side the
+  /// pages fit on screen, so Right on such a page turns it. Guided view looks
+  /// where its panel is.
+  Offset _onPages(Offset from, Offset to) {
+    final s = ref.read(readerProvider);
+    final rects = _pageRects(s);
+    if (s.guided || rects.isEmpty) return to;
+    final pages = rects.map((r) => r.rect).reduce((a, b) => a.expandToInclude(b));
+    final scale = _scale;
+    // Only ever towards an edge the page has not passed: a page dragged
+    // into the margin stays there rather than snapping back sideways.
+    double axis(double to, double from, double start, double end, double view) {
+      final lo = view - end * scale, hi = -start * scale;
+      if (to == from || lo > hi) return from;
+      return to > from ? math.min(to, math.max(hi, from)) : math.max(to, math.min(lo, from));
+    }
+
+    return Offset(
+      axis(to.dx, from.dx, pages.left, pages.right, _viewport.width),
+      axis(to.dy, from.dy, pages.top, pages.bottom, _viewport.height),
+    );
+  }
+
+  void _onGlideTick(Duration elapsed) {
+    if (_transform.value != _glideSet && _glideSet != null) return _stopGlide();
+    final dt = (elapsed - _glideTime).inMicroseconds / 1e6;
+    _glideTime = elapsed;
+    // Eased out: each frame covers the same share of what is left.
+    final share = 1 - math.exp(-dt / 0.07);
+    var step = _glideLeft * share;
+    if ((_glideLeft - step).distance < 0.5) step = _glideLeft;
+    _glideLeft -= step;
+    _moveBy(step);
+    _glideSet = _transform.value;
+    if (_glideLeft == Offset.zero) _stopGlide();
+  }
+
+  void _stopGlide() {
+    _glide.stop();
+    _glideLeft = Offset.zero;
+    _glideSet = null;
+  }
+
+  void _moveBy(Offset move) {
+    final m = Matrix4.translationValues(move.dx, move.dy, 0)..multiply(_transform.value);
     _transform.value = _clamped(m);
   }
 

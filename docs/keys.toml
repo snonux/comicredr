@@ -13,9 +13,9 @@
 
 [keys]
 # Next panel in guided view, next page or spread otherwise; next cover in the library
-nextStep = ["l", "Right", "Space"]
+nextStep = ["l", "Space"]
 # Previous panel in guided view, previous page or spread otherwise; previous cover in the library
-prevStep = ["h", "Left", "S-Space"]
+prevStep = ["h", "S-Space"]
 # Next page, ignoring panels
 nextPage = ["C-f", "PageDown"]
 # Previous page, ignoring panels
@@ -24,6 +24,10 @@ prevPage = ["C-b", "PageUp"]
 panDown = ["j", "Down"]
 # Pan up; the cover above in the library
 panUp = ["k", "Up"]
+# Moves a zoomed page right (smoothly), else the next step, as l
+scrollRight = ["Right"]
+# Moves a zoomed page left (smoothly), else the previous step, as h
+scrollLeft = ["Left"]
 # A screen down in the page grid (continuous scroll is not built yet)
 halfPageDown = ["C-d"]
 # A screen up in the page grid (continuous scroll is not built yet)

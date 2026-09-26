@@ -12,6 +12,11 @@ the `?` overlay.
   a comic, the one read before it. The library's header has the same as
   a play button for touch. A comic moved in the library is found by its
   content; a deleted one gets a notice.
+- **Smooth scrolling:** on a zoomed page the arrow keys and `j` `k`
+  glide instead of jumping, and a held key keeps the page sliding
+  evenly. `←` `→` now move across a zoomed page and turn the page only
+  from its edge (a held key stops there). Key pans stop at the page's
+  edge rather than in the dark margin. Reduced motion keeps the jumps.
 - **Pages shown whole in guided view** turn the background wine red as
   soon as they show, not on the first press. A press within 5 seconds of
   arriving stays and zooms the page out and back; the next one turns. A

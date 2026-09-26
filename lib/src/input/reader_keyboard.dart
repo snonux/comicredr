@@ -98,7 +98,7 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     if (token == null) return KeyEventResult.ignored;
     final command = _resolver.feed(token, DateTime.now());
     widget.onPendingChanged?.call(_resolver.pendingDisplay);
-    if (command != null) widget.onCommand(command);
+    if (command != null) widget.onCommand(event is KeyRepeatEvent ? command.asHeld : command);
     return command != null || _resolver.isPending ? KeyEventResult.handled : KeyEventResult.ignored;
   }
 

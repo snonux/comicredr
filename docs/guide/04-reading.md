@@ -90,11 +90,32 @@ goes back to one page.
 | `Z` | Zoom in on the middle of the screen, or back out |
 | `zw` `zh` `zz` | Fit the width, the height, or the whole page |
 | `j` `k` (or `↓` `↑`) | Move down and up a zoomed page |
+| `←` `→` | Move left and right across a zoomed page, then turn the page from its edge |
 
 With the mouse, drag a zoomed page to move around. On a touchscreen,
 pinch to zoom, drag to move, and double-tap the middle to zoom in on that
 spot. A zoomed page stays sharp: ComicRedr decodes the part you look at
 again at the higher size.
+
+### Smooth scrolling
+
+On a zoomed page the arrow keys (and `j` `k`) glide rather than jump:
+each press slides the page about a seventh of the screen, easing to a
+stop, and holding a key down keeps it sliding at an even speed until you
+let go. The page stops at its own edge, not in the dark margin beside it.
+
+`←` and `→` move across the page while there is more of it to see that
+way. At the edge, a held key stays there; press it again to turn the
+page. On a page that isn't zoomed, or that already fits the width of the
+screen, they turn the page at once as always. In guided view and on a
+[part of a page](#parts-of-a-page) they keep stepping through the panels
+or parts.
+
+Say you zoom in on a dense golden-age page with `+` a few times. Hold
+`→` to read along a row of panels; it stops at the page's right edge.
+`↓` and a held `←` bring you to the start of the next row, and at the
+bottom right a fresh press of `→` turns the page. With reduced motion
+turned on in your system settings, each press jumps straight there.
 
 To enlarge just part of a page, see [Parts of a page](#parts-of-a-page).
 
