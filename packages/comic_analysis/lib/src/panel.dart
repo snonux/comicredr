@@ -48,7 +48,8 @@ class Panel {
 
   double iou(Panel o) {
     final inter = intersection(o);
-    return inter / (area + o.area - inter);
+    final union = area + o.area - inter;
+    return union > 0 ? inter / union : 0;
   }
 
   @override

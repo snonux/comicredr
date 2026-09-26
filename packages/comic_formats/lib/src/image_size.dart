@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'bytes.dart';
+
 /// How much of a page [imageSize] is given to read.
 const headBytes = 64 << 10;
 
@@ -37,31 +39,14 @@ const headBytes = 64 << 10;
     return null;
   }
   if (head.length >= 4 && u8(0) == 0xFF && u8(1) == 0xD8) {
-    var i = 2;
-    while (i + 9 < head.length) {
-      if (u8(i) != 0xFF) return null;
-      final marker = u8(i + 1);
-      if (marker == 0xFF) {
-        i++; // Fill byte.
-        continue;
-      }
-      // Start-of-frame markers, all but DHT (C4), JPG (C8) and DAC (CC).
-      if (marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC) {
-        return (b.getUint16(i + 7), b.getUint16(i + 5));
-      }
-      if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
-        i += 2; // Markers without a length.
-        continue;
-      }
-      i += 2 + b.getUint16(i + 2);
+    for (final seg in jpegSegments(head)) {
+      if (!isJpegFrameMarker(seg.marker)) continue;
+      // Height then width, after the length and the sample precision.
+      if (seg.start + 9 > head.length) return null;
+      return (b.getUint16(seg.start + 7), b.getUint16(seg.start + 5));
     }
   }
   return null;
 }
 
-bool _ascii(Uint8List b, int at, String s) {
-  for (var k = 0; k < s.length; k++) {
-    if (b[at + k] != s.codeUnitAt(k)) return false;
-  }
-  return true;
-}
+bool _ascii(Uint8List b, int at, String s) => hasBytesAt(b, at, s.codeUnits);

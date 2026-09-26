@@ -64,3 +64,7 @@ class _XmlUnescape extends Converter<String, String> {
     };
   });
 }
+
+/// Whether [name], a path inside an archive, is a ComicInfo.xml, in any
+/// folder and any case.
+bool isComicInfoName(String name) => name.split('/').last.toLowerCase() == 'comicinfo.xml';

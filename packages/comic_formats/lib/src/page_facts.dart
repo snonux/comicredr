@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'bytes.dart';
 import 'image_size.dart';
 
 /// What a page is made of, read from its header alone (see [imageFacts]):
@@ -46,18 +47,6 @@ class PageFacts {
   /// Megapixels, for a stored image.
   double? get megapixels => width == null || height == null || isPdf ? null : width! * height! / 1e6;
 
-  /// The page, with [bytes] filled in when the header did not know them.
-  PageFacts withBytes(int n) => PageFacts(
-    format: format,
-    width: width,
-    height: height,
-    bytes: n,
-    quality: quality,
-    progressive: progressive,
-    gray: gray,
-    dpi: dpi,
-  );
-
   static const unknown = PageFacts(format: 'unknown');
 }
 
@@ -74,19 +63,11 @@ PageFacts imageFacts(Uint8List head, {int? total}) {
 }
 
 String _format(Uint8List h) {
-  bool at(int i, List<int> magic) {
-    if (h.length < i + magic.length) return false;
-    for (var k = 0; k < magic.length; k++) {
-      if (h[i + k] != magic[k]) return false;
-    }
-    return true;
-  }
-
-  if (at(0, [0xFF, 0xD8])) return 'jpeg';
-  if (at(0, [0x89, 0x50, 0x4E, 0x47])) return 'png';
-  if (at(0, 'RIFF'.codeUnits) && at(8, 'WEBP'.codeUnits)) return 'webp';
-  if (at(0, 'GIF'.codeUnits)) return 'gif';
-  if (at(0, 'BM'.codeUnits)) return 'bmp';
+  if (hasBytesAt(h, 0, const [0xFF, 0xD8])) return 'jpeg';
+  if (hasBytesAt(h, 0, const [0x89, 0x50, 0x4E, 0x47])) return 'png';
+  if (hasBytesAt(h, 0, 'RIFF'.codeUnits) && hasBytesAt(h, 8, 'WEBP'.codeUnits)) return 'webp';
+  if (hasBytesAt(h, 0, 'GIF'.codeUnits)) return 'gif';
+  if (hasBytesAt(h, 0, 'BM'.codeUnits)) return 'bmp';
   return 'unknown';
 }
 
@@ -99,22 +80,8 @@ PageFacts _jpeg(Uint8List h, (int, int)? size, int? total) {
   var progressive = false;
   var gray = false;
   int? dpi;
-  var i = 2;
-  while (i + 4 <= h.length) {
-    if (h[i] != 0xFF) break;
-    final marker = h[i + 1];
-    if (marker == 0xFF) {
-      i++;
-      continue;
-    }
-    if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
-      i += 2;
-      continue;
-    }
-    if (marker == 0xDA || marker == 0xD9) break; // The scan: the header is over.
-    final len = b.getUint16(i + 2);
-    final end = i + 2 + len;
-    final body = i + 4;
+  for (final (:marker, :start, :end) in jpegSegments(h)) {
+    final body = start + 4;
     if (marker == 0xDB) {
       // One or more tables: precision and id, then 64 values in zigzag order.
       var t = body;
@@ -127,7 +94,7 @@ PageFacts _jpeg(Uint8List h, (int, int)? size, int? total) {
         if (id == 0) luma ??= values;
         t += 1 + n;
       }
-    } else if (marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC) {
+    } else if (isJpegFrameMarker(marker)) {
       progressive = marker == 0xC2 || marker == 0xC6 || marker == 0xCA || marker == 0xCE;
       if (body + 5 < h.length) gray = h[body + 5] == 1;
     } else if (marker == 0xE0 && body + 12 <= h.length && String.fromCharCodes(h, body, body + 4) == 'JFIF') {
@@ -137,7 +104,6 @@ PageFacts _jpeg(Uint8List h, (int, int)? size, int? total) {
       if (units == 1 && x > 1) dpi = x;
       if (units == 2 && x > 1) dpi = (x * 2.54).round();
     }
-    i = end;
   }
   return PageFacts(
     format: 'jpeg',

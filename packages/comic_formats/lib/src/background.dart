@@ -25,7 +25,7 @@ class BackgroundDocument implements ComicDocument {
     final pdf = _isPdf(path);
     final host = pdf ? await _Host.shared() : await _Host.spawn();
     try {
-      final (int doc, int pages) = await host.call('open', path: path) as (int, int);
+      final (int doc, int pages) = await host.call(_Op.open, path: path) as (int, int);
       return BackgroundDocument._(host, doc, pages, !pdf);
     } catch (_) {
       if (!pdf) host.kill();
@@ -44,12 +44,14 @@ class BackgroundDocument implements ComicDocument {
 
   @override
   Future<Uint8List?> rawPage(int index) async =>
-      (await _host.call('raw', doc: _doc, args: (index, 0, 0)) as TransferableTypedData?)?.materialize().asUint8List();
+      (await _host.call(_Op.raw, doc: _doc, args: (index, 0, 0)) as TransferableTypedData?)
+          ?.materialize()
+          .asUint8List();
 
   @override
   Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async {
     final (TransferableTypedData bytes, int? w, int? h, bool bgra, PageRegion? drawn) = await _host.call(
-      'page',
+      _Op.page,
       doc: _doc,
       args: (index, targetWidth, targetHeight),
       region: region,
@@ -58,18 +60,24 @@ class BackgroundDocument implements ComicDocument {
   }
 
   @override
-  Future<List<(int, int)?>> pageSizes() async => (await _host.call('sizes', doc: _doc) as List).cast<(int, int)?>();
+  Future<List<(int, int)?>> pageSizes() async =>
+      (await _host.call(_Op.sizes, doc: _doc) as List<Object?>).cast<(int, int)?>();
 
   @override
-  Future<List<PageFacts>> pageFacts() async => (await _host.call('facts', doc: _doc) as List).cast<PageFacts>();
+  Future<List<PageFacts>> pageFacts() async =>
+      (await _host.call(_Op.facts, doc: _doc) as List<Object?>).cast<PageFacts>();
 
   @override
-  Future<ComicMeta?> embeddedMetadata() async => await _host.call('meta', doc: _doc) as ComicMeta?;
+  Future<ComicMeta?> embeddedMetadata() async => await _host.call(_Op.meta, doc: _doc) as ComicMeta?;
 
   @override
   Future<void> close() async {
-    await _host.call('close', doc: _doc);
-    if (_ownsHost) _host.kill();
+    try {
+      await _host.call(_Op.close, doc: _doc);
+    } finally {
+      // Stopped even when the worker failed to close the book.
+      if (_ownsHost) _host.kill();
+    }
   }
 }
 
@@ -77,7 +85,7 @@ class BackgroundDocument implements ComicDocument {
 /// shares (see [BackgroundDocument]), anything else on a short-lived one.
 Future<BookInfo> readBookInfoInBackground(String path, {required String coverDir}) async {
   if (_isPdf(path)) {
-    return await (await _Host.shared()).call('info', path: path, coverDir: coverDir) as BookInfo;
+    return await (await _Host.shared()).call(_Op.info, path: path, coverDir: coverDir) as BookInfo;
   }
   return Isolate.run(() => readBookInfo(path, coverDir: coverDir));
 }
@@ -97,15 +105,20 @@ class _Failure {
   final String message;
 }
 
-typedef _Request = (
+/// What a worker is asked to do.
+enum _Op { open, page, raw, sizes, facts, meta, close, info }
+
+/// One request to a worker: [doc] is the book it is about (-1 for none),
+/// [args] the page index and target size where they apply.
+typedef _Request = ({
   int id,
-  String op,
+  _Op op,
   int doc,
   (int, int, int) args,
   String? path,
   String? coverDir,
   PageRegion? region,
-);
+});
 
 /// A worker isolate holding open documents, serving one request at a time,
 /// newest first.
@@ -117,14 +130,39 @@ class _Host {
   static Future<_Host>? _shared;
 
   /// The isolate every PDF goes through, started once.
-  static Future<_Host> shared() => _shared ??= spawn();
+  static Future<_Host> shared() => _shared ??= spawn().then(
+    (host) {
+      host._onDied = () => _shared = null;
+      return host;
+    },
+    onError: (Object e) {
+      _shared = null; // Tried again on the next PDF, not failed for good.
+      throw e;
+    },
+  );
 
   static Future<_Host> spawn() async {
     final receive = ReceivePort();
-    final isolate = await Isolate.spawn(_hostMain, receive.sendPort);
+    final died = ReceivePort();
+    final Isolate isolate;
+    try {
+      isolate = await Isolate.spawn(_hostMain, receive.sendPort, onExit: died.sendPort, onError: died.sendPort);
+    } catch (_) {
+      receive.close();
+      died.close();
+      rethrow;
+    }
     final replies = receive.asBroadcastStream();
     final send = await replies.first as SendPort;
-    return _Host._(send, _Port(receive, replies), isolate);
+    final host = _Host._(send, _Port(receive, replies), isolate);
+    // A worker that dies (a crash in native code, running out of memory)
+    // fails what it still owed rather than leaving it waiting for good.
+    died.listen((_) {
+      died.close();
+      host._fail('The book reader stopped');
+    });
+    host._died = died;
+    return host;
   }
 
   final SendPort _send;
@@ -132,23 +170,27 @@ class _Host {
   final Isolate _isolate;
   final Map<int, Completer<Object?>> _pending = {};
   int _next = 0;
+  ReceivePort? _died;
+  void Function()? _onDied;
+  bool _dead = false;
 
   Future<Object?> call(
-    String op, {
+    _Op op, {
     int doc = -1,
     (int, int, int) args = (0, 0, 0),
     String? path,
     String? coverDir,
     PageRegion? region,
   }) {
+    if (_dead) return Future.error(const FormatException('The book reader stopped'));
     final id = _next++;
     final c = _pending[id] = Completer<Object?>();
-    _send.send((id, op, doc, args, path, coverDir, region));
+    _send.send((id: id, op: op, doc: doc, args: args, path: path, coverDir: coverDir, region: region));
     return c.future;
   }
 
   void _onReply(Object? m) {
-    if (m case (int id, Object? value)) {
+    if (m case (final int id, final Object? value)) {
       final c = _pending.remove(id);
       if (value is _Failure) {
         c?.completeError(FormatException(value.message));
@@ -159,10 +201,19 @@ class _Host {
   }
 
   void kill() {
-    _port.close();
+    _died?.close();
     _isolate.kill();
+    _fail('The book was closed');
+  }
+
+  /// Fails every request still waiting and refuses new ones.
+  void _fail(String why) {
+    if (_dead) return;
+    _dead = true;
+    _onDied?.call();
+    _port.close();
     for (final c in _pending.values) {
-      c.completeError(const FormatException('The book was closed'));
+      c.completeError(FormatException(why));
     }
     _pending.clear();
   }
@@ -190,30 +241,30 @@ Future<void> _hostMain(SendPort reply) async {
   Future<void>? busy;
 
   Future<void> serve(_Request r) async {
-    final (id, op, doc, args, path, coverDir, region) = r;
+    final (:id, :op, :doc, :args, :path, :coverDir, :region) = r;
     try {
       switch (op) {
-        case 'open':
+        case _Op.open:
           final d = await openDocument(path!);
           docs[nextDoc] = d;
           reply.send((id, (nextDoc++, d.pageCount)));
-        case 'page':
+        case _Op.page:
           final (index, w, h) = args;
           final p = await docs[doc]!.page(index, targetWidth: w, targetHeight: h, region: region);
           reply.send((id, (TransferableTypedData.fromList([p.bytes]), p.width, p.height, p.bgra, p.region)));
-        case 'raw':
+        case _Op.raw:
           final raw = await docs[doc]!.rawPage(args.$1);
           reply.send((id, raw == null ? null : TransferableTypedData.fromList([raw])));
-        case 'sizes':
+        case _Op.sizes:
           reply.send((id, await docs[doc]!.pageSizes()));
-        case 'facts':
+        case _Op.facts:
           reply.send((id, await docs[doc]!.pageFacts()));
-        case 'meta':
+        case _Op.meta:
           reply.send((id, await docs[doc]!.embeddedMetadata()));
-        case 'close':
+        case _Op.close:
           await docs.remove(doc)?.close();
           reply.send((id, null));
-        case 'info':
+        case _Op.info:
           reply.send((id, await readBookInfo(path!, coverDir: coverDir!)));
       }
     } catch (e) {
@@ -229,11 +280,11 @@ Future<void> _hostMain(SendPort reply) async {
 
   await for (final m in requests) {
     final r = m as _Request;
-    if (r.$2 == 'close') {
+    if (r.op == _Op.close) {
       // Whatever is still queued for this book is for a book going away.
       queue.removeWhere((q) {
-        if (q.$3 != r.$3) return false;
-        reply.send((q.$1, const _Failure('The book was closed')));
+        if (q.doc != r.doc) return false;
+        reply.send((q.id, const _Failure('The book was closed')));
         return true;
       });
     }
