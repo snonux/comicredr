@@ -86,6 +86,11 @@ come back here for a key you forgot.
     - [The app's own folder](11-your-data.md#the-apps-own-folder)
     - [Back up and restore your settings](11-your-data.md#back-up-and-restore-your-settings)
 12. [Settings](12-settings.md)
+13. [Syncing through S3](13-s3-sync.md)
+    - [Setting it up](13-s3-sync.md#setting-it-up)
+    - [The secret key](13-s3-sync.md#the-secret-key)
+    - [Plain http](13-s3-sync.md#plain-http)
+    - [Turning it off](13-s3-sync.md#turning-it-off)
 
 How ComicRedr works inside is a different story, told in
 [the architecture document](../architecture.md).

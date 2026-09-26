@@ -7,6 +7,13 @@ the `?` overlay.
 
 ## Unreleased
 
+- **S3 sync, first part:** Settings → S3 sync sets up a bucket on your
+  own S3 server (Garage, MinIO), with a Test connection that says which
+  step failed. The secret key is kept in the system keyring (a private
+  file when there is none) and never in a settings file. Uploading
+  comics and syncing their sidecars come next. Android now asks for
+  network access, used only for the bucket you set up.
+
 ## 0.3.0
 
 Back up and restore your settings.

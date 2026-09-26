@@ -10,12 +10,14 @@ workspace:
   - packages/comic_analysis
   - packages/comic_formats
   - packages/reader_input
+  - packages/comic_sync
 
 dependencies:
   flutter:
     sdk: flutter
   comic_analysis: any
   comic_formats: any
+  comic_sync: any
   reader_input: any
   flutter_riverpod: ^3.4.3
   drift: ^2.35.0
@@ -27,6 +29,7 @@ dependencies:
   file_selector: ^1.1.0
   desktop_drop: ^0.8.4
   onnxruntime: ^1.4.1
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:

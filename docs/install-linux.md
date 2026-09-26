@@ -12,7 +12,7 @@ download. For the phone, see [Installing on Android](install-android.md).
 Install the build tools and Flutter once:
 
 ```sh
-sudo dnf install git clang cmake ninja-build pkgconf-pkg-config gtk3-devel
+sudo dnf install git clang cmake ninja-build pkgconf-pkg-config gtk3-devel libsecret-devel
 git clone --depth 1 -b stable https://github.com/flutter/flutter.git ~/flutter
 echo 'export PATH="$HOME/flutter/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 flutter doctor        # the "Linux toolchain" line should be green

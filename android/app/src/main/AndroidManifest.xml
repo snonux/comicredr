@@ -6,7 +6,12 @@
          path only with legacy storage. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <!-- S3 sync (design plan section 13): only to the server set up in
+         Settings, never anywhere else. A home Garage is often plain http,
+         which Android 9 and later refuse unless clear text is allowed. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
+        android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"
         android:label="ComicRedr"
         android:name="${applicationName}"

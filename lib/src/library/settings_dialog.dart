@@ -6,12 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:reader_input/reader_input.dart';
 
+import '../data/s3_settings.dart';
 import '../data/settings_store.dart';
 import '../input/touch_providers.dart';
 import '../input/touch_zones.dart';
 import '../providers.dart';
 import '../reader/reader_notifier.dart';
 import '../version.dart';
+import 's3_settings_dialog.dart';
 
 /// The settings (M8): what the reader and the sidecars do by default, which
 /// panel detector is in use, and the reading history. A dialog, so `Esc`
@@ -52,6 +54,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   String? _sidecarDir;
   bool _moving = false;
   String? _detector;
+  S3Fields? _s3;
 
   @override
   void initState() {
@@ -68,6 +71,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final sidecarDir = await settings.loadString(SettingsStore.sidecarDir);
     final detector = await ref.read(panelDetectorProvider.future);
+    final s3 = await ref.read(s3SettingsProvider).load();
     if (!mounted) return;
     setState(() {
       _wholePage = whole ?? true;
@@ -76,6 +80,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       _cleanUp = cleanUp ?? false;
       _sidecars = sidecars ?? true;
       _sidecarDir = sidecarDir;
+      _s3 = s3;
       _detector = detector.model == null
           ? 'Classic computer vision. Build with the trained model for balloons and better panels (see "The panel detector" in the guide).'
           : 'The trained model: ${detector.model!.path}';
@@ -358,6 +363,27 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                         ],
                       ),
                     ],
+                    heading('S3 sync'),
+                    Text(
+                      _s3?.isSet == true
+                          ? 'On: ${_s3!.bucket} on ${Uri.tryParse(_s3!.endpoint)?.host ?? _s3!.endpoint}'
+                          : 'Off. Upload comics and their sidecars to your own S3 bucket to read on where you left '
+                                'off on another device.',
+                      key: const Key('setting-s3'),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        key: const Key('setting-s3-setUp'),
+                        onPressed: () async {
+                          if (await showS3Settings(context) == true) await _load();
+                        },
+                        icon: const Icon(Icons.cloud_outlined),
+                        label: Text(_s3?.isSet == true ? 'Change S3 sync…' : 'Set up S3 sync…'),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text('ComicRedr $appVersion', style: theme.textTheme.bodySmall),
                   ],

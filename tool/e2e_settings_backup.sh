@@ -102,6 +102,9 @@ settings_bottom() {
   origin
   click $((ox + w - 30)) $((oy + 28))
   xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 20 --delay 50 5; sleep 1
+  # Back up from S3 sync, the section below it, to where the clicks below
+  # were measured.
+  xdotool click --repeat 2 --delay 50 4; sleep 1
 }
 # Export settings… and Import settings…: the dialog is centred and, scrolled
 # to its end, the Back up buttons are a fixed way up from the bottom.
@@ -246,6 +249,7 @@ shot 07_fresh
 origin
 click $((ox + w / 2 + 175)) $((oy + h / 2 + 14))
 xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 20 --delay 50 5; sleep 1
+xdotool click --repeat 2 --delay 50 4; sleep 1
 backup_button import
 sleep 1.5
 open_path "$backup"

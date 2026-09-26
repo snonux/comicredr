@@ -10,7 +10,7 @@ The diagrams are [Mermaid](https://mermaid.js.org); GitHub draws them.
 ## The big picture
 
 ComicRedr is one Flutter app for Linux (Fedora) and Android, split into
-the app itself and three pure-Dart packages in a pub workspace. The
+the app itself and four pure-Dart packages in a pub workspace. The
 packages know nothing about Flutter widgets, so they are tested with plain
 `dart test` and could be reused on their own.
 
@@ -32,6 +32,8 @@ flowchart TB
   formats["comic_formats<br/>ComicDocument, CBZ, CBT, EPUB, PDF,<br/>folder and image adapters, worker isolate"]
   analysis["comic_analysis<br/>Panel, classic CV, reading order,<br/>confidence gate, outlines, trim, clean-up"]
   rinput["reader_input<br/>ReaderIntents, default keymap,<br/>vi sequence resolver, touch map"]
+  sync["comic_sync<br/>RemoteStore, S3 client (minio),<br/>connection check"]
+  s3[("Your S3 bucket<br/>(Garage, MinIO)")]
   ort[("ONNX Runtime<br/>(FFI, CPU)")]
   pdfium[("PDFium")]
   model[/"assets/models/<br/>comicredr-panels.onnx"/]
@@ -40,6 +42,8 @@ flowchart TB
   reader --> formats
   reader --> analysis
   input --> rinput
+  data --> sync
+  sync -. "only when set up" .-> s3
   formats --> pdfium
   reader --> ort
   ort --> model
@@ -50,6 +54,7 @@ flowchart TB
 | `packages/comic_formats` | Opens a book. One interface, `ComicDocument`, with an adapter per format. The first bytes of a file decide the format, not its extension. `BackgroundDocument` runs the adapter on a worker isolate so reading a page never blocks the UI. |
 | `packages/comic_analysis` | Everything about what is on a page: the `Panel` type, classic computer-vision panel detection, the model's input and output format, reading order, the confidence gate, frame outlines, margin trimming and scan clean-up. |
 | `packages/reader_input` | Every action the reader can take is a named `ReaderIntent`. The default keymap, the vi-style resolver (counts like `5l`, sequences like `gg`) and the touch map all produce intents. |
+| `packages/comic_sync` | S3 sync (being built, design plan section 13): `RemoteStore`, the one interface the app uses for a bucket, `S3Store` over the `minio` package (SigV4, path-style, multipart, a 3 s connect timeout so a switched-off server fails fast), `MemoryStore` for tests, and `checkConnection`. |
 | `lib/src/library` | The library screen: scanning folders, covers, series, collections, search, settings, the background detection pass. |
 | `lib/src/reader` | The reader: `ReaderNotifier` holds the reading state, `ReaderView` draws it, `PageCache` decodes pages, `PanelDetector` and `ModelDetector` find panels. |
 | `lib/src/data` | The app's index database (Drift/SQLite) and the per-comic `.crdb` sidecar files that carry panels, bookmarks and positions with the comic. |
@@ -373,6 +378,11 @@ flowchart LR
   collections, edits and reading history by content key. Import merges
   it by the sidecar rules; what a rescan or a sidecar rebuilds (books,
   panels, covers) stays out.
+- **S3 sync settings** (`S3Settings`, `lib/src/data/s3_settings.dart`)
+  are ordinary settings, except the secret key: it is in the platform
+  keystore through `SecretStore` (flutter_secure_storage; a mode 0600
+  file beside `keys.toml` when no keyring answers), never in the index,
+  a sidecar or a settings file.
 - **App data** goes in `~/Comics/.comicredr/` on a fresh Fedora install
   that has a `~/Comics` folder, otherwise the usual XDG folders; Android
   keeps its private app folders. The `?` help shows which.

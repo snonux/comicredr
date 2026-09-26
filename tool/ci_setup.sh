@@ -10,9 +10,9 @@ set -euo pipefail
 apt() { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends "$@"; }
 pip() { python3 -m pip install --quiet --disable-pip-version-check "$@"; }
 case "${1:?usage: tool/ci_setup.sh build|e2e|eval|train}" in
-  build) apt clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev ;;
+  build) apt clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libsecret-1-dev ;;
   e2e)
-    apt libgtk-3-dev xvfb xdotool imagemagick sqlite3 openbox wmctrl x11-utils \
+    apt libgtk-3-dev libsecret-1-dev xvfb xdotool imagemagick sqlite3 openbox wmctrl x11-utils \
       zip unzip bc desktop-file-utils xdg-utils
     pip pillow numpy opencv-python-headless pypdfium2 ;;
   eval) pip opencv-python-headless numpy pillow pypdfium2 onnxruntime ;;
