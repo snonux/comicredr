@@ -2,8 +2,11 @@
 
 [Contents](README.md) · Next: [Getting started](02-getting-started.md)
 
-ComicRedr is built from its source on your own Fedora laptop, and the
-phone app is built there too and installed over USB. There is no app
+ComicRedr is built from its source on your own Linux laptop, and the
+phone app is built there too and installed over USB. It should work on
+any Linux distribution, but it has only been tested on Fedora, so the
+steps below use Fedora's package names; on another distribution, install
+the same tools with its own package manager. There is no app
 store build and nothing to sign up for. The panel detector that guided
 view needs is part of the source, so there is nothing else to download.
 

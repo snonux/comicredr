@@ -5,6 +5,10 @@ it, and what it looks like. Read it front to back as a tutorial, or jump
 to what you need from the contents below. Every picture is taken from the
 app itself.
 
+ComicRedr runs on a Linux laptop and an Android phone. It should work on
+any Linux distribution, but it has only been tested on Fedora, and the
+install steps use Fedora's package names.
+
 ![Guided view stepping from panel to panel](images/guided.gif)
 
 In the app, `?` lists every key and searches them, so you never have to

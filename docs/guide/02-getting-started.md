@@ -2,7 +2,8 @@
 
 [Contents](README.md) · Previous: [Installing](01-installing.md) · Next: [The library](03-library.md)
 
-ComicRedr is a comic reader for a Fedora laptop and an Android phone. It
+ComicRedr is a comic reader for a Linux laptop (tested on Fedora) and an
+Android phone. It
 reads the comics you already have, from your own folders, and it never
 needs an account or the network. Its best trick is **guided view**: it
 finds the panels on each page and glides from one to the next, the way

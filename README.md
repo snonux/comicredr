@@ -4,8 +4,9 @@
 
 <h1 align="center">ComicRedr</h1>
 
-A comic reader for a Fedora laptop and an Android phone, made for reading
-panel by panel. Its **guided view** glides from one panel to the next, and
+A comic reader for a Linux laptop and an Android phone, made for reading
+panel by panel. It should work on any Linux distribution, but has only
+been tested on Fedora. Its **guided view** glides from one panel to the next, and
 from one speech balloon to the next, like Comixology did. It reads the
 comics you already have, runs entirely on your own machine, and needs no
 account, cloud or network.
@@ -47,7 +48,7 @@ Potion Contest*, by David Revoy, licensed
 
 ## Get it
 
-ComicRedr is built from source with `make` and `make install` on Fedora,
+ComicRedr is built from source with `make` and `make install` on Linux,
 and as a sideloaded APK for Android. The steps, including the tools to
 install first, are in [Installing](docs/guide/01-installing.md). Once it
 runs, press `?` for every key.
