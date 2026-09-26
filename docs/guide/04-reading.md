@@ -7,7 +7,8 @@ a thin status line along the bottom.
 
 ![A page, with the status line and the progress bar at the bottom](images/page.webp)
 
-On the phone the status line keeps just the page number and the buttons.
+On the phone the status line keeps just the page number and the buttons;
+on a tablet it has room for the book's title too.
 Here the page has a bookmark: the ribbon at the top, and amber notches on
 the progress bar for each bookmark in the book.
 
@@ -18,7 +19,9 @@ are in. Its buttons on the right switch [guided view](05-guided-view.md),
 open the [page grid](#see-every-page-at-once), the
 [details](07-managing-comics.md#details-of-a-comic), set a
 [bookmark](06-bookmarks.md), list the bookmarks, and go
-[fullscreen](#fullscreen). Hover over a button to see its key. The
+[fullscreen](#fullscreen). Where the screen is wide enough (the laptop, a
+tablet) one more button shows
+[two pages side by side](#two-pages-side-by-side). Hover over a button to see its key. The
 arrow on the left does what `Esc` does: out of guided view, then back to
 the library (on the phone, the back gesture does that).
 
@@ -67,7 +70,9 @@ and the grid remembers the size. `Esc` or `p` closes it.
 ## Two pages side by side
 
 Press `d` to see two pages side by side, like an open comic. `d` again
-goes back to one page.
+goes back to one page. Without a keyboard, the open-book button on the
+status line does the same; it is there wherever the screen is wide
+enough, which on a tablet held sideways makes the most of the screen.
 
 ![A two-page spread of Pepper&Carrot](images/spread.webp)
 

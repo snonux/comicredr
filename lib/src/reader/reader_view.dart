@@ -118,11 +118,20 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   /// page loading at identity does not overwrite it.
   ViewSpot? _restore;
 
-  /// Decoded-page budget: a slice of the device's memory, read once.
+  /// Decoded-page budget: a slice of the device's memory and room for a
+  /// few pages the size of its largest screen (a tablet's are three times
+  /// a phone's), read once.
   static final int _budget = pageBudgetBytes(
     phone: defaultTargetPlatform == TargetPlatform.android,
     memTotal: readMemTotal(),
+    screenPixels: _screenPixels(),
   );
+
+  static int? _screenPixels() {
+    final sizes = [for (final d in WidgetsBinding.instance.platformDispatcher.displays) d.size];
+    if (sizes.isEmpty) return null;
+    return sizes.map((s) => (s.width * s.height).round()).reduce(math.max);
+  }
 
   @override
   void initState() {

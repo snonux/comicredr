@@ -6,6 +6,7 @@ import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/keymap_overlay.dart';
 import 'package:comicredr/src/providers.dart';
+import 'package:comicredr/src/reader/layout.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
 import 'package:drift/drift.dart' show Value;
@@ -168,6 +169,34 @@ void main() {
     await tester.tap(find.byKey(const Key('guidedButton')));
     await settle(tester);
     expect(c.read(readerProvider).guided, isFalse);
+  });
+
+  testWidgets('a tablet on its side gets a button for two pages; a phone does not', (tester) async {
+    // A 10-inch tablet in landscape: 2560x1600 at 320 dpi.
+    tester.view.physicalSize = const Size(2560, 1600);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    final path = writeBook(tmp, 'Tablet.cbz', 6);
+    final c = await pumpApp(tester);
+    await open(tester, c, path);
+    await tester.tap(find.byKey(const Key('spreadButton')));
+    await settle(tester);
+    expect(c.read(readerProvider).mode, PageMode.spread);
+    expect(status(tester), endsWith('spread'));
+    // Guided view shows one page, so the button makes way for balloons.
+    await tester.tap(find.byKey(const Key('guidedButton')));
+    await settle(tester);
+    expect(find.byKey(const Key('spreadButton')), findsNothing);
+    await tester.tap(find.byKey(const Key('guidedButton')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('spreadButton')));
+    await settle(tester);
+    expect(c.read(readerProvider).mode, PageMode.single);
+
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    await settle(tester);
+    expect(find.byKey(const Key('spreadButton')), findsNothing);
   });
 
   testWidgets('reopening resumes where reading stopped', (tester) async {

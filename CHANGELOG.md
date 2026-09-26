@@ -7,6 +7,13 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Android tablets:** ComicRedr now makes good use of a tablet. The
+  reader's status line has a button for two pages side by side (`d`),
+  which fills a tablet held sideways; on a small tablet or in split
+  screen the page counter comes first and is no longer cut off, and the
+  library's search box is no longer squeezed. More decoded pages are
+  kept in memory on a tablet's bigger screen, so page turns stay quick.
+  The guide and install docs cover tablets.
 - **Continue reading (`C`):** opens the comic read last on the page it
   was left at, even after a restart, guided view and panel included; in
   a comic, the one read before it. The library's header has the same as
