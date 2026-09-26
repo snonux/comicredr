@@ -9,7 +9,6 @@ import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/panel_detector.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:drift/native.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reader_input/reader_input.dart';
