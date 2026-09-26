@@ -89,9 +89,10 @@ for src in "$@"; do
   # 1. The laptop: page 3, guided view, mark a, a bookmark, panel 2.
   start laptop "$book"
   key 3 shift+g; key v; sleep 4
-  # W: a page the model shows whole would hold on l with the wine-red cue,
-  # which a resume rightly doesn't bring back, so the shots would differ.
-  key m a; key m m; key W; key l; sleep 1 # A page with one panel steps on to page 4.
+  # W (once: the setting stays): a page the model shows whole would hold on
+  # l with the wine-red cue, which a resume rightly doesn't bring back.
+  [[ $n == 1 ]] && key W
+  key m a; key m m; key l; sleep 1 # A page with one panel steps on to page 4.
   shot "b${n}_laptop"
   stop
   check "laptop wrote the sidecar" test -f "$side"

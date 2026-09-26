@@ -1247,7 +1247,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.toggleContinuous:
       case ReaderIntent.halfPageDown:
       case ReaderIntent.halfPageUp:
-        _notice('Continuous scroll arrives in a later milestone');
+        _notice('Continuous scroll is not built yet');
       case ReaderIntent.bookmark:
         await _toggleBookmark();
       case ReaderIntent.toggleFavourite:
