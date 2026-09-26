@@ -1,0 +1,77 @@
+# The detector on every push, to any branch: scores the model built into the
+# app on the labelled eval pages (original and modern sets) and fails if it
+# guides noticeably fewer pages right than the AGENTS.md table says; and
+# runs the whole `make train-model` pipeline for one epoch, from fetching
+# the training comics to a checked ONNX file, so retraining keeps working.
+name: Model
+
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: model-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  eval:
+    name: Score the built-in model
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: tool/ci_setup.sh eval
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            test/corpus
+            test/corpus-formats
+            test/corpus-modern
+          key: corpus-${{ hashFiles('test/corpus.manifest.toml', 'test/formats.manifest.toml', 'test/modern.manifest.toml', 'tool/ci_fetch_corpus.sh') }}
+      - if: steps.cache.outputs.cache-hit != 'true'
+        run: tool/ci_fetch_corpus.sh
+      - name: Score it on the original and modern eval pages
+        run: tool/ci_model_eval.sh
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-eval
+          path: |
+            spike/out/eval/report.md
+            spike/out/eval/results.json
+            spike/out/modern/report.md
+            spike/out/modern/results.json
+          if-no-files-found: ignore
+
+  train:
+    name: Train one epoch (make train-model EPOCHS=1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: tool/ci_setup.sh train
+      - uses: actions/cache@v4
+        with:
+          path: test/corpus-train
+          key: corpus-train-${{ hashFiles('test/train.manifest.toml') }}
+      - name: Hugging Face checkpoint cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-dfine-small-coco
+      - name: make train-model EPOCHS=1
+        run: make train-model EPOCHS=1
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-one-epoch
+          path: spike/out/comicredr-panels.onnx
+          retention-days: 7
+          if-no-files-found: ignore
