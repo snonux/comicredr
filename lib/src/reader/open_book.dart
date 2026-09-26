@@ -84,7 +84,7 @@ Future<OpenBook> openBook(String path) async {
     case BookKind.rar:
       throw const OpenBookException(
         'This is a RAR archive. ComicRedr reads CBZ, so convert it once with '
-        'unar and zip (see "The CBR files you already have" in the README).',
+        'unar and zip (see "The CBR files you already have" in the guide).',
       );
     case BookKind.unknown:
       throw OpenBookException('Not a comic book: ${p.basename(path)}');

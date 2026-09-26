@@ -1,6 +1,6 @@
-# 8. The keyboard
+# 9. The keyboard
 
-[Contents](README.md) · Previous: [Touch](07-touch.md) · Next: [On the phone](09-phone.md)
+[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On the phone](10-phone.md)
 
 ComicRedr is made to be used from the keyboard. The usual keys (arrows,
 `Space`, `PageDown`, `Home`, `Esc`) do what you expect, and a vi-style
@@ -34,15 +34,15 @@ The top of the list also shows ComicRedr's data folder, and which
 | `↓` `↑` `j` `k` | Move down and up a zoomed page | Cover below and above |
 | `Enter` | | Open |
 | `Esc` | Out of guided view, then back to the library | Back out of a series, folder or search |
-| `v` | [Guided view](04-guided-view.md) | |
-| `b` | [Balloon by balloon](04-guided-view.md#balloon-by-balloon) | |
-| `d` | [Two pages](03-reading.md#two-pages-side-by-side) | |
-| `p` | [Page grid](03-reading.md#see-every-page-at-once) | |
-| `mm` `M` | [Bookmark, bookmark list](05-bookmarks.md) | `M`: the Bookmarks tab |
-| `*` | [Favourite](02-library.md#favourites) | Favourite the selected cover |
-| `I` | [Details](06-managing-comics.md#details-of-a-comic) | Details of the selected book |
-| `f` | [Fullscreen](03-reading.md#fullscreen) | Fullscreen |
-| `/` | | [Search](02-library.md#search) |
+| `v` | [Guided view](05-guided-view.md) | |
+| `b` | [Balloon by balloon](05-guided-view.md#balloon-by-balloon) | |
+| `d` | [Two pages](04-reading.md#two-pages-side-by-side) | |
+| `p` | [Page grid](04-reading.md#see-every-page-at-once) | |
+| `mm` `M` | [Bookmark, bookmark list](06-bookmarks.md) | `M`: the Bookmarks tab |
+| `*` | [Favourite](03-library.md#favourites) | Favourite the selected cover |
+| `I` | [Details](07-managing-comics.md#details-of-a-comic) | Details of the selected book |
+| `f` | [Fullscreen](04-reading.md#fullscreen) | Fullscreen |
+| `/` | | [Search](03-library.md#search) |
 | `?` | Every key | Every key |
 
 The full list, with every key and a line on what it does, is
@@ -87,10 +87,10 @@ shiftSpread = []
   written `Left`, `PageDown`, `Home`, `Esc`, `F11` and so on.
 - `gg` is two keys in a row. Put spaces between keys when one of them is
   named: `"g Home"`.
-- The `[touch]` section sets [gestures](07-touch.md#your-own-gestures).
+- The `[touch]` section sets [gestures](08-touch.md#your-own-gestures).
 
 Restart ComicRedr to load your changes. If a line is wrong, ComicRedr
 says so when it starts, and `?` lists the problem in red with the keys it
 uses instead.
 
-[Contents](README.md) · Previous: [Touch](07-touch.md) · Next: [On the phone](09-phone.md)
+[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On the phone](10-phone.md)

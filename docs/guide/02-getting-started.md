@@ -1,22 +1,16 @@
-# 1. Getting started
+# 2. Getting started
 
-[Contents](README.md) · Next: [The library](02-library.md)
+[Contents](README.md) · Previous: [Installing](01-installing.md) · Next: [The library](03-library.md)
 
-ComicRedr is a comic reader for a Fedora laptop and an Android phone. It
+ComicRedr is a comic reader for a Linux laptop (tested on Fedora) and an
+Android phone. It
 reads the comics you already have, from your own folders, and it never
 needs an account or the network. Its best trick is **guided view**: it
 finds the panels on each page and glides from one to the next, the way
 Comixology did.
 
-This chapter gets you from nothing to reading your first comic.
-
-## Install it
-
-How to build and install ComicRedr is in the README:
-[Install on Fedora](../../README.md#install-on-fedora) and
-[Install on an Android phone](../../README.md#install-on-an-android-phone).
-After `make install` on Fedora, ComicRedr is in the GNOME app grid with
-its own icon.
+Once it is [installed](01-installing.md), this chapter gets you to reading
+your first comic.
 
 ## What it reads
 
@@ -28,7 +22,7 @@ its own icon.
 | EPUB made of page images | Reads it like any comic. EPUBs that are mostly text are refused: they are ebooks, not comics. |
 | A folder of page images | One book. JPEG, PNG, WebP, GIF and BMP pages, in natural order (page 2 before page 10), subfolders included. |
 | A single PNG, JPEG or WebP | A one-page comic, with guided view like any other. |
-| CBR (a RAR archive) | Not read. Converting your CBR files to CBZ takes a moment; the README shows how in [The CBR files you already have](../../README.md#the-cbr-files-you-already-have). |
+| CBR (a RAR archive) | Not read. Converting your CBR files to CBZ takes a moment: see [The CBR files you already have](01-installing.md#the-cbr-files-you-already-have). |
 
 ComicRedr looks at the first bytes of a file, not at its name, so a
 `.cbr` that is really a ZIP opens as it is.
@@ -51,7 +45,7 @@ of pages:
 ![The welcome page of an empty library](images/empty.webp)
 
 On the phone, ComicRedr first asks for permission to read your comics
-where they are; [On the phone](09-phone.md#first-start) walks through it.
+where they are; [On the phone](10-phone.md#first-start) walks through it.
 
 ## Open a comic
 
@@ -72,7 +66,7 @@ You can also open a single comic without adding it to the library:
 A folder works the same way: `comicredr ~/Comics/Marvel`, `O` in the app,
 or a folder dropped on the window. A folder of page images opens as a
 book; a folder that holds comics opens in the library's
-[Folders tab](02-library.md#folders), and is added to the library if it
+[Folders tab](03-library.md#folders), and is added to the library if it
 isn't in it yet.
 
 ## Try guided view
@@ -80,7 +74,7 @@ isn't in it yet.
 Open a comic, go to a page with a few panels and press `v`. The page
 first shows whole, then each press of `→` moves to the next panel, and
 the rest of the page dims. Press `b` too and it stops on every speech
-balloon inside each panel. [Chapter 4](04-guided-view.md) has the
+balloon inside each panel. [Chapter 5](05-guided-view.md) has the
 details.
 
 ![Guided view stepping from panel to panel](images/guided.gif)
@@ -89,8 +83,8 @@ details.
 
 Press `?` anywhere to see every key, with what it does. Type `/` in that
 list to search it: `zoom`, `bookmark` or `night` find the keys for those.
-[Chapter 8](08-keyboard.md) explains the keyboard in full.
+[Chapter 9](09-keyboard.md) explains the keyboard in full.
 
 ![The ? overlay lists every key](images/keymap.webp)
 
-[Contents](README.md) · Next: [The library](02-library.md)
+[Contents](README.md) · Previous: [Installing](01-installing.md) · Next: [The library](03-library.md)

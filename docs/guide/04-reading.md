@@ -1,6 +1,6 @@
-# 3. Reading a comic
+# 4. Reading a comic
 
-[Contents](README.md) · Previous: [The library](02-library.md) · Next: [Guided view](04-guided-view.md)
+[Contents](README.md) · Previous: [The library](03-library.md) · Next: [Guided view](05-guided-view.md)
 
 Open a comic from the library with `Enter` and it fills the window, with
 a thin status line along the bottom.
@@ -14,10 +14,10 @@ the progress bar for each bookmark in the book.
 <img src="images/android-reader.webp" width="260" alt="A page on an Android phone, with a bookmark ribbon">
 
 The status line shows the book, the page you are on, and what mode you
-are in. Its buttons on the right switch [guided view](04-guided-view.md),
+are in. Its buttons on the right switch [guided view](05-guided-view.md),
 open the [page grid](#see-every-page-at-once), the
-[details](06-managing-comics.md#details-of-a-comic), set a
-[bookmark](05-bookmarks.md), list the bookmarks, and go
+[details](07-managing-comics.md#details-of-a-comic), set a
+[bookmark](06-bookmarks.md), list the bookmarks, and go
 [fullscreen](#fullscreen). Hover over a button to see its key.
 
 ## Turning pages
@@ -162,4 +162,4 @@ fades away.
 
 ![The time over the page](images/clock.webp)
 
-[Contents](README.md) · Previous: [The library](02-library.md) · Next: [Guided view](04-guided-view.md)
+[Contents](README.md) · Previous: [The library](03-library.md) · Next: [Guided view](05-guided-view.md)

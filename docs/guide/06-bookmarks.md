@@ -1,6 +1,6 @@
-# 5. Bookmarks and marks
+# 6. Bookmarks and marks
 
-[Contents](README.md) · Previous: [Guided view](04-guided-view.md) · Next: [Managing your comics](06-managing-comics.md)
+[Contents](README.md) · Previous: [Guided view](05-guided-view.md) · Next: [Managing your comics](07-managing-comics.md)
 
 ComicRedr always remembers where you stopped, so you don't need a bookmark
 for that. Bookmarks are for the places you want to come back to: a
@@ -10,7 +10,7 @@ panel with the joke you want to show someone.
 ## Set a bookmark
 
 Press `mm` (or the bookmark button on the status line) to bookmark the
-page you are on. In [guided view](04-guided-view.md) the bookmark
+page you are on. In [guided view](05-guided-view.md) the bookmark
 remembers the panel too, so it takes you back to exactly that panel.
 
 A bookmarked page shows a ribbon in its top right corner, and a small
@@ -57,8 +57,8 @@ Marks are listed with the bookmarks, with their letter.
 ## They travel with the comic
 
 Bookmarks, notes and marks are saved in the comic's
-[sidecar file](10-your-data.md). Copy the comic and its sidecar to your
+[sidecar file](11-your-data.md). Copy the comic and its sidecar to your
 phone and the bookmarks are there too. Take a bookmark off on one
 device and it stays off when the sidecar comes back from another.
 
-[Contents](README.md) · Previous: [Guided view](04-guided-view.md) · Next: [Managing your comics](06-managing-comics.md)
+[Contents](README.md) · Previous: [Guided view](05-guided-view.md) · Next: [Managing your comics](07-managing-comics.md)

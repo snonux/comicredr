@@ -8,8 +8,8 @@
 #   python3 spike/fetch_corpus.py --skip-model   # once, for test/corpus/
 #   tool/guide_shots.sh [section...]             # all sections by default
 #
-# Sections: library reader guided parts keys touch bookmarks details
-# dialogs history empty. They run in that order and later ones
+# Sections: library reader guided guided-more parts keys touch bookmarks
+# details dialogs history empty. They run in that order and later ones
 # lean on what earlier ones did (a started book, a bookmark), so run a
 # single section only after a full run. E2E_SKIP_BUILD=1 reuses the build.
 #
@@ -17,6 +17,8 @@
 # on the Android 14 emulator (APK_ABI=android-arm64,android-x64 make apk)
 # with adb exec-out screencap, from the same comics with their sidecars
 # pushed to /sdcard/Comics, and scaled to 540 px wide.
+# android-guided.gif is adb shell screenrecord --size 540x1200 of taps on
+# the right edge in guided view, made into a GIF like the ones here at 300 px.
 #
 # Needs: Xvfb, xdotool, ImageMagick, ffmpeg, gifsicle, cwebp, sqlite3.
 # Output: docs/guide/images/*.webp and *.gif; raw captures in build/guide/.
@@ -31,7 +33,7 @@ comics="$home/Comics"
 db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
 sections=("$@")
-[[ ${#sections[@]} -gt 0 ]] || sections=(library reader guided parts keys touch bookmarks details dialogs history empty)
+[[ ${#sections[@]} -gt 0 ]] || sections=(library reader guided guided-more parts keys touch bookmarks details dialogs history empty)
 mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
@@ -179,6 +181,18 @@ guided)
   sleep 1.5; still held-whole
   rec held 8; sleep 1; key l; sleep 3; key l; sleep 2; gif held
   key v
+  ;;
+
+guided-more)
+  # Painted art without gutters, and w off: panel to panel across pages.
+  open "episode"
+  page 3
+  rec guided-painted 12; key v; sleep 2; for _ in 1 2 3 4 5; do KS=1.6 key l; done; gif guided-painted
+  key v
+  open "all top"
+  page 6; key v; sleep 1; key w; sleep 1.5
+  rec guided-straight 16; for _ in 1 2 3 4 5 6 7 8 9; do KS=1.5 key l; done; gif guided-straight
+  key w; key v
   ;;
 
 parts)
