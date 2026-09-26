@@ -57,6 +57,10 @@ app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
 sleep 1
 
+# The made pages are flat colour, which the built-in model does not see as
+# panels; classic CV finds their borders exactly. This checks the turn, not
+# the detector, so classic CV unless COMICREDR_MODEL says otherwise.
+export COMICREDR_MODEL="${COMICREDR_MODEL:-none}"
 failed=0
 fail() { echo "  FAIL: $*"; failed=1; }
 ok() { echo "  ok: $*"; }

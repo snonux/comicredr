@@ -118,6 +118,14 @@ void main() {
       }
     });
 
+    test('a sidecar still under its old visible name goes too', () async {
+      final (a, _, key) = await shelf();
+      final visible = '$a.crdb'; // As an older app left it, never opened since.
+      File(sidecarPath(a, folder: false)).renameSync(visible);
+      expect(await delete(a, key), isEmpty);
+      expect(File(visible).existsSync(), isFalse);
+    });
+
     test('a folder book goes as a whole', () async {
       final folder = Directory('${tmp.path}/Pepper')..createSync();
       for (var i = 1; i <= 3; i++) {

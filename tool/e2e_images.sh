@@ -14,7 +14,7 @@
 #     launcher without making ComicRedr the default for them, whether or
 #     not the system names a default image viewer.
 #
-#   COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh
+#   tool/e2e_images.sh   (COMICREDR_MODEL=file.onnx tries another model than the built-in one)
 #
 # E2E_SKIP_BUILD=1 reuses the release build already in build/.
 # Needs: Xvfb, xdotool, ImageMagick (with WebP), python3, sqlite3, curl,

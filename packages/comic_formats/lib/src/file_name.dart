@@ -51,7 +51,8 @@ ComicMeta parseFileName(String name) {
       title = _clean(m.group(3) ?? '');
     }
   }
-  if (number != null && RegExp(r'^\d+$').hasMatch(number)) number = int.parse(number).toString();
+  // `003` is issue 3; a string op, so a name with a huge number still parses.
+  if (number != null && RegExp(r'^\d+$').hasMatch(number)) number = number.replaceFirst(RegExp(r'^0+(?=\d)'), '');
   var series = _clean(s);
   // An all-lowercase name reads better in the library title-cased.
   if (series == series.toLowerCase()) {

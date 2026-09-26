@@ -6,7 +6,7 @@
 # read from the file), and a book's details from the library. Checks the
 # reading position and the analysed pages in the index with sqlite3.
 #
-#   COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_details.sh book.cbz book.pdf
+#   tool/e2e_details.sh book.cbz book.pdf   (COMICREDR_MODEL=file.onnx tries another model)
 #
 # E2E_SKIP_BUILD=1 reuses the release build.
 # Needs: Xvfb, xdotool, ImageMagick, sqlite3, a C compiler, X11 headers.

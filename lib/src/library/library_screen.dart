@@ -1061,7 +1061,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 class CoverImage extends StatelessWidget {
   const CoverImage({super.key, required this.bookKey, this.width = 400});
 
-  final String bookKey;
+  /// Null for a library folder with no books in it yet: the placeholder.
+  final String? bookKey;
   final int width;
 
   @override
@@ -1072,7 +1073,7 @@ class CoverImage extends StatelessWidget {
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: const Center(child: Icon(Icons.menu_book, size: 40)),
     );
-    if (!file.existsSync()) return placeholder;
+    if (bookKey == null || !file.existsSync()) return placeholder;
     return Image.file(
       file,
       fit: BoxFit.cover,
@@ -1111,9 +1112,14 @@ class _CoverCard extends StatelessWidget {
         '${series.books.length} books${series.read > 0 ? ' · ${series.read} read' : ''}',
         series.books.length,
       ),
-      _FolderItem(:final folder) => (folder.books.first, folder.name, _folderCount(folder), folder.books.length),
+      // A library folder can be empty (~/Comics before any comic is in it).
+      _FolderItem(:final folder) => (folder.books.firstOrNull, folder.name, _folderCount(folder), folder.books.length),
       // Bookmarks are rows on their own tab, never covers.
       _BookmarkItem(:final book, :final bookmark) => (book, book.name, describePlace(bookmark), null),
+    };
+    final onlyBook = switch (item) {
+      _BookItem(:final book) => book,
+      _ => null,
     };
     return InkWell(
       key: ValueKey(item.id),
@@ -1135,14 +1141,14 @@ class _CoverCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if (shufflePage case final page?)
+                    if ((shufflePage, book) case (final page?, final book?))
                       ShuffledPage(
                         book: book,
                         page: page,
                         cover: CoverImage(bookKey: book.key),
                       )
                     else
-                      CoverImage(bookKey: book.key),
+                      CoverImage(bookKey: book?.key),
                     if (item is _FolderItem)
                       Positioned(
                         left: 6,
@@ -1169,7 +1175,7 @@ class _CoverCard extends StatelessWidget {
                           child: Text('$count', style: theme.textTheme.labelMedium),
                         ),
                       ),
-                    if (item is _BookItem && book.favourite)
+                    if (onlyBook != null && onlyBook.favourite)
                       const Positioned(
                         left: 6,
                         top: 6,
@@ -1180,14 +1186,14 @@ class _CoverCard extends StatelessWidget {
                           shadows: [Shadow(blurRadius: 3)],
                         ),
                       ),
-                    if (item is _BookItem && book.finished)
+                    if (onlyBook != null && onlyBook.finished)
                       const Positioned(right: 6, top: 6, child: Icon(Icons.check_circle, color: Colors.greenAccent)),
-                    if (item is _BookItem && book.inProgress)
+                    if (onlyBook != null && onlyBook.inProgress)
                       Positioned(
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        child: LinearProgressIndicator(value: book.percent ?? 0, minHeight: 4),
+                        child: LinearProgressIndicator(value: onlyBook.percent ?? 0, minHeight: 4),
                       ),
                   ],
                 ),
@@ -1748,7 +1754,7 @@ class _FolderDetail extends ConsumerWidget {
         Center(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: SizedBox(width: 200, height: 300, child: CoverImage(bookKey: folder.books.first.key, width: 512)),
+            child: SizedBox(width: 200, height: 300, child: CoverImage(bookKey: folder.books.firstOrNull?.key, width: 512)),
           ),
         ),
         const SizedBox(height: 16),

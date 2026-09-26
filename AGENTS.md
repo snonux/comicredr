@@ -3,6 +3,9 @@
 Notes for coding agents and contributors working on ComicRedr. The
 [README](README.md) is for people using the app; keep it short and put
 build internals, test scripts, detector work and conventions here.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the overview with
+diagrams (parts, page pipeline, input, detection, the model, data); keep
+it in step when the architecture or the model changes.
 
 ## Conventions
 
@@ -16,6 +19,11 @@ build internals, test scripts, detector work and conventions here.
   install steps, a quick start that points to the in-app `?` help, and the
   screenshots. Don't document every key there; the `?` overlay and
   `docs/keys.toml` are generated from the keymap and are the reference.
+- The usage guide is `docs/guide/`: a contents page (`README.md`) and one
+  chapter a file, written for people. A feature that changes what a user
+  sees or types gets its chapter updated in the same PR, and new section
+  headings go in the contents. Its pictures are made by
+  `tool/guide_shots.sh` from the release build (WebP stills, small GIFs).
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
@@ -34,8 +42,11 @@ build internals, test scripts, detector work and conventions here.
 ## Cloud container setup
 
 - The Linux e2e scripts need
-  `apt-get install libgtk-3-dev xvfb xdotool imagemagick` first; most also
-  use `sqlite3` and Python with Pillow.
+  `apt-get install libgtk-3-dev xvfb xdotool imagemagick sqlite3 openbox
+  x11-utils desktop-file-utils wmctrl` first (xprop for e2e_fullscreen,
+  update-desktop-database for e2e_images); most also use Python with
+  Pillow, and e2e_margins OpenCV (`pip install opencv-python-headless`).
+  e2e_m9 installs from `make tarball`, so run that first.
 - The first `flutter build` or `flutter run` downloads PDFium once, so it
   needs the network.
 - Cloud sessions can push only their own branch: pushing tags and
@@ -125,7 +136,11 @@ build internals, test scripts, detector work and conventions here.
   CV), a user-installed model in the app data folder's `models/` (`~/Comics/.comicredr/models/` or `~/.local/share/org.snonux.comicredr/models/`)
   (`make install-model`; on the phone also
   `Android/data/org.snonux.comicredr/files/models/`, `make push-model`),
-  then the built-in one. On Linux the built-in file is opened in place in
+  then the built-in one. Because an installed model wins, `make install`
+  moves one that differs from the built-in file aside (`.onnx.old`,
+  `_retire-models`), and `make install-apk` does the same on the phone, so
+  a plain `make && make install` always runs the model it was built with.
+  On Linux the built-in file is opened in place in
   `bundle/data/flutter_assets/assets/models/`; on Android it is copied out
   of the APK into `<app support>/bundled-model/` once per model version.
 - Sidecars: `.book.cbz.crdb` beside the file, `.comicredr.crdb` inside a
@@ -317,12 +332,12 @@ make version                     # the version in pubspec.yaml; bump lib/src/ver
 make icons                       # re-render linux/packaging/icons/*.png after editing the SVG
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
 tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
-COMICREDR_MODEL=model.onnx tool/e2e_modern.sh  # guided view on real modern comics from test/corpus-modern, screenshots in build/e2e-modern/
+tool/e2e_modern.sh            # guided view on real modern comics from test/corpus-modern, screenshots in build/e2e-modern/
 tool/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
-COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
+tool/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
 tool/e2e_m8_library.sh        # collections made from book details, a sitting in the history, the settings dialog, a restart; checks the index and a sidecar with sqlite3
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
-COMICREDR_MODEL=model.onnx tool/e2e_margins.sh  # guided view on eval pages padded with a wide scanned margin; checks the index records the trim
+tool/e2e_margins.sh           # guided view on eval pages padded with a wide scanned margin; checks the index records the trim
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
@@ -340,11 +355,11 @@ tool/e2e_folders_live.sh      # Folders tab open while comics, sub-folders and t
 tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
-COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_images.sh  # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
+tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
-COMICREDR_MODEL=model.onnx tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
+tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
 tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
@@ -353,6 +368,7 @@ tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
+tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 
 ## Detection spike (M1)

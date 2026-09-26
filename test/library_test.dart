@@ -333,6 +333,22 @@ void main() {
       expect(c.read(readerProvider).book?.title, startsWith('The Spirit'));
     });
 
+    testWidgets('an empty library folder shows a plain tile and its details', (tester) async {
+      writeShelf(root);
+      final empty = Directory('${tmp.path}/Empty')..createSync();
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await tester.runAsync(() => c.read(libraryStoreProvider).addRoot(empty.path));
+      await settle(tester);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Empty'), findsOneWidget);
+      await tester.tap(find.text('Empty'));
+      await settle(tester);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('the Folders tab walks into sub-folders and back out', (tester) async {
       writeShelf(root);
       final old = Directory('${root.path}/Indie/Old')..createSync();

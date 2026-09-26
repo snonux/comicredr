@@ -16,6 +16,11 @@ if [ "${1:-}" = --uninstall ]; then
   shift
 fi
 PREFIX=${1:-$HOME/.local}
+# Absolute, or the bin symlink and the launcher would point nowhere.
+case $PREFIX in
+  /*) ;;
+  *) mkdir -p "$PREFIX" && PREFIX=$(cd "$PREFIX" && pwd) ;;
+esac
 BINDIR=$PREFIX/bin
 LIBDIR=$PREFIX/lib/comicredr
 APPSDIR=$PREFIX/share/applications
@@ -35,7 +40,7 @@ if [ -z "$uninstall" ]; then
   mkdir -p "$LIBDIR" "$BINDIR" "$APPSDIR" "$ICONDIR/scalable/apps"
   cp -a "$here/bundle/." "$LIBDIR/"
   ln -sfn "$LIBDIR/comicredr" "$BINDIR/comicredr"
-  sed "s|@BINDIR@|$BINDIR|g" "$here/packaging/$APP_ID.desktop.in" > "$APPSDIR/$APP_ID.desktop"
+  "$here/packaging/fill-desktop.sh" "$BINDIR" < "$here/packaging/$APP_ID.desktop.in" > "$APPSDIR/$APP_ID.desktop"
   cp "$here/packaging/$APP_ID.svg" "$ICONDIR/scalable/apps/"
   for png in "$here"/packaging/icons/*.png; do
     s=$(basename "$png" .png)

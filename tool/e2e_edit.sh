@@ -78,7 +78,8 @@ check "the series edit is in the index" test "$(edit "$second" series)" = "$targ
 check "the issue, year and title edits are in the index" \
   test "$(edit "$second" number)/$(edit "$second" year)/$(edit "$second" title)" = "7/1962/Edited in the app"
 check "the sidecar beside the book holds the edits" wait_for test "$(side_edit "$second" title)" = "Edited in the app"
-check "the comic file itself is unchanged" cmp -s "$2" "$second"
+# A folder book holds its own sidecar; the pages are what must not change.
+check "the comic itself is unchanged" diff -rq --exclude=.comicredr.crdb "$2" "$second"
 
 # e on the series cover, now holding both books, renames it.
 key G; key e; sleep 3

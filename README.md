@@ -9,6 +9,9 @@ an Android phone. It reads CBZ, CBT, comic EPUB, PDF, folders of page
 images and one-page PNG, JPEG or WebP comics, runs entirely on your own
 machine, and needs no account, sync or network.
 
+How it works inside, with diagrams and the panel detector model
+explained: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Screenshots
 
 ![The library: series of covers, with the selected book's details beside them](docs/screenshots/library.webp)
@@ -112,6 +115,11 @@ make run              # try it without installing
 make install          # add it to the GNOME app grid, no sudo needed
 ```
 
+The panel detector for guided view is part of the repository, so `make`
+builds it in: there is nothing else to download or train. If you installed
+a model yourself before (`make install-model`), `make install` moves it
+aside to `comicredr-panels.onnx.old` so the built-in one is used.
+
 After `make install`, ComicRedr is in Activities with its own icon, and
 **Open With → ComicRedr** works on CBZ, CBT, EPUB and PDF files, on
 folders, and on PNG, JPEG and WebP images without becoming your image
@@ -163,7 +171,9 @@ model are in [AGENTS.md](AGENTS.md).
 | `make model MODEL=file.onnx` | Replaces the built-in model in the checkout. |
 | `make NO_MODEL=1` | Builds without a model; the app uses classic computer vision. |
 
-Restart the app after `install-model` or `push-model`.
+Restart the app after `install-model` or `push-model`. The next
+`make install` or `make install-apk` moves such a model aside again and
+goes back to the built-in one.
 
 ## Install on an Android phone
 
@@ -189,6 +199,8 @@ make keystore       # once: creates your signing key
 make apk            # build the APK
 make install-apk    # install it, keeping the app's data
 ```
+
+The APK carries the same built-in panel detector.
 
 > **Back up `~/.config/comicredr/release.jks` and `android/key.properties`.**
 > Android only installs an update over the old app, keeping your library
@@ -278,6 +290,10 @@ done
 A `.cbr` that is really a ZIP opens as it is.
 
 ## More
+
+[The ComicRedr guide](docs/guide/README.md) walks through every feature,
+with screenshots and short animations of each: a small book with a
+table of contents, from the first start to your own keys.
 
 What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 Development notes, the test scripts and how the detector is trained are in
