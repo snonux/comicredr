@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.2.2
+
+Panels on demand, and touch on Linux.
+
 - **Panels only for the comic you read:** ComicRedr no longer works
   through the whole library in the background. It finds the panels of
   the open comic, from the page you are on to the end, with guided view

@@ -1,0 +1,2 @@
+* Panels are found only for the comic you are reading, from your page to the end, instead of for the whole library in the background.
+* The library's "Finding panels" line, its pause button and that setting are gone.
