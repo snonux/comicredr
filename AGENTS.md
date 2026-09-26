@@ -35,7 +35,7 @@ build internals, test scripts, detector work and conventions here.
 
 - The Linux e2e scripts need
   `apt-get install libgtk-3-dev xvfb xdotool imagemagick sqlite3 openbox
-  x11-utils desktop-file-utils` first (xprop for e2e_fullscreen,
+  x11-utils desktop-file-utils wmctrl` first (xprop for e2e_fullscreen,
   update-desktop-database for e2e_images); most also use Python with
   Pillow, and e2e_margins OpenCV (`pip install opencv-python-headless`).
   e2e_m9 installs from `make tarball`, so run that first.
