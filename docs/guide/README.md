@@ -84,6 +84,7 @@ come back here for a key you forgot.
     - [The sidecar beside each comic](11-your-data.md#the-sidecar-beside-each-comic)
     - [Keeping the sidecars in one folder](11-your-data.md#keeping-the-sidecars-in-one-folder)
     - [The app's own folder](11-your-data.md#the-apps-own-folder)
+    - [Back up and restore your settings](11-your-data.md#back-up-and-restore-your-settings)
 12. [Settings](12-settings.md)
 
 How ComicRedr works inside is a different story, told in

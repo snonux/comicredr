@@ -44,7 +44,7 @@ Future<void> main(List<String> args) async {
     ProviderScope(
       overrides: [
         coverDirProvider.overrideWithValue('${cache.path}/covers'),
-        keymapLoadProvider.overrideWithValue(keys),
+        startKeymapProvider.overrideWithValue(keys),
         appDataDirProvider.overrideWithValue(dirs.data),
       ],
       child: ComicRedrApp(initialPath: book, addRoots: roots),

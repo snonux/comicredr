@@ -53,6 +53,26 @@ class SettingsStore {
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
 
+  /// Every setting a settings file carries (SettingsFile), with the kind of
+  /// value it holds: true for a flag, false for a string. This install's
+  /// identity (`device.id`, `device.name`, see SidecarSync) is not a setting
+  /// and stays out. A new setting goes here too, or export leaves it behind.
+  static const backedUp = <String, bool>{
+    wholePageSteps: true,
+    pauseWhole: true,
+    pauseCue: false,
+    night: true,
+    autoTrim: true,
+    fullscreen: true,
+    cleanUp: true,
+    writeSidecars: true,
+    sidecarDir: false,
+    gridZoom: false,
+    shuffle: true,
+    defaultFolderRemoved: true,
+    touchPreset: false,
+  };
+
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
     final v = row == null ? null : jsonDecode(row.value);
