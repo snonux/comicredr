@@ -353,7 +353,10 @@ final panelDetectorProvider = FutureProvider<PanelDetector>((ref) async {
 
 class ReaderNotifier extends Notifier<ReaderState> {
   @override
-  ReaderState build() => const ReaderState();
+  ReaderState build() {
+    ref.onDispose(() => unawaited(_bookmarkWatch?.cancel()));
+    return const ReaderState();
+  }
 
   ProgressStore get _progress => ref.read(progressStoreProvider);
   SidecarSync get _sidecars => ref.read(sidecarSyncProvider);
@@ -379,6 +382,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
+  /// Counts calls to [open], so a superseded one knows to stop.
+  int _opening = 0;
+
   /// Pages waiting for detection, and whether the worker loop is running.
   final _wanted = <int>{};
   bool _detecting = false;
@@ -389,17 +395,22 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// Opens [path], closing any open book, and resumes where it was left, or
   /// goes to [at] when given (a bookmark picked in the library).
   Future<void> open(String path, {Place? at}) async {
+    // A later open (`]` twice, a drop while a book opens) wins: this one then
+    // closes what it opened and stops, rather than leaving it open unseen.
+    final opening = ++_opening;
+    bool superseded() => opening != _opening;
     state = state.copyWith(loading: true);
     OpenBook book;
     try {
       book = await openBook(path);
     } on OpenBookException catch (e) {
-      state = state.copyWith(loading: false, message: e.message);
+      if (!superseded()) state = state.copyWith(loading: false, message: e.message);
       return;
     } catch (e) {
-      state = state.copyWith(loading: false, message: 'Could not open $path: $e');
+      if (!superseded()) state = state.copyWith(loading: false, message: 'Could not open $path: $e');
       return;
     }
+    if (superseded()) return book.doc.close();
     await close();
     // The sidecar first, so what it brings (panels from the laptop, a
     // position from the phone) is in the index before the reads below.
@@ -410,26 +421,27 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // A broken index must not keep a book from opening: each of these falls
     // back to nothing saved.
     final saved = await _orNull(() => _progress.load(book.key));
-    final detector = await ref.read(panelDetectorProvider.future);
-    final cached =
-        await _orNull(
-          () => ref.read(panelStoreProvider).load(book.key, source: detector.source, version: detector.version),
-        ) ??
-        const {};
+    // A detector that failed to load leaves the cached panels unread; the
+    // drain falls back to classic CV and finds them again.
+    final detector = await _orNull(() => ref.read(panelDetectorProvider.future));
+    final cached = detector == null
+        ? const <int, DetectedPage>{}
+        : await _orNull(
+                () => ref.read(panelStoreProvider).load(book.key, source: detector.source, version: detector.version),
+              ) ??
+              const <int, DetectedPage>{};
     final marks = await _orNull(() => ref.read(markStoreProvider).load(book.key)) ?? const {};
-    final whole =
-        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.wholePageSteps)) ??
-        state.wholePageSteps;
-    final pause =
-        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.pauseWhole)) ?? state.pauseWhole;
-    final cueName = await _orNull(() => ref.read(settingsStoreProvider).loadString(SettingsStore.pauseCue));
+    final settings = ref.read(settingsStoreProvider);
+    Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
+    final whole = await flag(SettingsStore.wholePageSteps, state.wholePageSteps);
+    final pause = await flag(SettingsStore.pauseWhole, state.pauseWhole);
+    final cueName = await _orNull(() => settings.loadString(SettingsStore.pauseCue));
     final pauseCue = PauseCue.values.asNameMap()[cueName] ?? state.pauseCue;
-    final night = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.night)) ?? state.night;
-    final trim = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.autoTrim)) ?? state.trim;
-    final cleanUp =
-        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.cleanUp)) ?? state.cleanUp;
-    final fullscreen =
-        await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen)) ?? state.fullscreen;
+    final night = await flag(SettingsStore.night, state.night);
+    final trim = await flag(SettingsStore.autoTrim, state.trim);
+    final cleanUp = await flag(SettingsStore.cleanUp, state.cleanUp);
+    final fullscreen = await flag(SettingsStore.fullscreen, state.fullscreen);
+    if (superseded()) return book.doc.close();
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -493,7 +505,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   void _watchBookmarks(OpenBook book) {
     unawaited(_bookmarkWatch?.cancel());
     _bookmarkWatch = ref.read(libraryStoreProvider).watchBookmarks(book.key).listen((all) {
-      if (!identical(state.book, book)) return;
+      if (!ref.mounted || !identical(state.book, book)) return;
       state = state.copyWith(
         bookmarks: all,
         marks: {for (final b in all) ?b.mark: (page: b.page, panel: b.panel ?? 0)},

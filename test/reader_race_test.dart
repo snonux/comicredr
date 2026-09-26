@@ -72,6 +72,20 @@ void main() {
     expect(s.panels[0]!.frames, hasLength(4));
   });
 
+  test('two opens at once: the later book is the one shown', () async {
+    final c = ProviderContainer(overrides: [databaseProvider.overrideWithValue(db), noSidecars(db)]);
+    addTearDown(c.dispose);
+    final a = writeBookOf(tmp, 'A 01.cbz', [grid4Page(), grid4Page()]);
+    final b = writeBookOf(tmp, 'B 01.cbz', [grid4Page(), grid4Page(), grid4Page()]);
+    final reader = c.read(readerProvider.notifier);
+
+    await Future.wait([reader.open(a), reader.open(b)]);
+    final s = c.read(readerProvider);
+    expect(s.book!.path, b);
+    expect(s.pageCount, 3);
+    expect(s.loading, isFalse);
+  });
+
   testWidgets('a page left before it decoded never replaces the one shown', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
