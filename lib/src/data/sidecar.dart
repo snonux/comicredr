@@ -65,7 +65,7 @@ bool adoptLegacySidecar(String sidecar, {required String device, String? appVers
 /// Where the sidecar of the book at [bookPath] goes when the person keeps
 /// every sidecar in one folder, [dir], instead of beside the comics (the
 /// Settings choice). The folder is laid out like the library, as "Export
-/// sidecars" lays it out: `Comics/Marvel/Daredevil 181.cbz` under the root
+/// sidecars" lays out a library of several folders: `Comics/Marvel/Daredevil 181.cbz` under the root
 /// `/home/me/Comics` gets `dir/Comics/Marvel/.Daredevil 181.cbz.crdb`. Each
 /// root is named by its folder's name, so a laptop and a phone with their
 /// comics in different places still agree; two roots with the same name
@@ -485,10 +485,13 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
     final have = bookmarks[m.id];
     bookmarks[m.id] = have == null || (have.deletedAt == null && m.deletedAt != null) ? m : have;
   }
+  // Setting a mark replaces the one before it, so the newest row per letter
+  // wins, a removed one too: a mark set and then removed on the phone takes
+  // the laptop's older one with it.
   final latestMark = <String, Bookmark>{};
   for (final m in bookmarks.values) {
     final mark = m.mark;
-    if (mark == null || m.deletedAt != null) continue;
+    if (mark == null) continue;
     final have = latestMark[mark];
     if (have == null || m.createdAt.isAfter(have.createdAt)) latestMark[mark] = m;
   }

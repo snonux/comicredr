@@ -4,13 +4,25 @@
 
 <h1 align="center">ComicRedr</h1>
 
-A comic reader with Comixology-style guided view, for a Fedora laptop and
-an Android phone. It reads CBZ, CBT, comic EPUB, PDF, folders of page
-images and one-page PNG, JPEG or WebP comics, runs entirely on your own
-machine, and needs no account, sync or network.
+A comic reader for a Fedora laptop and an Android phone, made for reading
+panel by panel. Its **guided view** glides from one panel to the next, and
+from one speech balloon to the next, like Comixology did. It reads the comics
+you already have, runs entirely on your own machine, and needs no account,
+cloud or network.
 
-How it works inside, with diagrams and the panel detector model
-explained: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- Reads CBZ, CBT, comic EPUB, PDF, folders of page images and single
+  PNG, JPEG or WebP pages.
+- Finds panels, speech balloons and captions with a small detector built
+  into the app, on your own CPU.
+- Single pages, two-page spreads or continuous scrolling, with zoom, a
+  night filter, margin trimming and clean-up for yellowed old scans.
+- A library of your comics folders: covers, series, folders, search,
+  collections, favourites, bookmarks with notes and a reading history.
+- Remembers your page, panel and zoom in each comic, and carries them
+  and your bookmarks to the phone with the file.
+- Works from the keyboard (with a vi layer for those who want it) and by
+  touch, and every key can be changed.
+- Free software under the Apache License 2.0.
 
 ## Screenshots
 
@@ -35,66 +47,6 @@ archive.org mirror (the reader screenshots show *All Top Comics* 6, Norlen,
 Potion Contest*, by David Revoy, licensed
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-## Features
-
-- **Guided view** glides from panel to panel, and **balloon mode** from
-  speech balloon to speech balloon inside each panel. Panels are found by a
-  small detector that runs on your own CPU. On a page it can't guide,
-  the first press stays and turns the background a dark wine red, so you
-  look at the whole page before the next press turns it (or the page
-  zooms out and back instead, `gw`; `W` turns it off).
-- **Single page or two-page spreads**, with zoom, a night filter and
-  automatic trimming of white scanner margins. A scanned double-page
-  spread stays whole, and the pages after it keep their sides.
-- **Enlarge part of a page** by key, in guided view or out of it: `H1`
-  `H2` for the upper or lower half, `B1` to `B3` for thirds, `Q1` to `Q4`
-  for quarters. `→` steps through the parts before the page turns; `Esc`
-  shows the whole page again.
-- **Turn the comic** a quarter at a time: `>` clockwise, `<` the other
-  way, `gr` back upright. A sideways scan stays turned in guided view,
-  across pages and the next time you open it.
-- **Fullscreen** (`f` or F11), for the library and the comic: no title
-  bar or border, and in the reader only the comic; move the mouse to the
-  bottom edge to see where you are.
-- **The time at a glance** (`T`, or a long press in the middle): the
-  time, large, for two seconds, then it fades. Handy in fullscreen.
-- **See before you jump**: `p` opens a grid of page thumbnails, and
-  dragging along the progress bar previews the page under your finger.
-- **Bookmarks** on a page, or on a panel in guided view, with a short
-  note if you like. `mm` or the bookmark button sets one and takes it off
-  again, `M` lists them with a picture of each page, `}` and `{` jump
-  between them, and the library's Bookmarks tab gathers every book's.
-- **Favourites**: `*` adds the comic you are reading, or the cover you
-  picked in the library, to your Favourites collection, and takes it out
-  again. `gf` or the star at the top of the library lists them.
-- **Details of every comic** (`I`): file and format, page sizes and how
-  sharp the scans are on your screen, JPEG quality, the images inside a
-  PDF, metadata, reading time, and what panel and balloon detection found
-  on each page.
-- **Clean-up for old scans**: yellowed paper turns white, faded ink dark,
-  and pages with fewer pixels than your screen are enlarged and sharpened.
-- **A library** of your comics folders: covers, series, search,
-  collections, a folder view and a reading history. Fix a
-  book's title, series or issue in the app; the comic file stays as it is.
-  Shuffle in the folder view shows a random page of each comic instead
-  of its cover, for rediscovering what you have.
-- **Done with a comic?** Shift+Delete (or `gd`) deletes it and its `.crdb`
-  file for good after asking; they don't go to the trash.
-- **Picks up where you left off**, on the same page, panel and zoom, even
-  after you rename or copy the file.
-- **Keyboard first**, with a vi layer on top of the usual keys and your
-  own key bindings, plus full touch support on the phone and on a laptop
-  touchscreen, with tap zones you can rearrange.
-- **Your data travels with the comic**: panels, bookmarks and your position
-  live in a small hidden `.crdb` file beside it, so a comic copied to the phone
-  opens there ready to read. Settings can keep those files in one folder
-  instead.
-- **CBZ, CBT, comic EPUB, PDF and folders of page images**, on Fedora and
-  Android. EPUBs made of page images open like any comic; text ebooks don't.
-- **One-pagers**: a PNG, JPEG or WebP beside your other comics is a
-  one-page comic, with guided view like any other. A folder holding only
-  images is still one book.
-
 ## Install on Fedora
 
 Install the build tools and Flutter once:
@@ -116,9 +68,7 @@ make install          # add it to the GNOME app grid, no sudo needed
 ```
 
 The panel detector for guided view is part of the repository, so `make`
-builds it in: there is nothing else to download or train. If you installed
-a model yourself before (`make install-model`), `make install` moves it
-aside to `comicredr-panels.onnx.old` so the built-in one is used.
+builds it in: there is nothing else to download or train.
 
 After `make install`, ComicRedr is in Activities with its own icon, and
 **Open With → ComicRedr** works on CBZ, CBT, EPUB and PDF files, on
@@ -130,50 +80,6 @@ your reading progress. `make help` lists everything else.
 To install on another Fedora machine without Flutter, `make tarball`
 builds `build/comicredr-VERSION-linux-x64.tar.gz`; unpack it there and run
 `./install.sh`.
-
-### The trained detector
-
-The trained model finds panels much more reliably than classic computer
-vision and is the only way to get balloon mode. It is one file,
-`assets/models/comicredr-panels.onnx`, and it is part of this repository,
-so every build includes it.
-
-It is a D-FINE-S detector fine-tuned on about 1,000 labelled pages of
-public-domain and CC BY comics, plus 400 modern-style pages laid out from
-their art, and it is published under the same Apache
-2.0 licence as the rest of ComicRedr. [NOTICE](NOTICE) credits the model
-it starts from and the comics it learned from.
-
-#### Train it yourself
-
-You need Python 3.11 or later, about 7 GB of free disk (5 GB of it for
-PyTorch and the other Python packages), and network access to
-archive.org, peppercarrot.com and huggingface.co. Install the
-Python packages once, then run the one command:
-
-```sh
-python3 -m pip install --user opencv-python-headless numpy pillow pypdfium2 torch transformers onnx onnxruntime onnxslim
-make train-model
-```
-
-It downloads the training comics (about 2 GB), cuts out the labelled
-pages, and fine-tunes for 30 epochs on the CPU, several hours on 4 cores.
-The result lands in `spike/out/comicredr-panels.onnx` and replaces the
-model in the checkout, so the next `make` or `make apk` uses it.
-`make train-model EPOCHS=1` runs the whole pipeline once, to try your
-setup before the long run. How the labels were drawn and how to score a
-model are in [AGENTS.md](AGENTS.md).
-
-| Make target | What it does |
-|---|---|
-| `make install-model MODEL=file.onnx` | Adds another model to the installed Linux app without rebuilding; it wins over the built-in one. |
-| `make push-model MODEL=file.onnx` | The same on the phone, over USB. |
-| `make model MODEL=file.onnx` | Replaces the built-in model in the checkout. |
-| `make NO_MODEL=1` | Builds without a model; the app uses classic computer vision. |
-
-Restart the app after `install-model` or `push-model`. The next
-`make install` or `make install-apk` moves such a model aside again and
-goes back to the built-in one.
 
 ## Install on an Android phone
 
@@ -228,7 +134,8 @@ keys as the laptop.
    through the speech balloons too. Pages the detector isn't sure about,
    such as a splash page, are shown whole.
 4. **Press `?` whenever you need a key.** It shows the full keymap, and `/`
-   searches it (`zoom`, `bookmark`, `night`).
+   searches it (`zoom`, `bookmark`, `night`). Everything else, with
+   pictures, is in [the guide](docs/guide/README.md).
 
 A single file opens without the library too: `comicredr book.cbz`,
 **Open With → ComicRedr** in Files, `o` in the app, or drag it onto the
@@ -272,6 +179,29 @@ Deleting that folder starts the app afresh: add your comic folders again
 and one scan brings back everything the sidecars hold. Settings and the
 reading history are lost.
 
+### The trained detector
+
+Guided view and balloon mode rely on a small detector that finds the panels,
+speech balloons and captions on each page. It is built into the app, so
+there is nothing to download or set up: `make` and `make install` (or
+`make apk`) include it. It runs on your own CPU, and a page takes about a
+sixth of a second. Pages it is unsure about, like a splash page, are shown
+whole instead of guessed at.
+
+It was trained only on comics whose licences allow it: public-domain
+golden- and silver-age books, US government comics, and Creative Commons
+BY comics such as Pepper&Carrot. The model is under the same Apache 2.0
+licence as the rest of ComicRedr, and [NOTICE](NOTICE) credits every
+book it learned from. Everything needed to train it again is in this
+repository; [docs/training.md](docs/training.md) has the steps
+(`make train-model`).
+
+To try another model without rebuilding, `make install-model MODEL=file.onnx`
+(or `make push-model` for the phone) puts it beside the app, where it wins
+over the built-in one until the next `make install` (or `make install-apk`)
+moves it aside to `comicredr-panels.onnx.old`. `make install KEEP_MODEL=1`
+keeps it.
+
 ### The CBR files you already have
 
 ComicRedr doesn't read RAR archives. Convert them to CBZ once; it takes a
@@ -291,6 +221,8 @@ A `.cbr` that is really a ZIP opens as it is.
 
 ## More
 
-What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
-Development notes, the test scripts and how the detector is trained are in
-[AGENTS.md](AGENTS.md).
+- Every feature, with screenshots and short animations: [the ComicRedr guide](docs/guide/README.md)
+- What changed in each version: [CHANGELOG.md](CHANGELOG.md)
+- How it works inside, with diagrams and the detector model explained: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Training the panel detector: [docs/training.md](docs/training.md)
+- Notes for developers, the test scripts and conventions: [AGENTS.md](AGENTS.md)

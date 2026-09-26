@@ -20,7 +20,7 @@ ComicMeta parseComicInfo(String xml) {
     final attrs = m.group(1)!;
     if (RegExp(r'''Type\s*=\s*["']FrontCover["']''').hasMatch(attrs)) {
       final image = RegExp(r'''Image\s*=\s*["'](\d+)["']''').firstMatch(attrs);
-      if (image != null) frontCover = int.parse(image.group(1)!);
+      if (image != null) frontCover = int.tryParse(image.group(1)!);
       break;
     }
   }
@@ -59,10 +59,15 @@ class _XmlUnescape extends Converter<String, String> {
       'gt' => '>',
       'quot' => '"',
       'apos' => "'",
-      _ when e.startsWith('#x') => String.fromCharCode(int.parse(e.substring(2), radix: 16)),
-      _ => String.fromCharCode(int.parse(e.substring(1))),
+      _ when e.startsWith('#x') => _char(int.tryParse(e.substring(2), radix: 16), m[0]!),
+      _ => _char(int.tryParse(e.substring(1)), m[0]!),
     };
   });
+
+  /// The character [code] names, or the reference as written when it names
+  /// none: one bad reference should not cost the whole book its metadata.
+  static String _char(int? code, String written) =>
+      code == null || code > 0x10FFFF ? written : String.fromCharCode(code);
 }
 
 /// Whether [name], a path inside an archive, is a ComicInfo.xml, in any

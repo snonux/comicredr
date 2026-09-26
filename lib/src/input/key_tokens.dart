@@ -16,8 +16,25 @@ final _named = <LogicalKeyboardKey, String>{
   LogicalKeyboardKey.backspace: 'Backspace',
   LogicalKeyboardKey.delete: 'Delete',
   LogicalKeyboardKey.numpadEnter: 'Enter',
+  LogicalKeyboardKey.insert: 'Insert',
+  // Every key keys.toml accepts (reader_input's namedKeys) must be here, or
+  // a binding to it loads without a warning and never fires.
+  LogicalKeyboardKey.f1: 'F1',
+  LogicalKeyboardKey.f2: 'F2',
+  LogicalKeyboardKey.f3: 'F3',
+  LogicalKeyboardKey.f4: 'F4',
+  LogicalKeyboardKey.f5: 'F5',
+  LogicalKeyboardKey.f6: 'F6',
+  LogicalKeyboardKey.f7: 'F7',
+  LogicalKeyboardKey.f8: 'F8',
+  LogicalKeyboardKey.f9: 'F9',
+  LogicalKeyboardKey.f10: 'F10',
   LogicalKeyboardKey.f11: 'F11',
+  LogicalKeyboardKey.f12: 'F12',
 };
+
+/// The key names [keyToken] spells, for a test to hold against namedKeys.
+Iterable<String> get tokenKeyNames => _named.values;
 
 /// Spells a key press as a `reader_input` token: `l`, `G`, `C-f`, `S-Tab`,
 /// `PageDown`. Returns null for bare modifiers and keys nothing binds.

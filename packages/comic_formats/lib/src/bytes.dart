@@ -15,13 +15,16 @@ bool hasBytesAt(Uint8List bytes, int at, List<int> magic) {
 typedef JpegSegment = ({int marker, int start, int end});
 
 /// The marker segments of a JPEG's header [h], in order, up to the start of
-/// the scan (SOS) or wherever [h] runs out or stops making sense. Fill bytes
-/// and the markers that carry no length (SOI, TEM, RST0-7) are stepped over.
+/// the scan (SOS) or wherever [h] runs out. Stray bytes, fill bytes and the
+/// markers that carry no length (SOI, TEM, RST0-7) are stepped over.
 Iterable<JpegSegment> jpegSegments(Uint8List h) sync* {
   final b = ByteData.sublistView(h);
   var i = 2;
   while (i + 4 <= h.length) {
-    if (h[i] != 0xFF) return;
+    if (h[i] != 0xFF) {
+      i++; // Stray bytes between segments: libjpeg skips them, so do we.
+      continue;
+    }
     final marker = h[i + 1];
     if (marker == 0xFF) {
       i++; // Fill byte.

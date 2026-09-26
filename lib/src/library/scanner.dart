@@ -146,7 +146,7 @@ class LibraryScanner {
     var subs = <StreamSubscription<FileSystemEvent>>[];
     var closed = false;
     Timer? debounce;
-    Future<void> rewatch() async {
+    Future<void> watchAll() async {
       for (final s in subs) {
         await s.cancel();
       }
@@ -170,10 +170,16 @@ class LibraryScanner {
       }
     }
 
+    // One at a time: a second run while the first still awaits would add
+    // its watches to a list the first then drops, leaking them.
+    var running = Future<void>.value();
+    Future<void> rewatch() => running = running.catchError((Object _) {}).then((_) => watchAll());
+
     await rewatch();
     events.onCancel = () async {
       closed = true;
       debounce?.cancel();
+      await running;
       for (final s in subs) {
         await s.cancel();
       }
@@ -184,7 +190,8 @@ class LibraryScanner {
       // Watch new folders before scanning, so a comic copied into one
       // while the scan runs still fires an event.
       debounce = Timer(const Duration(seconds: 2), () async {
-        if (!closed) await rewatch();
+        if (closed) return;
+        await rewatch();
         await scan();
       });
     });
@@ -238,7 +245,16 @@ List<Candidate> findBooks(String root) {
       // own mtime: writing the sidecar inside it changes that.
       var size = 0;
       var mtime = 0;
-      for (final f in images) {
+      // Its pages in sub-folders too (an extras folder), as FolderDocument
+      // reads them, so a page added there counts as well.
+      final pages = [
+        ...images,
+        for (final d in entries.whereType<Directory>())
+          if (!p.basename(d.path).startsWith('.'))
+            for (final f in _filesUnder(d))
+              if (isPageEntry(p.relative(f.path, from: dir.path))) f,
+      ];
+      for (final f in pages) {
         final s = f.statSync();
         size += s.size;
         mtime = math.max(mtime, s.modified.millisecondsSinceEpoch);
@@ -261,4 +277,12 @@ List<Candidate> findBooks(String root) {
 
   walk(Directory(root), '');
   return out;
+}
+
+Iterable<File> _filesUnder(Directory d) {
+  try {
+    return d.listSync(recursive: true, followLinks: false).whereType<File>();
+  } on FileSystemException {
+    return const [];
+  }
 }

@@ -32,6 +32,10 @@ void main() {
   test('reads the size from the header of every page format', () {
     final image = img.Image(width: 300, height: 200);
     expect(imageSize(img.encodeJpg(image)), (300, 200));
+    // Stray bytes between two segments, which libjpeg decodes past.
+    final jpg = img.encodeJpg(image);
+    final app0 = 4 + (jpg[4] << 8 | jpg[5]);
+    expect(imageSize(Uint8List.fromList([...jpg.sublist(0, app0), 0, 0, 0, ...jpg.sublist(app0)])), (300, 200));
     expect(imageSize(img.encodePng(image)), (300, 200));
     expect(imageSize(img.encodeGif(image)), (300, 200));
     expect(imageSize(img.encodeBmp(image)), (300, 200));

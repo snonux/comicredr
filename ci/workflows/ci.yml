@@ -1,0 +1,237 @@
+# Every push, to any branch: the analyzer and unit tests, the Linux
+# release build driven end to end under Xvfb by the tool/e2e_*.sh scripts,
+# and the Android APK with a smoke run on an emulator.
+# The model checks (a one-epoch training run, the eval score) are in
+# model.yml, also on every push.
+name: CI
+
+# A pull request's branch is pushed too, so push alone covers it.
+on:
+  push:
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the older run, except on main.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  FLUTTER_VERSION: 3.47.5
+
+jobs:
+  test:
+    name: Analyze and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: flutter analyze, flutter test, dart test in each package
+        run: make test
+      - name: Shell and Python scripts parse
+        run: |
+          for f in tool/*.sh linux/packaging/*.sh; do bash -n "$f"; done
+          python3 -m py_compile spike/*.py tool/*.py
+
+  build-linux:
+    name: Linux release build
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - run: tool/ci_setup.sh build
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: make (release build with the built-in model)
+        run: make
+      - name: make tarball
+        run: make tarball
+      - name: Pack the build
+        # A tar keeps the executable bits and symlinks an artifact would lose.
+        run: tar -czf linux-build.tar.gz build/linux/x64/release/bundle build/comicredr-*-linux-x64.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: linux-build.tar.gz
+          retention-days: 7
+
+  corpus:
+    name: Test comics
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            test/corpus
+            test/corpus-formats
+            test/corpus-modern
+          key: corpus-${{ hashFiles('test/corpus.manifest.toml', 'test/formats.manifest.toml', 'test/modern.manifest.toml', 'tool/ci_fetch_corpus.sh') }}
+      - name: Fetch the comics (archive.org, peppercarrot.com, gutenberg.org)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: tool/ci_fetch_corpus.sh
+
+  e2e-list:
+    name: List the e2e scripts
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.list.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: echo "tests=$(tool/ci_e2e.sh --list)" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    name: e2e ${{ matrix.test }}
+    needs: [build-linux, corpus, e2e-list]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJSON(needs.e2e-list.outputs.tests) }}
+          - m8_library
+          - resume
+          - margins
+          - whole_page
+          - library_detection
+          - m9
+          - touch_zones
+          - pages
+          - cleanup
+          - resize
+          - hidden_sidecars
+          - sidecar_dir
+          - spreads
+          - reset
+          - open_folder
+          - default_folder
+          - folders_live
+          - formats
+          - bookmarks
+          - images
+          - pause_whole
+          - fullscreen
+          - clock
+          - details
+          - favourites
+          - data_dir
+          - delete
+          - edit
+          - shuffle
+          - search_key
+          - rotate
+          - regions
+          - memory
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: tool/ci_setup.sh e2e
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+      - run: tar -xzf linux-build.tar.gz && rm linux-build.tar.gz
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            test/corpus
+            test/corpus-formats
+            test/corpus-modern
+          key: corpus-${{ hashFiles('test/corpus.manifest.toml', 'test/formats.manifest.toml', 'test/modern.manifest.toml', 'tool/ci_fetch_corpus.sh') }}
+          fail-on-cache-miss: true
+      - name: tool/ci_e2e.sh ${{ matrix.test }}
+        run: tool/ci_e2e.sh ${{ matrix.test }}
+      - name: Screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ matrix.test }}
+          path: |
+            build/e2e*/**/*.png
+            build/e2e*/**/*.log
+            build/e2e*/**/*.txt
+            build/e2e*/**/*.csv
+          retention-days: 14
+          if-no-files-found: ignore
+
+  apk:
+    name: Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: flutter build apk (arm64 for phones, x64 for the emulator)
+        # No release key in CI: without android/key.properties the build is
+        # signed with the debug key, so it cannot update a sideloaded app.
+        run: |
+          make check-model
+          flutter pub get
+          flutter build apk --release --target-platform android-arm64,android-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
+
+  android-emulator:
+    name: Android emulator smoke
+    needs: [apk, corpus]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            test/corpus
+            test/corpus-formats
+            test/corpus-modern
+          key: corpus-${{ hashFiles('test/corpus.manifest.toml', 'test/formats.manifest.toml', 'test/modern.manifest.toml', 'tool/ci_fetch_corpus.sh') }}
+          fail-on-cache-miss: true
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install, open the library and a comic on Android 14
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          script: tool/ci_android_smoke.sh app-release.apk test/corpus/silver-age/reptisaurus-v2-005.cbz
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-smoke
+          path: build/android-smoke/
+          retention-days: 14
+          if-no-files-found: ignore

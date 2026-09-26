@@ -128,6 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // All files access may have been granted meanwhile, which lets the
       // default Comics folder in.
       onResume: () {
+        ref.read(readerProvider.notifier).resumeSitting();
         if (Platform.isAndroid) unawaited(_addDefaultFolder().then((_) => ref.read(scannerProvider).scan()));
       },
       onExitRequested: () async {
@@ -572,6 +573,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!(_overlay.currentState?.back() ?? false)) setState(() => _showKeymap = false);
       return;
     }
+    // Nothing else reaches the library or the reader hidden behind the help:
+    // Enter would open a book under it, gd ask to delete one.
+    if (_showKeymap && c.intent != ReaderIntent.fullscreen) return;
     if (c.intent == ReaderIntent.pageGrid && ref.read(readerProvider).book != null) {
       _setShowPages(!_showPages);
       return;

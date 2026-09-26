@@ -170,6 +170,8 @@ void main() {
       expect(isFolderBook(dir.path), isTrue);
       final doc = FolderDocument.open(dir.path);
       expect(doc.pageNames, ['extras/page11.jpg', 'page1.png', 'page2.jpg', 'page10.jpg']);
+      // A trailing slash on the folder's path changes nothing.
+      expect(FolderDocument.open('${dir.path}/').pageNames, doc.pageNames);
       expect((await doc.rawPage(3))!.last, 10);
       expect((await doc.page(1, targetWidth: 100, targetHeight: 100)).bgra, isFalse);
     });

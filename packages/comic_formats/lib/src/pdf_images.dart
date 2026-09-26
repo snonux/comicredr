@@ -71,8 +71,10 @@ List<PdfImage> pdfImages(String path) {
 bool _nameChar(int c) => !(c <= 0x20 || '()<>[]{}/%'.codeUnits.contains(c));
 
 final _subtype = RegExp(r'/Subtype\s*/Image$');
-final _width = RegExp(r'/Width\s+(\d+)(?!\s+\d+\s+R)');
-final _height = RegExp(r'/Height\s+(\d+)(?!\s+\d+\s+R)');
+// `(?!\d)` keeps the digits whole, so `/Width 1200 0 R` (a reference) can't
+// match as `120` followed by `0 0 R`.
+final _width = RegExp(r'/Width\s+(\d+)(?!\d)(?!\s+\d+\s+R)');
+final _height = RegExp(r'/Height\s+(\d+)(?!\d)(?!\s+\d+\s+R)');
 final _bits = RegExp(r'/BitsPerComponent\s+(\d+)');
 
 /// The image whose `/Subtype /Image` ends at [i] in [data] (read from file

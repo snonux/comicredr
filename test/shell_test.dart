@@ -305,6 +305,22 @@ void main() {
     expect(find.text('Next page, ignoring panels'), findsNothing);
   });
 
+  testWidgets('keys under the ? help do not reach the reader behind it', (tester) async {
+    final path = writeBook(tmp, 'Behind 01.cbz', 4);
+    final c = await pumpApp(tester);
+    await open(tester, c, path);
+    await tester.sendKeyEvent(LogicalKeyboardKey.slash, physicalKey: PhysicalKeyboardKey.slash, character: '?');
+    await tester.pump();
+    await key(tester, LogicalKeyboardKey.keyL);
+    await key(tester, LogicalKeyboardKey.enter);
+    expect(c.read(readerProvider).page, 0, reason: 'l turned the page under the help');
+    expect(find.byType(KeymapOverlay), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(c.read(readerProvider).page, 1);
+  });
+
   testWidgets('/ searches the keymap overlay; Esc clears the search, then closes it', (tester) async {
     await pumpApp(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.slash, physicalKey: PhysicalKeyboardKey.slash, character: '?');

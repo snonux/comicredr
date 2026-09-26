@@ -18,7 +18,8 @@ class FolderDocument with StoredPages implements ComicDocument {
   factory FolderDocument.open(String path) {
     final dir = Directory(path);
     if (!dir.existsSync()) throw FormatException('No such folder: $path');
-    final root = dir.absolute.path;
+    // Without a trailing slash, or [_relative] cuts a letter off each name.
+    final root = dir.absolute.path.replaceFirst(RegExp(r'(?<=.)/+$'), '');
     final List<FileSystemEntity> entries;
     try {
       entries = Directory(root).listSync(recursive: true, followLinks: false);

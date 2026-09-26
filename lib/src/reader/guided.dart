@@ -45,17 +45,19 @@ class PagePanels {
   final List<Panel> balloons;
   final GateResult gate;
 
-  final _byFrame = <bool, List<List<Panel>>>{};
+  final _byFrame = <(bool, double), List<List<Panel>>>{};
 
   /// The camera stops, in reading order for the book's direction; empty
-  /// when the gate failed and the page is shown whole.
-  List<Panel> stops({required bool rightToLeft}) =>
-      gate.passed ? (rightToLeft ? readingOrder(frames, rightToLeft: true) : frames) : const [];
+  /// when the gate failed and the page is shown whole. [aspect] is the
+  /// page's width over its height, so a two-page spread read right to left
+  /// takes the whole right page first.
+  List<Panel> stops({required bool rightToLeft, double aspect = 1}) =>
+      gate.passed ? (rightToLeft ? readingOrder(frames, rightToLeft: true, aspect: aspect) : frames) : const [];
 
   /// The balloons inside stop [stop], in reading order.
-  List<Panel> balloonsIn(int stop, {required bool rightToLeft}) {
-    final groups = _byFrame[rightToLeft] ??= balloonsByFrame(
-      stops(rightToLeft: rightToLeft),
+  List<Panel> balloonsIn(int stop, {required bool rightToLeft, double aspect = 1}) {
+    final groups = _byFrame[(rightToLeft, aspect)] ??= balloonsByFrame(
+      stops(rightToLeft: rightToLeft, aspect: aspect),
       balloons,
       rightToLeft: rightToLeft,
     );

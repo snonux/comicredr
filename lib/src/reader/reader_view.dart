@@ -217,7 +217,12 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     final sharpen = s.cleanUp;
     final sameUnit = listEquals(unit, _shownUnit);
     // A new size alone waits for the resize to settle.
-    if (sameUnit && sharpen == _shownSharpened && (box == _shownBox || (_resizeTimer?.isActive ?? false))) return;
+    if (sameUnit && sharpen == _shownSharpened && (box == _shownBox || (_resizeTimer?.isActive ?? false))) {
+      // Back on the shown pages before another unit's decode landed (`G`
+      // then `gg`): that decode must not replace them when it does.
+      ++_request;
+      return;
+    }
     final request = ++_request;
     final cache = _cache!;
     Future.wait([for (final p in unit) cache.get(p, box, sharpen: sharpen)]).then(
