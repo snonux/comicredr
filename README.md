@@ -15,7 +15,10 @@ account, cloud or network.
 feature with screenshots and short animations, as a small book with a
 table of contents.
 
-![Guided view stepping through a page panel by panel](docs/guide/images/guided.gif)
+| | |
+|---|---|
+| ![Guided view stepping through a page panel by panel](docs/guide/images/guided.gif) | ![Balloon mode stepping through the speech balloons of each panel](docs/guide/images/balloons.gif) |
+| **Guided view** (`v`): the page whole, then panel by panel | **Balloon mode** (`b`): one speech balloon at a time |
 
 ## Highlights
 
