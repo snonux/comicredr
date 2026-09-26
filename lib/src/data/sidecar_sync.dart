@@ -451,13 +451,16 @@ class SidecarSync {
 
   /// "Export sidecars" (design plan section 7): writes the sidecar of every
   /// book in the library under [dir], laid out like the library, so the
-  /// export copied over the comics puts each one beside its book. Returns
-  /// how many were written.
+  /// export copied over the comics puts each one beside its book. With
+  /// more than one library folder each gets its own folder, named as in a
+  /// sidecar folder ([rootLabel]), so two books at the same place in two
+  /// folders don't write the same file. Returns how many were written.
   Future<int> exportAll(String dir) async {
     await flush();
+    final roots = await _roots();
     final rows = await _db
         .customSelect(
-          'SELECT f.content_key, f.rel_path, b.format FROM files f JOIN books b ON b.content_key = f.content_key '
+          'SELECT f.content_key, f.root_id, f.rel_path, b.format FROM files f JOIN books b ON b.content_key = f.content_key '
           'GROUP BY f.content_key ORDER BY f.root_id, f.rel_path',
         )
         .get();
@@ -465,8 +468,10 @@ class SidecarSync {
     for (final r in rows) {
       final rel = r.read<String>('rel_path');
       final folder = r.read<String>('format') == 'folder';
+      final root = roots.where((x) => x.id == r.read<int>('root_id')).firstOrNull;
+      final base = roots.length > 1 && root != null ? p.join(dir, rootLabel(root, roots)) : dir;
       // A root that is itself a folder book has an empty relative path.
-      final at = rel.isEmpty ? p.join(dir, 'book') : p.join(dir, rel);
+      final at = rel.isEmpty ? p.join(base, 'book') : p.join(base, rel);
       final target = sidecarPath(at, folder: folder);
       try {
         await Directory(p.dirname(target)).create(recursive: true);
