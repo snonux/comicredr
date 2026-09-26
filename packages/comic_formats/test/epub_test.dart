@@ -23,7 +23,8 @@ String svgPage(String image) => '''<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1200 1800">
 <image width="1200" height="1800" xlink:href="$image"/></svg></body></html>''';
 
-String chapter(String image) => '''<html xmlns="http://www.w3.org/1999/xhtml"><body>
+String chapter(String image) =>
+    '''<html xmlns="http://www.w3.org/1999/xhtml"><body>
 <h1>Chapter</h1><p>${'It was a dark and stormy night; the rain fell in torrents. ' * 12}</p>
 <img src="$image"/><p>${'Except at occasional intervals, when it was checked by a violent gust. ' * 8}</p></body></html>''';
 
@@ -194,10 +195,14 @@ void main() {
   });
 
   test('pages cut into several pictures with OCR text are refused, as the Internet Archive makes them', () async {
-    final items = [for (var i = 0; i < 6; i++) '<item id="p$i" href="page_$i.html" media-type="application/xhtml+xml"/>'];
-    final opf = '<package><manifest>${items.join()}</manifest><spine>'
+    final items = [
+      for (var i = 0; i < 6; i++) '<item id="p$i" href="page_$i.html" media-type="application/xhtml+xml"/>',
+    ];
+    final opf =
+        '<package><manifest>${items.join()}</manifest><spine>'
         '${[for (var i = 0; i < 6; i++) '<itemref idref="p$i"/>'].join()}</spine></package>';
-    String cut(int i) => '<html><body><b>The text on this page is estimated to be only 9.89% accurate</b>'
+    String cut(int i) =>
+        '<html><body><b>The text on this page is estimated to be only 9.89% accurate</b>'
         '<p>IT MIGHT\'VE BEEN WORSE</p><img src="i${i}a.jpg"/><img src="i${i}b.jpg"/></body></html>';
     final path = writeEpub('derived.epub', {
       'META-INF/container.xml': utf8.encode(container),
@@ -233,7 +238,8 @@ void main() {
 
   test('one text page among many comic pages is skipped, not fatal', () async {
     final items = [for (var i = 0; i < 12; i++) '<item id="p$i" href="p$i.xhtml" media-type="application/xhtml+xml"/>'];
-    final opf = '<package><manifest>${items.join()}</manifest><spine>'
+    final opf =
+        '<package><manifest>${items.join()}</manifest><spine>'
         '${[for (var i = 0; i < 12; i++) '<itemref idref="p$i"/>'].join()}</spine></package>';
     final path = writeEpub('foreword.epub', {
       'META-INF/container.xml': utf8.encode(container),

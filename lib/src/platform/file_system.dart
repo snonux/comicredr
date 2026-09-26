@@ -17,10 +17,7 @@ class IoFileSystem implements PlatformFileSystem {
 
   @override
   Stream<String> list(String root, {bool recursive = true}) =>
-      Directory(root)
-          .list(recursive: recursive, followLinks: false)
-          .where((e) => e is File)
-          .map((e) => e.path);
+      Directory(root).list(recursive: recursive, followLinks: false).where((e) => e is File).map((e) => e.path);
 
   @override
   Future<Uint8List> readHead(String path, int bytes) async {

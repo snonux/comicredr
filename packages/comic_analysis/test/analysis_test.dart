@@ -124,8 +124,8 @@ void main() {
       return px;
     }
 
-    final a = Panel(20 / w, 20 / h, 360 / w, 240 / h);
-    final b = Panel(20 / w, 220 / h, 360 / w, 360 / h);
+    final a = const Panel(20 / w, 20 / h, 360 / w, 240 / h);
+    final b = const Panel(20 / w, 220 / h, 360 / w, 360 / h);
 
     test('slanted panels get their real outline, and pass the gate', () {
       final got = refineOutlines(page(), w, h, [a, b], const []);
@@ -154,7 +154,7 @@ void main() {
 
     test('rectangular panels keep their boxes', () {
       final px = Uint8List(w * h * 4)..fillRange(0, w * h * 4, 255);
-      final grid = [Panel(20 / w, 20 / h, 360 / w, 270 / h), Panel(20 / w, 310 / h, 360 / w, 270 / h)];
+      final grid = [const Panel(20 / w, 20 / h, 360 / w, 270 / h), const Panel(20 / w, 310 / h, 360 / w, 270 / h)];
       for (final p in grid) {
         for (var y = (p.y * h).round(); y < (p.bottom * h).round(); y++) {
           for (var x = (p.x * w).round(); x < (p.right * w).round(); x++) {

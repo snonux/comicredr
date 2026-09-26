@@ -319,7 +319,7 @@ class LibraryStore {
   /// [query] now and again whenever one of [tables] changes. Drift's own
   /// watch() does the same, but leaves a timer behind when it is cancelled,
   /// which widget tests refuse.
-  Stream<T> _live<T>(Set<TableInfo> tables, Future<T> Function() query) async* {
+  Stream<T> _live<T>(Set<TableInfo<Table, Object?>> tables, Future<T> Function() query) async* {
     yield await query();
     await for (final _ in db.tableUpdates(TableUpdateQuery.onAllTables(tables))) {
       yield await query();

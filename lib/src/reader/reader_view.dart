@@ -215,7 +215,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     if (_viewport == Size.zero) return;
     final box = _box(s.guided, unit.length);
     final sharpen = s.cleanUp;
-    final sameUnit = _listEquals(unit, _shownUnit);
+    final sameUnit = listEquals(unit, _shownUnit);
     // A new size alone waits for the resize to settle.
     if (sameUnit && sharpen == _shownSharpened && (box == _shownBox || (_resizeTimer?.isActive ?? false))) return;
     final request = ++_request;
@@ -233,7 +233,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         final old = _images;
         // The same pages sharper or smaller after a resize, or sharpened or
         // not (`c`), keep the view.
-        final samePages = _listEquals(unit, _shownUnit);
+        final samePages = listEquals(unit, _shownUnit);
         setState(() {
           _clearTiles();
           _images = images;
@@ -319,9 +319,6 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   /// The levels shown page [k] (in unit order) is drawn with.
   Levels _levelsOf(ReaderState s, int k) =>
       s.cleanUp && k < _shownUnit.length ? _levels[_shownUnit[k]] ?? Levels.none : Levels.none;
-
-  static bool _listEquals(List<int> a, List<int> b) =>
-      a.length == b.length && Iterable.generate(a.length).every((i) => a[i] == b[i]);
 
   /// View intents: zoom, fit and pan. Returns false for anything else.
   bool handle(ReaderCommand c) {

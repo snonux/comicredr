@@ -1,11 +1,6 @@
-include: package:flutter_lints/flutter.yaml
+include: package:lints/recommended.yaml
 
 analyzer:
-  exclude:
-    - build/**
-    - android/**
-    - linux/**
-    - "**/*.g.dart"
   language:
     strict-casts: true
     strict-inference: true

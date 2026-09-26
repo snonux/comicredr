@@ -32,10 +32,11 @@ Future<String?> findModel() async {
   if (named != null && named.isNotEmpty) return File(named).existsSync() ? named : null;
   final dirs = <Future<Directory?> Function()>[
     appDataDirectory,
-    if (!Platform.isAndroid) () async => switch (xdgDataFolder()) {
-      final d? => Directory(d),
-      null => null,
-    },
+    if (!Platform.isAndroid)
+      () async => switch (xdgDataFolder()) {
+        final d? => Directory(d),
+        null => null,
+      },
     if (Platform.isAndroid) getExternalStorageDirectory,
   ];
   for (final dir in dirs) {
@@ -142,9 +143,9 @@ class ModelDetector {
     final ready = Completer<SendPort>();
     replies.listen((Object? msg) {
       switch (msg) {
-        case SendPort port:
+        case final SendPort port:
           ready.complete(port);
-        case (int id, List<double> frames, List<List<double>?> shapes, List<double> balloons):
+        case (final int id, final List<double> frames, final List<List<double>?> shapes, final List<double> balloons):
           _pending
               .remove(id)
               ?.complete(
@@ -152,9 +153,9 @@ class ModelDetector {
                   for (final (i, f) in _panels(frames, PanelKind.frame).indexed) f.withShape(shapes[i]),
                 ], _panels(balloons, PanelKind.balloon)),
               );
-        case (int id, String error):
+        case (final int id, final String error):
           _pending.remove(id)?.completeError(StateError(error));
-        case (String error,):
+        case (final String error,):
           // The session could not load: fail everything, now and later.
           if (!ready.isCompleted) ready.completeError(StateError(error));
           for (final c in _pending.values) {
