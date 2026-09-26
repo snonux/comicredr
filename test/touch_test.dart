@@ -320,4 +320,33 @@ twoFingerTap = "autoTrim"
     await tester.pump(const Duration(seconds: 4));
     expect(find.byKey(const Key('touch-zones')), findsNothing);
   });
+
+  testWidgets("Settings' choices drop the tick on a phone, where it broke words", (tester) async {
+    // The test font's wide glyphs wrap either way, so this checks the tick;
+    // on the emulator "Colour" and "Standard" were split mid-word by it.
+    Future<bool> ticks(Size size) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [databaseProvider.overrideWithValue(db), classicCvOnly],
+          child: const ComicRedrApp(),
+        ),
+      );
+      await settle(tester);
+      unawaited(showSettings(tester.element(find.byType(LibraryScreen))));
+      await settle(tester);
+      final shown = [
+        for (final key in ['setting-pauseCue', 'setting-sidecarPlace', 'setting-touch'])
+          tester.widget<SegmentedButton<Object?>>(find.byKey(Key(key))).showSelectedIcon,
+      ];
+      expect(shown.toSet(), hasLength(1));
+      return shown.first;
+    }
+
+    addTearDown(tester.view.reset);
+    expect(await ticks(const Size(411, 914)), isFalse);
+    expect(await ticks(const Size(1280, 800)), isTrue);
+  });
 }

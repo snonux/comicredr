@@ -17,10 +17,36 @@ const comicsDataName = '.comicredr';
 typedef AppDirs = ({String data, String cache, String? keys, bool inComics});
 
 Future<AppDirs>? _dirs;
+Map<String, String>? _environment;
 
 /// This install's folders, worked out once per run (see [comicsDataFolder]).
 /// `main` makes them before the database opens.
 Future<AppDirs> appDirs() => _dirs ??= _resolve();
+
+/// The environment `HOME` and the XDG folders are read from: the process's
+/// own, unless a test swapped in a scratch home ([debugUseHome]).
+Map<String, String> get appEnvironment => _environment ?? Platform.environment;
+
+/// Makes [home] the app's home for the rest of the run: `~/Comics`, the app
+/// data folder, `keys.toml` and installed models are all looked for under
+/// it, and the app data goes in its XDG folders. `test/flutter_test_config.dart`
+/// calls it before every test file, because widget tests run the real
+/// start-up: with the real HOME they scanned the developer's `~/Comics`
+/// into a new `~/Comics/.comicredr` and wrote test positions into its
+/// sidecars.
+@visibleForTesting
+void debugUseHome(String home) {
+  _environment = {...Platform.environment, 'HOME': home}
+    ..remove('XDG_DATA_HOME')
+    ..remove('XDG_CONFIG_HOME')
+    ..remove('XDG_CACHE_HOME');
+  _dirs = Future.value((
+    data: xdgDataFolder()!,
+    cache: p.join(home, '.cache', appId),
+    keys: xdgKeysFile(),
+    inComics: false,
+  ));
+}
 
 /// The folder the index database and installed models live in.
 Future<Directory> appDataDirectory() async => Directory((await appDirs()).data);
@@ -49,7 +75,7 @@ Future<AppDirs> _resolve() async {
 @visibleForTesting
 String? comicsDataFolder({Map<String, String>? environment, bool? android}) {
   if (android ?? Platform.isAndroid) return null;
-  final env = environment ?? Platform.environment;
+  final env = environment ?? appEnvironment;
   final home = env['HOME'];
   if (home == null || home.isEmpty) return null;
   final xdg = env['XDG_DATA_HOME'];
@@ -64,7 +90,7 @@ String? comicsDataFolder({Map<String, String>? environment, bool? android}) {
 
 /// `~/.config/comicredr/keys.toml`, or under `$XDG_CONFIG_HOME`.
 String? xdgKeysFile([Map<String, String>? environment]) {
-  final env = environment ?? Platform.environment;
+  final env = environment ?? appEnvironment;
   final xdg = env['XDG_CONFIG_HOME'];
   final home = env['HOME'];
   final config = xdg != null && xdg.isNotEmpty ? xdg : (home == null ? null : p.join(home, '.config'));
@@ -74,7 +100,7 @@ String? xdgKeysFile([Map<String, String>? environment]) {
 /// The usual Linux data folder, where `make install-model` put models
 /// before the app could live in `~/Comics`.
 String? xdgDataFolder([Map<String, String>? environment]) {
-  final env = environment ?? Platform.environment;
+  final env = environment ?? appEnvironment;
   final xdg = env['XDG_DATA_HOME'];
   final home = env['HOME'];
   final data = xdg != null && xdg.isNotEmpty ? xdg : (home == null ? null : p.join(home, '.local', 'share'));

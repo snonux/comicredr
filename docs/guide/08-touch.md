@@ -1,6 +1,6 @@
-# 7. Touch
+# 8. Touch
 
-[Contents](README.md) · Previous: [Managing your comics](06-managing-comics.md) · Next: [The keyboard](08-keyboard.md)
+[Contents](README.md) · Previous: [Managing your comics](07-managing-comics.md) · Next: [The keyboard](09-keyboard.md)
 
 Everything in ComicRedr works by touch, on the phone and on a laptop's
 touchscreen alike.
@@ -16,7 +16,7 @@ touchscreen alike.
 | Double-tap the middle | Zoom in on that spot, or back out |
 | Pinch | Zoom |
 | Drag | Move around a zoomed page |
-| Hold a finger on the middle | [The time](03-reading.md#what-time-is-it) |
+| Hold a finger on the middle | [The time](04-reading.md#what-time-is-it) |
 | Drag along the progress bar | Preview pages, and let go to jump |
 
 The buttons on the status line do the rest: guided view, balloons, the
@@ -51,7 +51,7 @@ few seconds.
 
 Any tap, double-tap or long press in any of the nine zones, the four
 swipes and a two-finger tap can do any action ComicRedr has. You set them
-in the `[touch]` section of `keys.toml`; [chapter 8](08-keyboard.md#your-own-keys)
+in the `[touch]` section of `keys.toml`; [chapter 9](09-keyboard.md#your-own-keys)
 shows how. For example, to make a long press in the top right corner set a
 bookmark:
 
@@ -67,4 +67,4 @@ longPress = [
 Your lines go on top of the layout picked in Settings. Pinch zoom and
 dragging a zoomed page always work and can't be changed.
 
-[Contents](README.md) · Previous: [Managing your comics](06-managing-comics.md) · Next: [The keyboard](08-keyboard.md)
+[Contents](README.md) · Previous: [Managing your comics](07-managing-comics.md) · Next: [The keyboard](09-keyboard.md)

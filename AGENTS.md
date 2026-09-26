@@ -15,19 +15,24 @@ it in step when the architecture or the model changes.
   plainly in the PR.
 - Merge with merge commits, not squash, and keep `main` green
   (`make test`).
-- The README is short and written for a human (snonux, 2026-09-26): an
-  intro with a few highlights, the screenshots, the install steps and a
-  quick start that points to the in-app `?` help. Every feature, with
-  examples and screenshots, belongs in the usage guide (`docs/guide/`),
-  which the README links to; no long feature list in the README.
-  Internals go here, and training in `docs/training.md`. The `?` overlay
-  and `docs/keys.toml` are generated from the keymap and are the key
-  reference.
+- The README is as lean as it can be (snonux, 2026-09-26): an intro, a
+  link to the usage guide near the top, a few highlights, the
+  screenshots, a five-step quick start that ends with a link to carry on
+  in the guide, and the links to ARCHITECTURE.md, training.md, this file
+  and the changelog at the bottom. Nothing else: touch, data, CBR and the
+  like are guide chapters. Install steps live in `docs/install-linux.md`
+  and `docs/install-android.md` (F-Droid first, via snonux's repo
+  github.com/snonux/fdroid, then building the APK); the README's quick
+  start and the guide's Installing chapter only point to them. Installing and every feature, with examples and screenshots,
+  belong in the guide. Internals go here, and training in
+  `docs/training.md`. The `?` overlay and `docs/keys.toml` are generated
+  from the keymap and are the key reference.
 - The usage guide is `docs/guide/`: a contents page (`README.md`) and one
-  chapter a file, written for people. A feature that changes what a user
-  sees or types gets its chapter updated in the same PR, and new section
-  headings go in the contents. Its pictures are made by
-  `tool/guide_shots.sh` from the release build (WebP stills, small GIFs).
+  chapter a file, written for people, starting with installing. A
+  feature that changes what a user sees or types gets its chapter updated
+  in the same PR, and new section headings go in the contents. Its
+  pictures are made by `tool/guide_shots.sh` from the release build (WebP
+  stills, small GIFs).
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
@@ -38,10 +43,39 @@ it in step when the architecture or the model changes.
   root (`packages/reader_input/test/keys_toml_test.dart` fails otherwise).
 - Version bumps touch `pubspec.yaml`, `lib/src/version.dart` and
   `CHANGELOG.md` together (`test/version_test.dart` checks the first two).
-- The app points users at README sections by name: "The CBR files you
-  already have" (`lib/src/reader/open_book.dart`) and "The trained
-  detector" (`lib/src/library/settings_dialog.dart`). Keep those headings
-  or update the strings.
+- The app points users at sections of the guide's Installing chapter
+  (`docs/guide/01-installing.md`) by name: "The CBR files you already
+  have" (`lib/src/reader/open_book.dart`) and "The panel detector"
+  (`lib/src/library/settings_dialog.dart`). Keep those headings or update
+  the strings.
+
+## Releases
+
+A release is a `vX.Y.Z` tag on a commit whose `pubspec.yaml` says
+`version: X.Y.Z+N`, with `N` one more than the last release:
+
+1. Bump `version:` in `pubspec.yaml` and move the `Unreleased` notes in
+   `CHANGELOG.md` under the new version.
+2. Write `fastlane/metadata/android/en-US/changelogs/N.txt`, a few lines
+   (at most 500 characters) that F-Droid shows as *What's new*.
+3. Commit, `git tag vX.Y.Z`, `git push && git push --tags`.
+
+The tag starts `.github/workflows/release.yml`, which builds the arm64 APK with
+the release key and attaches it to the GitHub release of the tag. The
+[F-Droid repository](https://github.com/snonux/fdroid) picks it up with the
+store listing in `fastlane/` at that tag. The workflow needs these
+repository secrets, taken from `android/key.properties`:
+
+```sh
+base64 -w0 ~/.config/comicredr/release.jks | gh secret set ANDROID_KEYSTORE
+gh secret set ANDROID_KEY_ALIAS          # comicredr
+gh secret set ANDROID_KEYSTORE_PASSWORD  # storePassword
+gh secret set ANDROID_KEY_PASSWORD       # keyPassword
+```
+
+With an optional `FDROID_DISPATCH_TOKEN` (a fine-grained token with
+*Contents: read and write* on snonux/fdroid) the F-Droid repository
+refreshes right away instead of within six hours.
 
 ## Cloud container setup
 
@@ -58,8 +92,16 @@ it in step when the architecture or the model changes.
 - Fetching the corpus needs archive.org, huggingface.co and
   peppercarrot.com. digitalcomicmuseum.com and comicbookplus.com refuse
   cloud containers.
-- The ONNX Runtime plugin has no x86_64 Android build, so the detector
-  can't run on the Android emulator.
+- The ONNX Runtime plugin has no x86_64 Android build; `make apk` with
+  `APK_ABI` including `android-x64` fetches ONNX Runtime's own x86_64
+  library into the gitignored `android/app/src/main/jniLibs/`
+  (`MAVEN=https://maven-central.storage-download.googleapis.com/maven2`
+  when Maven Central answers 429). The emulator has no KVM there, so a
+  page takes about 13 minutes to detect (0.2 s natively); the results
+  match Linux.
+- On that emulator every PNG fails to decode, in any Flutter app: its
+  emulated CPU breaks zlib's checksums (`ZLibCodec` throws, raw deflate
+  works). Use JPEG comics there; phones are not affected.
 
 ## How the reader works
 
@@ -305,13 +347,20 @@ it in step when the architecture or the model changes.
   0.6 s fade (none with reduced motion). It sits in an `IgnorePointer`
   and formats with `MediaQuery.alwaysUse24HourFormat`. No setting.
 - Android needs All files access (MANAGE_EXTERNAL_STORAGE), granted on a
-  settings page. The APK was tested on an Android 14 emulator only; a real
-  phone, pinch zoom and real speed and memory are untested.
+  settings page; Android 7 to 10 ask for read and write storage at run
+  time instead, with legacy storage on 10. `o` and `O` go through
+  `MainActivity`'s own picker (`pickFile`, `pickFolder`), which answers
+  with the real path (`pathOf`), not file_selector's copy in the cache.
+  The reader sits in a SafeArea: Android 15 and a return from fullscreen
+  draw the app edge to edge. Below 600 dp the status line puts its text
+  above the buttons. The APK was tested on an Android 14 emulator only; a
+  real phone, pinch zoom and real speed and memory are untested.
 - `make install` puts the bundle in `~/.local/lib/comicredr`, a symlink in
   `~/.local/bin` and the launcher and icons in `~/.local/share`; it never
   runs Flutter, so `sudo make install PREFIX=/usr/local` is safe, and
   `DESTDIR` is supported. `APK_ABI=android-arm64,android-x64` adds the
-  emulator ABI to `make apk`. `make push-keys` copies keys.toml to the
+  emulator ABI to `make apk`; the APK carries only the ABIs asked for
+  (`abiFilters` from `--target-platform`). `make push-keys` copies keys.toml to the
   phone.
 
 ## Layout
@@ -326,6 +375,13 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 ```
 
 ## Develop and test
+
+`flutter test` runs every test file under an empty scratch home
+(`test/flutter_test_config.dart`, `debugUseHome` in `data_dirs.dart`):
+widget tests run the real start-up, and with the real HOME they scanned
+the developer's `~/Comics`, made a `~/Comics/.comicredr` and wrote test
+positions into its sidecars. Code that reads HOME or the XDG variables
+goes through `appEnvironment`, not `Platform.environment`.
 
 The e2e scripts use the detector built into the release build (and pass
 its file where they need one); `COMICREDR_MODEL=file.onnx` tries another,

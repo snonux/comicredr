@@ -68,7 +68,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       _detectLibrary = detectLibrary ?? detectLibraryByDefault;
       _sidecarDir = sidecarDir;
       _detector = detector.model == null
-          ? 'Classic computer vision. Build with the trained model for balloons and better panels (see "The trained detector" in the README).'
+          ? 'Classic computer vision. Build with the trained model for balloons and better panels (see "The panel detector" in the guide).'
           : 'The trained model: ${detector.model!.path}';
     });
   }
@@ -228,6 +228,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     ),
                     SegmentedButton<PauseCue?>(
                       key: const Key('setting-pauseCue'),
+                      showSelectedIcon: _roomForTicks(context),
                       segments: const [
                         ButtonSegment(value: null, label: Text('Off')),
                         ButtonSegment(value: PauseCue.colour, label: Text('Colour')),
@@ -268,6 +269,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       padding: const EdgeInsets.only(top: 4, bottom: 4),
                       child: SegmentedButton<bool>(
                         key: const Key('setting-sidecarPlace'),
+                        showSelectedIcon: _roomForTicks(context),
                         segments: const [
                           ButtonSegment(value: false, label: Text('Beside each comic')),
                           ButtonSegment(value: true, label: Text('In one folder')),
@@ -351,6 +353,7 @@ class _TouchPicker extends ConsumerWidget {
       children: [
         SegmentedButton<TouchPreset>(
           key: const Key('setting-touch'),
+          showSelectedIcon: _roomForTicks(context),
           segments: [
             for (final p in TouchPreset.values)
               ButtonSegment(
@@ -385,3 +388,8 @@ class _TouchPicker extends ConsumerWidget {
     );
   }
 }
+
+/// Whether a segmented button has room for the tick on its picked segment.
+/// On a phone the tick squeezed labels until they broke mid-word ("Colou r",
+/// "Stand ard"); the picked segment stays filled without it.
+bool _roomForTicks(BuildContext context) => MediaQuery.sizeOf(context).width >= 600;

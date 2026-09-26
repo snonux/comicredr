@@ -1,10 +1,10 @@
-# 9. On the phone
+# 10. On the phone
 
-[Contents](README.md) · Previous: [The keyboard](08-keyboard.md) · Next: [Your data](10-your-data.md)
+[Contents](README.md) · Previous: [The keyboard](09-keyboard.md) · Next: [Your data](11-your-data.md)
 
 ComicRedr on an Android phone is the same app as on the laptop, laid out
-for a narrow screen. How to build it and put it on the phone is in the
-README: [Install on an Android phone](../../README.md#install-on-an-android-phone).
+for a narrow screen. How to build it and put it on the phone is in
+[Installing](01-installing.md#on-an-android-phone).
 
 | | | |
 |---|---|---|
@@ -19,7 +19,8 @@ These pictures are from the Android 14 emulator.
    however you like).
 2. Start ComicRedr and tap the folder button.
 3. Android asks you to allow **All files access** for ComicRedr on a
-   settings page. Allow it, then come back.
+   settings page. Allow it, then come back. (Android 10 and older ask
+   in a dialog instead.)
 4. `Comics` is now in the library. The folder button adds any other
    folder.
 
@@ -33,7 +34,7 @@ These pictures are from the Android 14 emulator.
 - The library's tabs are at the bottom, and tapping a cover opens a page
   with its details and a **Read** button. A long press does the same.
 - The reader's status line has buttons for guided view, balloons, the
-  page grid, bookmarks and fullscreen; see [Touch](07-touch.md) for the
+  page grid, bookmarks and fullscreen; see [Touch](08-touch.md) for the
   gestures.
 - The back gesture works like `Esc`: out of guided view, then out of the
   book, then up through the library.
@@ -45,7 +46,7 @@ These pictures are from the Android 14 emulator.
 
 ## From the laptop to the phone and back
 
-Every comic carries a small hidden [sidecar file](10-your-data.md) with
+Every comic carries a small hidden [sidecar file](11-your-data.md) with
 its bookmarks, found panels and where you are. Copy the comic together
 with its sidecar (`.book.cbz.crdb` beside `book.cbz`) and it opens on the
 phone ready to read, without finding its panels again.
@@ -60,4 +61,4 @@ Your own keys and a detector model of your own can go onto the phone
 too: `make push-keys` and `make push-model MODEL=file.onnx` from the
 laptop.
 
-[Contents](README.md) · Previous: [The keyboard](08-keyboard.md) · Next: [Your data](10-your-data.md)
+[Contents](README.md) · Previous: [The keyboard](09-keyboard.md) · Next: [Your data](11-your-data.md)

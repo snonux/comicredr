@@ -1,6 +1,6 @@
-# 2. The library
+# 3. The library
 
-[Contents](README.md) · Previous: [Getting started](01-getting-started.md) · Next: [Reading a comic](03-reading.md)
+[Contents](README.md) · Previous: [Getting started](02-getting-started.md) · Next: [Reading a comic](04-reading.md)
 
 The library is every comic in the folders you gave ComicRedr, as covers.
 It is where the app opens, and `Esc` from a comic brings you back to it.
@@ -20,7 +20,7 @@ It is where the app opens, and `Esc` from a comic brings you back to it.
 On a wide window the selected book's details sit beside the covers: its
 cover, how far you are, a **Read** (or **Continue reading**) button, a
 star for [Favourites](#favourites), **Edit**, its
-[collections](#collections), its [bookmarks](05-bookmarks.md) and the
+[collections](#collections), its [bookmarks](06-bookmarks.md) and the
 file's path.
 
 On the phone the tabs sit along the bottom, and a tap on a cover opens a
@@ -47,7 +47,7 @@ Small marks on the covers tell you where you are:
 | **Collections** | Your own groups of books, including [Favourites](#favourites). |
 | **History** | What you read, day by day. |
 | **Folders** | Your comics as they are on disk, folder by folder. |
-| **Bookmarks** | Every bookmark in every book. See [Bookmarks and marks](05-bookmarks.md#the-bookmarks-tab). |
+| **Bookmarks** | Every bookmark in every book. See [Bookmarks and marks](06-bookmarks.md#the-bookmarks-tab). |
 
 ![The Reading tab: the books you have started](images/reading-tab.webp)
 
@@ -61,7 +61,7 @@ otherwise: `All Top Comics 6 (1959).cbz` becomes issue 6 of *All Top
 Comics*, from 1959. Books in a series are sorted by volume and issue, so
 issue 10 comes after issue 9, and specials like *Annual* go last.
 
-When the name is wrong, [fix it in the app](06-managing-comics.md#fix-a-title-or-series).
+When the name is wrong, [fix it in the app](07-managing-comics.md#fix-a-title-or-series).
 
 ### Folders
 
@@ -139,7 +139,7 @@ them.
   its books.
 
 Favourites is simply a collection called *Favourites*. Collections are
-kept in each comic's [sidecar file](10-your-data.md), so they follow the
+kept in each comic's [sidecar file](11-your-data.md), so they follow the
 comic to your phone.
 
 ## Adding, rescanning and taking out folders
@@ -158,4 +158,4 @@ ComicRedr looks for the panels of every book in the background, so
 guided view is ready whenever you want it (the pause button beside it
 pauses that).
 
-[Contents](README.md) · Previous: [Getting started](01-getting-started.md) · Next: [Reading a comic](03-reading.md)
+[Contents](README.md) · Previous: [Getting started](02-getting-started.md) · Next: [Reading a comic](04-reading.md)
