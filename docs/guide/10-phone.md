@@ -39,9 +39,8 @@ These pictures are from the Android 14 emulator.
 - The back gesture works like `Esc`: out of guided view, then out of the
   book, then up through the library.
 - The phone turns with you: turning it keeps your page, zoom and panel.
-- Finding the panels of the whole library in the background is off, to
-  save the battery. Guided view still finds each book's panels as you
-  read it, and Settings can turn the background pass on.
+- As on the laptop, panels are only found for the comic you have open,
+  ahead of the page you are on.
 - A Bluetooth keyboard works, with all the same keys.
 
 ## From the laptop to the phone and back

@@ -106,7 +106,6 @@ jobs:
           - resume
           - margins
           - whole_page
-          - library_detection
           - m9
           - touch_zones
           - pages

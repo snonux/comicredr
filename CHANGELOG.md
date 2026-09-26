@@ -5,6 +5,15 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## Unreleased
+
+- **Panels only for the comic you read:** ComicRedr no longer works
+  through the whole library in the background. It finds the panels of
+  the open comic, from the page you are on to the end, with guided view
+  on or off, and stops when the comic is closed. The library's
+  "Finding panels" line, its pause button and the setting are gone. The
+  same on Linux and Android.
+
 ## 0.2.1
 
 Android fixes.

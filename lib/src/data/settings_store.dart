@@ -38,10 +38,6 @@ class SettingsStore {
   /// Per install, so the laptop and the phone each name their own folder.
   static const sidecarDir = 'sidecars.dir';
 
-  /// Find the panels of the whole library in the background
-  /// (LibraryDetection). On by default on the laptop, off on the phone.
-  static const detectLibrary = 'detect.library';
-
   /// How big the page grid's (`p`) thumbnails are: an index into its zoom
   /// levels, kept across openings and restarts.
   static const gridZoom = 'grid.zoom';

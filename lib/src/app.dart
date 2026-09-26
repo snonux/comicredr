@@ -230,8 +230,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final path = widget.initialPath;
     // Before the scan, so a folder it adds to the library is scanned too.
     if (path != null) await _openPath(path, scan: false);
-    // Listens for the scan's end, so it is there before the first scan.
-    ref.read(libraryDetectionProvider);
     await _rescan();
   }
 

@@ -194,9 +194,11 @@ flowchart TB
    version. A comic copied to the phone opens there with its panels
    already known.
 
-Detection runs in the background, starting at the page being read and
-working ahead. After each library scan, a low-priority pass works through
-the whole library and resumes after a restart.
+Detection runs in the background for the open comic only, guided view on
+or off (`_ensurePanels` in `reader_notifier.dart`): the page being read,
+the two ahead and the one behind at once, then the rest of the comic ahead
+at low priority, resting between pages as long as the last one took.
+Closing the comic stops it; other comics are analysed when opened.
 
 **Classic CV** (`packages/comic_analysis/lib/src/classic_cv.dart`) is the
 fallback when there is no model, or the model fails on a page: find

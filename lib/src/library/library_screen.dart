@@ -20,7 +20,6 @@ import '../version.dart';
 import 'default_folder.dart';
 import 'delete_book.dart';
 import 'edit_dialog.dart';
-import 'library_detection.dart';
 import 'library_store.dart';
 import 'providers.dart';
 import 'scanner.dart';
@@ -1441,7 +1440,6 @@ Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook bo
   if (!redo) return;
   try {
     final ok = await ref.read(sidecarSyncProvider).reset(book.key, everything: false);
-    unawaited(ref.read(libraryDetectionProvider).run());
     messenger.showSnackBar(
       SnackBar(
         content: Text(
@@ -1457,15 +1455,14 @@ Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook bo
 }
 
 /// Asks, then resets [book] from the library: `X` on its cover, or the
-/// button in its details. Its panels are found again by the library pass,
-/// or by the reader when it is opened.
+/// button in its details. Its panels are found again by the reader when it
+/// is opened.
 Future<void> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) async {
   final messenger = ScaffoldMessenger.of(context);
   final scope = await askReset(context, book.name);
   if (scope == null) return;
   try {
     final ok = await ref.read(sidecarSyncProvider).reset(book.key, everything: scope == ResetScope.everything);
-    unawaited(ref.read(libraryDetectionProvider).run());
     messenger.showSnackBar(
       SnackBar(
         content: Text(
@@ -1885,13 +1882,6 @@ class _EmptyLibrary extends StatelessWidget {
   }
 }
 
-/// The library pass on the status line, after the book count.
-String _detecting(DetectionStatus d) {
-  if (d.paused) return '  ·  Finding panels paused';
-  if (!d.running || d.total == 0) return '';
-  return '  ·  Finding panels: ${d.done} / ${d.total} pages${d.book == null ? '' : ' (${d.book})'}';
-}
-
 /// The library's status line: a notice, the scan's progress, or a count.
 
 class _LibraryStatus extends ConsumerWidget {
@@ -1906,7 +1896,6 @@ class _LibraryStatus extends ConsumerWidget {
     final theme = Theme.of(context);
     final reader = ref.watch(readerProvider);
     final scan = ref.watch(scanStatusProvider).value ?? const ScanStatus();
-    final detect = ref.watch(detectionStatusProvider).value ?? const DetectionStatus();
     final series = books.map((b) => b.seriesId).toSet().length;
     final text =
         reader.message ??
@@ -1915,8 +1904,7 @@ class _LibraryStatus extends ConsumerWidget {
                   ? 'Scanning the library folders…'
                   : 'Scanning: ${scan.done} / ${scan.total} new or changed books'
             : '${books.length} books in $series series'
-                  '${scan.failed.isEmpty ? '' : '  ·  ${scan.failed.length} could not be read'}'
-                  '${_detecting(detect)}');
+                  '${scan.failed.isEmpty ? '' : '  ·  ${scan.failed.length} could not be read'}');
     return Material(
       color: theme.colorScheme.surfaceContainer,
       child: Column(
@@ -1933,16 +1921,6 @@ class _LibraryStatus extends ConsumerWidget {
                   Expanded(
                     child: Text(text, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
-                  if (detect.running || detect.paused)
-                    IconButton(
-                      key: const Key('detect-pause'),
-                      tooltip: detect.paused ? 'Go on finding panels' : 'Pause finding panels',
-                      icon: Icon(detect.paused ? Icons.play_arrow : Icons.pause),
-                      onPressed: () {
-                        final d = ref.read(libraryDetectionProvider);
-                        detect.paused ? d.resume() : d.pause();
-                      },
-                    ),
                   Text(
                     pending,
                     key: const Key('pending'),
