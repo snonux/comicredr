@@ -95,7 +95,8 @@ refreshes right away instead of within six hours.
   `apt-get install libgtk-3-dev xvfb xdotool imagemagick sqlite3 openbox
   x11-utils desktop-file-utils wmctrl` first (xprop for e2e_fullscreen,
   update-desktop-database for e2e_images); most also use Python with
-  Pillow, and e2e_margins OpenCV (`pip install opencv-python-headless`).
+  Pillow, e2e_margins OpenCV (`pip install opencv-python-headless`), and
+  e2e_smooth_scroll ffmpeg and numpy.
   e2e_m9 installs from `make tarball`, so run that first.
 - The first `flutter build` or `flutter run` downloads PDFium once, so it
   needs the network.
