@@ -43,7 +43,8 @@ class KeySequenceResolver {
     }
 
     if (_pending.isEmpty && _isDigit(token) && (token != '0' || _count.isNotEmpty)) {
-      _count += token;
+      // Six digits is more pages than any book has; more would overflow.
+      if (_count.length < 6) _count += token;
       return null;
     }
 

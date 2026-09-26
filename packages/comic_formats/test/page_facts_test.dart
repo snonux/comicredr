@@ -121,4 +121,13 @@ void main() {
     expect((i.width, i.height, i.filter, i.bits, i.gray), (120, 160, 'jpeg', 8, true));
     expect(i.quality, inInclusiveRange(59, 61));
   });
+
+  test('skips an image whose width is a reference, however many digits', () {
+    final path = '${tmp.path}/ref.pdf';
+    File(path).writeAsStringSync(
+      '%PDF-1.4\n1 0 obj\n<< /Type /XObject /Subtype /Image /Width 1200 0 R /Height 1800 '
+      '/BitsPerComponent 8 /ColorSpace /DeviceRGB /Filter /DCTDecode /Length 4 >>\nstream\nabcd\nendstream\nendobj\n%%EOF\n',
+    );
+    expect(pdfImages(path), isEmpty);
+  });
 }
