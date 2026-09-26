@@ -84,6 +84,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
     if (superseded()) return book.doc.close();
     await close();
+    // A newer sidecar from the other device, when the comic is on S3 and
+    // the bucket answers within two seconds.
+    await _orNull(() => ref.read(s3SyncProvider).pullOnOpen(book.key));
+    if (superseded()) return book.doc.close();
     // The sidecar first, so what it brings (panels from the laptop, a
     // position from the phone) is in the index before the reads below.
     final side = await _orNull(() => _sidecars.attach(book.path, book.key, folder: book.folder));
@@ -379,7 +383,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
     );
     await book.doc.close();
     // Off the way of whatever opens next; flush() on exit waits for it.
-    unawaited(_sidecars.flush().catchError((Object e) => debugPrint('Sidecar write failed: $e')));
+    unawaited(
+      _sidecars
+          .flush()
+          .then((_) => ref.read(s3SyncProvider).flush())
+          .catchError((Object e) => debugPrint('Sidecar write failed: $e')),
+    );
   }
 
   /// Resets the open book (see [SidecarSync.reset]) and opens it again:
@@ -1030,6 +1039,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.reshuffle:
       case ReaderIntent.resetBook:
       case ReaderIntent.deleteBook:
+      case ReaderIntent.uploadToS3:
+      case ReaderIntent.removeFromS3:
+      case ReaderIntent.markBook:
       case ReaderIntent.editBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:
@@ -1118,6 +1130,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       if (state.book?.key == s.key) _sitting = (key: s.key, start: DateTime.now(), pages: <int>{});
     }
     await _sidecars.flush();
+    await ref.read(s3SyncProvider).flush(limit: const Duration(seconds: 3));
   }
 }
 

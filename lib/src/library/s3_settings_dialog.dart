@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:comic_sync/comic_sync.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -130,6 +132,7 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
       return;
     }
     final place = await ref.read(s3SettingsProvider).save(config);
+    unawaited(ref.read(s3SyncProvider).settingsChanged());
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -168,6 +171,7 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
     );
     if (ok != true) return;
     await ref.read(s3SettingsProvider).clear();
+    await ref.read(s3SyncProvider).turnedOff();
     if (mounted) Navigator.pop(context, true);
   }
 

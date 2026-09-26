@@ -340,6 +340,22 @@ SidecarData? readSidecar(String path) {
   }
 }
 
+/// When the sidecar at [path] was written, in milliseconds since the
+/// epoch, from its meta row; null when there is none or it is not one.
+/// What S3 sync compares (design plan section 13).
+int? sidecarWrittenAt(String path) {
+  if (!File(path).existsSync()) return null;
+  Database? db;
+  try {
+    db = sqlite3.open(path, mode: OpenMode.readOnly);
+    return db.select('SELECT written_at FROM meta LIMIT 1').firstOrNull?['written_at'] as int?;
+  } on SqliteException {
+    return null;
+  } finally {
+    db?.close();
+  }
+}
+
 /// Writes [data] to [path], merged with what is already there, so rows
 /// another device put in the file since this one last read it survive
 /// (see [mergeSidecars]). The new file is written beside the old one and

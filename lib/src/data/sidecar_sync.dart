@@ -68,6 +68,10 @@ class SidecarSync {
   /// each beside its comic, the default. See [storedSidecarPath].
   final Future<String?> Function()? storeDir;
 
+  /// Called after a sidecar was written, with its book's content key: S3
+  /// sync sends it on to the bucket when the book is there.
+  void Function(String contentKey)? onWritten;
+
   Device? _device;
   final _where = <String, ({String path, bool folder})>{};
   final _dirty = <String>{};
@@ -163,7 +167,12 @@ class SidecarSync {
   /// Reads the sidecar of the book at [path], re-linking one left behind by
   /// a rename, and merges it into the index. From here on the book's changes
   /// go back to it.
-  Future<SidecarImport> attach(String path, String contentKey, {required bool folder}) async {
+  ///
+  /// With [whole], the sidecar is the newer copy from S3 and wins whole
+  /// (design plan section 13): its panels, bookmarks and collections
+  /// replace the index's instead of being merged with them. This device's
+  /// own position stays; another device's newer one is offered as ever.
+  Future<SidecarImport> attach(String path, String contentKey, {required bool folder, bool whole = false}) async {
     _where[contentKey] = (path: path, folder: folder);
     final SidecarData? side;
     try {
@@ -173,15 +182,15 @@ class SidecarSync {
       return SidecarImport.none;
     }
     if (side == null || side.contentKey != contentKey) return SidecarImport.none;
-    return _import(side);
+    return _import(side, whole: whole);
   }
 
-  Future<SidecarImport> _import(SidecarData side) async {
+  Future<SidecarImport> _import(SidecarData side, {bool whole = false}) async {
     final key = side.contentKey;
     final me = await device();
     await progress.flush();
     final local = await gather(key);
-    final merged = mergeSidecars(side, local);
+    final merged = whole ? side : mergeSidecars(side, local);
     final mine = local.progress.where((r) => r.device == me.id).firstOrNull;
     final others = merged.progress.where((r) => r.device != me.id).toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -352,8 +361,30 @@ class SidecarSync {
     if (!ok && _readOnly.add(contentKey)) {
       debugPrint('Cannot write the sidecar of ${at.path} to $target; its data stays in the app database');
     }
-    if (ok) _readOnly.remove(contentKey);
+    if (ok) {
+      _readOnly.remove(contentKey);
+      onWritten?.call(contentKey);
+    }
     return ok;
+  }
+
+  /// Where the book [contentKey] is: the path it was attached with, else
+  /// its first copy in the library; null when the library has none.
+  Future<({String path, bool folder})?> placeOf(String contentKey) async =>
+      _where[contentKey] ?? (await _copies(contentKey)).firstOrNull;
+
+  /// Puts [downloaded], a newer sidecar of [contentKey] fetched from S3 into
+  /// the folder of [target], in place of the one at [target], and takes it
+  /// into the index whole (see [attach]). Waits for writes under way, so
+  /// none lands on top of it.
+  Future<SidecarImport> replaceWith(String contentKey, String target, String downloaded) async {
+    final at = await placeOf(contentKey);
+    await _serial(() async {
+      _dirty.remove(contentKey);
+      await File(downloaded).rename(target);
+    });
+    if (at == null) return SidecarImport.none;
+    return attach(at.path, contentKey, folder: at.folder, whole: true);
   }
 
   Future<bool> _writeTo(String target, String contentKey, {bool makeDir = false}) => _serial(() async {

@@ -7,12 +7,19 @@ the `?` overlay.
 
 ## Unreleased
 
-- **S3 sync, first part:** Settings → S3 sync sets up a bucket on your
-  own S3 server (Garage, MinIO), with a Test connection that says which
-  step failed. The secret key is kept in the system keyring (a private
-  file when there is none) and never in a settings file. Uploading
-  comics and syncing their sidecars come next. Android now asks for
-  network access, used only for the bucket you set up.
+- **S3 sync:** upload comics to a bucket on your own S3 server (Garage,
+  MinIO) and carry on reading on the other device. Settings → S3 sync
+  sets it up, with a Test connection that says which step failed; the
+  secret key is kept in the system keyring (a private file when there is
+  none) and never in a settings file. `gu` uploads the selected comic,
+  or several marked with `V` (Ctrl+click, Select on a phone); a cloud on
+  the cover says it is on S3. The other device lists them with their
+  covers and downloads one by hand. Sidecars go both ways, the newest
+  whole file winning, so the place you stopped at is offered on the
+  other device. A switched-off server costs one notice; changes wait and
+  go up when it is back. `gU` takes a comic off S3, and deleting one asks
+  whether to delete it from S3 too. Android now asks for network access,
+  used only for the bucket you set up.
 
 ## 0.3.0
 

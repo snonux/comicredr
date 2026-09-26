@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
@@ -18,6 +19,7 @@ import 'library_panes.dart';
 import 'library_status.dart';
 import 'library_store.dart';
 import 'providers.dart';
+import 's3_actions.dart';
 import 'settings_dialog.dart';
 import 'shuffle.dart';
 
@@ -98,6 +100,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   String? _selected;
   Set<String> _selectedBooks = const {}; // The keys of the books it stands for.
   bool _detail = false; // The narrow layout's full-screen detail page.
+
+  /// Books marked for an action on several (`V`, Ctrl+click, Select on a
+  /// phone), by content key.
+  final _marked = <String>{};
+
+  /// Taps mark rather than open: the Select button on a phone.
+  bool _selecting = false;
 
   // Grid geometry from the last layout, for keyboard movement.
   int _cols = 2;
@@ -260,11 +269,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       case ReaderIntent.reshuffle when tab == LibraryTab.folders && _shuffle:
         setState(_reshuffle);
       case ReaderIntent.resetBook:
-        if (_selectedItem case BookItem(:final book)) {
+        if (_selectedItem case BookItem(:final book) when !book.remoteOnly) {
           unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
         }
       case ReaderIntent.deleteBook:
-        if (_selectedItem case BookItem(:final book)) {
+        if (_selectedItem case BookItem(:final book) when book.remoteOnly) {
+          // Nothing here to delete: taking it off S3 is what is left.
+          unawaited(_s3Action(() => removeBooksFromS3(context, ref, [book])));
+        } else if (_selectedItem case BookItem(:final book)) {
           unawaited(
             deleteLibraryBook(
               context,
@@ -274,14 +286,25 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             ).whenComplete(() => widget.keysFocus?.requestFocus()),
           );
         }
-      case ReaderIntent.showDetails:
+      case ReaderIntent.markBook:
         if (_selectedItem case BookItem(:final book)) {
+          _toggleMark(book);
+          move(1);
+        }
+      case ReaderIntent.uploadToS3:
+        final books = _actOn();
+        if (books.isNotEmpty) unawaited(_s3Action(() => uploadBooks(context, ref, books)));
+      case ReaderIntent.removeFromS3:
+        final books = _actOn();
+        if (books.isNotEmpty) unawaited(_s3Action(() => removeBooksFromS3(context, ref, books)));
+      case ReaderIntent.showDetails:
+        if (_selectedItem case BookItem(:final book) when !book.remoteOnly) {
           unawaited(showBookDetails(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
         }
       case ReaderIntent.editBook:
         final done = widget.keysFocus?.requestFocus;
         switch (_selectedItem) {
-          case BookItem(:final book):
+          case BookItem(:final book) when !book.remoteOnly:
             unawaited(editBook(context, ref, book).whenComplete(() => done?.call()));
           case SeriesItem(:final series) when tab == LibraryTab.series:
             unawaited(renameSeries(context, ref, series).whenComplete(() => done?.call()));
@@ -299,7 +322,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// series or goes up a folder. False when there is nothing left to back
   /// out of.
   bool back() {
-    if (_detail) {
+    if (_marked.isNotEmpty || _selecting) {
+      _clearMarks();
+    } else if (_detail) {
       setState(() => _detail = false);
     } else if (_query.isNotEmpty) {
       _search.clear();
@@ -492,12 +517,100 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     if (fresh != null && mounted && _selected == 'm:${bookmark.id}') setState(() => _selected = 'm:$fresh');
   }
 
-  void read(LibraryBook book, {Place? at}) => ref.read(readerProvider.notifier).open(book.path, at: at);
+  void read(LibraryBook book, {Place? at}) {
+    // On S3 only: its page, with the Download button.
+    if (book.remoteOnly) {
+      setState(() {
+        _selected = BookItem(book).id;
+        _detail = true;
+      });
+      return;
+    }
+    unawaited(ref.read(readerProvider.notifier).open(book.path, at: at));
+  }
+
+  void _toggleMark(LibraryBook book) => setState(() {
+    if (!_marked.remove(book.key)) _marked.add(book.key);
+  });
+
+  void _clearMarks() => setState(() {
+    _marked.clear();
+    _selecting = false;
+  });
+
+  /// The books an S3 action is for: the marked ones, else the selected
+  /// cover's (a series' or folder's books too).
+  List<LibraryBook> _actOn() {
+    final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
+    if (_marked.isNotEmpty) return all.where((b) => _marked.contains(b.key)).toList();
+    final keys = _books(_selectedItem);
+    return all.where((b) => keys.contains(b.key)).toList();
+  }
+
+  Future<void> _s3Action(Future<void> Function() action) async {
+    await action();
+    if (mounted) {
+      _clearMarks();
+      widget.keysFocus?.requestFocus();
+    }
+  }
+
+  /// The bar over the grid while books are marked: how many, and what to
+  /// do with them.
+  Widget _marksBar(BuildContext context, List<LibraryBook> books) {
+    final theme = Theme.of(context);
+    final marked = books.where((b) => _marked.contains(b.key)).toList();
+    return Material(
+      key: const Key('marksBar'),
+      color: theme.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+        child: Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          children: [
+            Text(
+              marked.isEmpty ? 'Tap covers to mark them' : '${marked.length} selected',
+              key: const Key('marksCount'),
+              style: theme.textTheme.titleSmall,
+            ),
+            if (marked.any((b) => b.s3 == null))
+              TextButton.icon(
+                key: const Key('marksUpload'),
+                onPressed: () => _s3Action(() => uploadBooks(context, ref, marked)),
+                icon: const Icon(Icons.cloud_upload),
+                label: const Text('Upload to S3'),
+              ),
+            if (marked.any((b) => b.remoteOnly))
+              TextButton.icon(
+                key: const Key('marksDownload'),
+                onPressed: () => _s3Action(() => downloadBooks(context, ref, marked)),
+                icon: const Icon(Icons.cloud_download),
+                label: const Text('Download'),
+              ),
+            if (marked.any((b) => b.s3 != null))
+              TextButton.icon(
+                key: const Key('marksRemove'),
+                onPressed: () => _s3Action(() => removeBooksFromS3(context, ref, marked)),
+                icon: const Icon(Icons.cloud_off),
+                label: const Text('Remove from S3'),
+              ),
+            TextButton(key: const Key('marksClear'), onPressed: _clearMarks, child: const Text('Clear (Esc)')),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// A tap: selects, and a second tap on the selected cover opens it. On a
   /// phone-sized screen a tap on a book shows its detail page.
   void _tap(LibraryItem item, {required bool wide}) {
     _autoFirst = false;
+    if (item is BookItem && (_selecting || HardwareKeyboard.instance.isControlPressed)) {
+      _toggleMark(item.book);
+      setState(() => _selected = item.id);
+      return;
+    }
     if (item is BookItem && !wide) {
       setState(() {
         _selected = item.id;
@@ -649,6 +762,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             : Column(
                 children: [
                   _header(context, books),
+                  if (_marked.isNotEmpty || _selecting) _marksBar(context, books),
                   Expanded(
                     child: switch (tab) {
                       LibraryTab.history => HistoryPane(books: books, query: _query.trim(), onRead: read),
@@ -838,6 +952,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Open a comic without adding it (o)',
             onPressed: widget.onOpenFile,
           ),
+          if (narrow && (ref.watch(s3StatusProvider).value?.on ?? false))
+            IconButton(
+              key: const Key('select'),
+              icon: Icon(_selecting ? Icons.checklist_rtl : Icons.checklist),
+              isSelected: _selecting,
+              tooltip: _selecting ? 'Stop marking' : 'Mark comics to upload, download or remove together (V)',
+              onPressed: () => _selecting ? _clearMarks() : setState(() => _selecting = true),
+            ),
           IconButton(
             key: const Key('settings'),
             icon: const Icon(Icons.settings_outlined),
@@ -1047,6 +1169,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             final item = _items[i];
             return CoverCard(
               item: item,
+              marked: item is BookItem && _marked.contains(item.book.key),
               shufflePage: shuffle && item is BookItem ? shufflePage(item.book.key, item.book.pageCount, _seed) : null,
               selected: item.id == _selected,
               onTap: () => _tap(item, wide: wide),

@@ -129,6 +129,23 @@ class S3Store implements RemoteStore {
   }, timeout: false);
 
   @override
+  Future<bool> download(String key, IOSink sink, {void Function(int received)? onProgress}) => _call(() async {
+    try {
+      final stream = await _minio.getObject(config.bucket, key);
+      var n = 0;
+      await for (final chunk in stream) {
+        sink.add(chunk);
+        n += chunk.length;
+        onProgress?.call(n);
+      }
+      return true;
+    } catch (e) {
+      if (_missing(e)) return false;
+      rethrow;
+    }
+  }, timeout: false);
+
+  @override
   Future<RemoteObject?> head(String key) => _call(() async {
     try {
       final stat = await _minio.statObject(config.bucket, key, retrieveAcls: false);

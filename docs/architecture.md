@@ -54,7 +54,7 @@ flowchart TB
 | `packages/comic_formats` | Opens a book. One interface, `ComicDocument`, with an adapter per format. The first bytes of a file decide the format, not its extension. `BackgroundDocument` runs the adapter on a worker isolate so reading a page never blocks the UI. |
 | `packages/comic_analysis` | Everything about what is on a page: the `Panel` type, classic computer-vision panel detection, the model's input and output format, reading order, the confidence gate, frame outlines, margin trimming and scan clean-up. |
 | `packages/reader_input` | Every action the reader can take is a named `ReaderIntent`. The default keymap, the vi-style resolver (counts like `5l`, sequences like `gg`) and the touch map all produce intents. |
-| `packages/comic_sync` | S3 sync (being built, design plan section 13): `RemoteStore`, the one interface the app uses for a bucket, `S3Store` over the `minio` package (SigV4, path-style, multipart, a 3 s connect timeout so a switched-off server fails fast), `MemoryStore` for tests, and `checkConnection`. |
+| `packages/comic_sync` | S3 sync (design plan section 13): `RemoteStore`, the one interface the app uses for a bucket, `S3Store` over the `minio` package (SigV4, path-style, multipart, streamed downloads, a 3 s connect timeout so a switched-off server fails fast), `MemoryStore` for tests, `checkConnection`, and the shelf: `BookObjects` (the bucket layout), `Manifest`, `listShelf`, `compareSidecars` (newest `written_at` wins). |
 | `lib/src/library` | The library screen: scanning folders, covers, series, collections, search, settings, the background detection pass. |
 | `lib/src/reader` | The reader: `ReaderNotifier` holds the reading state, `ReaderView` draws it, `PageCache` decodes pages, `PanelDetector` and `ModelDetector` find panels. |
 | `lib/src/data` | The app's index database (Drift/SQLite) and the per-comic `.crdb` sidecar files that carry panels, bookmarks and positions with the comic. |
@@ -383,6 +383,30 @@ flowchart LR
   keystore through `SecretStore` (flutter_secure_storage; a mode 0600
   file beside `keys.toml` when no keyring answers), never in the index,
   a sidecar or a settings file.
+- **S3 sync** (`S3Sync`, `lib/src/data/s3_sync.dart`) keeps the
+  `s3_books` table: one row per comic on the shelf, with its manifest and
+  what still has to go up (upload, sidecar, remove). Every sidecar write
+  (`SidecarSync.onWritten`) marks a synced comic's sidecar to go up a few
+  seconds later; opening one first fetches the bucket's sidecar when it
+  is newer (`pullOnOpen`, two seconds at most) and takes it in whole
+  (`SidecarSync.replaceWith`). Comics on S3 only are rows without a file:
+  `LibraryStore.books()` shows them where a download would put them.
+
+```mermaid
+sequenceDiagram
+  participant L as Laptop
+  participant B as Bucket
+  participant P as Phone
+  L->>B: comic, cover, sidecar, manifest last (gu)
+  P->>B: list books/, fetch manifests and covers
+  P->>B: download comic + sidecar (by hand)
+  Note over P: reads on, writes its sidecar locally
+  P->>B: sidecar, x-amz-meta-written-at
+  L->>B: HEAD sidecar on open: newer?
+  B->>L: newest sidecar wins, whole file
+  Note over L: offers the phone's place
+```
+
 - **App data** goes in `~/Comics/.comicredr/` on a fresh Fedora install
   that has a `~/Comics` folder, otherwise the usual XDG folders; Android
   keeps its private app folders. The `?` help shows which.

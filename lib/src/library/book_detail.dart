@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
+import '../data/s3_sync.dart';
 import '../providers.dart';
 import '../reader/bookmark_list.dart';
 import '../reader/comic_details.dart';
@@ -18,6 +19,7 @@ import 'delete_book.dart';
 import 'edit_dialog.dart';
 import 'library_store.dart';
 import 'providers.dart';
+import 's3_actions.dart';
 
 /// A book's page: cover, what it is, where you are in it, its bookmarks.
 class BookDetail extends ConsumerWidget {
@@ -35,6 +37,9 @@ class BookDetail extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final marks = ref.watch(bookmarksProvider(book.key)).value ?? const [];
+    final s3 = ref.watch(s3StatusProvider).value ?? const S3Status();
+    final remote = book.remoteOnly;
+    final transfer = s3.transfers[book.key];
     final where = book.finished
         ? 'Finished'
         : book.started
@@ -77,26 +82,67 @@ class BookDetail extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
-            FilledButton.icon(
-              key: const Key('read'),
-              onPressed: () => onRead(book),
-              icon: const Icon(Icons.chrome_reader_mode),
-              label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
-            ),
+            if (remote)
+              FilledButton.icon(
+                key: const Key('download'),
+                onPressed: transfer != null ? null : () => downloadBooks(context, ref, [book]),
+                icon: const Icon(Icons.cloud_download),
+                label: Text('Download ${describeBytes(book.s3?.size ?? 0)}'),
+              )
+            else
+              FilledButton.icon(
+                key: const Key('read'),
+                onPressed: () => onRead(book),
+                icon: const Icon(Icons.chrome_reader_mode),
+                label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
+              ),
             IconButton.outlined(
               key: const Key('favourite'),
               onPressed: () => setFavourite(ref, book, !book.favourite),
               icon: Icon(book.favourite ? Icons.star : Icons.star_outline, color: book.favourite ? Colors.amber : null),
               tooltip: book.favourite ? 'Take out of Favourites (*)' : 'Add to Favourites (*)',
             ),
-            OutlinedButton.icon(
-              key: const Key('editBook'),
-              onPressed: () => editBook(context, ref, book),
-              icon: const Icon(Icons.edit),
-              label: const Text('Edit (e)'),
-            ),
+            if (!remote)
+              OutlinedButton.icon(
+                key: const Key('editBook'),
+                onPressed: () => editBook(context, ref, book),
+                icon: const Icon(Icons.edit),
+                label: const Text('Edit (e)'),
+              ),
           ],
         ),
+        if (s3.on || book.s3 != null) ...[
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Icon(book.s3 == null ? Icons.cloud_outlined : Icons.cloud_done, size: 20),
+              const SizedBox(width: 8),
+              Expanded(child: Text(describeShelf(book, s3), key: const Key('s3Where'))),
+            ],
+          ),
+          if (transfer != null) ...[const SizedBox(height: 6), LinearProgressIndicator(value: transfer)],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (book.s3 == null)
+                OutlinedButton.icon(
+                  key: const Key('uploadS3'),
+                  onPressed: () => uploadBooks(context, ref, [book]),
+                  icon: const Icon(Icons.cloud_upload),
+                  label: const Text('Upload to S3 (gu)'),
+                )
+              else
+                OutlinedButton.icon(
+                  key: const Key('removeS3'),
+                  onPressed: () => removeBooksFromS3(context, ref, [book]),
+                  icon: const Icon(Icons.cloud_off),
+                  label: const Text('Remove from S3… (gU)'),
+                ),
+            ],
+          ),
+        ],
         if (book.summary != null) ...[const SizedBox(height: 16), Text(book.summary!)],
         const SizedBox(height: 20),
         Text('Collections', style: theme.textTheme.titleMedium),
@@ -165,32 +211,33 @@ class BookDetail extends ConsumerWidget {
             ),
           ),
         const SizedBox(height: 16),
-        SelectableText(book.path, style: theme.textTheme.bodySmall),
+        SelectableText(remote ? 'Downloads to ${book.path}' : book.path, style: theme.textTheme.bodySmall),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              key: const Key('bookDetails'),
-              onPressed: () => showBookDetails(context, ref, book),
-              icon: const Icon(Icons.info_outline),
-              label: const Text('Details (I)'),
-            ),
-            OutlinedButton.icon(
-              key: const Key('resetBook'),
-              onPressed: () => resetBook(context, ref, book),
-              icon: const Icon(Icons.restart_alt),
-              label: const Text('Reset this comic… (X)'),
-            ),
-            OutlinedButton.icon(
-              key: const Key('deleteBook'),
-              onPressed: () => deleteLibraryBook(context, ref, book, beforeDelete: () => onBeforeDelete?.call()),
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete this comic… (gd)'),
-            ),
-          ],
-        ),
+        if (!remote)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                key: const Key('bookDetails'),
+                onPressed: () => showBookDetails(context, ref, book),
+                icon: const Icon(Icons.info_outline),
+                label: const Text('Details (I)'),
+              ),
+              OutlinedButton.icon(
+                key: const Key('resetBook'),
+                onPressed: () => resetBook(context, ref, book),
+                icon: const Icon(Icons.restart_alt),
+                label: const Text('Reset this comic… (X)'),
+              ),
+              OutlinedButton.icon(
+                key: const Key('deleteBook'),
+                onPressed: () => deleteLibraryBook(context, ref, book, beforeDelete: () => onBeforeDelete?.call()),
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Delete this comic… (gd)'),
+              ),
+            ],
+          ),
       ],
     );
   }
@@ -311,8 +358,12 @@ Future<void> deleteLibraryBook(
   final sidecars = ref.read(sidecarSyncProvider), store = ref.read(libraryStoreProvider);
   final coverDir = ref.read(coverDirProvider), container = ProviderScope.containerOf(context);
   final folder = book.isFolder;
+  final s3 = ref.read(s3SyncProvider);
+  final onS3 = book.s3 != null;
   final facts = await deleteFacts(book.name, book.path, folder: folder, pages: book.pageCount);
-  if (!context.mounted || !await askDelete(context, facts)) return;
+  if (!context.mounted) return;
+  final choice = await askDelete(context, facts.withS3(onS3));
+  if (choice == DeleteChoice.cancel) return;
   // The reader may have it open behind a dialog opened from the library.
   if (container.read(readerProvider).book?.key == book.key) await container.read(readerProvider.notifier).close();
   beforeDelete?.call();
@@ -324,7 +375,9 @@ Future<void> deleteLibraryBook(
       sidecars: sidecars,
       store: store,
       coverDir: coverDir,
+      keepCover: onS3 && choice == DeleteChoice.here,
     );
+    if (choice == DeleteChoice.everywhere) await s3.removeFromS3([book.key]);
     messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.name, stuck))));
   } on FileSystemException catch (e) {
     messenger.showSnackBar(SnackBar(content: Text('Could not delete ${book.name}: ${e.message}')));

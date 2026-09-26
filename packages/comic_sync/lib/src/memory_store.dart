@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'remote_store.dart';
@@ -33,6 +34,16 @@ class MemoryStore implements RemoteStore {
   Future<Uint8List?> get(String key) async {
     _check();
     return objects[key]?.bytes;
+  }
+
+  @override
+  Future<bool> download(String key, IOSink sink, {void Function(int received)? onProgress}) async {
+    _check();
+    final o = objects[key];
+    if (o == null) return false;
+    sink.add(o.bytes);
+    onProgress?.call(o.bytes.length);
+    return true;
   }
 
   @override

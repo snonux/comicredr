@@ -7,3 +7,4 @@ export 'src/config.dart';
 export 'src/memory_store.dart';
 export 'src/remote_store.dart';
 export 'src/s3_store.dart';
+export 'src/shelf.dart';

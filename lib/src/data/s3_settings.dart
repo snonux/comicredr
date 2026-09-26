@@ -54,16 +54,20 @@ class S3Settings {
   /// The saved settings as a config to connect with, or null when sync is
   /// not set up or the secret is missing.
   Future<S3Config?> config() async {
-    final f = await load();
-    final endpoint = S3Config.parseEndpoint(f.endpoint);
+    final endpoint = S3Config.parseEndpoint(await _settings.loadString(SettingsStore.s3Endpoint) ?? '');
+    final bucket = await _settings.loadString(SettingsStore.s3Bucket) ?? '';
+    final accessKey = await _settings.loadString(SettingsStore.s3AccessKey) ?? '';
+    // Not set up: the keyring is not asked at all.
+    if (endpoint == null || bucket.isEmpty || accessKey.isEmpty) return null;
     final secret = await _secrets.read(secretName);
-    if (!f.isSet || endpoint == null || secret == null || f.accessKey.isEmpty) return null;
+    if (secret == null) return null;
+    final region = await _settings.loadString(SettingsStore.s3Region) ?? '';
     return S3Config(
       endpoint: endpoint,
-      region: f.region.isEmpty ? S3Config.defaultRegion : f.region,
-      bucket: f.bucket,
-      prefix: f.prefix,
-      accessKey: f.accessKey,
+      region: region.isEmpty ? S3Config.defaultRegion : region,
+      bucket: bucket,
+      prefix: await _settings.loadString(SettingsStore.s3Prefix) ?? S3Config.defaultPrefix,
+      accessKey: accessKey,
       secretKey: secret,
     );
   }

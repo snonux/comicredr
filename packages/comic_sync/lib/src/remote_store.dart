@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 /// One object in the bucket, as a listing or a HEAD request tells it.
@@ -62,6 +63,11 @@ abstract interface class RemoteStore {
 
   /// The object at [key], or null when there is none.
   Future<Uint8List?> get(String key);
+
+  /// Writes the object at [key] into [sink] as it arrives, for files too
+  /// big to hold in memory. False when there is no such object. The sink
+  /// is left open.
+  Future<bool> download(String key, IOSink sink, {void Function(int received)? onProgress});
 
   /// What is known about [key] without its bytes, or null when there is
   /// none.
