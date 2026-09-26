@@ -19,6 +19,11 @@ it in step when the architecture or the model changes.
   install steps, a quick start that points to the in-app `?` help, and the
   screenshots. Don't document every key there; the `?` overlay and
   `docs/keys.toml` are generated from the keymap and are the reference.
+- The usage guide is `docs/guide/`: a contents page (`README.md`) and one
+  chapter a file, written for people. A feature that changes what a user
+  sees or types gets its chapter updated in the same PR, and new section
+  headings go in the contents. Its pictures are made by
+  `tool/guide_shots.sh` from the release build (WebP stills, small GIFs).
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
@@ -363,6 +368,7 @@ tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
+tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 
 ## Detection spike (M1)

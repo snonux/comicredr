@@ -291,6 +291,10 @@ A `.cbr` that is really a ZIP opens as it is.
 
 ## More
 
+[The ComicRedr guide](docs/guide/README.md) walks through every feature,
+with screenshots and short animations of each: a small book with a
+table of contents, from the first start to your own keys.
+
 What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 Development notes, the test scripts and how the detector is trained are in
 [AGENTS.md](AGENTS.md).
