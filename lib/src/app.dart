@@ -750,6 +750,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Nothing else reaches the library or the reader hidden behind the help:
     // Enter would open a book under it, gd ask to delete one.
     if (_showKeymap && c.intent != ReaderIntent.fullscreen) return;
+    // Left and Right pan a zoomed page; anywhere else, and at the page's
+    // edge, they step as they always did.
+    if (c.intent == ReaderIntent.scrollLeft || c.intent == ReaderIntent.scrollRight) {
+      final reading = ref.read(readerProvider).book != null && !_showPages && !_showBookmarks;
+      if (reading && (_view.currentState?.handle(c) ?? false)) return;
+      c = c.as(c.intent == ReaderIntent.scrollRight ? ReaderIntent.nextStep : ReaderIntent.prevStep);
+    }
     if (c.intent == ReaderIntent.pageGrid && ref.read(readerProvider).book != null) {
       _setShowPages(!_showPages);
       return;

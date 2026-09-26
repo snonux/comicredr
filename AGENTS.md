@@ -17,7 +17,8 @@ it in step when the architecture or the model changes.
   contents page `docs/guide/README.md`. A changed feature has its text,
   keys and pictures corrected where they are; a removed one is taken out,
   contents line included. Retake the pictures that no longer match with
-  `tool/guide_shots.sh [section...]` from the release build (WebP stills,
+  `tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
+tool/guide_shots.sh [section...]` from the release build (WebP stills,
   small GIFs); if that can't be done in the container, say so in the PR.
   The guide is `docs/guide/`: a contents page and one chapter a file,
   written for people, starting with installing.
@@ -337,6 +338,19 @@ refreshes right away instead of within six hours.
   detection never sees the turn. Saved per book in the position's
   `view_json` (`rotation`), so it travels in the sidecar. Page thumbnails
   are not turned.
+- Key pans glide (`_pan` in `reader_view.dart`): `j` `k` `↓` `↑` and,
+  on a page zoomed in outside guided view and page parts, `←` `→`
+  (`ReaderIntent.scrollLeft`/`scrollRight`; app.dart turns them into
+  `prevStep`/`nextStep` anywhere else, or when the view can't move that
+  way). A ticker eases the rest of the way out (time constant 70 ms); a
+  press adds a whole step, a held key's auto-repeat
+  (`ReaderCommand.held`, set by ReaderKeyboard on `KeyRepeatEvent`) keeps
+  the glide at most a step ahead, and at the edge a held `←` `→` is
+  swallowed so it doesn't run on through the pages. Key pans stop at the
+  shown pages' edges (`_onPages`), not the letterbox a drag can reach, and
+  don't move along a side the pages fit. Anything else setting the
+  transform (a drag, a page turn, the camera) ends the glide. Reduced
+  motion jumps. Tiles still wait for 150 ms of stillness.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -481,6 +495,7 @@ tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
 tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
+tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 

@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Smooth scrolling:** on a zoomed page the arrow keys and `j` `k`
+  glide instead of jumping, and a held key keeps the page sliding
+  evenly. `←` `→` now move across a zoomed page and turn the page only
+  from its edge (a held key stops there). Key pans stop at the page's
+  edge rather than in the dark margin. Reduced motion keeps the jumps.
+
 ## 0.3.0
 
 Back up and restore your settings.

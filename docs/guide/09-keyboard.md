@@ -29,8 +29,8 @@ The top of the list also shows ComicRedr's data folder, and which
 
 | Key | In a comic | In the library |
 |---|---|---|
-| `→` `Space` `l` | Next page or panel | Next cover |
-| `←` `h` | Back | Previous cover |
+| `→` `Space` `l` | Next page or panel (`→` first [moves across a zoomed page](04-reading.md#smooth-scrolling)) | Next cover |
+| `←` `h` | Back (`←` first moves across a zoomed page) | Previous cover |
 | `↓` `↑` `j` `k` | Move down and up a zoomed page | Cover below and above |
 | `Enter` | | Open |
 | `Esc` | Out of guided view, then back to the library | Back out of a series, folder or search |
@@ -76,13 +76,16 @@ away from shifting the spread:
 
 ```toml
 [keys]
-nextStep = ["l", "Right", "Space", "C-n"]
-prevStep = ["h", "Left", "S-Space", "C-p"]
+nextStep = ["l", "Space", "C-n"]
+prevStep = ["h", "S-Space", "C-p"]
 shiftSpread = []
 ```
 
 - An action you list gets exactly the keys you give it; `[]` leaves it
   with none. Actions you leave out keep their usual keys.
+- `Left` and `Right` belong to `scrollLeft` and `scrollRight`, which move
+  across a zoomed page and otherwise step like `h` and `l`. Give them to
+  `prevStep` and `nextStep` instead if you want them to always turn.
 - `C-f` is `Ctrl+f`, `S-Space` is `Shift+Space`, and named keys are
   written `Left`, `PageDown`, `Home`, `Esc`, `F11` and so on.
 - `gg` is two keys in a row. Put spaces between keys when one of them is
