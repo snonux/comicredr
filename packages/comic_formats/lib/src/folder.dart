@@ -19,7 +19,8 @@ class FolderDocument implements ComicDocument {
   factory FolderDocument.open(String path) {
     final dir = Directory(path);
     if (!dir.existsSync()) throw FormatException('No such folder: $path');
-    final root = dir.absolute.path;
+    // Without a trailing slash, or [_relative] cuts a letter off each name.
+    final root = dir.absolute.path.replaceFirst(RegExp(r'(?<=.)/+$'), '');
     final pages = [
       for (final e in Directory(root).listSync(recursive: true, followLinks: false))
         if (e is File && isPageEntry(_relative(root, e.path))) _relative(root, e.path),

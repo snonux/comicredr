@@ -43,4 +43,10 @@ void main() {
     expect(issueOrder('Annual'), isNull);
     expect(issueOrder(null), isNull);
   });
+
+  test('an issue number too long for an int is kept as written', () {
+    expect(parse('Spawn #12345678901234567890.cbz'), ('Spawn', '12345678901234567890', null, null, null));
+    expect(parse('Spawn #0007.cbz'), ('Spawn', '7', null, null, null));
+    expect(parse('Spawn #000.cbz'), ('Spawn', '0', null, null, null));
+  });
 }

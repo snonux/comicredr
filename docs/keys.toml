@@ -20,13 +20,13 @@ prevStep = ["h", "Left", "S-Space"]
 nextPage = ["C-f", "PageDown"]
 # Previous page, ignoring panels
 prevPage = ["C-b", "PageUp"]
-# Pan down, or scroll in continuous mode; the cover below in the library
+# Pan down; the cover below in the library
 panDown = ["j", "Down"]
-# Pan up, or scroll in continuous mode; the cover above in the library
+# Pan up; the cover above in the library
 panUp = ["k", "Up"]
-# Half-screen scroll down in continuous mode
+# A screen down in the page grid (continuous scroll is not built yet)
 halfPageDown = ["C-d"]
-# Half-screen scroll up in continuous mode
+# A screen up in the page grid (continuous scroll is not built yet)
 halfPageUp = ["C-u"]
 # First page; first cover in the library
 firstPage = ["gg", "Home"]
@@ -50,7 +50,7 @@ toggleWholePage = ["w"]
 togglePauseWhole = ["W"]
 # How a held page shows it: wine-red background or zoom out and back
 cyclePauseCue = ["gw"]
-# Cycle single, double, continuous, guided; next library tab
+# Cycle single, double, guided; next library tab
 cycleModeForward = ["Tab"]
 # Cycle modes backwards; previous library tab
 cycleModeBack = ["S-Tab"]
@@ -58,7 +58,7 @@ cycleModeBack = ["S-Tab"]
 toggleSpread = ["d"]
 # Shift the spread pairing by one
 shiftSpread = ["D"]
-# Continuous vertical scroll on or off
+# Continuous vertical scroll (not built yet)
 toggleContinuous = ["s"]
 # Reading direction for this book
 toggleDirection = ["r"]
@@ -128,11 +128,11 @@ setMark = ["m<a-z>"]
 jumpMark = ["'<a-z>"]
 # Jump back to before the last jump
 jumpBack = ["''"]
-# Search the library; search the book text in the reader
+# Search the library (searching inside a book is not built yet)
 search = ["/"]
-# Next match
+# Next match in a book (not built yet)
 searchNext = ["n"]
-# Previous match
+# Previous match in a book (not built yet)
 searchPrev = ["N"]
 # Open a file without adding it to the library
 openFile = ["o"]

@@ -37,8 +37,11 @@ it in step when the architecture or the model changes.
 ## Cloud container setup
 
 - The Linux e2e scripts need
-  `apt-get install libgtk-3-dev xvfb xdotool imagemagick` first; most also
-  use `sqlite3` and Python with Pillow.
+  `apt-get install libgtk-3-dev xvfb xdotool imagemagick sqlite3 openbox
+  x11-utils desktop-file-utils wmctrl` first (xprop for e2e_fullscreen,
+  update-desktop-database for e2e_images); most also use Python with
+  Pillow, and e2e_margins OpenCV (`pip install opencv-python-headless`).
+  e2e_m9 installs from `make tarball`, so run that first.
 - The first `flutter build` or `flutter run` downloads PDFium once, so it
   needs the network.
 - Cloud sessions can push only their own branch: pushing tags and

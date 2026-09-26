@@ -39,7 +39,10 @@ const headBytes = 64 << 10;
   if (head.length >= 4 && u8(0) == 0xFF && u8(1) == 0xD8) {
     var i = 2;
     while (i + 9 < head.length) {
-      if (u8(i) != 0xFF) return null;
+      if (u8(i) != 0xFF) {
+        i++; // Stray bytes between segments: libjpeg skips them, so do we.
+        continue;
+      }
       final marker = u8(i + 1);
       if (marker == 0xFF) {
         i++; // Fill byte.

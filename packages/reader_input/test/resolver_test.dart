@@ -37,6 +37,10 @@ void main() {
     expect(press('C-f'), const ReaderCommand(ReaderIntent.nextPage, count: 3));
   });
 
+  test('a count too long for an int is capped, not thrown', () {
+    expect(type('99999999999999999999G'), const ReaderCommand(ReaderIntent.lastPage, count: 999999));
+  });
+
   test('a leading zero is not a count', () {
     expect(press('0'), isNull);
     expect(r.isPending, isFalse);

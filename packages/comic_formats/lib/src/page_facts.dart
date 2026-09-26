@@ -101,7 +101,10 @@ PageFacts _jpeg(Uint8List h, (int, int)? size, int? total) {
   int? dpi;
   var i = 2;
   while (i + 4 <= h.length) {
-    if (h[i] != 0xFF) break;
+    if (h[i] != 0xFF) {
+      i++; // Stray bytes between segments, as libjpeg allows.
+      continue;
+    }
     final marker = h[i + 1];
     if (marker == 0xFF) {
       i++;
