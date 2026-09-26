@@ -49,7 +49,6 @@ void main() {
   Future<Map<String, Object>> changedSettings() async => {
     SettingsStore.wholePageSteps: false,
     SettingsStore.pauseWhole: false,
-    SettingsStore.pauseCue: 'zoom',
     SettingsStore.night: true,
     SettingsStore.autoTrim: true,
     SettingsStore.fullscreen: true,
@@ -159,7 +158,7 @@ void main() {
     expect(done.books, {'a', 'b'});
     expect(
       importNotice(done),
-      'Imported 12 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
+      'Imported 11 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
       'and 2 history entries.',
     );
 
@@ -239,7 +238,7 @@ void main() {
       'appVersion': 3, // Not a version: left out.
       'settings': {
         SettingsStore.night: true,
-        SettingsStore.pauseCue: 'zoom',
+        SettingsStore.shuffle: true,
         'reader.hologram': true, // A setting from later.
         SettingsStore.cleanUp: 'yes', // The wrong kind.
         SettingsStore.gridZoom: 'big', // Not a size.
@@ -262,7 +261,7 @@ void main() {
     final file = SettingsFile.decode(text);
     expect(file.skipped, 3 + 2 + 2 + 1 + 1 + 1, reason: 'settings, folders, positions, bookmarks, history, keys');
     final done = await import(text);
-    expect(await settingsOf(to), {SettingsStore.night: true, SettingsStore.pauseCue: 'zoom'});
+    expect(await settingsOf(to), {SettingsStore.night: true, SettingsStore.shuffle: true});
     expect(done.foldersAdded, 1);
     expect(done.keysWritten, isFalse);
     final pos = await to.select(to.progress).getSingle();
@@ -325,7 +324,7 @@ void main() {
     expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], ['Comics']);
     expect(done.foldersMissing, [p.join(tmp.path, 'Manga')]);
     expect(done.sidecarDirMissing, here);
-    expect(done.settings, 11);
+    expect(done.settings, 10);
     expect(importNotice(done), contains('1 library folder not on this device: ${p.join(tmp.path, 'Manga')}.'));
     expect(importNotice(done), contains("The sidecar folder $here is not on this device; kept this one's."));
   });
@@ -451,8 +450,8 @@ void main() {
     await container.read(touchPresetProvider.notifier).reload();
     final s = container.read(readerProvider);
     expect(
-      (s.wholePageSteps, s.pauseWhole, s.pauseCue, s.night, s.trim, s.cleanUp, s.fullscreen),
-      (false, false, PauseCue.zoom, true, true, true, true),
+      (s.wholePageSteps, s.pauseWhole, s.night, s.trim, s.cleanUp, s.fullscreen),
+      (false, false, true, true, true, true),
     );
     expect(container.read(touchPresetProvider), TouchPreset.oneThumb);
 
@@ -470,6 +469,6 @@ void main() {
     await import(await exportSettings(empty));
     await container.read(readerProvider.notifier).reloadSettings();
     final d = container.read(readerProvider);
-    expect((d.wholePageSteps, d.night, d.pauseCue, d.fullscreen), (true, false, PauseCue.colour, false));
+    expect((d.wholePageSteps, d.pauseWhole, d.night, d.fullscreen), (true, true, false, false));
   });
 }

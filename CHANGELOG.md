@@ -7,6 +7,13 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Pages shown whole in guided view** turn the background wine red as
+  soon as they show, not on the first press. A press within 5 seconds of
+  arriving stays and zooms the page out and back; the next one turns. A
+  press after 5 seconds turns straight away. `gw` and the Colour/Zoom
+  choice in Settings are gone: both cues are used now, and `W` still
+  turns it all off.
+
 ## 0.3.0
 
 Back up and restore your settings.

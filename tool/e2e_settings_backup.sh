@@ -168,7 +168,6 @@ key t # auto-trim
 key c # clean-up
 key w # no whole-page steps
 key shift+w # pages shown whole turn at once
-key g w # the zoom cue
 key p; key plus plus; key Escape # bigger page thumbnails
 shot 01_reading
 key Escape; sleep 2
@@ -194,7 +193,7 @@ q "insert into collection_books (name, content_key, added_at) values ('Moore', '
 
 want_changed() { # every setting away from its default
   test "$(setting guided.wholePageSteps)" = false -a "$(setting guided.pauseWhole)" = false \
-    -a "$(setting guided.pauseCue)" = '"zoom"' -a "$(setting reader.night)" = true \
+    -a "$(setting reader.night)" = true \
     -a "$(setting reader.autoTrim)" = true -a "$(setting reader.fullscreen)" = true \
     -a "$(setting reader.cleanUp)" = true -a "$(setting sidecars.write)" = false \
     -a "$(setting sidecars.dir)" = "\"$stash\"" -a -n "$(setting grid.zoom)" \
@@ -229,7 +228,7 @@ check "it says it is ComicRedr's settings, format 1" python3 -c "
 import json, sys
 j = json.load(open(sys.argv[1]))
 assert j['app'] == 'org.snonux.comicredr' and j['kind'] == 'settings' and j['format'] == 1, j
-assert len(j['settings']) == 12 and 'device.id' not in j['settings'], j['settings']
+assert len(j['settings']) == 11 and 'device.id' not in j['settings'], j['settings']
 assert 'library.defaultFolderRemoved' not in j['settings'], j['settings']
 assert j['keysToml'] == open(sys.argv[2]).read()
 " "$backup" "$keys"

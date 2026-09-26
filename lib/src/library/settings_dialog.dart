@@ -46,7 +46,6 @@ class SettingsDialog extends ConsumerStatefulWidget {
 class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   bool? _wholePage;
   bool? _pauseWhole;
-  PauseCue? _pauseCue;
   bool? _cleanUp;
   bool? _sidecars;
   String? _sidecarDir;
@@ -63,7 +62,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final settings = ref.read(settingsStoreProvider);
     final whole = await settings.loadBool(SettingsStore.wholePageSteps);
     final pause = await settings.loadBool(SettingsStore.pauseWhole);
-    final cue = await settings.loadString(SettingsStore.pauseCue);
     final cleanUp = await settings.loadBool(SettingsStore.cleanUp);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final sidecarDir = await settings.loadString(SettingsStore.sidecarDir);
@@ -72,7 +70,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     setState(() {
       _wholePage = whole ?? true;
       _pauseWhole = pause ?? true;
-      _pauseCue = PauseCue.values.asNameMap()[cue] ?? PauseCue.colour;
       _cleanUp = cleanUp ?? false;
       _sidecars = sidecars ?? true;
       _sidecarDir = sidecarDir;
@@ -226,31 +223,16 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       value: _wholePage!,
                       onChanged: (v) => _set(SettingsStore.wholePageSteps, v),
                     ),
-                    const ListTile(
+                    SwitchListTile(
+                      key: const Key('setting-pauseWhole'),
                       contentPadding: EdgeInsets.zero,
-                      title: Text('On a page without panels, the first step stays'),
-                      subtitle: Text(
-                        'and shows it: the background turns wine red, or the page zooms out and back. The next step '
-                        'turns. W switches it off and on while reading, gw picks the cue.',
+                      title: const Text('On a page without panels, a quick step stays'),
+                      subtitle: const Text(
+                        'The background turns wine red. A step within 5 seconds zooms the page out and back and '
+                        'stays; the next one turns. After 5 seconds a step turns at once. W switches it while reading.',
                       ),
-                    ),
-                    SegmentedButton<PauseCue?>(
-                      key: const Key('setting-pauseCue'),
-                      showSelectedIcon: _roomForTicks(context),
-                      segments: const [
-                        ButtonSegment(value: null, label: Text('Off')),
-                        ButtonSegment(value: PauseCue.colour, label: Text('Colour')),
-                        ButtonSegment(value: PauseCue.zoom, label: Text('Zoom')),
-                      ],
-                      selected: {_pauseWhole! ? _pauseCue : null},
-                      onSelectionChanged: (v) async {
-                        final cue = v.first;
-                        await ref.read(settingsStoreProvider).saveBool(SettingsStore.pauseWhole, cue != null);
-                        if (cue != null) {
-                          await ref.read(settingsStoreProvider).saveString(SettingsStore.pauseCue, cue.name);
-                        }
-                        await _load();
-                      },
+                      value: _pauseWhole!,
+                      onChanged: (v) => _set(SettingsStore.pauseWhole, v),
                     ),
                     Text('Panel detector', style: theme.textTheme.bodyMedium),
                     Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),

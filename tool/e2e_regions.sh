@@ -111,7 +111,7 @@ part Q 4;  shot u12_again;        whole u12_again ref_a
 
 # Guided view, on the page it shows whole.
 key v; sleep 3
-shot g00_guided;                  whole g00_guided ref_a; black g00_guided
+shot g00_guided;                  whole g00_guided ref_a; held g00_guided
 part H 2;  shot g01_lower_half;   framed g01_lower_half halves 2; black g01_lower_half
 key h;     shot g02_upper_half;   framed g02_upper_half halves 1
 key h;     shot g03_held_back;    whole g03_held_back ref_a; held g03_held_back
