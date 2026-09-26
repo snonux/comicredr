@@ -10,8 +10,8 @@
 #   tool/e2e_regions.sh book.cbz [page]   # page: 1-based, default 3
 #
 # The page must be shown whole in guided view (reptisaurus-v2-005.cbz from
-# the corpus: page 3 is a splash). Set COMICREDR_MODEL to the trained .onnx
-# file, or build with it (make model). tool/region_check.py tells which
+# the corpus: page 3 is a splash). The build has the detector built in;
+# COMICREDR_MODEL=file.onnx tries another. tool/region_check.py tells which
 # part a shot frames, against the page whole in single-page mode.
 #
 # Needs: Xvfb, xdotool, ImageMagick, Python with Pillow, a C compiler and

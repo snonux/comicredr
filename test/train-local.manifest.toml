@@ -1,0 +1,187 @@
+# Training books whose licence does not allow them in the published model
+# (non-commercial, no-derivatives, share-alike, or "local training only").
+# They were split out of test/train.manifest.toml when the bundled detector
+# became Apache-2.0: the model built into the app never sees them. Their
+# labels are in spike/labels/train-local/; add them to a local training run
+# for a model you keep to yourself.
+#
+#   python3 spike/fetch_corpus.py --manifest test/train-local.manifest.toml --out test/corpus-train-local
+
+[[book]]
+name = "modern-indie/fodongo-issue-2digital.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/fodongo-issue-2/Fodongo%20Issue%202_Digital.pdf"
+licence = "CC BY-SA 4.0, Fodongo free culture comics zine"
+
+[[book]]
+name = "modern-indie/ocbshorts1.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/ocb-shorts-1/OCB_Shorts1.pdf"
+licence = "CC BY-NC 4.0, Old City Blues shorts"
+
+[[book]]
+name = "bw-indie/yogi-and-his-toy-6.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/YogiandHisToy6/Yogi%20and%20His%20Toy%20%236.pdf"
+licence = "CC BY-NC-ND 4.0, local training only"
+
+[[book]]
+name = "modern-digital/first-woman-002.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/first-woman-issue-2-expanding-our-universe-nasa/First_Woman_issue_2_Expanding_Our_Universe%20%20%28NASA%29.pdf"
+licence = "public domain, US government work (NASA, First Woman issue 2, 2023)"
+
+[[book]]
+name = "modern-indie/wolfs-head-006.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/wolfs-head-006-by-von-allan/Wolf%27s%20Head%20006%20by%20Von%20Allan.pdf"
+licence = "CC BY-NC-ND 4.0 (Von Allan, Wolf's Head 006)"
+
+[[book]]
+name = "modern-indie/wolfs-head-010.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/wolfs-head-010-by-von-allan/Wolf%27s%20Head%20010%20by%20Von%20Allan.pdf"
+licence = "CC BY-NC-ND 4.0 (Von Allan, Wolf's Head 010)"
+
+[[book]]
+name = "modern-indie/hephaestion-part-one.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/hephaestion-part-one-final/Hephaestion%20Part%20One%20-%20Final.pdf"
+licence = "CC BY-ND 4.0 (Simon Braunstein, Hephaestion Part One)"
+
+[[book]]
+name = "modern-indie/calzers-clock.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/calzers_clock/calzers_clock_final_snowyworks.pdf"
+licence = "CC BY-NC-ND 4.0 (Drew D. Lenhart, Calzer's Clock)"
+
+[[book]]
+name = "modern-digital/frbny-story-of-monetary-policy.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/storyofmonetarypolicy/storyofmonetarypolicy.pdf"
+sha256 = "7bad77673d98dd02d86d509745da3f4ae75167175ae1a96e9147c6427910e5ee"
+licence = "Federal Reserve Bank of New York educational comic (2018), free distribution; IA tag CC BY-NC-ND 4.0, local training only"
+
+[[book]]
+name = "modern-digital/frbny-story-of-checks.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/gov.frb.ny.comic.checks/gov.frb.ny.comic.checks.pdf"
+sha256 = "f5a7b9173afb71268d59d36471f99ad8dfb3dbbc38db10148a4a4ed9d68759a0"
+licence = "Federal Reserve Bank of New York educational comic (2000s), free distribution; local training only"
+
+[[book]]
+name = "modern-digital/frbny-story-of-the-fed.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/gov.frb.ny.comic.federal/gov.frb.ny.comic.federal.pdf"
+sha256 = "09986aefd0b9837473afa324add64d7ce1673a5d6918666c453faf8a09b9a42c"
+licence = "Federal Reserve Bank of New York educational comic (c. 2006), free distribution; local training only"
+
+[[book]]
+name = "modern-digital/frbny-too-much-too-little.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/gov.frb.ny.comic.much/gov.frb.ny.comic.much.pdf"
+sha256 = "d0cf9a594f798c378c6210569a6c052ce464ad0be34485046a3f5d9e6dede3a0"
+licence = "Federal Reserve Bank of New York educational comic (2000s), free distribution; local training only"
+
+[[book]]
+name = "modern-digital/frbb-wishes-and-rainbows.pdf"
+style = "modern-digital"
+url = "https://archive.org/download/gov.frb.boston.comic.wishes/gov.frb.boston.comic.wishes.pdf"
+sha256 = "a1f6895db89f7abe3e9058df8eb0eaebc7194acac69236ed0c7d4db3be35c124"
+licence = "Federal Reserve Bank of Boston educational comic (2000s), free distribution; local training only"
+
+[[book]]
+name = "modern-indie/sheba-the-great.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/sheba-the-great-by-von-allan/Sheba-the-Great-by-Von-Allan-High-Rez.pdf"
+sha256 = "ebb6e7c93672e811f9952f0047d7caa5d850b195668e4b1cc5cd26f7a7fc64a3"
+licence = "CC BY-NC-ND 4.0 (Von Allan, Sheba the Great, 2023)"
+
+[[book]]
+name = "modern-indie/wizards-for-hire-cheap.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/wizards-for-hire-cheap-by-von-allan_202311/Wizards-for-Hire-Cheap-by-Von-Allan-High-Rez.pdf"
+sha256 = "4dad97ca15641cdd767ef09e21f1a275749aa13b1d906fc085c288a4e83127ba"
+licence = "CC BY-NC-ND 4.0 (Von Allan, Wizards For Hire - Cheap!, 2017)"
+
+[[book]]
+name = "modern-indie/virtuoso-00-prologue.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/virtuoso-00-prologue/Virtuoso-00-Prologue.pdf"
+sha256 = "6aafea2f9e4d88fb022ad975e323c1052f0de2a22659521238d87e0cc9e7246b"
+licence = "CC BY-SA 4.0 (Jon Munger, Krista Brennan, Virtuoso Prologue, 2010)"
+
+[[book]]
+name = "modern-indie/topaz-chapter-01.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/topaz-chapters-one-through-twelve/topaz%20chapter%20one.pdf"
+sha256 = "1339cf5f36ae5dca48023ff4c47dcf2223960de03be18f26186348f34bcca4c8"
+licence = "CC BY-ND 4.0 (Warren West, Topaz chapter 1, 2024)"
+
+[[book]]
+name = "modern-indie/ski-ninjas-vol-1.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/SkiNinjasVolume1ThisIsFreeOnTheInternet/Ski%20Ninjas%20Volume%201%20-%20This%20is%20Free%20on%20the%20Internet.pdf"
+sha256 = "4ff3f5422bfef2cb96ecd58c8b1f50fc931275bc3fd431e3513e28c09be3ba09"
+licence = "CC BY-NC-ND 3.0 (Kyle Lees, Ski Ninjas Volume 1, 2017)"
+
+[[book]]
+name = "modern-indie/pawns.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/pawns_202502/Pawns.pdf"
+sha256 = "4b879617697ea313f6975f9ad1b751a61918b33740b8996a9609dff0fdd72dd3"
+licence = "CC BY-ND 4.0 (Bob Lynch, Pawns, 2025)"
+
+[[book]]
+name = "modern-indie/durpsville-pt1.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/durpsville/Durpsville%20Pt.%201.pdf"
+sha256 = "4df697da481b8064bebbce1a783bd26fc337ef0ffbef1d2dfee6c1bcb9800bfc"
+licence = "CC BY-SA 4.0 (Pacmation Studios, Durpsville Pt. 1, 2021)"
+
+[[book]]
+name = "modern-indie/fodongo-issue-1digital.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/fodongo-issue-1/Fodongo%20Issue%201_Digital.pdf"
+sha256 = "ea9787194a736496a00c56c9314df1064da4d8a1504d9e30de5c67028ed98fee"
+licence = "CC BY-SA 4.0, Fodongo free culture comics zine issue 1 (2023)"
+
+[[book]]
+name = "modern-indie/fodongo-issue-3digital.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/fodongo-issue-3/Fodongo%20Issue%203_Digital.pdf"
+sha256 = "9af058d975d648e556d3683daec67b4d218ceef8d9208676569922c9d024f3ad"
+licence = "CC BY-SA 4.0, Fodongo free culture comics zine issue 3"
+
+[[book]]
+name = "bw-indie/dream-life-book-one.pdf"
+style = "black-and-white"
+url = "https://archive.org/download/dream-life-bookone/DreamLifebookone.pdf"
+sha256 = "0afefad32fe98b5038588a5288e1efd8015e2cb7b8ff1ecf0a93e7b0fa9260d0"
+licence = "CC BY-NC-ND 4.0 (Salgood Sam, Dream Life book one, 2014), local training only"
+
+[[book]]
+name = "modern-indie/bio-whale-book-1.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/bio-whale-book-1/Bio-Whale%20Book%201.pdf"
+sha256 = "113f8fa00c3ac88feab5e332c1879515a981ed0511b05913914a060422fbad76"
+licence = "CC0 tag on archive.org, but not added by the author (Ville Kallio, Bio-Whale Book 1, 2015); local training only"
+
+# Modern pages whose licence is likely but not certain (2026-09-25): kept
+# out of the published model like First Woman #2.
+
+[[book]]
+name = "modern-digital/cdc-junior-disease-detectives.pdf"
+style = "modern-digital"
+url = "https://www.cdc.gov/flu-resources/media/pdfs/2024/07/junior-detectives-print-web.pdf"
+licence = "US federal work, public domain: CDC with USDA and 4-H, The Junior Disease Detectives: Operation Outbreak (2024), https://www.cdc.gov/flu-resources/graphic-novel/index.html; CDC policy https://www.cdc.gov/other/agencymaterials.html (not subject to copyright); no copyright notice in the PDF, but made with partners USDA and 4-H, so the art may be contractor work"
+purpose = "digital colour, insets, borderless panels on black"
+sha256 = "a7fc19b7a7221b4e01a379bbf501a97738ecce14d568f3128b781840a85dc55a"
+
+[[book]]
+name = "modern-indie/just-go-for-it.pdf"
+style = "modern-indie"
+url = "https://archive.org/download/justgoforitpdfversion/Just%20Go%20For%20It%20PDF%20VERSION.pdf"
+licence = "CC BY 4.0, @lilyellowtags, Just Go For It (2019; archive.org item justgoforitpdfversion, licenseurl; uploaded by someone other than the author, so who set the licence is unconfirmed)"
+purpose = "webcomic digital colour, borderless panels"
+sha256 = "64a9ef779dd560c3e572bc18443af8a70a8e449b778f9d9af8241b4b3dbfdbbd"

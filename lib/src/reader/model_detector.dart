@@ -13,7 +13,7 @@ import '../data/data_dirs.dart';
 /// The file name the app looks for in its models folder.
 const modelFileName = 'comicredr-panels.onnx';
 
-/// The model's square input side in pixels (spike/export_onnx.py --imgsz).
+/// The model's square input side in pixels (the input of spike/train.py --export).
 const modelInputSize = 800;
 
 /// Where the model the app detects with is, or null to use classic CV.

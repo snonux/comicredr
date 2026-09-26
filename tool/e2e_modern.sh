@@ -12,7 +12,7 @@
 # Output: build/e2e-modern/<book>_<step>.png and build/e2e-modern/contact.png.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-: "${COMICREDR_MODEL:?name the trained .onnx file}"
+: "${COMICREDR_MODEL:=$PWD/assets/models/comicredr-panels.onnx}"
 export COMICREDR_MODEL
 
 out=build/e2e-modern

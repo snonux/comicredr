@@ -13,7 +13,10 @@ page:
   trained     the western fine-tune (an .onnx file is run exactly the way
               the app runs it: same letterbox, same thresholds)
 
-Panels and balloons are scored as F1 at IoU 0.5. Guided view is scored per
+Panels and balloons are scored as F1 at IoU 0.5. Balloons are speech and
+thought only: labelled captions (narration boxes) are scored on their own,
+for a model that has a caption class, and a balloon found on a caption
+counts against balloon precision. Guided view is scored per
 page, because a wrong camera move is worse than none (design plan section 5):
 
   right   the gate passed and the panels match the labels one for one, in
@@ -41,6 +44,7 @@ import cv2
 import numpy as np
 
 import detect_cv
+import outlines as frame_outlines
 import trim as autotrim
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
@@ -140,8 +144,24 @@ def reading_order(boxes, tol=0.01, aspect=1.0):
     return rec(boxes)
 
 
-def gate(panels):
-    """The app's confidence gate (packages/comic_analysis/lib/src/gate.dart)."""
+def _overlap(a, b, pa, pb):
+    """Shared area of two panels, by their outlines when either has one
+    (Panel.overlap in the app): slanted panels' boxes overlap, they don't."""
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    if ix * iy == 0 or (pa is None and pb is None):
+        return ix * iy
+    box = lambda r: np.array([[r[0], r[1]], [r[0] + r[2], r[1]], [r[0] + r[2], r[1] + r[3]], [r[0], r[1] + r[3]]])
+    pa = box(a) if pa is None else pa
+    pb = box(b) if pb is None else pb
+    area, _ = cv2.intersectConvexConvex(np.float32(pa), np.float32(pb))
+    return float(area)
+
+
+def gate(panels, shapes=None):
+    """The app's confidence gate (packages/comic_analysis/lib/src/gate.dart).
+    [shapes] holds each panel's outline (N x 2, same coordinates) or None."""
+    shapes = shapes or [None] * len(panels)
     reasons, n = [], len(panels)
     if n < 2:
         reasons.append(f"{n} panel(s)")
@@ -150,9 +170,7 @@ def gate(panels):
     for i in range(n):
         for j in range(i + 1, n):
             a, b = panels[i], panels[j]
-            ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
-            iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
-            if ix * iy > 0.15 * min(a[2] * a[3], b[2] * b[3]):
+            if _overlap(a, b, shapes[i], shapes[j]) > 0.15 * min(a[2] * a[3], b[2] * b[3]):
                 reasons.append(f"panels {i + 1} and {j + 1} overlap")
         if n > 1 and panels[i][2] * panels[i][3] > 0.92:
             reasons.append(f"panel {i + 1} is the whole page")
@@ -188,7 +206,7 @@ class Ultralytics:
     def __call__(self, img):
         r = self.model.predict(img, imgsz=1024, device="cpu", verbose=False, conf=min(PANEL_CONF, BALLOON_CONF))[0]
         h, w = img.shape[:2]
-        panels, balloons = [], []
+        panels, balloons, self.captions = [], [], []
         for (x0, y0, x1, y1), c, conf in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist()):
             box = [x0 / w, y0 / h, (x1 - x0) / w, (y1 - y0) / h]
             kind = r.names[int(c)]
@@ -196,6 +214,8 @@ class Ultralytics:
                 panels.append(box)
             elif kind == "balloon" and conf >= BALLOON_CONF:
                 balloons.append(box)
+            elif kind == "caption" and conf >= BALLOON_CONF:
+                self.captions.append(box)
         return panels, balloons
 
 
@@ -224,12 +244,13 @@ class Onnx:
         canvas[:nh, :nw] = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
         x = canvas[:, :, ::-1].transpose(2, 0, 1)[None].astype(np.float32) / 255
         out = self.sess.run(None, {self.input: x})[0][0]
-        found = {"frame": ([], []), "balloon": ([], [])}
+        found = {"frame": ([], []), "balloon": ([], []), "caption": ([], [])}
         for x0, y0, x1, y1, conf, c in out:
             kind = self.names.get(int(c))
             if kind in found and conf >= (PANEL_CONF if kind == "frame" else BALLOON_CONF):
                 found[kind][0].append([float(v) for v in (x0 / s / w, y0 / s / h, (x1 - x0) / s / w, (y1 - y0) / s / h)])
                 found[kind][1].append(float(conf))
+        self.captions = dedupe(*found["caption"])
         return drop_containers(dedupe(*found["frame"])), dedupe(*found["balloon"])
 
 
@@ -304,12 +325,22 @@ def clip(boxes):
     return out
 
 
-def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL):
+def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL, shapes=None):
+    """[shapes]: each detected panel's outline on the page (N x 2, 0..1) or None."""
+    found = panels
     panels = reading_order(clip(panels), aspect=aspect)
     pm = match(panels, gt_panels)
     bm = match(clip(balloons), gt_balloons)
+    crop_shapes = None
+    if shapes:
+        tw, th = trim[2] - trim[0], trim[3] - trim[1]
+        crop_shapes = []
+        for p in panels:
+            k = max(range(len(found)), key=lambda i: iou(p, found[i]))
+            s = shapes[k]
+            crop_shapes.append(None if s is None else (s - [trim[0], trim[1]]) / [tw, th])
     # The app judges a trimmed page by the part it detected on.
-    passed, reasons = gate(autotrim.to_crop(panels, trim))
+    passed, reasons = gate(autotrim.to_crop(panels, trim), crop_shapes)
     story = len(gt_panels) >= 2
     exact = len(pm) == len(panels) == len(gt_panels) and all(i == j for i, j in pm)
     if not story:
@@ -325,6 +356,13 @@ def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotr
     }
 
 
+def score_captions(res, captions, gt_captions):
+    """Caption matches, and how many found balloons sit on a labelled caption."""
+    cm = match(clip(captions), gt_captions)
+    res.update(captions=captions, c_tp=len(cm), c_fp=len(captions) - len(cm), c_fn=len(gt_captions) - len(cm),
+               b_on_c=sum(any(iou(b, c) > 0.5 for c in gt_captions) for b in clip(res["balloons"])))
+
+
 def f1(tp, fp, fn):
     p = tp / (tp + fp) if tp + fp else 1.0
     r = tp / (tp + fn) if tp + fn else 1.0
@@ -332,10 +370,14 @@ def f1(tp, fp, fn):
 
 
 def summarise(rows):
-    s = {k: sum(r[k] for r in rows) for k in ("p_tp", "p_fp", "p_fn", "b_tp", "b_fp", "b_fn")}
+    s = {k: sum(r.get(k, 0) for r in rows) for k in ("p_tp", "p_fp", "p_fn", "b_tp", "b_fp", "b_fn",
+                                                    "c_tp", "c_fp", "c_fn")}
     out = {"pages": len(rows)}
     out["panel_p"], out["panel_r"], out["panel_f1"] = f1(s["p_tp"], s["p_fp"], s["p_fn"])
     out["balloon_p"], out["balloon_r"], out["balloon_f1"] = f1(s["b_tp"], s["b_fp"], s["b_fn"])
+    out["caption_p"], out["caption_r"], out["caption_f1"] = f1(s["c_tp"], s["c_fp"], s["c_fn"])
+    # Balloons that landed on a labelled caption: the old mistake, counted apart.
+    out["balloon_on_caption"] = sum(r.get("b_on_c", 0) for r in rows)
     for o in ("right", "whole", "wrong"):
         out[o] = sum(r["outcome"] == o for r in rows)
     out["ms"] = sum(r["ms"] for r in rows) / max(1, len(rows))
@@ -368,17 +410,20 @@ def overlay(img, gt, res, dest):
 def report(summary, out):
     lines = ["# M5 detector evaluation", ""]
     dets = list(summary["all"].keys())
-    lines += ["| Detector | Pages | Panel F1 | Balloon F1 | Guided right | Whole page | Wrong camera | ms/page |",
-              "|---|---|---|---|---|---|---|---|"]
+    lines += ["| Detector | Pages | Panel F1 | Balloon F1 | Balloon P | Balloon R | Balloons on captions | "
+              "Caption P | Caption R | Guided right | Whole page | Wrong camera | ms/page |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for d in dets:
         s = summary["all"][d]
-        lines.append(f"| {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_f1']:.3f} | {s['right']} | "
-                     f"{s['whole']} | {s['wrong']} | {s['ms']:.0f} |")
-    lines += ["", "## Per style", "", "| Style | Detector | Pages | Panel F1 | Balloon F1 | Right | Whole | Wrong |",
-              "|---|---|---|---|---|---|---|---|"]
+        lines.append(f"| {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_f1']:.3f} | {s['balloon_p']:.3f} | "
+                     f"{s['balloon_r']:.3f} | {s['balloon_on_caption']} | {s['caption_p']:.3f} | "
+                     f"{s['caption_r']:.3f} | {s['right']} | {s['whole']} | {s['wrong']} | {s['ms']:.0f} |")
+    lines += ["", "## Per style", "", "| Style | Detector | Pages | Panel F1 | Balloon P | Balloon R | Caption P | "
+              "Caption R | Right | Whole | Wrong |", "|---|---|---|---|---|---|---|---|---|---|---|"]
     for style, per in summary["styles"].items():
         for d, s in per.items():
-            lines.append(f"| {style} | {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_f1']:.3f} | "
+            lines.append(f"| {style} | {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_p']:.3f} | "
+                         f"{s['balloon_r']:.3f} | {s['caption_p']:.3f} | {s['caption_r']:.3f} | "
                          f"{s['right']} | {s['whole']} | {s['wrong']} |")
     (out / "report.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
@@ -395,6 +440,8 @@ def main():
     ap.add_argument("--overlays", action="store_true")
     ap.add_argument("--panel-conf", type=float, default=PANEL_CONF)
     ap.add_argument("--balloon-conf", type=float, default=BALLOON_CONF)
+    ap.add_argument("--no-outlines", action="store_true",
+                    help="judge overlap by boxes only, not by slanted frames' outlines as the app does")
     ap.add_argument("--trim", action="store_true",
                     help="detect on the page with its scanned margins cut off, as the app does")
     ap.add_argument("--trim-pad", type=float, default=autotrim.DETECT_PAD,
@@ -422,7 +469,8 @@ def main():
     for page in pages:
         lab = json.loads(page.with_suffix(".json").read_text())
         W, H = lab["w"], lab["h"]
-        gt = {k: [[x / W, y / H, w / W, h / H] for x, y, w, h in lab[k]] for k in ("panels", "balloons")}
+        gt = {k: [[x / W, y / H, w / W, h / H] for x, y, w, h in lab.get(k, [])]
+              for k in ("panels", "balloons", "captions")}
         img = cv2.imread(str(page))
         if a.add_margin:
             img, W, H, gt = add_margin(img, gt, a.add_margin, a.margin_colour)
@@ -438,9 +486,19 @@ def main():
             dt, d_img = (autotrim.FULL, img) if d.name == "cv" else (t, page_img)
             t0 = time.perf_counter()
             panels, balloons = d(d_img)
-            panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
             ms = (time.perf_counter() - t0) * 1000
-            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt)
+            shapes = None
+            if d.name != "cv" and not a.no_outlines:
+                # The app finds slanted frames' outlines on the page it detected on.
+                dh, dw = d_img.shape[:2]
+                px = lambda r: [r[0] * dw, r[1] * dh, (r[0] + r[2]) * dw, (r[1] + r[3]) * dh]
+                polys = frame_outlines.outlines(d_img, [px(p) for p in panels], [px(b) for b in balloons])
+                tw, th = dt[2] - dt[0], dt[3] - dt[1]
+                shapes = [None if q is None else np.asarray(q) / [dw, dh] * [tw, th] + [dt[0], dt[1]] for q in polys]
+            panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
+            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt, shapes=shapes)
+            res["outlines"] = sum(q is not None for q in shapes or [])
+            score_captions(res, autotrim.to_page(getattr(d, "captions", []), dt), gt["captions"])
             res["ms"] = ms
             row["det"][d.name] = res
             if a.overlays:

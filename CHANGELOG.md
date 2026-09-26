@@ -7,6 +7,17 @@ the `?` overlay.
 
 ## Unreleased
 
+- **The panel detector is built in and open:** a new D-FINE-S model,
+  trained only on public-domain and CC BY comics, now ships in the
+  repository and in every build, under Apache 2.0 like the rest of
+  ComicRedr (LICENSE, NOTICE). No more `make model` step. It learned from
+  998 labelled pages, including 37 books with slanted, curved,
+  wedge-shaped and irregular frames and 7 modern indie books, plus 400
+  synthetic modern pages laid out from their art, and nothing
+  in it comes from Manga109 or Ultralytics.
+  Narration captions are their own class, so balloon mode stops only on
+  speech and thought balloons. Panels are detected again on first open.
+
 - **Turn the comic (`>`, `<`, `gr`):** a quarter turn clockwise or
   counter-clockwise, with a count for more (`2>` turns it upside down),
   and `gr` back upright. Guided view frames its panels on the turned page,
@@ -48,10 +59,9 @@ the `?` overlay.
   every page on its own line. A page picked in the list is gone to, and
   Redo panels finds the comic's panels again. Only page headers are read.
 
-- **Getting the detector:** `make train-model` rebuilds the model from the
-  free training comics on the CPU, and `make fetch-model URL=...` downloads
-  your own copy; both check the file before the build packs it. The
-  README says why the model can't be in the repository.
+- **Rebuilding the detector:** `make train-model` rebuilds the model from
+  the free training comics on the CPU and checks the file before the
+  build packs it.
 
 - **Bookmarks you can use:** `mm` (or the bookmark button) now takes a
   bookmark off again when the page, or in guided view the panel, already

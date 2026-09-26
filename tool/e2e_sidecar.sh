@@ -29,7 +29,7 @@ out=build/e2e-sidecar
 rm -rf "$out" && mkdir -p "$out/laptop-home" "$out/phone-home" "$out/laptop" "$out/phone"
 [[ -x build/linux/x64/release/bundle/comicredr ]] || flutter build linux --release
 cc -o "$out/close_window" tool/close_window.c -lX11
-model="${COMICREDR_MODEL:?name the trained model file in COMICREDR_MODEL}"
+model="${COMICREDR_MODEL:-$PWD/assets/models/comicredr-panels.onnx}"
 model=$(realpath "$model")
 unset COMICREDR_MODEL
 

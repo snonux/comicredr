@@ -11,14 +11,17 @@ git-ignored test/corpus/. Two kinds of entry:
               a file matching `formats` are downloaded. Their urls and
               sha256 are printed so they can be pinned as [[book]] entries.
 
-Also downloads the pretrained panel/balloon/text model named by [model]
-into test/corpus/models/. Nothing fetched here is ever committed.
+With --manga109-model it also downloads the pretrained panel/balloon/text
+model named by [model] into test/corpus/models/, for comparisons only: it
+was trained on Manga109 (academic use only) and nothing the app ships
+starts from it any more. Nothing fetched here is ever committed.
 """
 import argparse
 import hashlib
 import json
 import sys
 import tomllib
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -27,7 +30,13 @@ UA = {"User-Agent": "comicredr-spike/0.1 (personal test corpus)"}
 
 
 def get(url, timeout=120):
-    return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout)
+    try:
+        return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout)
+    except urllib.error.HTTPError as e:
+        # cdc.gov refuses unknown user agents but serves Python's own.
+        if e.code != 403:
+            raise
+        return urllib.request.urlopen(url, timeout=timeout)
 
 
 def download(url, dest: Path, sha256=None):
@@ -77,7 +86,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", default="test/corpus.manifest.toml")
     ap.add_argument("--out", default="test/corpus")
-    ap.add_argument("--skip-model", action="store_true")
+    ap.add_argument("--manga109-model", action="store_true",
+                    help="also fetch the Manga109 model in [model], for comparisons")
+    ap.add_argument("--skip-model", action="store_true", help="the default; kept for old scripts")
     ap.add_argument("--skip-books", action="store_true", help="only the pretrained model")
     a = ap.parse_args()
     m = tomllib.loads(Path(a.manifest).read_text())
@@ -105,7 +116,7 @@ def main():
             print(f"FAILED  search {s['group']!r}: {e}", file=sys.stderr)
 
     model = m.get("model")
-    if model and not a.skip_model:
+    if model and a.manga109_model and not a.skip_model:
         try:
             from huggingface_hub import hf_hub_download, list_repo_files
             files = [f for f in list_repo_files(model["repo"]) if f.endswith((".pt", ".onnx"))]
