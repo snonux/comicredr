@@ -12,6 +12,12 @@ the `?` overlay.
   evenly. `←` `→` now move across a zoomed page and turn the page only
   from its edge (a held key stops there). Key pans stop at the page's
   edge rather than in the dark margin. Reduced motion keeps the jumps.
+- **Pages shown whole in guided view** turn the background wine red as
+  soon as they show, not on the first press. A press within 5 seconds of
+  arriving stays and zooms the page out and back; the next one turns. A
+  press after 5 seconds turns straight away. `gw` and the Colour/Zoom
+  choice in Settings are gone: both cues are used now, and `W` still
+  turns it all off.
 
 ## 0.3.0
 

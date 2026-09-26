@@ -310,16 +310,21 @@ refreshes right away instead of within six hours.
   Detection decodes its own copy, so it never sees the clean-up.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
-- A page guided view shows whole (no panels that pass the gate) holds
-  for one step: the first step onward stays and sets `ReaderState.held`,
-  the next one turns, however soon. Mirrored going back. The cue
-  (`guided.pauseCue`, `gw` cycles it) is the Scaffold background turning
-  `heldColour` (#3A0D16) in app.dart until the page is left, the default,
-  or ReaderView's zoom pulse (colour instead with reduced motion). The
-  status line explains the first three. A page arrived on from the other
-  side, a count (`3l`) and pages whose panels are not known yet are not
-  held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or Settings turns
-  it off (`guided.pauseWhole`).
+- A page guided view shows whole (no panels that pass the gate,
+  `ReaderState.onWholePage`) turns the Scaffold background `heldColour`
+  (#3A0D16, app.dart) as soon as it shows, until it is left (snonux,
+  2026-09-26). A step onward within `pauseWindow` (5 s) of that moment
+  stays, sets `ReaderState.held` and bumps `cue`, which plays ReaderView's
+  zoom pulse (none with reduced motion; the status line says to press
+  again, always then, else the first three times); the next step turns,
+  however soon. A step after 5 s turns at once. The moment is
+  `_wholeSince`, set by a `listenSelf` whenever `onWholePage` turns true
+  or the page changes, so a page whose panels arrive late, turning guided
+  view on or `W` on start it again. Tests set the notifier's `clock`.
+  Mirrored going back. A page arrived on from the other side and a count
+  (`3l`) are not held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or
+  Settings turns it off (`guided.pauseWhole`); there is no cue choice any
+  more (`gw` and `guided.pauseCue` are gone).
 - Parts of a page (`H1` `H2`, `B1`-`B3`, `Q1`-`Q4`, `lib/src/reader/region.dart`):
   `ReaderState.region` is the split, the part and the page of the unit it
   is on. ReaderView frames it with guided view's camera and dim, in guided
@@ -482,7 +487,7 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
-tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 5 s turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library

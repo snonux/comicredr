@@ -11,11 +11,9 @@ class SettingsStore {
   /// Guided view shows each page whole before and after its panels.
   static const wholePageSteps = 'guided.wholePageSteps';
 
-  /// Guided view holds on a page shown whole for one step before turning.
+  /// Guided view turns the background wine red on a page shown whole and
+  /// holds a quick step there before turning.
   static const pauseWhole = 'guided.pauseWhole';
-
-  /// How a held page shows it: a PauseCue name, `colour` by default.
-  static const pauseCue = 'guided.pauseCue';
 
   /// The night filter (`i`) and auto-trim (`t`), kept across restarts.
   static const night = 'reader.night';
@@ -62,7 +60,6 @@ class SettingsStore {
   static const backedUp = <String, bool>{
     wholePageSteps: true,
     pauseWhole: true,
-    pauseCue: false,
     night: true,
     autoTrim: true,
     fullscreen: true,
