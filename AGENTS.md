@@ -3,7 +3,7 @@
 Notes for coding agents and contributors working on ComicRedr. The
 [README](README.md) is for people using the app; keep it short and put
 build internals, test scripts, detector work and conventions here.
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the overview with
+[docs/architecture.md](docs/architecture.md) is the overview with
 diagrams (parts, page pipeline, input, detection, the model, data); keep
 it in step when the architecture or the model changes.
 
@@ -18,7 +18,7 @@ it in step when the architecture or the model changes.
 - The README is as lean as it can be (snonux, 2026-09-26): an intro, a
   link to the usage guide near the top, a few highlights, the
   screenshots, a five-step quick start that ends with a link to carry on
-  in the guide, and the links to ARCHITECTURE.md, training.md, this file
+  in the guide, and the links to architecture.md, training.md, this file
   and the changelog at the bottom. Nothing else: touch, data, CBR and the
   like are guide chapters. Install steps live in `docs/install-linux.md`
   and `docs/install-android.md` (F-Droid first, via snonux's repo

@@ -75,7 +75,7 @@ settings, one chapter each.
 ## More
 
 - How it works inside, with diagrams and the detector model explained:
-  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+  [docs/architecture.md](docs/architecture.md)
 - Training the panel detector: [docs/training.md](docs/training.md)
 - Notes for developers, the test scripts and conventions: [AGENTS.md](AGENTS.md)
 - What changed in each version: [CHANGELOG.md](CHANGELOG.md)
