@@ -156,9 +156,8 @@ comic to your phone.
 
 The first scan reads each comic once, about a third of a second a book.
 After that, starting the app only checks what changed. The line at the
-bottom shows the scan's progress, and **Finding panels** while
-ComicRedr looks for the panels of every book in the background, so
-guided view is ready whenever you want it (the pause button beside it
-pauses that).
+bottom shows the scan's progress. Panels are only looked for in the
+comic you have open, never across the whole library (see
+[how panels are found](05-guided-view.md#how-panels-are-found)).
 
 [Contents](README.md) · Previous: [Getting started](02-getting-started.md) · Next: [Reading a comic](04-reading.md)

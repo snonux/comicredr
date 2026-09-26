@@ -174,14 +174,16 @@ refreshes right away instead of within six hours.
   in comic_formats), so a link back up the tree ends the walk; a dangling
   link is skipped. A linked book's sidecar goes beside the link, and
   deleting it removes the link only (`removePath`).
-- Panels are detected in the background, starting at the current page,
-  and cached in the app database and the book's sidecar. A confidence gate
+- Panels are detected in the background for the open book only, guided
+  view on or off (`_ensurePanels`, `reader_notifier.dart`): the current
+  page, the two ahead and the one behind, then the rest of the book ahead
+  of the reader, resting as long as the last page took before each of
+  those (a page turn cuts the rest short). Closing the book stops it.
+  There is no whole-library pass (removed at snonux's ask, 2026-09-26).
+  Results are cached in the app database and the book's sidecar. A confidence gate
   shows the page whole when the panels don't look like a real layout; the
   status line says why. A page is analysed again when the model file
   changes.
-- A whole-library detection pass runs after each scan at low priority,
-  resumes after a restart, and is off by default on Android. Settings turns
-  it off.
 - The detector model is built into the app from
   `assets/models/comicredr-panels.onnx` (committed: D-FINE-S, Apache-2.0,
   see "Train the detector"; `make model MODEL=...` swaps in another file).
@@ -415,7 +417,7 @@ tool/e2e_m8_library.sh        # collections made from book details, a sitting in
 tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
 tool/e2e_margins.sh           # guided view on eval pages padded with a wide scanned margin; checks the index records the trim
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
-tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
+tool/e2e_ahead.sh [corpus]     # panels found only for the open comic, ahead of the reader, guided view off; nothing with no comic open; stops on close; sidecar filled
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
 tool/e2e_touch_linux.sh       # touch alone, no key or mouse: a comic opened from the library, every default reader gesture, the progress bar, the page grid pinched, scrolled and tapped, guided view, the back arrow out to the library, a long press on a cover; checks the view selects touch events and the index with sqlite3
 tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3

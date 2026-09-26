@@ -12,7 +12,6 @@ import '../input/touch_zones.dart';
 import '../providers.dart';
 import '../reader/reader_notifier.dart';
 import '../version.dart';
-import 'providers.dart';
 
 /// The settings (M8): what the reader and the sidecars do by default, which
 /// panel detector is in use, and the reading history. A dialog, so `Esc`
@@ -37,7 +36,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   PauseCue? _pauseCue;
   bool? _cleanUp;
   bool? _sidecars;
-  bool? _detectLibrary;
   String? _sidecarDir;
   bool _moving = false;
   String? _detector;
@@ -55,7 +53,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final cue = await settings.loadString(SettingsStore.pauseCue);
     final cleanUp = await settings.loadBool(SettingsStore.cleanUp);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
-    final detectLibrary = await settings.loadBool(SettingsStore.detectLibrary);
     final sidecarDir = await settings.loadString(SettingsStore.sidecarDir);
     final detector = await ref.read(panelDetectorProvider.future);
     if (!mounted) return;
@@ -65,7 +62,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       _pauseCue = PauseCue.values.asNameMap()[cue] ?? PauseCue.colour;
       _cleanUp = cleanUp ?? false;
       _sidecars = sidecars ?? true;
-      _detectLibrary = detectLibrary ?? detectLibraryByDefault;
       _sidecarDir = sidecarDir;
       _detector = detector.model == null
           ? 'Classic computer vision. Build with the trained model for balloons and better panels (see "The panel detector" in the guide).'
@@ -75,7 +71,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
 
   Future<void> _set(String key, bool value) async {
     await ref.read(settingsStoreProvider).saveBool(key, value);
-    if (key == SettingsStore.detectLibrary) await ref.read(libraryDetectionProvider).reload();
     await _load();
   }
 
@@ -246,16 +241,6 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     ),
                     Text('Panel detector', style: theme.textTheme.bodyMedium),
                     Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),
-                    SwitchListTile(
-                      key: const Key('setting-detectLibrary'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Find the panels of the whole library in the background'),
-                      subtitle: const Text(
-                        'So guided view is ready in any book. It waits while you read, and the status line can pause it.',
-                      ),
-                      value: _detectLibrary!,
-                      onChanged: (v) => _set(SettingsStore.detectLibrary, v),
-                    ),
                     heading('Sidecars'),
                     SwitchListTile(
                       key: const Key('setting-sidecars'),

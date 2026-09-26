@@ -16,7 +16,6 @@ brackets.
 | **Guided view → Show each page whole before and after its panels** (`w`) | See [panel by panel](05-guided-view.md#panel-by-panel). On by default. |
 | **Guided view → On a page without panels, the first step stays** (`W`, `gw`) | **Off**, **Colour** (the wine-red background) or **Zoom** (the page zooms out and back). See [the first press stays](05-guided-view.md#the-first-press-stays). |
 | **Guided view → Panel detector** | Which detector finds the panels: the model built into the app, or one you added. |
-| **Guided view → Find the panels of the whole library in the background** | So guided view is ready in every book. It waits while you read. Off on the phone unless you turn it on. |
 | **Sidecars → Save panels, bookmarks and position in a file for each comic** | The [sidecar](11-your-data.md#the-sidecar-beside-each-comic) files. On by default. |
 | **Sidecars → Beside each comic / In one folder** | Where the sidecars go. See [keeping them in one folder](11-your-data.md#keeping-the-sidecars-in-one-folder). |
 | **Sidecars → Export sidecars to a folder…** | A copy of every sidecar, for a backup. |

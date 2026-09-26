@@ -236,8 +236,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     }
     if (!mounted) return;
-    // Listens for the scan's end, so it is there before the first scan.
-    ref.read(libraryDetectionProvider);
     await _rescan();
   }
 

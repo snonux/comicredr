@@ -106,12 +106,11 @@ ComicRedr finds panels and balloons with a small detector model that is
 built into the app and runs on your own computer's processor, about a
 fifth of a second a page. Nothing leaves your machine.
 
-- Panels are found in the background, starting with the page you are on,
-  so guided view is usually ready before you get there.
-- While you are not reading, ComicRedr works through the whole library at
-  low priority. The line at the bottom of the library shows its progress,
-  with a pause button. Settings can turn this off; on the phone it is off
-  unless you turn it on.
+- Panels are found in the background for the comic you have open, with
+  guided view on or off: first the page you are on and the next two,
+  then the rest of the comic ahead of you at low priority. So guided view
+  is usually ready before you get there. Other comics are left alone
+  until you open them, and closing a comic stops the work.
 - The results are saved in the comic's [sidecar file](11-your-data.md),
   so a comic copied to your phone doesn't need finding again.
 - The [details view](07-managing-comics.md#details-of-a-comic) (`I`)

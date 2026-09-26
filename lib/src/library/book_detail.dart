@@ -225,12 +225,13 @@ Future<bool> setFavourite(WidgetRef ref, LibraryBook book, bool on) async {
 
 /// The details view of [book] from the library: `I` on its cover, or the
 /// button in its details. The book is opened for it and closed after.
-/// Redo panels forgets its panels, which the library pass finds again.
+/// Redo panels forgets its panels, which the reader finds again when the
+/// book is opened.
 Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook book) async {
   final messenger = ScaffoldMessenger.of(context);
   // Read up front: the widget [ref] belongs to may be gone once the view closes.
   final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
-  final detection = ref.read(libraryDetectionProvider), keymap = ref.read(keymapProvider);
+  final keymap = ref.read(keymapProvider);
   final OpenBook open;
   try {
     open = (await openBook(book.path)).withEdits(await store.edits(book.key));
@@ -256,7 +257,6 @@ Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook bo
   if (!redo) return;
   try {
     final ok = await sidecars.reset(book.key, everything: false);
-    unawaited(detection.run());
     messenger.showSnackBar(
       SnackBar(
         content: Text(
@@ -272,16 +272,15 @@ Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook bo
 }
 
 /// Asks, then resets [book] from the library: `X` on its cover, or the
-/// button in its details. Its panels are found again by the library pass,
-/// or by the reader when it is opened.
+/// button in its details. Its panels are found again by the reader when it
+/// is opened.
 Future<void> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) async {
   final messenger = ScaffoldMessenger.of(context);
-  final sidecars = ref.read(sidecarSyncProvider), detection = ref.read(libraryDetectionProvider);
+  final sidecars = ref.read(sidecarSyncProvider);
   final scope = await askReset(context, book.name);
   if (scope == null) return;
   try {
     final ok = await sidecars.reset(book.key, everything: scope == ResetScope.everything);
-    unawaited(detection.run());
     messenger.showSnackBar(
       SnackBar(
         content: Text(

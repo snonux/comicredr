@@ -61,7 +61,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   final _wanted = <int>{};
   bool _detecting = false;
 
-  /// Finding panels for the open book: the library pass waits meanwhile.
+  /// Finding panels for the open book right now.
   bool get detecting => _detecting;
 
   /// Opens [path], closing any open book, and resumes where it was left, or
@@ -361,6 +361,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
     await _progress.flush();
     await _endSitting();
     _wanted.clear();
+    _wake?.complete();
+    _wake = null;
     _view = _restoreView = null;
     state = ReaderState(
       mode: state.mode,
@@ -724,34 +726,56 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// Shows [message] on the status line until the next change.
   void notice(String message) => _notice(message);
 
-  /// Queues detection for the pages guided view needs next: this one first,
-  /// then the two ahead and the one behind, one page at a time. On the
-  /// laptop the rest of the book follows in the background, nearest first,
-  /// so the whole book is analysed once while you read (design plan
-  /// section 9); on the phone only the pages around the reader are.
+  /// Queues detection for the open book, whether guided view is on or
+  /// not, so it is ready when it is turned on: this page first, then the
+  /// two ahead and the one behind, then the rest of the book ahead of the
+  /// reader, nearest first. Only the open book is ever analysed, and never
+  /// the pages a jump leaves behind; closing it stops the work. Pages beyond the first few ahead are low priority:
+  /// before each one the worker rests as long as the last page took, and
+  /// a page the reader turns to goes first.
   void _ensurePanels() {
     final book = state.book;
-    if (book == null || !state.guided) return;
-    final pages = defaultTargetPlatform == TargetPlatform.android
-        ? [state.page, state.page + 1, state.page + 2, state.page - 1]
-        : [for (var p = 0; p < state.pageCount; p++) p];
-    for (final p in pages) {
-      if (p >= 0 && p < state.pageCount && !state.panels.containsKey(p)) _wanted.add(p);
+    if (book == null) return;
+    // In advance only: pages left behind by a jump are not worth the time.
+    _wanted.removeWhere((p) => p < state.page - 1);
+    for (var p = state.page - 1; p < state.pageCount; p++) {
+      if (p >= 0 && !state.panels.containsKey(p)) _wanted.add(p);
     }
+    _wake?.complete();
+    _wake = null;
     if (!_detecting) unawaited(_drain(book));
   }
 
+  /// Ends a low-priority rest early: the reader wants a page now.
+  Completer<void>? _wake;
+
+  static const _maxRest = Duration(seconds: 2);
+
+  /// Pages around the reader that are detected at once, without a rest.
+  bool _near(int page) => page >= state.page - 1 && page <= state.page + 2;
+
   Future<void> _drain(OpenBook book) async {
     _detecting = true;
+    var last = Duration.zero;
     try {
-      while (_wanted.isNotEmpty && identical(state.book, book)) {
+      while (_wanted.isNotEmpty && ref.mounted && identical(state.book, book)) {
         // Nearest to the page being read first, ahead before behind.
-        final page = _wanted.reduce((a, b) {
+        int next() => _wanted.reduce((a, b) {
           final da = a - state.page, db = b - state.page;
           return da.abs() != db.abs() ? (da.abs() < db.abs() ? a : b) : (da >= 0 ? a : b);
         });
+        if (!_near(next()) && last > Duration.zero) {
+          final wake = _wake = Completer<void>();
+          await Future.any([wake.future, Future<void>.delayed(last < _maxRest ? last : _maxRest)]);
+          if (identical(_wake, wake)) _wake = null;
+          if (!ref.mounted) return;
+          last = Duration.zero;
+          continue;
+        }
+        final page = next();
         _wanted.remove(page);
         if (state.panels.containsKey(page)) continue;
+        final sw = Stopwatch()..start();
         PagePanels found;
         try {
           final detector = await ref.read(panelDetectorProvider.future);
@@ -769,14 +793,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
           debugPrint('Panel detection failed on page ${page + 1}: $e');
           found = PagePanels(const []);
         }
-        if (!identical(state.book, book)) return;
+        last = sw.elapsed;
+        if (!ref.mounted || !identical(state.book, book)) return;
         state = state.copyWith(panels: {...state.panels, page: found}, message: state.message);
       }
     } finally {
       _detecting = false;
       // A book opened while this one was detecting queued its pages but
       // found a drain running; that drain was this one, so start its own.
-      final now = state.book;
+      final now = ref.mounted ? state.book : null;
       if (now != null && !identical(now, book) && _wanted.isNotEmpty) unawaited(_drain(now));
     }
   }

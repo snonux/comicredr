@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Panels only for the comic you read:** ComicRedr no longer works
+  through the whole library in the background. It finds the panels of
+  the open comic, from the page you are on to the end, with guided view
+  on or off, and stops when the comic is closed. The library's
+  "Finding panels" line, its pause button and the setting are gone. The
+  same on Linux and Android.
 - **Touch on Linux:** the status line starts with a back arrow, so a
   Linux touchscreen can leave guided view and the comic the way the
   phone's back gesture does. Every other gesture already worked there;

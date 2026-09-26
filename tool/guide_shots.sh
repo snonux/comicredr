@@ -98,11 +98,14 @@ start() {
   park
 }
 stop() { kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; sleep 1; }
-# Waits for the whole-library panel pass, so guided view never waits.
+# detected TITLE: waits until the open book's panels are all found (the
+# reader works through the open book only), so guided view never waits.
 detected() {
-  for _ in $(seq 1 240); do
-    [[ "$(q 'select count(*) from analysed_pages')" -ge "$(q 'select sum(page_count) from books')" ]] && return 0
-    sleep 5
+  local t="replace(lower(b.title), ' ', '') like '%' || replace(lower('$1'), ' ', '') || '%'"
+  for _ in $(seq 1 120); do
+    [[ "$(q "select count(*) from analysed_pages a join books b using (content_key) where $t")" -ge \
+      "$(q "select max(page_count) from books b where $t")" ]] && return 0
+    sleep 2
   done
 }
 # tab NAME: clicks a library tab in the rail of the 1280 px wide window.
@@ -117,12 +120,12 @@ clear_search() { key slash; xdotool key ctrl+a BackSpace; key Return; park; }
 open() {
   key Escape; key Escape; tab Books
   key slash; xdotool key ctrl+a; typ "$1"; key Return; key Return; sleep 2.5; park
+  detected "$1"
 }
 # page N: jumps to page N (1-based) of the open book.
 page() { key $(echo "$1" | sed 's/./& /g') shift+g; sleep 1; }
 
 start
-detected
 
 for s in "${sections[@]}"; do case $s in
 
