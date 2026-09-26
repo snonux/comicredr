@@ -83,9 +83,15 @@ builds `build/comicredr-VERSION-linux-x64.tar.gz`; unpack it there and run
 
 ## Install on an Android phone
 
-ComicRedr is sideloaded as an APK; there is no app store build. You build
-it on the laptop and install it over USB. On top of the Fedora setup above,
-you need a JDK and the Android command-line tools:
+The easiest way is F-Droid: add the repository
+<https://snonux.github.io/fdroid/repo> (see
+[snonux/fdroid](https://github.com/snonux/fdroid) for the one-tap link and
+fingerprint) and install ComicRedr from there; F-Droid then keeps it
+updated. It serves the signed APK of each tagged release (arm64 phones).
+
+To build it yourself instead, you build it on the laptop and install it
+over USB. On top of the Fedora setup above, you need a JDK and the Android
+command-line tools:
 
 ```sh
 sudo dnf install java-21-openjdk-devel android-tools
@@ -111,7 +117,9 @@ The APK carries the same built-in panel detector.
 > **Back up `~/.config/comicredr/release.jks` and `android/key.properties`.**
 > Android only installs an update over the old app, keeping your library
 > and positions, when it is signed with the same key. On a new laptop,
-> restore both files instead of running `make keystore` again.
+> restore both files instead of running `make keystore` again. The
+> F-Droid builds are signed with the same key, so either kind of APK
+> updates the other.
 
 On first start, copy some comics into the phone's `Comics` folder, tap
 the folder button and allow **All files access** on the settings page it
@@ -218,6 +226,34 @@ done
 ```
 
 A `.cbr` that is really a ZIP opens as it is.
+
+## Releases
+
+A release is a `vX.Y.Z` tag on a commit whose `pubspec.yaml` says
+`version: X.Y.Z+N`, with `N` one more than the last release:
+
+1. Bump `version:` in `pubspec.yaml` and move the `Unreleased` notes in
+   `CHANGELOG.md` under the new version.
+2. Write `fastlane/metadata/android/en-US/changelogs/N.txt`, a few lines
+   (at most 500 characters) that F-Droid shows as *What's new*.
+3. Commit, `git tag vX.Y.Z`, `git push && git push --tags`.
+
+The tag starts `.github/workflows/release.yml`, which builds the arm64 APK with
+the release key and attaches it to the GitHub release of the tag. The
+[F-Droid repository](https://github.com/snonux/fdroid) picks it up with the
+store listing in `fastlane/` at that tag. The workflow needs these
+repository secrets, taken from `android/key.properties`:
+
+```sh
+base64 -w0 ~/.config/comicredr/release.jks | gh secret set ANDROID_KEYSTORE
+gh secret set ANDROID_KEY_ALIAS          # comicredr
+gh secret set ANDROID_KEYSTORE_PASSWORD  # storePassword
+gh secret set ANDROID_KEY_PASSWORD       # keyPassword
+```
+
+With an optional `FDROID_DISPATCH_TOKEN` (a fine-grained token with
+*Contents: read and write* on snonux/fdroid) the F-Droid repository
+refreshes right away instead of within six hours.
 
 ## More
 
