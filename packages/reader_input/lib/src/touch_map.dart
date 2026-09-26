@@ -120,7 +120,7 @@ class TouchMap {
       other is TouchMap &&
       TouchGesture.values.every((g) {
         final a = _actions[g]!, b = other._actions[g]!;
-        return Iterable.generate(a.length).every((i) => a[i] == b[i]);
+        return a.length == b.length && Iterable<int>.generate(a.length).every((i) => a[i] == b[i]);
       });
 
   @override

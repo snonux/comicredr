@@ -23,5 +23,4 @@ void main() {
     extractModel(Uint8List.fromList([4, 5, 6]), dir);
     expect(File(path).readAsBytesSync(), [4, 5, 6]);
   });
-
 }

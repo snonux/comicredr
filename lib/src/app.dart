@@ -15,25 +15,23 @@ import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
 import 'input/touch_providers.dart';
 import 'input/touch_zones.dart';
+import 'keymap_overlay.dart';
 import 'library/default_folder.dart';
 import 'library/delete_book.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'library/scanner.dart';
 import 'providers.dart';
-import 'reader/comic_details.dart';
-import 'reader/guided.dart';
-import 'reader/layout.dart';
 import 'reader/bookmark_list.dart';
 import 'reader/clock_flash.dart';
+import 'reader/comic_details.dart';
 import 'reader/open_book.dart';
 import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
-import 'reader/region.dart';
 import 'reader/reset_dialog.dart';
-import 'version.dart';
+import 'reader/status_line.dart';
 
 class ComicRedrApp extends StatelessWidget {
   const ComicRedrApp({super.key, this.initialPath, this.addRoots = const []});
@@ -229,7 +227,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _addDefaultFolder();
     final path = widget.initialPath;
     // Before the scan, so a folder it adds to the library is scanned too.
-    if (path != null) await _openPath(path, scan: false);
+    // A path that fails to open costs that book, not the library's scan.
+    if (path != null) {
+      try {
+        await _openPath(path, scan: false);
+      } catch (e) {
+        debugPrint('Could not open $path: $e');
+      }
+    }
+    if (!mounted) return;
     // Listens for the scan's end, so it is there before the first scan.
     ref.read(libraryDetectionProvider);
     await _rescan();
@@ -306,27 +312,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _library.currentState?.showFolder(dir, root: root);
   }
 
-  Future<void> _addRoot() async {
+  /// Runs [pick] unless a picker or dialog from another one is still open,
+  /// so a second key press never stacks a second picker.
+  Future<void> _whilePicking(Future<void> Function() pick) async {
     if (_picking) return;
     _picking = true;
     try {
-      final String? dir;
-      if (Platform.isAndroid) {
-        dir = await _askAndroidFolder();
-      } else {
-        dir = await getDirectoryPath(confirmButtonText: 'Add to library');
-      }
-      if (dir == null || dir.isEmpty) return;
-      if (!await Directory(dir).exists()) {
-        ref.read(readerProvider.notifier).notice('No such folder: $dir');
-        return;
-      }
-      await ref.read(libraryStoreProvider).addRoot(dir);
-      await _rescan();
+      await pick();
     } finally {
       _picking = false;
     }
   }
+
+  Future<void> _addRoot() => _whilePicking(() async {
+    final String? dir;
+    if (Platform.isAndroid) {
+      dir = await _askAndroidFolder();
+    } else {
+      dir = await getDirectoryPath(confirmButtonText: 'Add to library');
+    }
+    if (dir == null || dir.isEmpty) return;
+    if (!await Directory(dir).exists()) {
+      ref.read(readerProvider.notifier).notice('No such folder: $dir');
+      return;
+    }
+    await ref.read(libraryStoreProvider).addRoot(dir);
+    await _rescan();
+  });
 
   /// Android: All-files access first, explained in a sentence, then the
   /// folder as a real path.
@@ -385,9 +397,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// "Export sidecars": every book's sidecar, written under a folder of the
   /// person's choosing and laid out like the library, for books whose own
   /// folder cannot be written to (design plan section 7).
-  Future<void> _exportSidecars() async {
-    if (_picking) return;
-    _picking = true;
+  Future<void> _exportSidecars() => _whilePicking(() async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final dir = Platform.isAndroid
@@ -398,10 +408,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       messenger.showSnackBar(SnackBar(content: Text('Wrote $n sidecar${n == 1 ? '' : 's'} to $dir')));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not export sidecars: $e')));
-    } finally {
-      _picking = false;
     }
-  }
+  });
 
   /// `I` in the reader: the open comic's details. A page picked in them is
   /// gone to; Redo panels resets the comic's panels, as `X` does.
@@ -524,41 +532,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _pickFile() async {
-    if (_picking) return;
-    _picking = true;
-    try {
-      if (Platform.isAndroid) {
-        final path = await _pickOnAndroid('pickFile');
-        if (path != null) await ref.read(readerProvider.notifier).open(path);
-        return;
-      }
-      final file = await openFile(
-        acceptedTypeGroups: const [
-          XTypeGroup(
-            label: 'Comics',
-            extensions: ['cbz', 'cbr', 'cbt', 'zip', 'epub', 'pdf', 'png', 'jpg', 'jpeg', 'webp'],
-          ),
-        ],
-      );
-      if (file != null) await ref.read(readerProvider.notifier).open(file.path);
-    } finally {
-      _picking = false;
+  Future<void> _pickFile() => _whilePicking(() async {
+    if (Platform.isAndroid) {
+      final path = await _pickOnAndroid('pickFile');
+      if (path != null) await ref.read(readerProvider.notifier).open(path);
+      return;
     }
-  }
+    final file = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(
+          label: 'Comics',
+          extensions: ['cbz', 'cbr', 'cbt', 'zip', 'epub', 'pdf', 'png', 'jpg', 'jpeg', 'webp'],
+        ),
+      ],
+    );
+    if (file != null) await ref.read(readerProvider.notifier).open(file.path);
+  });
 
-  Future<void> _pickFolder() async {
-    if (_picking) return;
-    _picking = true;
-    try {
-      final dir = Platform.isAndroid
-          ? await _pickOnAndroid('pickFolder')
-          : await getDirectoryPath(confirmButtonText: 'Open as a book');
-      if (dir != null) await _openPath(dir);
-    } finally {
-      _picking = false;
-    }
-  }
+  Future<void> _pickFolder() => _whilePicking(() async {
+    final dir = Platform.isAndroid
+        ? await _pickOnAndroid('pickFolder')
+        : await getDirectoryPath(confirmButtonText: 'Open as a book');
+    if (dir != null) await _openPath(dir);
+  });
 
   /// Android's back button or gesture: the same as Esc, one level at a
   /// time, and it leaves the app only from the library's top level. Without
@@ -863,7 +859,7 @@ extension on _HomeScreenState {
       ),
   ];
 
-  Widget _statusLine(ReaderState s) => _StatusLine(
+  Widget _statusLine(ReaderState s) => StatusLine(
     state: s,
     pending: _pending,
     gridOpen: _showPages,
@@ -914,366 +910,6 @@ extension on _HomeScreenState {
                     ),
                     // Above the navigation bar while a swipe brings it back.
                     if (chrome) SafeArea(top: false, child: _statusLine(s)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusLine extends StatelessWidget {
-  const _StatusLine({
-    required this.state,
-    required this.pending,
-    required this.onCommand,
-    this.gridOpen = false,
-    this.bookmarksOpen = false,
-  });
-
-  /// Where guided view is on the page, or why it shows the whole page.
-  static String _guided(ReaderState s) {
-    final found = s.panels[s.page];
-    if (found == null) return 'guided: finding panels…';
-    final stops = s.stopsOn(s.page);
-    if (stops.isEmpty) return 'guided: whole page (${found.gate.reasons.first})';
-    if (s.panelIndex < 0) {
-      return s.panel >= pageEnd
-          ? 'guided: whole page, ${stops.length} panels read'
-          : 'guided: whole page, then ${stops.length} panels';
-    }
-    final panel = 'guided: panel ${s.panelIndex + 1} / ${stops.length}';
-    if (!s.balloons) return panel;
-    final n = s.balloonsOn(s.page, s.panelIndex).length;
-    if (found.balloons.isEmpty) return '$panel  ·  no balloons found';
-    return n == 0
-        ? '$panel  ·  no balloons'
-        : '$panel  ·  balloon ${s.balloonIndex < 0 ? '–' : s.balloonIndex + 1} / $n';
-  }
-
-  final ReaderState state;
-  final String pending;
-
-  /// Whether the page grid is open.
-  final bool gridOpen;
-
-  /// Whether the bookmark list is open.
-  final bool bookmarksOpen;
-
-  /// For the buttons: a phone without a keyboard has no other way into
-  /// guided view, balloons or bookmarks.
-  final ValueChanged<ReaderCommand> onCommand;
-
-  Widget _button(String key, IconData icon, String tip, ReaderIntent intent, {bool on = false}) => IconButton(
-    key: Key(key),
-    icon: Icon(icon),
-    tooltip: tip,
-    isSelected: on,
-    // Full 48 px targets: the Fedora laptop has a touchscreen too.
-    onPressed: () => onCommand(ReaderCommand(intent)),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final book = state.book;
-    final unit = state.unit;
-    final pages = unit.isEmpty
-        ? ''
-        : unit.length == 1
-        ? 'page ${unit.first + 1} / ${state.pageCount}'
-        : 'pages ${unit.first + 1}–${unit.last + 1} / ${state.pageCount}';
-    final details = [
-      if (book != null) pages,
-      if (book != null && state.guided) _guided(state),
-      if (book != null && !state.guided && state.mode == PageMode.spread) 'spread',
-      if (book != null && state.region != null) describeRegion(state.region!, rightToLeft: state.rightToLeft),
-      if (state.rightToLeft) 'RTL',
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // A phone in portrait has room for about 40 characters: the page and
-        // panel counters come first there, the title after them, and the
-        // file name, which repeats the title, is left out.
-        final narrow = constraints.maxWidth < 600;
-        final left = (narrow ? [...details, if (book != null) book.title] : [if (book != null) book.title, ...details])
-            .join('  ·  ');
-        final status = Expanded(
-          // A live region, so a screen reader reads out each notice and page
-          // turn as it happens.
-          child: Semantics(
-            liveRegion: true,
-            child: Text(
-              state.message ?? left,
-              key: const Key('status'),
-              maxLines: narrow ? 2 : 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        );
-        final pendingKeys = Text(
-          pending,
-          key: const Key('pending'),
-          style: const TextStyle(fontFamily: 'monospace'),
-        );
-        final buttons = [
-          if (book != null) ...[
-            const SizedBox(width: 4),
-            if (state.guided)
-              _button(
-                'balloonsButton',
-                state.balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
-                'Balloon by balloon (b)',
-                ReaderIntent.toggleBalloons,
-                on: state.balloons,
-              ),
-            _button(
-              'guidedButton',
-              state.guided ? Icons.view_quilt : Icons.view_quilt_outlined,
-              'Guided view (v)',
-              ReaderIntent.toggleGuided,
-              on: state.guided,
-            ),
-            _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
-            // A phone has no room for it here; the page grid has one.
-            if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
-            if (state.bookmarksHere.isNotEmpty)
-              _button(
-                'bookmarkButton',
-                Icons.bookmark,
-                'Remove the bookmark here (mm)',
-                ReaderIntent.bookmark,
-                on: true,
-              )
-            else
-              _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
-            _button(
-              'bookmarksButton',
-              Icons.bookmarks_outlined,
-              'Bookmarks (M)',
-              ReaderIntent.bookmarkList,
-              on: bookmarksOpen,
-            ),
-            _button(
-              'fullscreenButton',
-              state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-              state.fullscreen ? 'Leave fullscreen (f)' : 'Fullscreen (f)',
-              ReaderIntent.fullscreen,
-            ),
-          ],
-        ];
-        return Container(
-          color: theme.colorScheme.surfaceContainer,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          // On a phone the buttons left the text a dozen characters, so a
-          // notice or why guided view shows the page whole could not be
-          // read: there the text has a line of its own above the buttons.
-          child: narrow && book != null
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(children: [status, pendingKeys]),
-                    Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
-                  ],
-                )
-              : Row(
-                  children: [
-                    status,
-                    pendingKeys,
-                    if (book != null && !narrow) ...[
-                      const SizedBox(width: 12),
-                      Text(p.basename(book.path), style: theme.textTheme.bodySmall),
-                    ],
-                    ...buttons,
-                  ],
-                ),
-        );
-      },
-    );
-  }
-}
-
-/// The `?` overlay, generated from the same table the app binds from, so it
-/// cannot drift from the real keys. `/` searches it: fuzzy words, or a
-/// regular expression between slashes. Esc clears the search, then closes.
-class KeymapOverlay extends StatefulWidget {
-  const KeymapOverlay({
-    super.key,
-    required this.keymap,
-    this.keysFile,
-    this.dataDir,
-    this.warnings = const [],
-    this.onDone,
-  });
-
-  final Keymap keymap;
-
-  /// The `keys.toml` the keymap was read from, if there was one.
-  final String? keysFile;
-
-  /// Where the app keeps its index, covers and thumbnails.
-  final String? dataDir;
-
-  /// What was wrong in that file.
-  final List<String> warnings;
-
-  /// Called when the search field hands the keys back to the reader.
-  final VoidCallback? onDone;
-
-  @override
-  State<KeymapOverlay> createState() => KeymapOverlayState();
-}
-
-class KeymapOverlayState extends State<KeymapOverlay> {
-  final _query = TextEditingController();
-  final _field = FocusNode(debugLabel: 'keymap-search');
-  bool _searching = false;
-
-  @override
-  void dispose() {
-    _query.dispose();
-    _field.dispose();
-    super.dispose();
-  }
-
-  /// `/` while the overlay is open.
-  void startSearch() {
-    setState(() => _searching = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _field.requestFocus();
-    });
-  }
-
-  /// Esc: clears a search first. Returns false when there was none, and
-  /// the overlay should close.
-  bool back() {
-    if (!_searching && _query.text.isEmpty) return false;
-    _stopSearch(clear: true);
-    return true;
-  }
-
-  void _stopSearch({required bool clear}) {
-    setState(() {
-      if (clear) {
-        _query.clear();
-        _searching = false;
-      }
-    });
-    _field.unfocus();
-    widget.onDone?.call();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final found = searchKeymap(widget.keymap, _query.text);
-    final mono = const TextStyle(fontFamily: 'monospace');
-    return Positioned.fill(
-      child: Semantics(
-        scopesRoute: true,
-        explicitChildNodes: true,
-        label: 'Keyboard shortcuts',
-        child: ColoredBox(
-          color: theme.colorScheme.surface.withValues(alpha: 0.96),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                child: _searching || _query.text.isNotEmpty
-                    ? CallbackShortcuts(
-                        bindings: {const SingleActivator(LogicalKeyboardKey.escape): () => _stopSearch(clear: true)},
-                        child: TextField(
-                          key: const Key('keymap-search'),
-                          controller: _query,
-                          focusNode: _field,
-                          autofocus: true,
-                          style: mono,
-                          decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.search),
-                            hintText: 'Search: words, fuzzy (fulscr), or /regex/',
-                            errorText: found.error,
-                            isDense: true,
-                          ),
-                          onChanged: (_) => setState(() {}),
-                          // Enter keeps the filter and hands the keys back.
-                          onSubmitted: (_) => _stopSearch(clear: false),
-                        ),
-                      )
-                    : Text('Keys  ·  / searches  ·  Esc closes', style: theme.textTheme.titleMedium),
-              ),
-              if (widget.keysFile != null || widget.warnings.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                  child: Text(
-                    [if (widget.keysFile != null) 'Keys from ${widget.keysFile}', ...widget.warnings].join('\n'),
-                    key: const Key('keymap-file'),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: widget.warnings.isEmpty ? null : theme.colorScheme.error,
-                    ),
-                  ),
-                ),
-              if (widget.dataDir case final dir?)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                  child: Text(
-                    'Library, settings, covers and history are kept in $dir; '
-                    'everything else about a comic is in its sidecar.',
-                    key: const Key('app-data'),
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ),
-              Expanded(
-                child: Stack(
-                  children: [
-                    found.entries.isEmpty && found.error == null
-                        ? Center(child: Text('Nothing matches "${_query.text}"'))
-                        : ListView(
-                            padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
-                            children: [
-                              for (final e in found.entries) ...[
-                                if (e.intent == ReaderIntent.regionUpperHalf && _query.text.isEmpty)
-                                  Padding(
-                                    key: const Key('keymap-parts'),
-                                    padding: const EdgeInsets.only(top: 12, bottom: 4),
-                                    child: Text(
-                                      'Part of the page, enlarged: halves, thirds and quarters, '
-                                      'numbered top to bottom, left to right',
-                                      style: theme.textTheme.titleSmall,
-                                    ),
-                                  ),
-                                MergeSemantics(
-                                  child: Padding(
-                                    key: ValueKey('keymap-${e.intent.name}'),
-                                    padding: const EdgeInsets.symmetric(vertical: 4),
-                                    child: Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        SizedBox(
-                                          width: 200,
-                                          child: Text(e.keys.isEmpty ? '(no key)' : e.keys.join('  '), style: mono),
-                                        ),
-                                        Expanded(child: Text(e.intent.description)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                    // In a corner, so the keymap list keeps its whole height.
-                    Positioned(
-                      right: 24,
-                      bottom: 16,
-                      child: Text(
-                        'ComicRedr $appVersion',
-                        key: const Key('keymap-version'),
-                        style: theme.textTheme.titleSmall,
-                      ),
-                    ),
                   ],
                 ),
               ),

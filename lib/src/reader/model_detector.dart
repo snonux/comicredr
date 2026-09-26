@@ -32,10 +32,11 @@ Future<String?> findModel() async {
   if (named != null && named.isNotEmpty) return File(named).existsSync() ? named : null;
   final dirs = <Future<Directory?> Function()>[
     appDataDirectory,
-    if (!Platform.isAndroid) () async => switch (xdgDataFolder()) {
-      final d? => Directory(d),
-      null => null,
-    },
+    if (!Platform.isAndroid)
+      () async => switch (xdgDataFolder()) {
+        final d? => Directory(d),
+        null => null,
+      },
     if (Platform.isAndroid) getExternalStorageDirectory,
   ];
   for (final dir in dirs) {
@@ -140,11 +141,13 @@ class ModelDetector {
   Future<SendPort> _spawn() async {
     final replies = ReceivePort();
     final ready = Completer<SendPort>();
+    var started = false;
     replies.listen((Object? msg) {
       switch (msg) {
-        case SendPort port:
+        case final SendPort port:
+          started = true;
           ready.complete(port);
-        case (int id, List<double> frames, List<List<double>?> shapes, List<double> balloons):
+        case (final int id, final List<double> frames, final List<List<double>?> shapes, final List<double> balloons):
           _pending
               .remove(id)
               ?.complete(
@@ -152,19 +155,51 @@ class ModelDetector {
                   for (final (i, f) in _panels(frames, PanelKind.frame).indexed) f.withShape(shapes[i]),
                 ], _panels(balloons, PanelKind.balloon)),
               );
-        case (int id, String error):
+        case (final int id, final String error):
           _pending.remove(id)?.completeError(StateError(error));
-        case (String error,):
+        case (final String error,):
           // The session could not load: fail everything, now and later.
           if (!ready.isCompleted) ready.completeError(StateError(error));
-          for (final c in _pending.values) {
-            c.completeError(StateError(error));
-          }
-          _pending.clear();
+          _failPending(error);
       }
     });
-    await Isolate.spawn(_serve, (replies.sendPort, path, inputSize, threads), debugName: 'model-detector');
+    // A worker that dies (an uncaught error, killed) fails what it was asked
+    // and is started again on the next page, rather than leaving every
+    // detection waiting for good. One that exits before it was ready
+    // failed to load, and already said why.
+    final exits = ReceivePort();
+    exits.listen((Object? msg) {
+      exits.close();
+      replies.close();
+      final why = msg is List && msg.isNotEmpty ? 'The detector stopped: ${msg.first}' : 'The detector stopped';
+      if (!ready.isCompleted) ready.completeError(StateError(why));
+      // A model that would not load stays failed; only a running one restarts.
+      if (started) _worker = null;
+      _failPending(why);
+    });
+    try {
+      await Isolate.spawn(
+        _serve,
+        (replies.sendPort, path, inputSize, threads),
+        debugName: 'model-detector',
+        onExit: exits.sendPort,
+        onError: exits.sendPort,
+      );
+    } on Object {
+      exits.close();
+      replies.close();
+      _worker = null;
+      rethrow;
+    }
     return ready.future;
+  }
+
+  void _failPending(String error) {
+    final waiting = _pending.values.toList();
+    _pending.clear();
+    for (final c in waiting) {
+      c.completeError(StateError(error));
+    }
   }
 }
 

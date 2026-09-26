@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
+
+import 'bytes.dart';
 
 enum SourceFormat {
   /// A ZIP, whatever its extension: `.cbz`, or a `.cbr` that is really a ZIP.
@@ -26,13 +29,7 @@ const sniffLength = 512;
 /// Dispatches on the first bytes rather than the file name (design plan
 /// section 3), so a mislabelled `.cbr` opens as the ZIP it is.
 SourceFormat sniffFormat(Uint8List head) {
-  bool startsWith(List<int> magic, [int at = 0]) {
-    if (head.length < at + magic.length) return false;
-    for (var i = 0; i < magic.length; i++) {
-      if (head[at + i] != magic[i]) return false;
-    }
-    return true;
-  }
+  bool startsWith(List<int> magic, [int at = 0]) => hasBytesAt(head, at, magic);
 
   // PK\x03\x04 for a normal archive, PK\x05\x06 for an empty one.
   if (startsWith([0x50, 0x4B, 0x03, 0x04])) {
@@ -81,4 +78,14 @@ bool isTarHeader(Uint8List block) {
     sum += (i >= 148 && i < 156) ? 0x20 : block[i];
   }
   return sum == stored;
+}
+
+/// Reads the first bytes of a file, for [sniffFormat].
+Uint8List readHead(String path, [int bytes = sniffLength]) {
+  final f = File(path).openSync();
+  try {
+    return f.readSync(bytes);
+  } finally {
+    f.closeSync();
+  }
 }

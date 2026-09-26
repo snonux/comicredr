@@ -1,5 +1,6 @@
-// Fake touchscreen for tool/e2e_touch_linux.sh. Preloaded into the release
-// build, it reads commands appended to $TOUCH_INJECT_FILE and turns each into
+// Fake touchscreen for the e2e scripts (tool/e2e_touch_linux.sh and others).
+// Preloaded into the release build, it reads commands appended to
+// $TOUCH_INJECT_FILE and turns each into
 // a GdkEventTouch dispatched through gtk_main_do_event, so a touch travels
 // the same road a finger does from GTK onwards: GTK's event dispatch, the
 // Flutter engine's touch manager, the framework, and the app. Xvfb has no
@@ -40,6 +41,15 @@ static void inject(GdkEventType type, guint finger, double x, double y) {
     return;
   }
   GdkWindow* window = gtk_widget_get_window(box);
+  // A real touchscreen only sends touches to a window that asks for them;
+  // otherwise X and Wayland turn the finger into mouse clicks, which the
+  // reader ignores. Say once whether the Flutter view asks.
+  static gboolean told = FALSE;
+  if (!told) {
+    told = TRUE;
+    g_message("touch_inject: the Flutter view %s touch events",
+              gtk_widget_get_events(box) & GDK_TOUCH_MASK ? "selects" : "does NOT select");
+  }
   GdkDevice* device = gdk_seat_get_pointer(gdk_display_get_default_seat(gdk_window_get_display(window)));
   gint ox = 0, oy = 0;
   gdk_window_get_origin(window, &ox, &oy);

@@ -51,9 +51,8 @@ class PagePanels {
   /// when the gate failed and the page is shown whole. [aspect] is the
   /// page's width over its height, so a two-page spread read right to left
   /// takes the whole right page first.
-  List<Panel> stops({required bool rightToLeft, double aspect = 1}) => gate.passed
-      ? (rightToLeft ? readingOrder(frames, rightToLeft: true, aspect: aspect) : frames)
-      : const [];
+  List<Panel> stops({required bool rightToLeft, double aspect = 1}) =>
+      gate.passed ? (rightToLeft ? readingOrder(frames, rightToLeft: true, aspect: aspect) : frames) : const [];
 
   /// The balloons inside stop [stop], in reading order.
   List<Panel> balloonsIn(int stop, {required bool rightToLeft, double aspect = 1}) {

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'gate.dart';
 import 'panel.dart';
+import 'raster.dart';
 import 'reading_order.dart';
 
 /// Bump whenever a change here changes what the detector finds, so panels
@@ -189,12 +190,12 @@ double _percentileList(List<double> values, double q) {
   }
   // Only bright borders are paper; a dark border means full-bleed art.
   final thresh = paper > 200 ? paper - 28 : 250.0;
-  final edges = _dilate(_canny(_blur5(img), 60, 160), w, h, 2);
+  final edges = dilate(_canny(_blur5(img), 60, 160), w, h, 2);
   final fg = Uint8List(w * h);
   for (var i = 0; i < fg.length; i++) {
     fg[i] = g[i] < thresh || edges[i] != 0 ? 1 : 0;
   }
-  final closed = _erode(_dilate(fg, w, h, 2), w, h, 2);
+  final closed = erode(dilate(fg, w, h, 2), w, h, 2);
   // Fill holes: flood the background from the corners; whatever the flood
   // cannot reach is inside a panel.
   final outside = Uint8List(w * h);
@@ -312,47 +313,6 @@ Uint8List _canny(GrayImage img, int low, int high) {
   final out = Uint8List(w * h);
   for (var i = 0; i < out.length; i++) {
     out[i] = state[i] == 2 ? 1 : 0;
-  }
-  return out;
-}
-
-/// Square max filter of radius [r]; pixels outside the image never count.
-Uint8List _dilate(Uint8List src, int w, int h, int r) => _morph(src, w, h, r, true);
-
-/// Square min filter of radius [r]; pixels outside the image never erode.
-Uint8List _erode(Uint8List src, int w, int h, int r) => _morph(src, w, h, r, false);
-
-Uint8List _morph(Uint8List src, int w, int h, int r, bool max) {
-  // A running count of `target` pixels in the window: a max filter asks
-  // whether any pixel is set, a min filter whether any is clear.
-  final target = max ? 1 : 0;
-  final tmp = Uint8List(w * h);
-  for (var y = 0; y < h; y++) {
-    final row = y * w;
-    var count = 0;
-    for (var t = 0; t < math.min(r, w); t++) {
-      if (src[row + t] == target) count++;
-    }
-    for (var x = 0; x < w; x++) {
-      if (x + r < w && src[row + x + r] == target) count++;
-      if (x - r - 1 >= 0 && src[row + x - r - 1] == target) count--;
-      tmp[row + x] = count > 0 ? target : 1 - target;
-    }
-  }
-  final out = Uint8List(w * h);
-  final counts = Int32List(w);
-  for (var t = 0; t < math.min(r, h); t++) {
-    for (var x = 0; x < w; x++) {
-      if (tmp[t * w + x] == target) counts[x]++;
-    }
-  }
-  for (var y = 0; y < h; y++) {
-    final add = y + r < h ? (y + r) * w : -1, drop = y - r - 1 >= 0 ? (y - r - 1) * w : -1;
-    for (var x = 0; x < w; x++) {
-      if (add >= 0 && tmp[add + x] == target) counts[x]++;
-      if (drop >= 0 && tmp[drop + x] == target) counts[x]--;
-      out[y * w + x] = counts[x] > 0 ? target : 1 - target;
-    }
   }
   return out;
 }

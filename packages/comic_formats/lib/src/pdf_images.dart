@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'bytes.dart';
 import 'image_size.dart';
 import 'page_facts.dart';
 
@@ -50,7 +51,7 @@ List<PdfImage> pdfImages(String path) {
       final start = math.max(0, base - overlap);
       final data = file.readSync(math.min(chunk + overlap, length - start));
       for (var i = 0; i + needle.length <= data.length; i++) {
-        if (data[i] != 0x2F || !_at(data, i, needle)) continue;
+        if (data[i] != 0x2F || !hasBytesAt(data, i, needle)) continue;
         final after = i + needle.length < data.length ? data[i + needle.length] : 0x20;
         if (_nameChar(after)) continue; // /ImageB, /ImageMask and the like.
         final at = start + i;
@@ -63,14 +64,6 @@ List<PdfImage> pdfImages(String path) {
   } finally {
     file.closeSync();
   }
-}
-
-bool _at(Uint8List data, int i, List<int> s) {
-  if (i + s.length > data.length) return false;
-  for (var k = 0; k < s.length; k++) {
-    if (data[i + k] != s[k]) return false;
-  }
-  return true;
 }
 
 /// Whether [c] continues a PDF name: anything but white space and

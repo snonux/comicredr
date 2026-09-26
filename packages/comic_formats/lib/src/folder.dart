@@ -3,16 +3,15 @@ import 'dart:typed_data';
 
 import 'comic_info.dart';
 import 'document.dart';
-import 'image_size.dart';
 import 'natural_sort.dart';
-import 'page_facts.dart';
+import 'stored_pages.dart';
 
 /// A directory of page images read as one book (design plan section 3).
 ///
 /// Pages are the image files under the directory, subfolders included, in
 /// natural order of their relative paths, with the same junk skipped as in a
 /// CBZ. A `ComicInfo.xml` directly inside supplies the metadata.
-class FolderDocument implements ComicDocument {
+class FolderDocument with StoredPages implements ComicDocument {
   FolderDocument._(this.root, this._pages);
 
   /// Lists [path]. Throws [FormatException] when it holds no page images.
@@ -21,11 +20,17 @@ class FolderDocument implements ComicDocument {
     if (!dir.existsSync()) throw FormatException('No such folder: $path');
     // Without a trailing slash, or [_relative] cuts a letter off each name.
     final root = dir.absolute.path.replaceFirst(RegExp(r'(?<=.)/+$'), '');
-    final pages = [
+    final List<FileSystemEntity> entries;
+    try {
       // Linked pages and folders count; Dart's listing stops at a link loop.
-      for (final e in Directory(root).listSync(recursive: true, followLinks: true))
-        if (e is File && isPageEntry(_relative(root, e.path))) _relative(root, e.path),
-    ]..sort(naturalCompare);
+      entries = Directory(root).listSync(recursive: true, followLinks: true);
+    } on FileSystemException catch (e) {
+      throw FormatException('Cannot list $path: ${e.message}');
+    }
+    final pages = [
+      for (final e in entries)
+        if (e is File) _relative(root, e.path),
+    ].where(isPageEntry).toList()..sort(naturalCompare);
     if (pages.isEmpty) throw FormatException('No page images in $path');
     return FolderDocument._(root, pages);
   }
@@ -41,47 +46,13 @@ class FolderDocument implements ComicDocument {
   int get pageCount => _pages.length;
 
   @override
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async =>
-      PageImage(await _read(index));
+  Future<Uint8List> storedPage(int index) => _file(index).readAsBytes();
 
   @override
-  Future<Uint8List?> rawPage(int index) => _read(index);
+  Future<Uint8List> storedHead(int index, int n) => readFileHead(_file(index), n);
 
   @override
-  Future<List<(int, int)?>> pageSizes() async => [for (var i = 0; i < _pages.length; i++) await _size(i)];
-
-  Future<(int, int)?> _size(int index) async {
-    try {
-      final f = await File('$root/${_pages[index]}').open();
-      try {
-        final head = await f.read(headBytes);
-        if (imageSize(head) case final size?) return size;
-        return await f.length() > headBytes ? imageSize(await _read(index)) : null;
-      } finally {
-        await f.close();
-      }
-    } on FileSystemException {
-      return null;
-    }
-  }
-
-  @override
-  Future<List<PageFacts>> pageFacts() async => [for (var i = 0; i < _pages.length; i++) await _facts(i)];
-
-  Future<PageFacts> _facts(int index) async {
-    try {
-      final f = await File('$root/${_pages[index]}').open();
-      try {
-        final total = await f.length();
-        final facts = imageFacts(await f.read(headBytes), total: total);
-        return facts.width != null || total <= headBytes ? facts : imageFacts(await _read(index), total: total);
-      } finally {
-        await f.close();
-      }
-    } on FileSystemException {
-      return PageFacts.unknown;
-    }
-  }
+  Future<int> storedLength(int index) => _file(index).length();
 
   @override
   Future<ComicMeta?> embeddedMetadata() async {
@@ -93,7 +64,7 @@ class FolderDocument implements ComicDocument {
   @override
   Future<void> close() async {}
 
-  Future<Uint8List> _read(int index) => File('$root/${_pages[index]}').readAsBytes();
+  File _file(int index) => File('$root/${_pages[index]}');
 
   static String _relative(String root, String path) => path.substring(root.length + 1).replaceAll('\\', '/');
 }
