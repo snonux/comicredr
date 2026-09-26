@@ -1,0 +1,12 @@
+ComicRedr is a comic reader made for reading panel by panel. Its guided view glides from one panel to the next, and from one speech balloon to the next. It reads the comics you already have, runs entirely on your phone, and needs no account, cloud or network.
+
+* Reads CBZ, CBT, comic EPUB, PDF, folders of page images and single PNG, JPEG or WebP pages.
+* Finds panels, speech balloons and captions with a small detector built into the app, on your own CPU.
+* Single pages, two-page spreads or continuous scrolling, with zoom, a night filter, margin trimming and clean-up for yellowed old scans.
+* A library of your comics folders: covers, series, folders, search, collections, favourites, bookmarks with notes and a reading history.
+* Remembers your page, panel and zoom in each comic, and carries them and your bookmarks between devices with the file.
+* Works by touch and from a keyboard, and every key can be changed.
+
+The built-in panel detector was trained only on public-domain and CC BY comics and ships under the Apache License 2.0 like the rest of ComicRedr.
+
+Only arm64 phones are supported.
