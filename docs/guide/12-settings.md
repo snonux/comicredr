@@ -14,12 +14,13 @@ brackets.
 |---|---|
 | **Pages → Clean up old scans** (`c`) | Whitens yellowed paper, darkens faded ink, and enlarges and sharpens pages smaller than the screen. See [clean-up](04-reading.md#old-scans-clean-up-trim-and-the-night-filter). |
 | **Guided view → Show each page whole before and after its panels** (`w`) | See [panel by panel](05-guided-view.md#panel-by-panel). On by default. |
-| **Guided view → On a page without panels, the first step stays** (`W`, `gw`) | **Off**, **Colour** (the wine-red background) or **Zoom** (the page zooms out and back). See [the first press stays](05-guided-view.md#the-first-press-stays). |
+| **Guided view → On a page without panels, a quick step stays** (`W`) | The background turns wine red; a step within 5 seconds stays and zooms the page out and back, a later one turns. On by default. See [a quick press stays](05-guided-view.md#a-quick-press-stays). |
 | **Guided view → Panel detector** | Which detector finds the panels: the model built into the app, or one you added. |
 | **Sidecars → Save panels, bookmarks and position in a file for each comic** | The [sidecar](11-your-data.md#the-sidecar-beside-each-comic) files. On by default. |
 | **Sidecars → Beside each comic / In one folder** | Where the sidecars go. See [keeping them in one folder](11-your-data.md#keeping-the-sidecars-in-one-folder). |
 | **Sidecars → Export sidecars to a folder…** | A copy of every sidecar, for a backup. |
 | **Touch** | **Standard**, **Left-handed** or **One thumb**. See [the tap zones](08-touch.md#the-tap-zones). |
+| **Back up → Export settings…** / **Import settings…** | Every setting, your library folders, `keys.toml`, positions, bookmarks, collections, edits and reading history in one file, and back. See [back up and restore](11-your-data.md#back-up-and-restore-your-settings). |
 | **Reading history → Clear reading history** | Empties the [History tab](03-library.md#history). Positions, bookmarks and collections stay. |
 
 The bottom of the dialog shows ComicRedr's version.

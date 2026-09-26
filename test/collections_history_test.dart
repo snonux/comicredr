@@ -189,12 +189,9 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('setting-wholePage')));
       await tester.tap(find.byKey(const Key('setting-wholePage')));
       await settle(tester);
-      // The cue on a page held in guided view: Zoom, then Off.
-      await tester.ensureVisible(find.byKey(const Key('setting-pauseCue')));
-      await tester.tap(find.descendant(of: find.byKey(const Key('setting-pauseCue')), matching: find.text('Zoom')));
-      await settle(tester);
-      expect(await tester.runAsync(() => c.read(settingsStoreProvider).loadString(SettingsStore.pauseCue)), 'zoom');
-      await tester.tap(find.descendant(of: find.byKey(const Key('setting-pauseCue')), matching: find.text('Off')));
+      // The wine red and the hold on pages without panels: off.
+      await tester.ensureVisible(find.byKey(const Key('setting-pauseWhole')));
+      await tester.tap(find.byKey(const Key('setting-pauseWhole')));
       await settle(tester);
       expect(await tester.runAsync(() => c.read(settingsStoreProvider).loadBool(SettingsStore.pauseWhole)), isFalse);
       expect(tester.widget<SwitchListTile>(find.byKey(const Key('setting-cleanUp'))).value, isFalse);
@@ -208,6 +205,10 @@ void main() {
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.wholePageSteps)), isFalse);
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.cleanUp)), isTrue);
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.writeSidecars)), isFalse);
+      // Back up: everything but the comics to one file and back.
+      await tester.ensureVisible(find.byKey(const Key('setting-importSettings')));
+      expect(find.text('Export settings…'), findsOneWidget);
+      expect(find.text('Import settings…'), findsOneWidget);
       await tester.ensureVisible(find.byKey(const Key('setting-close')));
       await tester.tap(find.byKey(const Key('setting-close')));
       await settle(tester);

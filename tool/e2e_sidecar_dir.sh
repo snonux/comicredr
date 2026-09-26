@@ -64,9 +64,10 @@ stop() {
   for _ in $(seq 1 30); do kill -0 "$app" 2>/dev/null || return 0; sleep 0.25; done
   echo "FAIL the app did not quit on close"; failed=1; kill "$app"
 }
-# The Sidecars section sits at the bottom of the Settings dialog, below the
-# fold in a 720 px window: scroll there first.
-settings_bottom() { xdotool mousemove 640 400 click --repeat 15 --delay 50 5; sleep 1; }
+# The Sidecars section sits near the bottom of the Settings dialog, below
+# the fold in a 720 px window: scroll there first.
+# Back up, below it, takes the last screenful: two notches back up.
+settings_bottom() { xdotool mousemove 640 400 click --repeat 15 --delay 50 5 click --repeat 2 --delay 50 4; sleep 1; }
 bookmarks() { q "$1" "select count(*) from bookmarks where deleted_at is null"; }
 # Opens the selected book, turns a page, bookmarks it (m m) and goes back
 # to the library, which writes the sidecar.

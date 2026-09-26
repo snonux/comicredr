@@ -13,11 +13,28 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 
 final fileSystemProvider = Provider<PlatformFileSystem>((ref) => const IoFileSystem());
 
-/// The keymap as loaded at start: the defaults, with the user's
-/// `keys.toml` over them when there is one (main.dart overrides this), and
-/// what was wrong in that file.
-final keymapLoadProvider = Provider<({KeymapLoad load, String? path})>(
-  (ref) => (load: KeymapLoad(Keymap.defaults(), const []), path: null),
+/// The keymap as loaded, and where from: the defaults, with the user's
+/// `keys.toml` over them when there is one, and what was wrong in that
+/// file.
+typedef KeymapFile = ({KeymapLoad load, String? path});
+
+/// The keymap as loaded at start (main.dart overrides this).
+final startKeymapProvider = Provider<KeymapFile>((ref) => (load: KeymapLoad(Keymap.defaults(), const []), path: null));
+
+/// The keymap as loaded again after Import settings wrote `keys.toml`;
+/// null until then.
+final reloadedKeymapProvider = NotifierProvider<ReloadedKeymap, KeymapFile?>(ReloadedKeymap.new);
+
+class ReloadedKeymap extends Notifier<KeymapFile?> {
+  @override
+  KeymapFile? build() => null;
+
+  void set(KeymapFile keymap) => state = keymap;
+}
+
+/// The keymap in use: the one loaded last.
+final keymapLoadProvider = Provider<KeymapFile>(
+  (ref) => ref.watch(reloadedKeymapProvider) ?? ref.watch(startKeymapProvider),
 );
 
 /// The live keymap.

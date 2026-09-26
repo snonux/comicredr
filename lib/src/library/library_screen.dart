@@ -55,6 +55,8 @@ class LibraryScreen extends ConsumerStatefulWidget {
     required this.onOpenFile,
     required this.onOpenFolder,
     this.onExportSidecars,
+    this.onExportSettings,
+    this.onImportSettings,
     this.keysFocus,
     this.pending = '',
   });
@@ -68,6 +70,10 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
   /// Writes every book's sidecar to a folder of the person's choosing.
   final VoidCallback? onExportSidecars;
+
+  /// Everything but the comics to one file, and back from one.
+  final VoidCallback? onExportSettings;
+  final VoidCallback? onImportSettings;
 
   /// The half-typed key sequence, for the status line.
   final String pending;
@@ -121,6 +127,25 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 
   bool get shuffle => _shuffle;
+
+  void _showSettings() => showSettings(
+    context,
+    onExportSidecars: widget.onExportSidecars,
+    onExportSettings: widget.onExportSettings,
+    onImportSettings: widget.onImportSettings,
+  );
+
+  /// Takes up the saved shuffle setting again, after an import changed it.
+  Future<void> reloadSettings() async {
+    try {
+      final on = await ref.read(settingsStoreProvider).loadBool(SettingsStore.shuffle) ?? false;
+      if (on == _shuffle || !mounted) return;
+      if (on) _reshuffle();
+      setState(() => _shuffle = on);
+    } catch (e) {
+      debugPrint('Could not read the shuffle setting: $e');
+    }
+  }
 
   /// Turns shuffle on or off, remembered for the next start. On picks new
   /// pages.
@@ -605,7 +630,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 onAddRoot: widget.onAddRoot,
                 onOpenFile: widget.onOpenFile,
                 onOpenFolder: widget.onOpenFolder,
-                onSettings: () => showSettings(context, onExportSidecars: widget.onExportSidecars),
+                onSettings: () => _showSettings(),
               )
             : _detail && !wide && selectedItem is BookItem
             ? BookDetail(
@@ -821,7 +846,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             key: const Key('settings'),
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
-            onPressed: () => showSettings(context, onExportSidecars: widget.onExportSidecars),
+            onPressed: () => _showSettings(),
           ),
         ],
       ),

@@ -14,6 +14,30 @@ the `?` overlay.
   library's search box is no longer squeezed. More decoded pages are
   kept in memory on a tablet's bigger screen, so page turns stay quick.
   The guide and install docs cover tablets.
+- **Pages shown whole in guided view** turn the background wine red as
+  soon as they show, not on the first press. A press within 5 seconds of
+  arriving stays and zooms the page out and back; the next one turns. A
+  press after 5 seconds turns straight away. `gw` and the Colour/Zoom
+  choice in Settings are gone: both cues are used now, and `W` still
+  turns it all off.
+
+## 0.3.0
+
+Back up and restore your settings.
+
+- **Export and import settings:** Settings → Back up saves every
+  setting, the library folders, `keys.toml`, and each comic's position,
+  bookmarks, collections, edits and reading history in one JSON file,
+  and imports it again, so a reinstall (from a debug build to the
+  F-Droid one, which wipes the app's data) loses nothing. The import
+  checks the file is ComicRedr's, merges per comic the way sidecars do,
+  and shows at once. See the guide's "Back up and restore your
+  settings".
+
+## 0.2.2
+
+Panels on demand, and touch on Linux.
+
 - **Panels only for the comic you read:** ComicRedr no longer works
   through the whole library in the background. It finds the panels of
   the open comic, from the page you are on to the end, with guided view

@@ -99,7 +99,6 @@ setMark = "M"
       final load = keymapFromToml('[keys]\nautoTrim = "g"\n');
       expect(load.warnings, [
         contains('hides gg'),
-        contains('hides gw'),
         contains('hides gr'),
         contains('hides gf'),
         contains('hides gs'),

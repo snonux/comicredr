@@ -9,6 +9,19 @@ it in step when the architecture or the model changes.
 
 ## Conventions
 
+- **Always update the usage guide** (snonux, 2026-09-26). Every PR that
+  adds, changes or removes something a user sees, types or taps updates
+  [docs/guide/](docs/guide/README.md) in the same PR; a PR is not ready
+  without it. A new feature gets a section in the chapter it belongs to
+  (or a new chapter file), with an example, and its heading goes in the
+  contents page `docs/guide/README.md`. A changed feature has its text,
+  keys and pictures corrected where they are; a removed one is taken out,
+  contents line included. Retake the pictures that no longer match with
+  `tool/guide_shots.sh [section...]` from the release build (WebP stills,
+  small GIFs); if that can't be done in the container, say so in the PR.
+  The guide is `docs/guide/`: a contents page and one chapter a file,
+  written for people, starting with installing.
+
 - Every PR gets a real end-to-end test (see the `tool/e2e_*.sh` scripts
   below) before it is marked ready. If something can't be tested in a
   cloud container (a real phone, a real touchscreen, GNOME Shell), say so
@@ -31,12 +44,6 @@ it in step when the architecture or the model changes.
   belong in the guide. Internals go here, and training in
   `docs/training.md`. The `?` overlay and `docs/keys.toml` are generated
   from the keymap and are the key reference.
-- The usage guide is `docs/guide/`: a contents page (`README.md`) and one
-  chapter a file, written for people, starting with installing. A
-  feature that changes what a user sees or types gets its chapter updated
-  in the same PR, and new section headings go in the contents. Its
-  pictures are made by `tool/guide_shots.sh` from the release build (WebP
-  stills, small GIFs).
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
@@ -312,16 +319,21 @@ refreshes right away instead of within six hours.
   Detection decodes its own copy, so it never sees the clean-up.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
-- A page guided view shows whole (no panels that pass the gate) holds
-  for one step: the first step onward stays and sets `ReaderState.held`,
-  the next one turns, however soon. Mirrored going back. The cue
-  (`guided.pauseCue`, `gw` cycles it) is the Scaffold background turning
-  `heldColour` (#3A0D16) in app.dart until the page is left, the default,
-  or ReaderView's zoom pulse (colour instead with reduced motion). The
-  status line explains the first three. A page arrived on from the other
-  side, a count (`3l`) and pages whose panels are not known yet are not
-  held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or Settings turns
-  it off (`guided.pauseWhole`).
+- A page guided view shows whole (no panels that pass the gate,
+  `ReaderState.onWholePage`) turns the Scaffold background `heldColour`
+  (#3A0D16, app.dart) as soon as it shows, until it is left (snonux,
+  2026-09-26). A step onward within `pauseWindow` (5 s) of that moment
+  stays, sets `ReaderState.held` and bumps `cue`, which plays ReaderView's
+  zoom pulse (none with reduced motion; the status line says to press
+  again, always then, else the first three times); the next step turns,
+  however soon. A step after 5 s turns at once. The moment is
+  `_wholeSince`, set by a `listenSelf` whenever `onWholePage` turns true
+  or the page changes, so a page whose panels arrive late, turning guided
+  view on or `W` on start it again. Tests set the notifier's `clock`.
+  Mirrored going back. A page arrived on from the other side and a count
+  (`3l`) are not held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or
+  Settings turns it off (`guided.pauseWhole`); there is no cue choice any
+  more (`gw` and `guided.pauseCue` are gone).
 - Parts of a page (`H1` `H2`, `B1`-`B3`, `Q1`-`Q4`, `lib/src/reader/region.dart`):
   `ReaderState.region` is the split, the part and the page of the unit it
   is on. ReaderView frames it with guided view's camera and dim, in guided
@@ -388,6 +400,31 @@ refreshes right away instead of within six hours.
   on Android (`pageBudgetBytes`) holds at least four screenfuls of the
   largest display, up to a thirty-second of the RAM, since a tablet page
   is some 16 MB. Tested on a Pixel Tablet emulator only; no real tablet.
+- Settings → Export settings / Import settings (`SettingsFile` in
+  `lib/src/data/settings_file.dart`, `lib/src/library/settings_transfer.dart`,
+  the pickers in `HomeScreen._exportSettings`/`_importSettings`): one JSON
+  file, `{"app": "org.snonux.comicredr", "kind": "settings", "format": 1}`
+  plus the settings in `SettingsStore.backedUp` (a new setting goes there,
+  or export leaves it out; `device.id`/`device.name` and
+  `library.defaultFolderRemoved` stay per install and are never exported),
+  the library folders, `keys.toml`'s text and the `progress`, `bookmarks`,
+  `collection_books`, `overrides` and `read_log` rows by content key.
+  Books, series, files, panels and covers stay out: a rescan and the
+  sidecars rebuild them. A newer `format`, another `app` or not JSON is
+  refused; unknown keys and broken rows are skipped and counted. Import
+  sets the settings to the file's (missing ones back to default, except
+  `SettingsStore.perInstall`, `sidecars.dir` and `sidecars.write`, which
+  only change when the file sets them; a sidecar folder not on this
+  device keeps this one), merges the rows by `mergeSidecars`' rules (the
+  later position wins, history deduplicated) and adds folders that exist,
+  all in one transaction; it never removes a library folder. Then it
+  writes `keys.toml`, keeping a differing one as `keys.toml.bak` (a failure
+  there is reported, the rest stands), and
+  `_takeUpImport` reloads the reader, touch preset, shuffle, grid size and
+  keymap (`reloadedKeymapProvider`) and rescans. Linux uses
+  file_selector's save and open dialogs; Android `MainActivity`'s
+  `pickFolder` (a new `comicredr-settings-DATE.json` in it, never
+  overwriting) and `pickFile`, both real paths under All files access.
 - `make install` puts the bundle in `~/.local/lib/comicredr`, a symlink in
   `~/.local/bin` and the launcher and icons in `~/.local/share`; it never
   runs Flutter, so `sudo make install PREFIX=/usr/local` is safe, and
@@ -456,7 +493,7 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
-tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 5 s turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
@@ -469,6 +506,7 @@ tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a fol
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
+tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 

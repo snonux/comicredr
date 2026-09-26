@@ -11,11 +11,9 @@ class SettingsStore {
   /// Guided view shows each page whole before and after its panels.
   static const wholePageSteps = 'guided.wholePageSteps';
 
-  /// Guided view holds on a page shown whole for one step before turning.
+  /// Guided view turns the background wine red on a page shown whole and
+  /// holds a quick step there before turning.
   static const pauseWhole = 'guided.pauseWhole';
-
-  /// How a held page shows it: a PauseCue name, `colour` by default.
-  static const pauseCue = 'guided.pauseCue';
 
   /// The night filter (`i`) and auto-trim (`t`), kept across restarts.
   static const night = 'reader.night';
@@ -52,6 +50,34 @@ class SettingsStore {
 
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
+
+  /// Every setting a settings file carries (SettingsFile), with the kind of
+  /// value it holds: true for a flag, false for a string. This install's
+  /// identity (`device.id`, `device.name`, see SidecarSync) is not a setting
+  /// and stays out, and so does [defaultFolderRemoved]: whether this
+  /// device's own Comics folder was taken out says nothing about another
+  /// device's. A new setting goes here too, or export leaves it behind.
+  static const backedUp = <String, bool>{
+    wholePageSteps: true,
+    pauseWhole: true,
+    night: true,
+    autoTrim: true,
+    fullscreen: true,
+    cleanUp: true,
+    writeSidecars: true,
+    sidecarDir: false,
+    gridZoom: false,
+    shuffle: true,
+    touchPreset: false,
+  };
+
+  /// Settings about this device's own storage: where its sidecars go and
+  /// whether its folders are written to. An import sets them when the file
+  /// has them (a restore on the same device) and otherwise leaves them as
+  /// they are, where the others go back to their defaults: a file from the
+  /// laptop, whose sidecars sit beside its comics, must not move the
+  /// phone's out of the folder it keeps them in.
+  static const perInstall = {sidecarDir, writeSidecars};
 
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();

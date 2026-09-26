@@ -188,7 +188,8 @@ flowchart TB
    2 to 20 panels, no two overlapping by more than 15%, none filling the
    page, together covering at least 60% of it, and at most four tiny
    scraps (ads and text pages look like a crowd of scraps). Otherwise the
-   page is shown whole and held for one press.
+   page is shown whole on a wine-red background, and a press within
+   5 seconds of arriving is held once.
 8. **Cache.** The result is stored in the app's index database and in the
    comic's `.crdb` sidecar, keyed by content key, page and detector
    version. A comic copied to the phone opens there with its panels
@@ -367,6 +368,12 @@ flowchart LR
   edits take the later edit per field, positions are kept per device.
 - **The comic file is never written.** Metadata edits live in the
   sidecar, since rewriting the comic would change its content key.
+- **A settings file** (Settings → Export settings, `SettingsFile` in
+  `lib/src/data/settings_file.dart`) is the index's own part as JSON:
+  the settings, library folders, `keys.toml`, and positions, bookmarks,
+  collections, edits and reading history by content key. Import merges
+  it by the sidecar rules; what a rescan or a sidecar rebuilds (books,
+  panels, covers) stays out.
 - **App data** goes in `~/Comics/.comicredr/` on a fresh Fedora install
   that has a `~/Comics` folder, otherwise the usual XDG folders; Android
   keeps its private app folders. The `?` help shows which.
