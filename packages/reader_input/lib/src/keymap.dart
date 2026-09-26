@@ -112,6 +112,7 @@ class Keymap {
       Binding(['N'], ReaderIntent.searchPrev),
       Binding(['o'], ReaderIntent.openFile),
       Binding(['O'], ReaderIntent.openFolder),
+      Binding(['C'], ReaderIntent.continueReading),
       Binding(['Esc'], ReaderIntent.back, layer: s),
       // The library.
       Binding(['Enter'], ReaderIntent.activate, layer: s),

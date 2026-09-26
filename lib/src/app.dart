@@ -33,6 +33,7 @@ import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
+import 'reader/recent_books.dart';
 import 'reader/reset_dialog.dart';
 import 'reader/status_line.dart';
 
@@ -696,6 +697,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (dir != null) await _openPath(dir);
   });
 
+  /// `C` and the library's Continue button: the comic read last, at the
+  /// spot it was left, which the reader restores as for any reopened book.
+  /// From inside a comic, the one read before it, so `C` goes back and
+  /// forth between two. A comic that is gone gets a notice and is dropped,
+  /// so `C` again tries the one before it.
+  Future<void> _continueReading() async {
+    final reader = ref.read(readerProvider.notifier);
+    final recent = ref.read(recentBooksProvider.notifier);
+    final here = ref.read(readerProvider).book;
+    final pick = await recent.pick(except: here?.key);
+    if (!mounted) return;
+    if (pick == null) {
+      reader.notice(here == null ? 'No comic read yet to continue' : 'No other comic read before this one');
+      return;
+    }
+    final path = pick.path;
+    if (path == null) {
+      reader.notice('${pick.book.title} is gone from ${p.dirname(pick.book.path)}');
+      await recent.forget(pick.book.key);
+      return;
+    }
+    await reader.open(path);
+  }
+
   /// Android's back button or gesture: the same as Esc, one level at a
   /// time, and it leaves the app only from the library's top level. Without
   /// this, back in the reader closed the whole app.
@@ -767,6 +792,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       } else {
         _library.currentState?.handle(c);
       }
+      return;
+    }
+    if (c.intent == ReaderIntent.continueReading) {
+      unawaited(_continueReading());
       return;
     }
     if (_showPages) {
@@ -913,6 +942,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       onImportSettings: _importSettings,
                       onOpenFile: _pickFile,
                       onOpenFolder: _pickFolder,
+                      onContinue: _continueReading,
                       keysFocus: _keys,
                       pending: s.book == null ? _pending : '',
                     ),
