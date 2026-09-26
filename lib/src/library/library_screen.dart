@@ -1,30 +1,23 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:comic_formats/comic_formats.dart' show naturalCompare;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
-import '../data/book_paths.dart';
 import '../data/settings_store.dart';
-import '../providers.dart';
 import '../reader/bookmark_list.dart';
-import '../reader/comic_details.dart';
 import '../reader/guided.dart';
-import '../reader/open_book.dart';
 import '../reader/reader_notifier.dart';
-import '../reader/reset_dialog.dart';
-import '../version.dart';
-import 'default_folder.dart';
-import 'delete_book.dart';
+import 'book_detail.dart';
+import 'cover_card.dart';
 import 'edit_dialog.dart';
-import 'library_detection.dart';
+import 'library_items.dart';
+import 'library_panes.dart';
+import 'library_status.dart';
 import 'library_store.dart';
 import 'providers.dart';
-import 'scanner.dart';
 import 'settings_dialog.dart';
 import 'shuffle.dart';
 
@@ -44,41 +37,6 @@ enum LibraryTab {
   /// The label under the phone's bottom tabs, where a long one wraps.
   final String short;
   final IconData icon;
-}
-
-/// One cover in a grid: a book, or a series standing for its books.
-sealed class _Item {
-  String get id;
-}
-
-class _BookItem extends _Item {
-  _BookItem(this.book);
-  final LibraryBook book;
-  @override
-  String get id => 'b:${book.key}';
-}
-
-class _SeriesItem extends _Item {
-  _SeriesItem(this.series);
-  final LibrarySeries series;
-  @override
-  String get id => 's:${series.id}';
-}
-
-/// A row on the Bookmarks tab: a bookmark or mark, with its book.
-class _BookmarkItem extends _Item {
-  _BookmarkItem(this.bookmark, this.book);
-  final BookmarkInfo bookmark;
-  final LibraryBook book;
-  @override
-  String get id => 'm:${bookmark.id}';
-}
-
-class _FolderItem extends _Item {
-  _FolderItem(this.folder);
-  final LibraryFolder folder;
-  @override
-  String get id => 'f:${folder.path}';
 }
 
 /// The library (design plan sections 4 and 8): what you are reading, your
@@ -139,7 +97,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   int _cols = 2;
   double _rowExtent = 300;
   double _viewport = 600;
-  List<_Item> _items = const [];
+  List<LibraryItem> _items = const [];
 
   /// Shuffle on the Folders tab (`S`): random pages instead of covers,
   /// picked by [_seed].
@@ -253,15 +211,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       case ReaderIntent.showFavourites:
         showFavourites();
       case ReaderIntent.toggleFavourite:
-        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+        if (_selectedItem case BookItem(:final book)) {
           unawaited(_toggleFavourite(book));
         }
       case ReaderIntent.remove when _favourites:
-        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+        if (_selectedItem case BookItem(:final book)) {
           unawaited(_toggleFavourite(book));
         }
       case ReaderIntent.remove:
-        if (_items.where((it) => it.id == _selected).firstOrNull case _BookmarkItem(:final bookmark, :final book)) {
+        if (_selectedItem case BookmarkItem(:final bookmark, :final book)) {
           final i = index()!;
           unawaited(_bookmarkChanged(book, () => ref.read(libraryStoreProvider).deleteBookmark(bookmark.id)));
           // The next one down takes the selection, as in the reader's list.
@@ -277,11 +235,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       case ReaderIntent.reshuffle when tab == LibraryTab.folders && _shuffle:
         setState(_reshuffle);
       case ReaderIntent.resetBook:
-        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+        if (_selectedItem case BookItem(:final book)) {
           unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
         }
       case ReaderIntent.deleteBook:
-        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+        if (_selectedItem case BookItem(:final book)) {
           unawaited(
             deleteLibraryBook(
               context,
@@ -292,17 +250,17 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           );
         }
       case ReaderIntent.showDetails:
-        if (_items.where((it) => it.id == _selected).firstOrNull case _BookItem(:final book)) {
+        if (_selectedItem case BookItem(:final book)) {
           unawaited(showBookDetails(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
         }
       case ReaderIntent.editBook:
         final done = widget.keysFocus?.requestFocus;
-        switch (_items.where((it) => it.id == _selected).firstOrNull) {
-          case _BookItem(:final book):
+        switch (_selectedItem) {
+          case BookItem(:final book):
             unawaited(editBook(context, ref, book).whenComplete(() => done?.call()));
-          case _SeriesItem(:final series) when tab == LibraryTab.series:
+          case SeriesItem(:final series) when tab == LibraryTab.series:
             unawaited(renameSeries(context, ref, series).whenComplete(() => done?.call()));
-          case _BookmarkItem(:final bookmark, :final book):
+          case BookmarkItem(:final bookmark, :final book):
             unawaited(_editNote(book, bookmark).whenComplete(() => done?.call()));
           default:
         }
@@ -361,7 +319,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     setState(() {
       _query = '';
       _favourites = true;
-      _seriesSelected = group == null ? null : _SeriesItem(group).id;
+      _seriesSelected = group == null ? null : SeriesItem(group).id;
     });
     _autoFirst = true;
   }
@@ -373,13 +331,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     final on = !book.favourite;
     if (!on && _favourites) {
       final i = _items.indexWhere((it) => it.id == _selected);
-      if (i >= 0 && _items[i].id == _BookItem(book).id) {
+      if (i >= 0 && _items[i].id == BookItem(book).id) {
         final next = i + 1 < _items.length ? _items[i + 1] : (i > 0 ? _items[i - 1] : null);
         setState(() => _selected = next?.id);
       }
     }
     final messenger = ScaffoldMessenger.of(context);
-    await setFavourite(ref, book, on);
+    final done = await setFavourite(ref, book, on);
+    if (!done) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Could not change the favourites for ${book.name}')));
+      return;
+    }
     messenger
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -420,11 +384,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     _reveal();
   }
 
-  static Set<String> _books(_Item? item) => switch (item) {
-    _BookItem(:final book) => {book.key},
-    _SeriesItem(:final series) => {for (final b in series.books) b.key},
+  static Set<String> _books(LibraryItem? item) => switch (item) {
+    BookItem(:final book) => {book.key},
+    SeriesItem(:final series) => {for (final b in series.books) b.key},
     _ => const {},
   };
+
+  /// The cover or row the selection is on, if it is still shown.
+  LibraryItem? get _selectedItem => _items.where((it) => it.id == _selected).firstOrNull;
 
   /// The book [contentKey] is about to be deleted: the cover next to it
   /// takes the selection, the one after it or else the one before. A series
@@ -433,7 +400,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     final i = _items.indexWhere((it) => _books(it).contains(contentKey));
     if (i < 0) return;
     final item = _items[i];
-    if (item is _SeriesItem && _books(item).length > 1) {
+    if (item is SeriesItem && _books(item).length > 1) {
       setState(() => _selected = item.id);
       return;
     }
@@ -458,23 +425,23 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     if (to != null) _scroll.jumpTo(to.clamp(0, pos.maxScrollExtent));
   }
 
-  void _activate(_Item item) {
+  void _activate(LibraryItem item) {
     switch (item) {
-      case _SeriesItem(:final series) when tab == LibraryTab.collections && series.name == favouritesCollection:
+      case SeriesItem(:final series) when tab == LibraryTab.collections && series.name == favouritesCollection:
         showFavourites();
-      case _SeriesItem(:final series):
+      case SeriesItem(:final series):
         setState(() {
           _seriesSelected = item.id;
           _series = series.id;
-          _selected = _BookItem(series.next).id;
+          _selected = BookItem(series.next).id;
         });
         WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
-      case _FolderItem(:final folder):
+      case FolderItem(:final folder):
         _openFolder(folder.path, root: folder.root?.path ?? _folderRoot);
         _autoFirst = true;
-      case _BookItem(:final book):
+      case BookItem(:final book):
         read(book);
-      case _BookmarkItem(:final bookmark, :final book):
+      case BookmarkItem(:final bookmark, :final book):
         // Without a panel, guided view shows the page whole.
         read(book, at: (page: bookmark.page, panel: bookmark.panel ?? pageStart));
     }
@@ -485,7 +452,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   Future<void> _bookmarkChanged(LibraryBook book, Future<void> Function() change) async {
     try {
       await change();
-      await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
+      await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.isFolder);
     } catch (e) {
       debugPrint('Could not change the bookmark: $e');
     }
@@ -504,16 +471,16 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   /// A tap: selects, and a second tap on the selected cover opens it. On a
   /// phone-sized screen a tap on a book shows its detail page.
-  void _tap(_Item item, {required bool wide}) {
+  void _tap(LibraryItem item, {required bool wide}) {
     _autoFirst = false;
-    if (item is _BookItem && !wide) {
+    if (item is BookItem && !wide) {
       setState(() {
         _selected = item.id;
         _detail = true;
       });
       return;
     }
-    if (_selected == item.id || item is _SeriesItem || item is _FolderItem) {
+    if (_selected == item.id || item is SeriesItem || item is FolderItem) {
       _activate(item);
     } else {
       setState(() => _selected = item.id);
@@ -527,7 +494,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// Tabs that are lists of their own rather than cover grids.
   bool get _listTab => tab == LibraryTab.history;
 
-  List<_Item> _itemsFor(List<LibraryBook> books, List<RootInfo> roots, List<BookmarkInfo> bookmarks) {
+  List<LibraryItem> _itemsFor(List<LibraryBook> books, List<RootInfo> roots, List<BookmarkInfo> bookmarks) {
     final q = _query.trim();
     switch (tab) {
       case LibraryTab.reading:
@@ -536,40 +503,40 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             if (a.finished != b.finished) return a.finished ? 1 : -1;
             return (b.readAt ?? DateTime(0)).compareTo(a.readAt ?? DateTime(0));
           });
-        return [for (final b in started) _BookItem(b)];
+        return [for (final b in started) BookItem(b)];
       case LibraryTab.collections when _favourites:
         final favourites = collectionGroups(books).where((s) => s.name == favouritesCollection).firstOrNull;
         return [
           for (final b in favourites?.books ?? const <LibraryBook>[])
-            if (b.matches(q)) _BookItem(b),
+            if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.series || LibraryTab.collections:
         final all = _groups(books);
         final open = all.where((s) => s.id == _series).firstOrNull;
-        if (open != null) return [for (final b in open.books.where((b) => b.matches(q))) _BookItem(b)];
+        if (open != null) return [for (final b in open.books.where((b) => b.matches(q))) BookItem(b)];
         return [
           for (final s in all.where((s) => s.matches(q)))
-            s.books.length == 1 && tab == LibraryTab.series ? _BookItem(s.books.first) : _SeriesItem(s),
+            s.books.length == 1 && tab == LibraryTab.series ? BookItem(s.books.first) : SeriesItem(s),
         ];
       case LibraryTab.books:
         return [
           for (final s in LibrarySeries.group(books))
             for (final b in s.books)
-              if (b.matches(q)) _BookItem(b),
+              if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.folders:
         if (_folder == null) {
           return [
             for (final f in LibraryFolder.roots(roots, books))
-              if (f.matches(q)) _FolderItem(f),
+              if (f.matches(q)) FolderItem(f),
           ];
         }
         final (:folders, books: here) = LibraryFolder.children(_folder!, books);
         return [
           for (final f in folders)
-            if (f.matches(q)) _FolderItem(f),
+            if (f.matches(q)) FolderItem(f),
           for (final b in here)
-            if (b.matches(q)) _BookItem(b),
+            if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.history:
         return const [];
@@ -584,7 +551,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           for (final s in LibrarySeries.group(books))
             for (final b in s.books)
               for (final m in byBook[b.key] ?? const <BookmarkInfo>[])
-                if (b.matches(q) || (m.note?.toLowerCase().contains(lower) ?? false)) _BookmarkItem(m, b),
+                if (b.matches(q) || (m.note?.toLowerCase().contains(lower) ?? false)) BookmarkItem(m, b),
         ];
     }
   }
@@ -625,25 +592,30 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       // the selection follows the books.
       _selected = _items.where((it) => _books(it).any(_selectedBooks.contains)).firstOrNull?.id;
     }
-    _selectedBooks = _books(_items.where((it) => it.id == _selected).firstOrNull);
+    _selectedBooks = _books(_selectedItem);
 
     final empty = roots != null && roots.isEmpty && books.isEmpty;
     return LayoutBuilder(
       builder: (context, box) {
         final wide = box.maxWidth >= 1000;
         final rail = box.maxWidth >= 600;
-        final selectedItem = _items.where((it) => it.id == _selected).firstOrNull;
+        final selectedItem = _selectedItem;
         final Widget body = empty
-            ? _EmptyLibrary(
+            ? EmptyLibrary(
                 onAddRoot: widget.onAddRoot,
                 onOpenFile: widget.onOpenFile,
                 onOpenFolder: widget.onOpenFolder,
                 onSettings: () => showSettings(context, onExportSidecars: widget.onExportSidecars),
               )
-            : _detail && !wide && selectedItem is _BookItem
-            ? BookDetail(book: selectedItem.book, onRead: read, onBack: back)
-            : _detail && !wide && selectedItem is _FolderItem
-            ? _FolderDetail(
+            : _detail && !wide && selectedItem is BookItem
+            ? BookDetail(
+                book: selectedItem.book,
+                onRead: read,
+                onBack: back,
+                onBeforeDelete: () => selectNeighbourOf(selectedItem.book.key),
+              )
+            : _detail && !wide && selectedItem is FolderItem
+            ? FolderDetail(
                 folder: selectedItem.folder,
                 onOpen: () => _activate(selectedItem),
                 onRead: read,
@@ -654,7 +626,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                   _header(context, books),
                   Expanded(
                     child: switch (tab) {
-                      LibraryTab.history => _History(books: books, query: _query.trim(), onRead: read),
+                      LibraryTab.history => HistoryPane(books: books, query: _query.trim(), onRead: read),
                       LibraryTab.bookmarks => _bookmarkRows(context),
                       _ => _grid(context, wide),
                     },
@@ -664,18 +636,26 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         final Widget? pane = !wide || empty || _listTab
             ? null
             : switch (selectedItem) {
-                _BookItem(:final book) => BookDetail(book: book, onRead: read),
-                _SeriesItem(:final series) => _SeriesDetail(
+                BookItem(:final book) => BookDetail(
+                  book: book,
+                  onRead: read,
+                  onBeforeDelete: () => selectNeighbourOf(book.key),
+                ),
+                SeriesItem(:final series) => SeriesDetail(
                   series: series,
                   onRead: read,
                   canRename: tab == LibraryTab.series,
                 ),
-                _FolderItem(:final folder) => _FolderDetail(
+                FolderItem(:final folder) => FolderDetail(
                   folder: folder,
                   onOpen: () => _activate(selectedItem),
                   onRead: read,
                 ),
-                _BookmarkItem(:final book) => BookDetail(book: book, onRead: read),
+                BookmarkItem(:final book) => BookDetail(
+                  book: book,
+                  onRead: read,
+                  onBeforeDelete: () => selectNeighbourOf(book.key),
+                ),
                 null => null,
               };
         final content = Column(
@@ -710,7 +690,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ],
               ),
             ),
-            _LibraryStatus(books: books, pending: widget.pending, onFailures: () => _showFailures(context)),
+            LibraryStatus(books: books, pending: widget.pending, onFailures: () => _showFailures(context)),
           ],
         );
         return Scaffold(
@@ -946,7 +926,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           itemExtent: _bookmarkRowHeight,
           itemCount: _items.length,
           itemBuilder: (context, i) {
-            final item = _items[i] as _BookmarkItem;
+            final item = _items[i] as BookmarkItem;
             final m = item.bookmark;
             final selected = item.id == _selected;
             return Container(
@@ -1040,928 +1020,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           itemCount: _items.length,
           itemBuilder: (context, i) {
             final item = _items[i];
-            return _CoverCard(
+            return CoverCard(
               item: item,
-              shufflePage: shuffle && item is _BookItem ? shufflePage(item.book.key, item.book.pageCount, _seed) : null,
+              shufflePage: shuffle && item is BookItem ? shufflePage(item.book.key, item.book.pageCount, _seed) : null,
               selected: item.id == _selected,
               onTap: () => _tap(item, wide: wide),
               onLongPress: () => setState(() {
                 _selected = item.id;
-                _detail = item is _BookItem || item is _FolderItem;
+                _detail = item is BookItem || item is FolderItem;
               }),
             );
           },
         );
       },
-    );
-  }
-}
-
-/// A cover image from the cache, or a placeholder while the scan has not
-/// made it yet.
-class CoverImage extends StatelessWidget {
-  const CoverImage({super.key, required this.bookKey, this.width = 400});
-
-  /// Null for a library folder with no books in it yet: the placeholder.
-  final String? bookKey;
-  final int width;
-
-  @override
-  Widget build(BuildContext context) {
-    final dir = ProviderScope.containerOf(context).read(coverDirProvider);
-    final key = bookKey;
-    final file = key == null ? null : File(coverFile(dir, key));
-    final placeholder = ColoredBox(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: const Center(child: Icon(Icons.menu_book, size: 40)),
-    );
-    if (file == null || !file.existsSync()) return placeholder;
-    return Image.file(
-      file,
-      fit: BoxFit.cover,
-      cacheWidth: width,
-      gaplessPlayback: true,
-      errorBuilder: (_, _, _) => placeholder,
-    );
-  }
-}
-
-class _CoverCard extends StatelessWidget {
-  const _CoverCard({
-    required this.item,
-    required this.selected,
-    required this.onTap,
-    required this.onLongPress,
-    this.shufflePage,
-  });
-
-  final _Item item;
-
-  /// In shuffle, the page the tile shows instead of the cover.
-  final int? shufflePage;
-  final bool selected;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final (book, title, subtitle, count) = switch (item) {
-      _BookItem(:final book) => (book, book.name, book.subtitle, null),
-      _SeriesItem(:final series) => (
-        series.next,
-        series.name,
-        '${series.books.length} books${series.read > 0 ? ' · ${series.read} read' : ''}',
-        series.books.length,
-      ),
-      // A library folder can be empty (~/Comics before any comic is in it).
-      _FolderItem(:final folder) => (folder.books.firstOrNull, folder.name, _folderCount(folder), folder.books.length),
-      // Bookmarks are rows on their own tab, never covers.
-      _BookmarkItem(:final book, :final bookmark) => (book, book.name, describePlace(bookmark), null),
-    };
-    final onlyBook = switch (item) {
-      _BookItem(:final book) => book,
-      _ => null,
-    };
-    return InkWell(
-      key: ValueKey(item.id),
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: DecoratedBox(
-              position: DecorationPosition.foreground,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: selected ? theme.colorScheme.primary : Colors.transparent, width: 3),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if ((shufflePage, book) case (final page?, final book?))
-                      ShuffledPage(
-                        book: book,
-                        page: page,
-                        cover: CoverImage(bookKey: book.key),
-                      )
-                    else
-                      CoverImage(bookKey: book?.key),
-                    if (item is _FolderItem)
-                      Positioned(
-                        left: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Icon(Icons.folder, size: 20, color: theme.colorScheme.onSecondaryContainer),
-                        ),
-                      ),
-                    if (count != null)
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text('$count', style: theme.textTheme.labelMedium),
-                        ),
-                      ),
-                    if (onlyBook != null && onlyBook.favourite)
-                      const Positioned(
-                        left: 6,
-                        top: 6,
-                        child: Icon(
-                          Icons.star,
-                          key: Key('favouriteBadge'),
-                          color: Colors.amber,
-                          shadows: [Shadow(blurRadius: 3)],
-                        ),
-                      ),
-                    if (onlyBook != null && onlyBook.finished)
-                      const Positioned(right: 6, top: 6, child: Icon(Icons.check_circle, color: Colors.greenAccent)),
-                    if (onlyBook != null && onlyBook.inProgress)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: LinearProgressIndicator(value: onlyBook.percent ?? 0, minHeight: 4),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
-          Text(
-            subtitle ?? '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A book's page: cover, what it is, where you are in it, its bookmarks.
-class BookDetail extends ConsumerWidget {
-  const BookDetail({super.key, required this.book, required this.onRead, this.onBack});
-
-  final LibraryBook book;
-  final void Function(LibraryBook, {Place? at}) onRead;
-  final VoidCallback? onBack;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final marks = ref.watch(bookmarksProvider(book.key)).value ?? const [];
-    final where = book.finished
-        ? 'Finished'
-        : book.started
-        ? 'On page ${book.page! + 1} of ${book.pageCount}'
-        : 'Not started · ${book.pageCount} pages';
-    return ListView(
-      key: const Key('detail'),
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (onBack != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back (Esc)', onPressed: onBack),
-          ),
-        Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: SizedBox(width: 200, height: 300, child: CoverImage(bookKey: book.key, width: 512)),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(book.name, style: theme.textTheme.headlineSmall),
-        if (book.issueTitle != null) Text(book.issueTitle!, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text(
-          [
-            if (book.year != null) '${book.year}',
-            if (book.volume != null) 'Vol. ${book.volume}',
-            book.format.toUpperCase(),
-          ].join(' · '),
-          style: theme.textTheme.bodyMedium,
-        ),
-        if (book.writers.isNotEmpty) Text('Written by ${book.writers.join(', ')}'),
-        if (book.artists.isNotEmpty) Text('Art by ${book.artists.join(', ')}'),
-        const SizedBox(height: 12),
-        Text(where, key: const Key('where')),
-        if (book.inProgress) ...[const SizedBox(height: 6), LinearProgressIndicator(value: book.percent ?? 0)],
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              key: const Key('read'),
-              onPressed: () => onRead(book),
-              icon: const Icon(Icons.chrome_reader_mode),
-              label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
-            ),
-            IconButton.outlined(
-              key: const Key('favourite'),
-              onPressed: () => setFavourite(ref, book, !book.favourite),
-              icon: Icon(book.favourite ? Icons.star : Icons.star_outline, color: book.favourite ? Colors.amber : null),
-              tooltip: book.favourite ? 'Take out of Favourites (*)' : 'Add to Favourites (*)',
-            ),
-            OutlinedButton.icon(
-              key: const Key('editBook'),
-              onPressed: () => editBook(context, ref, book),
-              icon: const Icon(Icons.edit),
-              label: const Text('Edit (e)'),
-            ),
-          ],
-        ),
-        if (book.summary != null) ...[const SizedBox(height: 16), Text(book.summary!)],
-        const SizedBox(height: 20),
-        Text('Collections', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            for (final c in book.collections)
-              InputChip(
-                label: Text(c),
-                onDeleted: () => _changed(ref, () => ref.read(libraryStoreProvider).removeFromCollection(book.key, c)),
-                deleteButtonTooltipMessage: 'Take out of $c',
-              ),
-            ActionChip(
-              key: const Key('addToCollection'),
-              avatar: const Icon(Icons.add, size: 18),
-              label: const Text('Add to a collection'),
-              onPressed: () async {
-                final name = await _askCollection(context, ref, book);
-                if (name != null) {
-                  await _changed(ref, () => ref.read(libraryStoreProvider).addToCollection(book.key, name));
-                }
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text('Bookmarks', style: theme.textTheme.titleMedium),
-        if (marks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Text(
-              'None yet. In the reader, mm or the bookmark button marks the page (the panel in guided view); ma sets mark a.',
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-        for (final m in marks)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: m.mark == null ? const Icon(Icons.bookmark) : CircleAvatar(radius: 12, child: Text(m.mark!)),
-            title: Text('P${describePlace(m).substring(1)}'),
-            subtitle: Text(
-              [m.mark == null ? 'Bookmark' : "Mark '${m.mark}", if (m.note != null) m.note!].join('  ·  '),
-            ),
-            // Without a panel, guided view shows the page whole.
-            onTap: () => onRead(book, at: (page: m.page, panel: m.panel ?? pageStart)),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.edit_note),
-                  tooltip: 'Note',
-                  onPressed: () async {
-                    final note = await askBookmarkNote(context, m);
-                    if (note != null) await _changed(ref, () => ref.read(libraryStoreProvider).setNote(m.id, note));
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Remove',
-                  onPressed: () => _changed(ref, () => ref.read(libraryStoreProvider).deleteBookmark(m.id)),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 16),
-        SelectableText(book.path, style: theme.textTheme.bodySmall),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              key: const Key('bookDetails'),
-              onPressed: () => showBookDetails(context, ref, book),
-              icon: const Icon(Icons.info_outline),
-              label: const Text('Details (I)'),
-            ),
-            OutlinedButton.icon(
-              key: const Key('resetBook'),
-              onPressed: () => resetBook(context, ref, book),
-              icon: const Icon(Icons.restart_alt),
-              label: const Text('Reset this comic… (X)'),
-            ),
-            OutlinedButton.icon(
-              key: const Key('deleteBook'),
-              onPressed: () => deleteLibraryBook(
-                context,
-                ref,
-                book,
-                beforeDelete: () => context.findAncestorStateOfType<LibraryScreenState>()?.selectNeighbourOf(book.key),
-              ),
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete this comic… (gd)'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-extension on BookDetail {
-  /// Runs a change to the book in the index, then writes its sidecar.
-  Future<void> _changed(WidgetRef ref, Future<void> Function() change) async {
-    await change();
-    await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
-  }
-}
-
-/// Puts [book] in the Favourites collection or takes it out, then writes
-/// its sidecar, so it travels.
-Future<void> setFavourite(WidgetRef ref, LibraryBook book, bool on) async {
-  try {
-    await ref.read(libraryStoreProvider).setFavourite(book.key, on);
-    await ref.read(sidecarSyncProvider).writeBeside(book.path, book.key, folder: book.format == 'folder');
-  } catch (e) {
-    debugPrint('Could not change the favourites: $e');
-  }
-}
-
-/// The details view of [book] from the library: `I` on its cover, or the
-/// button in its details. The book is opened for it and closed after.
-/// Redo panels forgets its panels, which the library pass finds again.
-Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook book) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final OpenBook open;
-  try {
-    open = (await openBook(book.path)).withEdits(await ref.read(libraryStoreProvider).edits(book.key));
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not open ${book.name}: $e')));
-    return;
-  }
-  var redo = false;
-  try {
-    if (!context.mounted) return;
-    await showComicDetails(
-      context,
-      open,
-      closeKeys: {
-        for (final b in ref.read(keymapProvider).bindings)
-          if (b.intent == ReaderIntent.showDetails && b.keys.length == 1 && b.keys.single.length == 1) b.keys.single,
-      },
-      onRedoPanels: () async => redo = true,
-    );
-  } finally {
-    await open.doc.close();
-  }
-  if (!redo) return;
-  try {
-    final ok = await ref.read(sidecarSyncProvider).reset(book.key, everything: false);
-    unawaited(ref.read(libraryDetectionProvider).run());
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          ok
-              ? "${book.name}'s panels will be found again"
-              : "Reset ${book.name} here, but the file beside it can't be changed, so it may come back",
-        ),
-      ),
-    );
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not reset ${book.name}: $e')));
-  }
-}
-
-/// Asks, then resets [book] from the library: `X` on its cover, or the
-/// button in its details. Its panels are found again by the library pass,
-/// or by the reader when it is opened.
-Future<void> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final scope = await askReset(context, book.name);
-  if (scope == null) return;
-  try {
-    final ok = await ref.read(sidecarSyncProvider).reset(book.key, everything: scope == ResetScope.everything);
-    unawaited(ref.read(libraryDetectionProvider).run());
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(
-          !ok
-              ? "Reset ${book.name} here, but the file beside it can't be changed, so it may come back"
-              : scope == ResetScope.everything
-              ? '${book.name} starts from scratch'
-              : "${book.name}'s panels will be found again",
-        ),
-      ),
-    );
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not reset ${book.name}: $e')));
-  }
-}
-
-/// Asks, then deletes [book] from the library: `gd` or Shift+Delete on
-/// its cover, or the button in its details. [beforeDelete] runs once it
-/// is confirmed, to move the selection off it.
-Future<void> deleteLibraryBook(
-  BuildContext context,
-  WidgetRef ref,
-  LibraryBook book, {
-  void Function()? beforeDelete,
-}) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final folder = book.format == 'folder';
-  final facts = await deleteFacts(book.name, book.path, folder: folder, pages: book.pageCount);
-  if (!context.mounted || !await askDelete(context, facts)) return;
-  // The reader may have it open behind a dialog opened from the library.
-  if (ref.read(readerProvider).book?.key == book.key) await ref.read(readerProvider.notifier).close();
-  beforeDelete?.call();
-  try {
-    final stuck = await deleteComic(
-      path: book.path,
-      contentKey: book.key,
-      folder: folder,
-      sidecars: ref.read(sidecarSyncProvider),
-      store: ref.read(libraryStoreProvider),
-      coverDir: ref.read(coverDirProvider),
-    );
-    messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.name, stuck))));
-  } on FileSystemException catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not delete ${book.name}: ${e.message}')));
-  }
-}
-
-/// Asks for a collection to put [book] in: one of those there are, or a
-/// new name.
-Future<String?> _askCollection(BuildContext context, WidgetRef ref, LibraryBook book) {
-  final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
-  final names = {for (final b in all) ...b.collections}.difference(book.collections.toSet()).toList()
-    ..sort(naturalCompare);
-  return showDialog<String>(
-    context: context,
-    builder: (_) => _CollectionDialog(book: book, names: names),
-  );
-}
-
-class _CollectionDialog extends StatefulWidget {
-  const _CollectionDialog({required this.book, required this.names});
-
-  final LibraryBook book;
-
-  /// Collections the book is not in yet.
-  final List<String> names;
-
-  @override
-  State<_CollectionDialog> createState() => _CollectionDialogState();
-}
-
-class _CollectionDialogState extends State<_CollectionDialog> {
-  final _field = TextEditingController();
-
-  @override
-  void dispose() {
-    _field.dispose();
-    super.dispose();
-  }
-
-  void _done(String name) {
-    if (name.trim().isNotEmpty) Navigator.pop(context, name.trim());
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text('Add ${widget.book.name} to a collection'),
-    content: SizedBox(
-      width: 400,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            key: const Key('collectionName'),
-            controller: _field,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'New collection'),
-            onSubmitted: _done,
-          ),
-          if (widget.names.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [for (final n in widget.names) ActionChip(label: Text(n), onPressed: () => _done(n))],
-            ),
-          ],
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-      FilledButton(onPressed: () => _done(_field.text), child: const Text('Add')),
-    ],
-  );
-}
-
-/// Reading history: sittings with books, newest first, by day.
-class _History extends ConsumerWidget {
-  const _History({required this.books, required this.query, required this.onRead});
-
-  final List<LibraryBook> books;
-  final String query;
-  final void Function(LibraryBook, {Place? at}) onRead;
-
-  static String _day(DateTime d) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final day = DateTime(d.year, d.month, d.day);
-    if (day == today) return 'Today';
-    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return '${d.day} ${months[d.month - 1]} ${d.year}';
-  }
-
-  static String _two(int n) => n.toString().padLeft(2, '0');
-
-  static String _length(Duration d) => d.inMinutes < 1
-      ? 'under a minute'
-      : (d.inHours > 0 ? '${d.inHours} h ${d.inMinutes % 60} min' : '${d.inMinutes} min');
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final entries = ref.watch(historyProvider).value ?? const <HistoryEntry>[];
-    final byKey = {for (final b in books) b.key: b};
-    final shown = [
-      for (final e in entries)
-        if (byKey[e.key] case final b? when b.matches(query)) (e, b),
-    ];
-    if (shown.isEmpty) {
-      return Center(
-        child: Text(
-          query.isEmpty ? 'What you read shows up here, sitting by sitting.' : 'Nothing matches "$query".',
-          style: theme.textTheme.bodyLarge,
-        ),
-      );
-    }
-    final rows = <Widget>[];
-    String? lastDay;
-    for (final (e, b) in shown) {
-      final day = _day(e.startedAt);
-      if (day != lastDay) {
-        rows.add(
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-            child: Text(day, style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
-          ),
-        );
-        lastDay = day;
-      }
-      rows.add(
-        ListTile(
-          key: Key('history-${e.key}-${e.startedAt.millisecondsSinceEpoch}'),
-          leading: ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: SizedBox(width: 32, height: 48, child: CoverImage(bookKey: b.key, width: 96)),
-          ),
-          title: Text(b.name),
-          subtitle: Text(
-            '${_two(e.startedAt.hour)}:${_two(e.startedAt.minute)} · ${_length(e.duration)} · '
-            '${e.pages} page${e.pages == 1 ? '' : 's'}',
-          ),
-          trailing: b.finished
-              ? const Icon(Icons.check_circle, color: Colors.greenAccent)
-              : b.inProgress
-              ? Text('${((b.percent ?? 0) * 100).round()}%')
-              : null,
-          onTap: () => onRead(b),
-        ),
-      );
-    }
-    return ListView(key: const Key('history'), children: rows);
-  }
-}
-
-class _SeriesDetail extends ConsumerWidget {
-  const _SeriesDetail({required this.series, required this.onRead, this.canRename = false});
-
-  final LibrarySeries series;
-  final void Function(LibraryBook, {Place? at}) onRead;
-
-  /// A series, not a collection.
-  final bool canRename;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final next = series.next;
-    return ListView(
-      key: const Key('detail'),
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(series.name, style: theme.textTheme.headlineSmall),
-        Text('${series.books.length} books · ${series.read} read'),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: () => onRead(next),
-              icon: const Icon(Icons.chrome_reader_mode),
-              label: Text('${next.inProgress ? 'Continue' : 'Read'} ${next.name}'),
-            ),
-            if (canRename)
-              OutlinedButton.icon(
-                key: const Key('renameSeries'),
-                onPressed: () => renameSeries(context, ref, series),
-                icon: const Icon(Icons.edit),
-                label: const Text('Rename (e)'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text('Enter or a tap shows the books', style: theme.textTheme.bodySmall),
-        for (final b in series.books)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(b.name),
-            subtitle: b.subtitle == null ? null : Text(b.subtitle!),
-            trailing: b.finished
-                ? const Icon(Icons.check_circle, color: Colors.greenAccent)
-                : b.inProgress
-                ? Text('${((b.percent ?? 0) * 100).round()}%')
-                : null,
-            onTap: () => onRead(b),
-          ),
-      ],
-    );
-  }
-}
-
-/// `12 books · 3 read` for a folder's cover.
-String _folderCount(LibraryFolder folder) {
-  final read = folder.books.where((b) => b.finished).length;
-  return '${folder.books.length} ${folder.books.length == 1 ? 'book' : 'books'}${read > 0 ? ' · $read read' : ''}';
-}
-
-/// A folder's page: what is in it, a way in, and for a library folder a way
-/// to take it out of the library.
-class _FolderDetail extends ConsumerWidget {
-  const _FolderDetail({required this.folder, required this.onOpen, required this.onRead, this.onBack});
-
-  final LibraryFolder folder;
-  final VoidCallback onOpen;
-  final void Function(LibraryBook, {Place? at}) onRead;
-  final VoidCallback? onBack;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final next = folder.books.where((b) => b.inProgress).firstOrNull;
-    final root = folder.root;
-    return ListView(
-      key: const Key('detail'),
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (onBack != null)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back (Esc)', onPressed: onBack),
-          ),
-        Center(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: SizedBox(
-              width: 200,
-              height: 300,
-              child: CoverImage(bookKey: folder.books.firstOrNull?.key, width: 512),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            const Icon(Icons.folder),
-            const SizedBox(width: 8),
-            Expanded(child: Text(folder.name, style: theme.textTheme.headlineSmall)),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(_folderCount(folder), style: theme.textTheme.bodyMedium),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              key: const Key('openFolder'),
-              onPressed: onOpen,
-              icon: const Icon(Icons.folder_open),
-              label: const Text('Open the folder'),
-            ),
-            if (next != null)
-              OutlinedButton.icon(
-                onPressed: () => onRead(next),
-                icon: const Icon(Icons.chrome_reader_mode),
-                label: Text('Continue ${next.name}'),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Text('Enter or a tap opens the folder', style: theme.textTheme.bodySmall),
-        if (root != null) ...[
-          const SizedBox(height: 20),
-          Text('A library folder', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              key: const Key('removeRoot'),
-              onPressed: () => removeLibraryFolder(
-                ref.read(libraryStoreProvider),
-                ref.read(settingsStoreProvider),
-                root.id,
-                root.path,
-              ),
-              icon: const Icon(Icons.remove_circle_outline),
-              label: const Text('Take out of the library (the files stay)'),
-            ),
-          ),
-        ],
-        const SizedBox(height: 16),
-        SelectableText(folder.path, style: theme.textTheme.bodySmall),
-      ],
-    );
-  }
-}
-
-class _EmptyLibrary extends StatelessWidget {
-  const _EmptyLibrary({
-    required this.onAddRoot,
-    required this.onOpenFile,
-    required this.onOpenFolder,
-    required this.onSettings,
-  });
-
-  final VoidCallback onAddRoot;
-  final VoidCallback onOpenFile;
-  final VoidCallback onOpenFolder;
-  final VoidCallback onSettings;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    // Scrolls when large text or a phone in landscape leaves too little room.
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('ComicRedr', style: theme.textTheme.displaySmall),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              key: const Key('addRootEmpty'),
-              onPressed: onAddRoot,
-              icon: const Icon(Icons.create_new_folder),
-              label: const Text('Add your comics folder'),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: onOpenFile,
-                  icon: const Icon(Icons.menu_book),
-                  label: const Text('Open a comic'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onOpenFolder,
-                  icon: const Icon(Icons.folder_open),
-                  label: const Text('Open a folder'),
-                ),
-                OutlinedButton.icon(
-                  key: const Key('settingsEmpty'),
-                  onPressed: onSettings,
-                  icon: const Icon(Icons.settings_outlined),
-                  label: const Text('Settings'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              '${Platform.isAndroid ? 'A Comics folder on the phone' : 'A Comics folder in your home'} '
-              'joins the library by itself when ComicRedr starts. '
-              'A adds any other folder of comics. o opens a CBZ or PDF and O a folder of pages '
-              'without adding them. Or drop either here. ? shows the keymap.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The library pass on the status line, after the book count.
-String _detecting(DetectionStatus d) {
-  if (d.paused) return '  ·  Finding panels paused';
-  if (!d.running || d.total == 0) return '';
-  return '  ·  Finding panels: ${d.done} / ${d.total} pages${d.book == null ? '' : ' (${d.book})'}';
-}
-
-/// The library's status line: a notice, the scan's progress, or a count.
-
-class _LibraryStatus extends ConsumerWidget {
-  const _LibraryStatus({required this.books, required this.pending, required this.onFailures});
-
-  final List<LibraryBook> books;
-  final String pending;
-  final VoidCallback onFailures;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final reader = ref.watch(readerProvider);
-    final scan = ref.watch(scanStatusProvider).value ?? const ScanStatus();
-    final detect = ref.watch(detectionStatusProvider).value ?? const DetectionStatus();
-    final series = books.map((b) => b.seriesId).toSet().length;
-    final text =
-        reader.message ??
-        (scan.running
-            ? scan.total == 0
-                  ? 'Scanning the library folders…'
-                  : 'Scanning: ${scan.done} / ${scan.total} new or changed books'
-            : '${books.length} books in $series series'
-                  '${scan.failed.isEmpty ? '' : '  ·  ${scan.failed.length} could not be read'}'
-                  '${_detecting(detect)}');
-    return Material(
-      color: theme.colorScheme.surfaceContainer,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (reader.loading || (scan.running && scan.total > 0))
-            LinearProgressIndicator(minHeight: 2, value: reader.loading ? null : scan.done / math.max(1, scan.total)),
-          InkWell(
-            onTap: scan.failed.isEmpty ? null : onFailures,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(text, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  if (detect.running || detect.paused)
-                    IconButton(
-                      key: const Key('detect-pause'),
-                      tooltip: detect.paused ? 'Go on finding panels' : 'Pause finding panels',
-                      icon: Icon(detect.paused ? Icons.play_arrow : Icons.pause),
-                      onPressed: () {
-                        final d = ref.read(libraryDetectionProvider);
-                        detect.paused ? d.resume() : d.pause();
-                      },
-                    ),
-                  Text(
-                    pending,
-                    key: const Key('pending'),
-                    style: const TextStyle(fontFamily: 'monospace'),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('ComicRedr $appVersion', key: const Key('version'), style: theme.textTheme.bodySmall),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

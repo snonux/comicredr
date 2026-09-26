@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/meta_edits.dart';
+import '../data/sidecar_sync.dart';
 import '../reader/reader_notifier.dart';
 import 'library_store.dart';
 import 'providers.dart';
@@ -12,13 +13,15 @@ import 'providers.dart';
 /// app knows about it, stays the same.
 Future<void> editBook(BuildContext context, WidgetRef ref, LibraryBook book) async {
   final messenger = ScaffoldMessenger.of(context);
+  // Read before the dialog: the widget [ref] belongs to may be gone after.
+  final save = _saver(ref);
   final edits = await showDialog<Map<MetaField, MetaEdit>>(
     context: context,
     builder: (_) => EditBookDialog(book: book),
   );
   if (edits == null || edits.isEmpty) return;
   try {
-    await _save(ref, [book], edits);
+    await save([book], edits);
     messenger.showSnackBar(const SnackBar(content: Text('Saved')));
   } catch (e) {
     messenger.showSnackBar(SnackBar(content: Text('Could not save the changes to ${book.name}: $e')));
@@ -28,6 +31,7 @@ Future<void> editBook(BuildContext context, WidgetRef ref, LibraryBook book) asy
 /// `e` on a series: renames it, which is an edit to every book in it.
 Future<void> renameSeries(BuildContext context, WidgetRef ref, LibrarySeries series) async {
   final messenger = ScaffoldMessenger.of(context);
+  final save = _saver(ref);
   final name = await showDialog<String>(
     context: context,
     builder: (_) => _RenameSeriesDialog(series: series),
@@ -35,7 +39,7 @@ Future<void> renameSeries(BuildContext context, WidgetRef ref, LibrarySeries ser
   if (name == null || name == series.name) return;
   try {
     final at = DateTime.now();
-    await _save(ref, series.books, {MetaField.series: MetaEdit(name, at: at)});
+    await save(series.books, {MetaField.series: MetaEdit(name, at: at)});
     final n = series.books.length;
     messenger.showSnackBar(SnackBar(content: Text('Renamed $n ${n == 1 ? 'book' : 'books'} to $name')));
   } catch (e) {
@@ -43,14 +47,24 @@ Future<void> renameSeries(BuildContext context, WidgetRef ref, LibrarySeries ser
   }
 }
 
-Future<void> _save(WidgetRef ref, List<LibraryBook> books, Map<MetaField, MetaEdit> edits) async {
+/// Saves edits to books in the index, then writes their sidecars.
+Future<void> Function(List<LibraryBook>, Map<MetaField, MetaEdit>) _saver(WidgetRef ref) {
   final store = ref.read(libraryStoreProvider);
   final sidecars = ref.read(sidecarSyncProvider);
+  return (books, edits) => _save(store, sidecars, books, edits);
+}
+
+Future<void> _save(
+  LibraryStore store,
+  SidecarSync sidecars,
+  List<LibraryBook> books,
+  Map<MetaField, MetaEdit> edits,
+) async {
   for (final b in books) {
     await store.editBook(b.key, edits);
   }
   for (final b in books) {
-    await sidecars.writeBeside(b.path, b.key, folder: b.format == 'folder');
+    await sidecars.writeBeside(b.path, b.key, folder: b.isFolder);
   }
 }
 

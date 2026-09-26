@@ -81,6 +81,10 @@ class LibraryBook {
   /// `Daredevil #181`, or the series alone for a book without a number.
   String get name => number == null ? series : '$series #$number';
 
+  /// A folder of page images rather than a comic file: its sidecar goes
+  /// inside it.
+  bool get isFolder => format == 'folder';
+
   /// A second line for the cover: the issue's own title, or its year.
   String? get subtitle => issueTitle ?? year?.toString();
 
