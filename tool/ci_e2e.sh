@@ -2,7 +2,7 @@
 # Runs one of the tool/e2e_*.sh scripts the way CI does: on the release
 # build already in build/ (E2E_SKIP_BUILD=1) and on the books from the test
 # corpus each one was written against. .github/workflows/ci.yml runs every
-# name below, one job each; it works the same on a laptop.
+# name --list prints, one job each; it works the same on a laptop.
 #
 #   tool/ci_fetch_corpus.sh   # once
 #   make && make tarball      # the build the scripts reuse
@@ -22,7 +22,14 @@ first_love=$c/golden-age-pdf/first-love-illustrated-078.pdf
 pepper=$c/modern/pepper-carrot-e06
 i_villain=test/corpus-modern/modern-indie/i-villain.pdf
 
-name=${1:?usage: tool/ci_e2e.sh NAME (a tool/e2e_NAME.sh script, or linux-book)}
+name=${1:?usage: tool/ci_e2e.sh NAME (a tool/e2e_NAME.sh script, or linux-book) | --list}
+if [[ $name == --list ]]; then
+  # Every e2e script, plus e2e_linux.sh once more on a real book, as the
+  # JSON list CI makes its jobs from.
+  { ls tool/e2e_*.sh | sed 's|tool/e2e_\(.*\)\.sh|\1|'; echo linux-book; } |
+    python3 -c 'import json, sys; print(json.dumps(sys.stdin.read().split()))'
+  exit 0
+fi
 case "$name" in
   linux-book)     set -- tool/e2e_linux.sh "$all_top" ;;
   bookmarks)      set -- tool/e2e_bookmarks.sh "$space_war" ;;
