@@ -356,7 +356,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         builder: (context) => AlertDialog(
           title: const Text('Allow access to your comics'),
           content: const Text(
-            'ComicRedr reads comics where they are on the phone. Android asks for that once, '
+            'ComicRedr reads comics where they are in the device\'s storage. Android asks for that once, '
             'as "All files access", on a settings page. Turn it on there, then come back and try again.',
           ),
           actions: [
@@ -523,7 +523,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .read(readerProvider.notifier)
           .notice(
             e.code == 'no-path'
-                ? 'That has no path on the phone ComicRedr can read; pick it from the phone\'s own storage'
+                ? 'That has no path ComicRedr can read; pick it from the device\'s own storage'
                 : 'Could not open the picker: ${e.message}',
           );
       return null;

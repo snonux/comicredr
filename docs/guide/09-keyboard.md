@@ -1,6 +1,6 @@
 # 9. The keyboard
 
-[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On the phone](10-phone.md)
+[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On a phone or tablet](10-phone.md)
 
 ComicRedr is made to be used from the keyboard. The usual keys (arrows,
 `Space`, `PageDown`, `Home`, `Esc`) do what you expect, and a vi-style
@@ -93,4 +93,4 @@ Restart ComicRedr to load your changes. If a line is wrong, ComicRedr
 says so when it starts, and `?` lists the problem in red with the keys it
 uses instead.
 
-[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On the phone](10-phone.md)
+[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On a phone or tablet](10-phone.md)

@@ -68,7 +68,7 @@ class EmptyLibrary extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '${Platform.isAndroid ? 'A Comics folder on the phone' : 'A Comics folder in your home'} '
+              '${Platform.isAndroid ? 'A Comics folder in the device\'s storage' : 'A Comics folder in your home'} '
               'joins the library by itself when ComicRedr starts. '
               'A adds any other folder of comics. o opens a CBZ or PDF and O a folder of pages '
               'without adding them. Or drop either here. ? shows the keymap.',

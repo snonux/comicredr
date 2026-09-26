@@ -2,9 +2,9 @@
 
 [Contents](README.md) · Previous: [Managing your comics](07-managing-comics.md) · Next: [The keyboard](09-keyboard.md)
 
-Everything in ComicRedr works by touch, on the phone and on a Linux
+Everything in ComicRedr works by touch, on a phone, a tablet and a Linux
 laptop's touchscreen alike: every gesture below, the tap zones and your
-own gestures are the same on both.
+own gestures are the same on all of them.
 
 ## Gestures
 
@@ -28,7 +28,8 @@ line starts with a back arrow that does the same. In fullscreen, tap the
 middle first to bring the status line back.
 
 In the library, tap a cover to pick it and tap it again to open it (on
-the phone the first tap shows its details, with a **Read** button). A
+the phone, and on a tablet held upright, the first tap shows its details
+on a page of their own, with a **Read** button). A
 long press shows a cover's details, and a finger scrolls the covers.
 
 ## The tap zones

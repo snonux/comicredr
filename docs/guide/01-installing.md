@@ -2,7 +2,7 @@
 
 [Contents](README.md) · Next: [Getting started](02-getting-started.md)
 
-ComicRedr runs on a Linux laptop and an Android phone, and needs no
+ComicRedr runs on a Linux laptop and an Android phone or tablet, and needs no
 account. It should work on any Linux distribution, but it has only been
 tested on Fedora.
 
@@ -12,21 +12,21 @@ ComicRedr is built from its source with `make` and `make install`.
 [Installing on Linux](../install-linux.md) has the tools to install
 first and every step.
 
-## On an Android phone
+## On an Android phone or tablet
 
 Add snonux's [F-Droid repository](https://github.com/snonux/fdroid) to
 the F-Droid app and install ComicRedr from there. Without F-Droid, build
 the APK on your laptop and install it over USB.
 [Installing on Android](../install-android.md) has both ways.
 
-What to do on the phone the first time is in
-[On the phone](10-phone.md#first-start).
+What to do on the phone or tablet the first time is in
+[On a phone or tablet](10-phone.md#first-start).
 
 ## The panel detector
 
 Guided view and balloon mode rely on a small detector that finds the
 panels, speech balloons and captions on each page. It is built into the
-app, on Linux and on the phone. It runs on
+app, on Linux and on Android. It runs on
 your own processor, a fraction of a second a page; how it is used is in
 [How panels are found](05-guided-view.md#how-panels-are-found).
 

@@ -106,6 +106,17 @@ refreshes right away instead of within six hours.
 - On that emulator every PNG fails to decode, in any Flutter app: its
   emulated CPU breaks zlib's checksums (`ZLibCodec` throws, raw deflate
   works). Use JPEG comics there; phones are not affected.
+- The same emulator draws nothing but black for a Flutter app on
+  Impeller (the default) with `-gpu swiftshader_indirect`: frames are
+  made, the screenshot is black. For screenshots, build with
+  `<meta-data android:name="io.flutter.embedding.android.EnableImpeller"
+  android:value="false"/>` in the manifest's `<application>` locally
+  (never commit it). A Pixel Tablet AVD (`avdmanager create avd -d
+  pixel_tablet`, 2560x1600, 3 GB) is the 10-inch tablet; `adb shell wm
+  size 1200x1920` makes an 8-inch one and `wm size 1280x1600` a half
+  screen, since the emulator's split screen (`WMShell splitscreen
+  moveToSideStage`) does not start without KVM. `settings put system
+  user_rotation 1` turns it upright (its natural side is landscape).
 
 ## How the reader works
 
@@ -367,6 +378,16 @@ refreshes right away instead of within six hours.
   draw the app edge to edge. Below 600 dp the status line puts its text
   above the buttons. The APK was tested on an Android 14 emulator only; a
   real phone, pinch zoom and real speed and memory are untested.
+- Tablets and split screen get no code of their own: every layout
+  follows the window's width, the same on Linux. Library: bottom tabs
+  below 600 dp, the rail from 600, the tab's name in the header from 840
+  (the rail names it below), the details pane beside the covers from
+  1000. Status line: text above the buttons below 600, counters before
+  the title below 840, the file name from 1000; the two-page button
+  (`spreadButton`) from 600, outside guided view. The decoded-page budget
+  on Android (`pageBudgetBytes`) holds at least four screenfuls of the
+  largest display, up to a thirty-second of the RAM, since a tablet page
+  is some 16 MB. Tested on a Pixel Tablet emulator only; no real tablet.
 - `make install` puts the bundle in `~/.local/lib/comicredr`, a symlink in
   `~/.local/bin` and the launcher and icons in `~/.local/share`; it never
   runs Flutter, so `sudo make install PREFIX=/usr/local` is safe, and

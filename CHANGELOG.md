@@ -7,6 +7,13 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Android tablets:** ComicRedr now makes good use of a tablet. The
+  reader's status line has a button for two pages side by side (`d`),
+  which fills a tablet held sideways; on a small tablet or in split
+  screen the page counter comes first and is no longer cut off, and the
+  library's search box is no longer squeezed. More decoded pages are
+  kept in memory on a tablet's bigger screen, so page turns stay quick.
+  The guide and install docs cover tablets.
 - **Panels only for the comic you read:** ComicRedr no longer works
   through the whole library in the background. It finds the panels of
   the open comic, from the page you are on to the end, with guided view

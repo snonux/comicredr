@@ -5,7 +5,7 @@ it, and what it looks like. Read it front to back as a tutorial, or jump
 to what you need from the contents below. Every picture is taken from the
 app itself.
 
-ComicRedr runs on a Linux laptop and an Android phone. It should work on
+ComicRedr runs on a Linux laptop and an Android phone or tablet. It should work on
 any Linux distribution, but it has only been tested on Fedora.
 
 ![Guided view stepping from panel to panel](images/guided.gif)
@@ -21,7 +21,7 @@ come back here for a key you forgot.
 
 1. [Installing](01-installing.md)
    - [On Linux](01-installing.md#on-linux)
-   - [On an Android phone](01-installing.md#on-an-android-phone)
+   - [On an Android phone or tablet](01-installing.md#on-an-android-phone-or-tablet)
    - [The panel detector](01-installing.md#the-panel-detector)
    - [The CBR files you already have](01-installing.md#the-cbr-files-you-already-have)
 2. [Getting started](02-getting-started.md)
@@ -76,9 +76,10 @@ come back here for a key you forgot.
    - [The keys you'll use most](09-keyboard.md#the-keys-youll-use-most)
    - [Sequences and counts](09-keyboard.md#sequences-and-counts)
    - [Your own keys](09-keyboard.md#your-own-keys)
-10. [On the phone](10-phone.md)
+10. [On a phone or tablet](10-phone.md)
     - [First start](10-phone.md#first-start)
     - [What is different on the phone](10-phone.md#what-is-different-on-the-phone)
+    - [On a tablet](10-phone.md#on-a-tablet)
     - [From the laptop to the phone and back](10-phone.md#from-the-laptop-to-the-phone-and-back)
 11. [Your data](11-your-data.md)
     - [The sidecar beside each comic](11-your-data.md#the-sidecar-beside-each-comic)

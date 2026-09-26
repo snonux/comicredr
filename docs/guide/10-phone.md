@@ -1,10 +1,11 @@
-# 10. On the phone
+# 10. On a phone or tablet
 
 [Contents](README.md) · Previous: [The keyboard](09-keyboard.md) · Next: [Your data](11-your-data.md)
 
-ComicRedr on an Android phone is the same app as on the laptop, laid out
-for a narrow screen. How to build it and put it on the phone is in
-[Installing](01-installing.md#on-an-android-phone).
+ComicRedr on an Android phone or tablet is the same app as on the laptop,
+laid out for the screen it is on. How to build it and put it on the
+device is in [Installing](01-installing.md#on-an-android-phone-or-tablet).
+A tablet gets [a layout of its own](#on-a-tablet).
 
 | | | |
 |---|---|---|
@@ -42,6 +43,33 @@ These pictures are from the Android 14 emulator.
 - As on the laptop, panels are only found for the comic you have open,
   ahead of the page you are on.
 - A Bluetooth keyboard works, with all the same keys.
+
+## On a tablet
+
+A tablet is laid out like the laptop rather than like a big phone. The
+library's tabs run down the left side, and held sideways (or on any
+screen more than 1000 points wide) a tap on a cover shows its details
+beside the covers instead of on a page of their own.
+
+![The library on a 10-inch tablet held sideways](images/android-tablet-library.webp)
+
+- The reader's status line keeps the book's title and adds the details
+  button and one for [two pages side by side](04-reading.md#two-pages-side-by-side).
+  Held sideways, two pages fill a 10-inch screen about as well as one
+  page fills it upright.
+- Turning the tablet, or putting ComicRedr in split screen next to
+  another app, keeps the page, the zoom and the panel. The narrower
+  ComicRedr's half of the screen gets, the more it looks like the phone:
+  below 600 points wide the tabs move to the bottom.
+- ComicRedr keeps more decoded pages in memory on a tablet, sized to its
+  screen, so turning pages stays quick at the higher resolution.
+
+![Two pages side by side on a tablet held sideways, in fullscreen](images/android-tablet-spread.webp)
+
+<img src="images/android-tablet-portrait.webp" width="320" alt="A page on a tablet held upright">
+
+These pictures are from the Android 14 emulator's Pixel Tablet
+(2560 × 1600).
 
 ## From the laptop to the phone and back
 
