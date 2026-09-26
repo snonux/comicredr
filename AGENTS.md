@@ -3,6 +3,9 @@
 Notes for coding agents and contributors working on ComicRedr. The
 [README](README.md) is for people using the app; keep it short and put
 build internals, test scripts, detector work and conventions here.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) is the overview with
+diagrams (parts, page pipeline, input, detection, the model, data); keep
+it in step when the architecture or the model changes.
 
 ## Conventions
 
