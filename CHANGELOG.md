@@ -20,6 +20,29 @@ the `?` overlay.
   go up when it is back. `gU` takes a comic off S3, and deleting one asks
   whether to delete it from S3 too. Android now asks for network access,
   used only for the bucket you set up.
+- **Android tablets:** ComicRedr now makes good use of a tablet. The
+  reader's status line has a button for two pages side by side (`d`),
+  which fills a tablet held sideways; on a small tablet or in split
+  screen the page counter comes first and is no longer cut off, and the
+  library's search box is no longer squeezed. More decoded pages are
+  kept in memory on a tablet's bigger screen, so page turns stay quick.
+  The guide and install docs cover tablets.
+- **Continue reading (`C`):** opens the comic read last on the page it
+  was left at, even after a restart, guided view and panel included; in
+  a comic, the one read before it. The library's header has the same as
+  a play button for touch. A comic moved in the library is found by its
+  content; a deleted one gets a notice.
+- **Smooth scrolling:** on a zoomed page the arrow keys and `j` `k`
+  glide instead of jumping, and a held key keeps the page sliding
+  evenly. `←` `→` now move across a zoomed page and turn the page only
+  from its edge (a held key stops there). Key pans stop at the page's
+  edge rather than in the dark margin. Reduced motion keeps the jumps.
+- **Pages shown whole in guided view** turn the background wine red as
+  soon as they show, not on the first press. A press within 5 seconds of
+  arriving stays and zooms the page out and back; the next one turns. A
+  press after 5 seconds turns straight away. `gw` and the Colour/Zoom
+  choice in Settings are gone: both cues are used now, and `W` still
+  turns it all off.
 
 ## 0.3.0
 

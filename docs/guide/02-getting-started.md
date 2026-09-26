@@ -3,7 +3,7 @@
 [Contents](README.md) · Previous: [Installing](01-installing.md) · Next: [The library](03-library.md)
 
 ComicRedr is a comic reader for a Linux laptop (tested on Fedora) and an
-Android phone. It
+Android phone or tablet. It
 reads the comics you already have, from your own folders, and it never
 needs an account or the network. Its best trick is **guided view**: it
 finds the panels on each page and glides from one to the next, the way
@@ -44,8 +44,8 @@ of pages:
 
 ![The welcome page of an empty library](images/empty.webp)
 
-On the phone, ComicRedr first asks for permission to read your comics
-where they are; [On the phone](10-phone.md#first-start) walks through it.
+On Android, ComicRedr first asks for permission to read your comics
+where they are; [On a phone or tablet](10-phone.md#first-start) walks through it.
 
 ## Open a comic
 
@@ -68,6 +68,21 @@ or a folder dropped on the window. A folder of page images opens as a
 book; a folder that holds comics opens in the library's
 [Folders tab](03-library.md#folders), and is added to the library if it
 isn't in it yet.
+
+### Carry on where you stopped: `C`
+
+`C` opens the comic you read last, on the page you left it at, even after
+the app was closed: start ComicRedr and press `C`, and you are back on
+that page, in guided view on the same panel if that is how you were
+reading. The library's header shows the same thing as a button, a round
+play arrow whose tooltip names the comic, for touch and the mouse (on a
+phone, on the Reading tab).
+
+Inside a comic, `C` opens the one you read before it, so it takes you back
+and forth between two comics. A comic you moved to another folder of the
+library is still found. One that was deleted or moved out of the library
+gets a short notice instead, and pressing `C` again goes on to the comic
+read before it.
 
 ## Try guided view
 

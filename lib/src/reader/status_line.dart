@@ -90,8 +90,15 @@ class StatusLine extends StatelessWidget {
         // panel counters come first there, the title after them, and the
         // file name, which repeats the title, is left out.
         final narrow = constraints.maxWidth < 600;
-        final left = (narrow ? [...details, if (book != null) book.title] : [if (book != null) book.title, ...details])
-            .join('  ·  ');
+        // A small tablet, or a big one in split screen, has the buttons in
+        // one row but was left too little room for the counters behind the
+        // title and the file name: they come first there too, and the file
+        // name only shows where there is room to spare.
+        final countersFirst = constraints.maxWidth < 840;
+        final fileName = constraints.maxWidth >= 1000;
+        final left =
+            (countersFirst ? [...details, if (book != null) book.title] : [if (book != null) book.title, ...details])
+                .join('  ·  ');
         final status = Expanded(
           // A live region, so a screen reader reads out each notice and page
           // turn as it happens.
@@ -133,6 +140,16 @@ class StatusLine extends StatelessWidget {
               ReaderIntent.toggleGuided,
               on: state.guided,
             ),
+            // A tablet on its side has room for two pages, and without a
+            // keyboard no other way to them. A phone has room for neither.
+            if (!narrow && !state.guided)
+              _button(
+                'spreadButton',
+                state.mode == PageMode.spread ? Icons.menu_book : Icons.menu_book_outlined,
+                state.mode == PageMode.spread ? 'One page (d)' : 'Two pages side by side (d)',
+                ReaderIntent.toggleSpread,
+                on: state.mode == PageMode.spread,
+              ),
             _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
             // A phone has no room for it here; the page grid has one.
             if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
@@ -180,7 +197,7 @@ class StatusLine extends StatelessWidget {
                     if (back != null) ...[back, const SizedBox(width: 4)],
                     status,
                     pendingKeys,
-                    if (book != null && !narrow) ...[
+                    if (book != null && fileName) ...[
                       const SizedBox(width: 12),
                       Text(p.basename(book.path), style: theme.textTheme.bodySmall),
                     ],

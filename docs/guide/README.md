@@ -5,7 +5,7 @@ it, and what it looks like. Read it front to back as a tutorial, or jump
 to what you need from the contents below. Every picture is taken from the
 app itself.
 
-ComicRedr runs on a Linux laptop and an Android phone. It should work on
+ComicRedr runs on a Linux laptop and an Android phone or tablet. It should work on
 any Linux distribution, but it has only been tested on Fedora.
 
 ![Guided view stepping from panel to panel](images/guided.gif)
@@ -21,13 +21,14 @@ come back here for a key you forgot.
 
 1. [Installing](01-installing.md)
    - [On Linux](01-installing.md#on-linux)
-   - [On an Android phone](01-installing.md#on-an-android-phone)
+   - [On an Android phone or tablet](01-installing.md#on-an-android-phone-or-tablet)
    - [The panel detector](01-installing.md#the-panel-detector)
    - [The CBR files you already have](01-installing.md#the-cbr-files-you-already-have)
 2. [Getting started](02-getting-started.md)
    - [What it reads](02-getting-started.md#what-it-reads)
    - [Add your comics](02-getting-started.md#add-your-comics)
    - [Open a comic](02-getting-started.md#open-a-comic)
+     and [carry on where you stopped: `C`](02-getting-started.md#carry-on-where-you-stopped-c)
    - [Try guided view](02-getting-started.md#try-guided-view)
    - [When you need a key: `?`](02-getting-started.md#when-you-need-a-key-)
 3. [The library](03-library.md)
@@ -45,6 +46,7 @@ come back here for a key you forgot.
    - [See every page at once](04-reading.md#see-every-page-at-once)
    - [Two pages side by side](04-reading.md#two-pages-side-by-side)
    - [Zoom](04-reading.md#zoom)
+     - [Smooth scrolling](04-reading.md#smooth-scrolling)
    - [Parts of a page](04-reading.md#parts-of-a-page)
    - [Turn the comic](04-reading.md#turn-the-comic)
    - [Old scans: clean-up, trim and the night filter](04-reading.md#old-scans-clean-up-trim-and-the-night-filter)
@@ -54,7 +56,7 @@ come back here for a key you forgot.
    - [Panel by panel](05-guided-view.md#panel-by-panel)
    - [Balloon by balloon](05-guided-view.md#balloon-by-balloon)
    - [Pages shown whole](05-guided-view.md#pages-shown-whole) and
-     [the first press stays](05-guided-view.md#the-first-press-stays)
+     [a quick press stays](05-guided-view.md#a-quick-press-stays)
    - [How panels are found](05-guided-view.md#how-panels-are-found)
 6. [Bookmarks and marks](06-bookmarks.md)
    - [Set a bookmark](06-bookmarks.md#set-a-bookmark)
@@ -76,9 +78,10 @@ come back here for a key you forgot.
    - [The keys you'll use most](09-keyboard.md#the-keys-youll-use-most)
    - [Sequences and counts](09-keyboard.md#sequences-and-counts)
    - [Your own keys](09-keyboard.md#your-own-keys)
-10. [On the phone](10-phone.md)
+10. [On a phone or tablet](10-phone.md)
     - [First start](10-phone.md#first-start)
     - [What is different on the phone](10-phone.md#what-is-different-on-the-phone)
+    - [On a tablet](10-phone.md#on-a-tablet)
     - [From the laptop to the phone and back](10-phone.md#from-the-laptop-to-the-phone-and-back)
 11. [Your data](11-your-data.md)
     - [The sidecar beside each comic](11-your-data.md#the-sidecar-beside-each-comic)

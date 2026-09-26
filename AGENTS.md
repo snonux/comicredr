@@ -9,6 +9,20 @@ it in step when the architecture or the model changes.
 
 ## Conventions
 
+- **Always update the usage guide** (snonux, 2026-09-26). Every PR that
+  adds, changes or removes something a user sees, types or taps updates
+  [docs/guide/](docs/guide/README.md) in the same PR; a PR is not ready
+  without it. A new feature gets a section in the chapter it belongs to
+  (or a new chapter file), with an example, and its heading goes in the
+  contents page `docs/guide/README.md`. A changed feature has its text,
+  keys and pictures corrected where they are; a removed one is taken out,
+  contents line included. Retake the pictures that no longer match with
+  `tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
+tool/guide_shots.sh [section...]` from the release build (WebP stills,
+  small GIFs); if that can't be done in the container, say so in the PR.
+  The guide is `docs/guide/`: a contents page and one chapter a file,
+  written for people, starting with installing.
+
 - Every PR gets a real end-to-end test (see the `tool/e2e_*.sh` scripts
   below) before it is marked ready. If something can't be tested in a
   cloud container (a real phone, a real touchscreen, GNOME Shell), say so
@@ -31,12 +45,6 @@ it in step when the architecture or the model changes.
   belong in the guide. Internals go here, and training in
   `docs/training.md`. The `?` overlay and `docs/keys.toml` are generated
   from the keymap and are the key reference.
-- The usage guide is `docs/guide/`: a contents page (`README.md`) and one
-  chapter a file, written for people, starting with installing. A
-  feature that changes what a user sees or types gets its chapter updated
-  in the same PR, and new section headings go in the contents. Its
-  pictures are made by `tool/guide_shots.sh` from the release build (WebP
-  stills, small GIFs).
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
@@ -87,7 +95,8 @@ refreshes right away instead of within six hours.
   `apt-get install libgtk-3-dev libsecret-1-dev xvfb xdotool imagemagick sqlite3 openbox
   x11-utils desktop-file-utils wmctrl` first (xprop for e2e_fullscreen,
   update-desktop-database for e2e_images); most also use Python with
-  Pillow, and e2e_margins OpenCV (`pip install opencv-python-headless`).
+  Pillow, e2e_margins OpenCV (`pip install opencv-python-headless`), and
+  e2e_smooth_scroll ffmpeg and numpy.
   e2e_m9 installs from `make tarball`, so run that first.
 - The first `flutter build` or `flutter run` downloads PDFium once, so it
   needs the network.
@@ -106,6 +115,17 @@ refreshes right away instead of within six hours.
 - On that emulator every PNG fails to decode, in any Flutter app: its
   emulated CPU breaks zlib's checksums (`ZLibCodec` throws, raw deflate
   works). Use JPEG comics there; phones are not affected.
+- The same emulator draws nothing but black for a Flutter app on
+  Impeller (the default) with `-gpu swiftshader_indirect`: frames are
+  made, the screenshot is black. For screenshots, build with
+  `<meta-data android:name="io.flutter.embedding.android.EnableImpeller"
+  android:value="false"/>` in the manifest's `<application>` locally
+  (never commit it). A Pixel Tablet AVD (`avdmanager create avd -d
+  pixel_tablet`, 2560x1600, 3 GB) is the 10-inch tablet; `adb shell wm
+  size 1200x1920` makes an 8-inch one and `wm size 1280x1600` a half
+  screen, since the emulator's split screen (`WMShell splitscreen
+  moveToSideStage`) does not start without KVM. `settings put system
+  user_rotation 1` turns it upright (its natural side is landscape).
 
 ## How the reader works
 
@@ -249,6 +269,15 @@ refreshes right away instead of within six hours.
   (`LibraryScreenState._favourites`), where `*`, `x` and the details' star
   take a comic out with an Undo notice. Renamed or emptied, the next
   favourite makes the collection again.
+- Continue (`C`, the library header's play button, widget key `continue`):
+  `RecentBooks` (`lib/src/reader/recent_books.dart`) keeps the last five
+  comics opened, path, content key and title, newest first, in the
+  setting `reader.recent`; `ReaderNotifier.open` puts each one first. It
+  is per install (paths), so not in `SettingsStore.backedUp`.
+  `HomeScreen._continueReading` opens the newest that is not the open
+  comic; the position comes back as on any open. A missing path is looked
+  up by content key in the library (a moved comic); failing that, a
+  notice and the entry is dropped.
 - Touch: `ReaderTouch` looks every gesture up in a `TouchMap`
   (`reader_input` touch_map.dart): taps, double-taps and long presses on a
   3x3 grid (30% side columns, rows in thirds), four swipes and a
@@ -301,16 +330,21 @@ refreshes right away instead of within six hours.
   Detection decodes its own copy, so it never sees the clean-up.
   `dart run tool/cleanup_ppm.dart in.ppm out.ppm 2` (in comic_analysis)
   tries it on one page.
-- A page guided view shows whole (no panels that pass the gate) holds
-  for one step: the first step onward stays and sets `ReaderState.held`,
-  the next one turns, however soon. Mirrored going back. The cue
-  (`guided.pauseCue`, `gw` cycles it) is the Scaffold background turning
-  `heldColour` (#3A0D16) in app.dart until the page is left, the default,
-  or ReaderView's zoom pulse (colour instead with reduced motion). The
-  status line explains the first three. A page arrived on from the other
-  side, a count (`3l`) and pages whose panels are not known yet are not
-  held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or Settings turns
-  it off (`guided.pauseWhole`).
+- A page guided view shows whole (no panels that pass the gate,
+  `ReaderState.onWholePage`) turns the Scaffold background `heldColour`
+  (#3A0D16, app.dart) as soon as it shows, until it is left (snonux,
+  2026-09-26). A step onward within `pauseWindow` (5 s) of that moment
+  stays, sets `ReaderState.held` and bumps `cue`, which plays ReaderView's
+  zoom pulse (none with reduced motion; the status line says to press
+  again, always then, else the first three times); the next step turns,
+  however soon. A step after 5 s turns at once. The moment is
+  `_wholeSince`, set by a `listenSelf` whenever `onWholePage` turns true
+  or the page changes, so a page whose panels arrive late, turning guided
+  view on or `W` on start it again. Tests set the notifier's `clock`.
+  Mirrored going back. A page arrived on from the other side and a count
+  (`3l`) are not held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or
+  Settings turns it off (`guided.pauseWhole`); there is no cue choice any
+  more (`gw` and `guided.pauseCue` are gone).
 - Parts of a page (`H1` `H2`, `B1`-`B3`, `Q1`-`Q4`, `lib/src/reader/region.dart`):
   `ReaderState.region` is the split, the part and the page of the unit it
   is on. ReaderView frames it with guided view's camera and dim, in guided
@@ -330,6 +364,19 @@ refreshes right away instead of within six hours.
   detection never sees the turn. Saved per book in the position's
   `view_json` (`rotation`), so it travels in the sidecar. Page thumbnails
   are not turned.
+- Key pans glide (`_pan` in `reader_view.dart`): `j` `k` `↓` `↑` and,
+  on a page zoomed in outside guided view and page parts, `←` `→`
+  (`ReaderIntent.scrollLeft`/`scrollRight`; app.dart turns them into
+  `prevStep`/`nextStep` anywhere else, or when the view can't move that
+  way). A ticker eases the rest of the way out (time constant 70 ms); a
+  press adds a whole step, a held key's auto-repeat
+  (`ReaderCommand.held`, set by ReaderKeyboard on `KeyRepeatEvent`) keeps
+  the glide at most a step ahead, and at the edge a held `←` `→` is
+  swallowed so it doesn't run on through the pages. Key pans stop at the
+  shown pages' edges (`_onPages`), not the letterbox a drag can reach, and
+  don't move along a side the pages fit. Anything else setting the
+  transform (a drag, a page turn, the camera) ends the glide. Reduced
+  motion jumps. Tiles still wait for 150 ms of stillness.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -367,6 +414,16 @@ refreshes right away instead of within six hours.
   draw the app edge to edge. Below 600 dp the status line puts its text
   above the buttons. The APK was tested on an Android 14 emulator only; a
   real phone, pinch zoom and real speed and memory are untested.
+- Tablets and split screen get no code of their own: every layout
+  follows the window's width, the same on Linux. Library: bottom tabs
+  below 600 dp, the rail from 600, the tab's name in the header from 840
+  (the rail names it below), the details pane beside the covers from
+  1000. Status line: text above the buttons below 600, counters before
+  the title below 840, the file name from 1000; the two-page button
+  (`spreadButton`) from 600, outside guided view. The decoded-page budget
+  on Android (`pageBudgetBytes`) holds at least four screenfuls of the
+  largest display, up to a thirty-second of the RAM, since a tablet page
+  is some 16 MB. Tested on a Pixel Tablet emulator only; no real tablet.
 - Settings → Export settings / Import settings (`SettingsFile` in
   `lib/src/data/settings_file.dart`, `lib/src/library/settings_transfer.dart`,
   the pickers in `HomeScreen._exportSettings`/`_importSettings`): one JSON
@@ -504,8 +561,9 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
-tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 5 s turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
+tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
@@ -520,6 +578,7 @@ tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder 
 tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
 tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
 tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
+tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 

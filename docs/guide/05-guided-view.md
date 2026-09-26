@@ -85,20 +85,30 @@ example `guided: whole page (1 panel(s): nothing to guide through)`.
 
 ![A splash page shown whole in guided view](images/held-whole.webp)
 
-### The first press stays
+### A quick press stays
 
 When you are pressing `→` panel after panel, it is easy to skip past a
-splash page without really looking at it. So on such a page the first
-`→` stays, and the background turns a dark wine red to tell you
-this is a whole page. The next `→` turns the page.
+splash page without really looking at it. So as soon as guided view
+shows a page whole, the background turns a dark wine red to tell you.
 
-![On a page shown whole, the first press turns the background wine red; the second turns the page](images/held.gif)
+- Press `→` within 5 seconds of arriving and the page stays: it zooms
+  out a little and back, to say you are still on it. The next `→` turns
+  the page, however soon.
+- Press `→` after 5 seconds and the page turns straight away: you have
+  had time to look.
 
-- `gw` switches the cue: instead of the wine-red background, the page
-  zooms out a little and back. With reduced motion turned on in your
-  desktop settings, the colour is used either way.
-- `W` turns the pause off, so such pages turn at once. Settings has the
-  same choice.
+For example, on a splash page reached with a quick run of `→`, the next
+`→` zooms the splash instead of skipping it; a second `→` moves on. Wait
+a few seconds on it and one `→` is enough.
+
+![On a page shown whole the background is wine red; a quick press zooms the page and stays, the next turns the page](images/held.gif)
+
+- Going back works the same way with `←`, and a tap or swipe does what
+  the key does, on the laptop and on the phone.
+- With reduced motion turned on in your desktop or phone settings, the
+  page doesn't zoom; the status line says to press again instead.
+- `W` turns all of this off: no wine red, and such pages turn at once.
+  Settings has the same switch.
 
 ## How panels are found
 

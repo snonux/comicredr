@@ -34,6 +34,7 @@ import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
+import 'reader/recent_books.dart';
 import 'reader/reset_dialog.dart';
 import 'reader/status_line.dart';
 
@@ -368,7 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         builder: (context) => AlertDialog(
           title: const Text('Allow access to your comics'),
           content: const Text(
-            'ComicRedr reads comics where they are on the phone. Android asks for that once, '
+            'ComicRedr reads comics where they are in the device\'s storage. Android asks for that once, '
             'as "All files access", on a settings page. Turn it on there, then come back and try again.',
           ),
           actions: [
@@ -691,7 +692,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .read(readerProvider.notifier)
           .notice(
             e.code == 'no-path'
-                ? 'That has no path on the phone ComicRedr can read; pick it from the phone\'s own storage'
+                ? 'That has no path ComicRedr can read; pick it from the device\'s own storage'
                 : 'Could not open the picker: ${e.message}',
           );
       return null;
@@ -721,6 +722,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         : await getDirectoryPath(confirmButtonText: 'Open as a book');
     if (dir != null) await _openPath(dir);
   });
+
+  /// `C` and the library's Continue button: the comic read last, at the
+  /// spot it was left, which the reader restores as for any reopened book.
+  /// From inside a comic, the one read before it, so `C` goes back and
+  /// forth between two. A comic that is gone gets a notice and is dropped,
+  /// so `C` again tries the one before it.
+  Future<void> _continueReading() async {
+    final reader = ref.read(readerProvider.notifier);
+    final recent = ref.read(recentBooksProvider.notifier);
+    final here = ref.read(readerProvider).book;
+    final pick = await recent.pick(except: here?.key);
+    if (!mounted) return;
+    if (pick == null) {
+      reader.notice(here == null ? 'No comic read yet to continue' : 'No other comic read before this one');
+      return;
+    }
+    final path = pick.path;
+    if (path == null) {
+      reader.notice('${pick.book.title} is gone from ${p.dirname(pick.book.path)}');
+      await recent.forget(pick.book.key);
+      return;
+    }
+    await reader.open(path);
+  }
 
   /// Android's back button or gesture: the same as Esc, one level at a
   /// time, and it leaves the app only from the library's top level. Without
@@ -776,6 +801,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Nothing else reaches the library or the reader hidden behind the help:
     // Enter would open a book under it, gd ask to delete one.
     if (_showKeymap && c.intent != ReaderIntent.fullscreen) return;
+    // Left and Right pan a zoomed page; anywhere else, and at the page's
+    // edge, they step as they always did.
+    if (c.intent == ReaderIntent.scrollLeft || c.intent == ReaderIntent.scrollRight) {
+      final reading = ref.read(readerProvider).book != null && !_showPages && !_showBookmarks;
+      if (reading && (_view.currentState?.handle(c) ?? false)) return;
+      c = c.as(c.intent == ReaderIntent.scrollRight ? ReaderIntent.nextStep : ReaderIntent.prevStep);
+    }
     if (c.intent == ReaderIntent.pageGrid && ref.read(readerProvider).book != null) {
       _setShowPages(!_showPages);
       return;
@@ -793,6 +825,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       } else {
         _library.currentState?.handle(c);
       }
+      return;
+    }
+    if (c.intent == ReaderIntent.continueReading) {
+      unawaited(_continueReading());
       return;
     }
     if (_showPages) {
@@ -923,11 +959,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPendingChanged: (p) => setState(() => _pending = p),
         focusNode: _keys,
         child: Scaffold(
-          // A page guided view holds on turns the background wine red.
-          backgroundColor:
-              s.held && s.guided && (s.pauseCue == PauseCue.colour || MediaQuery.disableAnimationsOf(context))
-              ? heldColour
-              : Colors.black,
+          // A page guided view shows whole turns the background wine red.
+          backgroundColor: s.onWholePage ? heldColour : Colors.black,
           body: DropTarget(
             onDragDone: (d) {
               if (d.files.isNotEmpty) unawaited(_openPath(d.files.first.path));
@@ -948,6 +981,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       onImportSettings: _importSettings,
                       onOpenFile: _pickFile,
                       onOpenFolder: _pickFolder,
+                      onContinue: _continueReading,
                       keysFocus: _keys,
                       pending: s.book == null ? _pending : '',
                     ),

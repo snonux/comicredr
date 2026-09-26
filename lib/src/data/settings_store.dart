@@ -11,11 +11,9 @@ class SettingsStore {
   /// Guided view shows each page whole before and after its panels.
   static const wholePageSteps = 'guided.wholePageSteps';
 
-  /// Guided view holds on a page shown whole for one step before turning.
+  /// Guided view turns the background wine red on a page shown whole and
+  /// holds a quick step there before turning.
   static const pauseWhole = 'guided.pauseWhole';
-
-  /// How a held page shows it: a PauseCue name, `colour` by default.
-  static const pauseCue = 'guided.pauseCue';
 
   /// The night filter (`i`) and auto-trim (`t`), kept across restarts.
   static const night = 'reader.night';
@@ -63,16 +61,19 @@ class SettingsStore {
   static const s3AccessKey = 's3.accessKey';
   static const s3Keys = [s3Endpoint, s3Region, s3Bucket, s3Prefix, s3AccessKey];
 
+  /// The comics opened last, newest first, for `C` (RecentBooks). Paths on
+  /// this device, so a settings file leaves them out.
+  static const recentBooks = 'reader.recent';
+
   /// Every setting a settings file carries (SettingsFile), with the kind of
   /// value it holds: true for a flag, false for a string. This install's
   /// identity (`device.id`, `device.name`, see SidecarSync) is not a setting
   /// and stays out, and so does [defaultFolderRemoved]: whether this
   /// device's own Comics folder was taken out says nothing about another
-  /// device's. A new setting goes here too, or export leaves it behind.
+  /// device's, nor does [recentBooks], which names this device's paths. A new setting goes here too, or export leaves it behind.
   static const backedUp = <String, bool>{
     wholePageSteps: true,
     pauseWhole: true,
-    pauseCue: false,
     night: true,
     autoTrim: true,
     fullscreen: true,
@@ -114,6 +115,15 @@ class SettingsStore {
     final v = row == null ? null : jsonDecode(row.value);
     return v is String ? v : null;
   }
+
+  /// Any JSON value under [key], null when unset.
+  Future<Object?> loadJson(String key) async {
+    final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
+    return row == null ? null : jsonDecode(row.value);
+  }
+
+  Future<void> saveJson(String key, Object value) =>
+      _db.into(_db.settings).insertOnConflictUpdate(SettingRow(key: key, value: jsonEncode(value)));
 
   /// Saves [value] under [key]; null forgets it.
   Future<void> saveString(String key, String? value) => value == null

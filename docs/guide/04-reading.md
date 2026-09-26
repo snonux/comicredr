@@ -7,7 +7,8 @@ a thin status line along the bottom.
 
 ![A page, with the status line and the progress bar at the bottom](images/page.webp)
 
-On the phone the status line keeps just the page number and the buttons.
+On the phone the status line keeps just the page number and the buttons;
+on a tablet it has room for the book's title too.
 Here the page has a bookmark: the ribbon at the top, and amber notches on
 the progress bar for each bookmark in the book.
 
@@ -18,7 +19,9 @@ are in. Its buttons on the right switch [guided view](05-guided-view.md),
 open the [page grid](#see-every-page-at-once), the
 [details](07-managing-comics.md#details-of-a-comic), set a
 [bookmark](06-bookmarks.md), list the bookmarks, and go
-[fullscreen](#fullscreen). Hover over a button to see its key. The
+[fullscreen](#fullscreen). Where the screen is wide enough (the laptop, a
+tablet) one more button shows
+[two pages side by side](#two-pages-side-by-side). Hover over a button to see its key. The
 arrow on the left does what `Esc` does: out of guided view, then back to
 the library (on the phone, the back gesture does that).
 
@@ -67,7 +70,9 @@ and the grid remembers the size. `Esc` or `p` closes it.
 ## Two pages side by side
 
 Press `d` to see two pages side by side, like an open comic. `d` again
-goes back to one page.
+goes back to one page. Without a keyboard, the open-book button on the
+status line does the same; it is there wherever the screen is wide
+enough, which on a tablet held sideways makes the most of the screen.
 
 ![A two-page spread of Pepper&Carrot](images/spread.webp)
 
@@ -90,11 +95,32 @@ goes back to one page.
 | `Z` | Zoom in on the middle of the screen, or back out |
 | `zw` `zh` `zz` | Fit the width, the height, or the whole page |
 | `j` `k` (or `↓` `↑`) | Move down and up a zoomed page |
+| `←` `→` | Move left and right across a zoomed page, then turn the page from its edge |
 
 With the mouse, drag a zoomed page to move around. On a touchscreen,
 pinch to zoom, drag to move, and double-tap the middle to zoom in on that
 spot. A zoomed page stays sharp: ComicRedr decodes the part you look at
 again at the higher size.
+
+### Smooth scrolling
+
+On a zoomed page the arrow keys (and `j` `k`) glide rather than jump:
+each press slides the page about a seventh of the screen, easing to a
+stop, and holding a key down keeps it sliding at an even speed until you
+let go. The page stops at its own edge, not in the dark margin beside it.
+
+`←` and `→` move across the page while there is more of it to see that
+way. At the edge, a held key stays there; press it again to turn the
+page. On a page that isn't zoomed, or that already fits the width of the
+screen, they turn the page at once as always. In guided view and on a
+[part of a page](#parts-of-a-page) they keep stepping through the panels
+or parts.
+
+Say you zoom in on a dense golden-age page with `+` a few times. Hold
+`→` to read along a row of panels; it stops at the page's right edge.
+`↓` and a held `←` bring you to the start of the next row, and at the
+bottom right a fresh press of `→` turns the page. With reduced motion
+turned on in your system settings, each press jumps straight there.
 
 To enlarge just part of a page, see [Parts of a page](#parts-of-a-page).
 

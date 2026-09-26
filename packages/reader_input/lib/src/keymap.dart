@@ -35,8 +35,8 @@ class Keymap {
       // Moving.
       Binding(['l'], ReaderIntent.nextStep),
       Binding(['h'], ReaderIntent.prevStep),
-      Binding(['Right'], ReaderIntent.nextStep, layer: s),
-      Binding(['Left'], ReaderIntent.prevStep, layer: s),
+      Binding(['Right'], ReaderIntent.scrollRight, layer: s),
+      Binding(['Left'], ReaderIntent.scrollLeft, layer: s),
       Binding(['Space'], ReaderIntent.nextStep, layer: s),
       Binding(['S-Space'], ReaderIntent.prevStep, layer: s),
       Binding(['C-f'], ReaderIntent.nextPage),
@@ -62,7 +62,6 @@ class Keymap {
       Binding(['b'], ReaderIntent.toggleBalloons),
       Binding(['w'], ReaderIntent.toggleWholePage),
       Binding(['W'], ReaderIntent.togglePauseWhole),
-      Binding(['g', 'w'], ReaderIntent.cyclePauseCue),
       Binding(['Tab'], ReaderIntent.cycleModeForward, layer: s),
       Binding(['S-Tab'], ReaderIntent.cycleModeBack, layer: s),
       Binding(['d'], ReaderIntent.toggleSpread),
@@ -112,6 +111,7 @@ class Keymap {
       Binding(['N'], ReaderIntent.searchPrev),
       Binding(['o'], ReaderIntent.openFile),
       Binding(['O'], ReaderIntent.openFolder),
+      Binding(['C'], ReaderIntent.continueReading),
       Binding(['Esc'], ReaderIntent.back, layer: s),
       // The library.
       Binding(['Enter'], ReaderIntent.activate, layer: s),

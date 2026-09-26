@@ -9,6 +9,8 @@ enum ReaderIntent {
   prevPage('Previous page, ignoring panels'),
   panDown('Pan down; the cover below in the library'),
   panUp('Pan up; the cover above in the library'),
+  scrollRight('Moves a zoomed page right (smoothly), else the next step, as l'),
+  scrollLeft('Moves a zoomed page left (smoothly), else the previous step, as h'),
   halfPageDown('A screen down in the page grid (continuous scroll is not built yet)'),
   halfPageUp('A screen up in the page grid (continuous scroll is not built yet)'),
   firstPage('First page; first cover in the library'),
@@ -22,8 +24,7 @@ enum ReaderIntent {
   toggleGuided('Guided view, there and back'),
   toggleBalloons('Balloon by balloon inside each panel in guided view, on and off'),
   toggleWholePage('Whole page before and after its panels in guided view, on and off'),
-  togglePauseWhole('Hold one step on a page guided view shows whole before turning, on and off'),
-  cyclePauseCue('How a held page shows it: wine-red background or zoom out and back'),
+  togglePauseWhole('Wine red on a page guided view shows whole, and a quick step held there, on and off'),
   cycleModeForward('Cycle single, double, guided; next library tab'),
   cycleModeBack('Cycle modes backwards; previous library tab'),
   toggleSpread('Single page or two-page spread'),
@@ -77,6 +78,9 @@ enum ReaderIntent {
   searchNext('Next match in a book (not built yet)'),
   searchPrev('Previous match in a book (not built yet)'),
   openFile('Open a file without adding it to the library'),
+  continueReading(
+    'Continue the comic read last, where it was left, even after a restart; in a comic, the one read before it',
+  ),
   openFolder('Open a folder of page images as a book'),
   back('Back out one level, ending at the library'),
   up('Up to the folder above in the library'),
@@ -106,7 +110,7 @@ enum ReaderIntent {
 /// before it (`5l`), the register letter for marks (`ma`, `'a`), and for a
 /// gesture the point on the reader it happened at, in logical pixels.
 class ReaderCommand {
-  const ReaderCommand(this.intent, {this.count, this.register, this.at});
+  const ReaderCommand(this.intent, {this.count, this.register, this.at, this.held = false});
 
   final ReaderIntent intent;
   final int? count;
@@ -115,6 +119,16 @@ class ReaderCommand {
   /// Where a touch landed, so a double-tap zooms in on that spot rather
   /// than the middle of the screen. Keys leave it null.
   final Point<double>? at;
+
+  /// The key is held down and this is its auto-repeat, so a smooth pan
+  /// keeps an even speed and stops at the page's edge.
+  final bool held;
+
+  /// This command with [intent] in place of its own.
+  ReaderCommand as(ReaderIntent intent) => ReaderCommand(intent, count: count, register: register, at: at, held: held);
+
+  /// This command as the auto-repeat of a held key.
+  ReaderCommand get asHeld => ReaderCommand(intent, count: count, register: register, at: at, held: true);
 
   /// The count to act on: a missing count means once.
   int get times => count ?? 1;
@@ -125,15 +139,17 @@ class ReaderCommand {
       other.intent == intent &&
       other.count == count &&
       other.register == register &&
-      other.at == at;
+      other.at == at &&
+      other.held == held;
 
   @override
-  int get hashCode => Object.hash(intent, count, register, at);
+  int get hashCode => Object.hash(intent, count, register, at, held);
 
   @override
   String toString() =>
       'ReaderCommand(${intent.name}'
       '${count != null ? ', count: $count' : ''}'
       '${register != null ? ', register: $register' : ''}'
-      '${at != null ? ', at: (${at!.x}, ${at!.y})' : ''})';
+      '${at != null ? ', at: (${at!.x}, ${at!.y})' : ''}'
+      '${held ? ', held' : ''})';
 }

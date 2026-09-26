@@ -338,7 +338,7 @@ twoFingerTap = "autoTrim"
       unawaited(showSettings(tester.element(find.byType(LibraryScreen))));
       await settle(tester);
       final shown = [
-        for (final key in ['setting-pauseCue', 'setting-sidecarPlace', 'setting-touch'])
+        for (final key in ['setting-sidecarPlace', 'setting-touch'])
           tester.widget<SegmentedButton<Object?>>(find.byKey(Key(key))).showSelectedIcon,
       ];
       expect(shown.toSet(), hasLength(1));

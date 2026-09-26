@@ -11,6 +11,7 @@ import '../data/settings_store.dart';
 import '../reader/bookmark_list.dart';
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
+import '../reader/recent_books.dart';
 import 'book_detail.dart';
 import 'cover_card.dart';
 import 'edit_dialog.dart';
@@ -56,6 +57,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
     required this.onAddRoot,
     required this.onOpenFile,
     required this.onOpenFolder,
+    this.onContinue,
     this.onExportSidecars,
     this.onExportSettings,
     this.onImportSettings,
@@ -69,6 +71,9 @@ class LibraryScreen extends ConsumerStatefulWidget {
   final VoidCallback onAddRoot;
   final VoidCallback onOpenFile;
   final VoidCallback onOpenFolder;
+
+  /// Opens the comic read last where it was left (`C`).
+  final VoidCallback? onContinue;
 
   /// Writes every book's sidecar to a folder of the person's choosing.
   final VoidCallback? onExportSidecars;
@@ -856,6 +861,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     final series = _series == null ? null : _groups(books).where((s) => s.id == _series).firstOrNull;
     // A phone's header is tight: smaller buttons, and gs alone reshuffles.
     final narrow = MediaQuery.sizeOf(context).width < 600;
+    // A small tablet in portrait (600 to 840 wide) has the rail but not the
+    // room for the tab's name as well: the search box shrank to "Searc…".
+    // The rail names the tab there.
+    final titled = MediaQuery.sizeOf(context).width >= 840;
     final row = Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
       child: Row(
@@ -885,8 +894,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             ),
             Flexible(flex: 3, child: _breadcrumb(theme)),
             const SizedBox(width: 12),
-          ] else if (!narrow) ...[
-            // A phone's bottom tabs name the tab already.
+          ] else if (titled) ...[
+            // A phone's bottom tabs name the tab already, a small tablet's rail too.
             Text(tab.label, style: theme.textTheme.titleLarge),
             const SizedBox(width: 16),
           ],
@@ -912,6 +921,16 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               },
             ),
           ),
+          // On a phone, only on the Reading tab, where the app starts: the
+          // Folders tab's header has no room left for it.
+          if (ref.watch(recentBooksProvider).firstOrNull case final last?
+              when widget.onContinue != null && (!narrow || tab == LibraryTab.reading))
+            IconButton(
+              key: const Key('continue'),
+              icon: const Icon(Icons.play_circle_outline),
+              tooltip: 'Continue ${last.title} (C)',
+              onPressed: widget.onContinue,
+            ),
           IconButton(
             key: const Key('favourites'),
             icon: Icon(_favourites && tab == LibraryTab.collections ? Icons.star : Icons.star_outline),

@@ -1,6 +1,6 @@
 # 11. Your data
 
-[Contents](README.md) · Previous: [On the phone](10-phone.md) · Next: [Settings](12-settings.md)
+[Contents](README.md) · Previous: [On a phone or tablet](10-phone.md) · Next: [Settings](12-settings.md)
 
 ComicRedr keeps everything on your own machine, in two places: a small
 file beside each comic, and one folder for the app itself. Nothing is
@@ -113,4 +113,4 @@ All files access and import.
 - A file from another app, or from a newer ComicRedr, is refused with a
   message saying why; settings a newer version added are skipped.
 
-[Contents](README.md) · Previous: [On the phone](10-phone.md) · Next: [Settings](12-settings.md)
+[Contents](README.md) · Previous: [On a phone or tablet](10-phone.md) · Next: [Settings](12-settings.md)

@@ -1,6 +1,6 @@
 # 9. The keyboard
 
-[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On the phone](10-phone.md)
+[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On a phone or tablet](10-phone.md)
 
 ComicRedr is made to be used from the keyboard. The usual keys (arrows,
 `Space`, `PageDown`, `Home`, `Esc`) do what you expect, and a vi-style
@@ -29,10 +29,11 @@ The top of the list also shows ComicRedr's data folder, and which
 
 | Key | In a comic | In the library |
 |---|---|---|
-| `→` `Space` `l` | Next page or panel | Next cover |
-| `←` `h` | Back | Previous cover |
+| `→` `Space` `l` | Next page or panel (`→` first [moves across a zoomed page](04-reading.md#smooth-scrolling)) | Next cover |
+| `←` `h` | Back (`←` first moves across a zoomed page) | Previous cover |
 | `↓` `↑` `j` `k` | Move down and up a zoomed page | Cover below and above |
 | `Enter` | | Open |
+| `C` | [The comic read before this one](02-getting-started.md#carry-on-where-you-stopped-c) | The comic read last, where you stopped |
 | `Esc` | Out of guided view, then back to the library | Back out of a series, folder or search |
 | `v` | [Guided view](05-guided-view.md) | |
 | `b` | [Balloon by balloon](05-guided-view.md#balloon-by-balloon) | |
@@ -76,13 +77,16 @@ away from shifting the spread:
 
 ```toml
 [keys]
-nextStep = ["l", "Right", "Space", "C-n"]
-prevStep = ["h", "Left", "S-Space", "C-p"]
+nextStep = ["l", "Space", "C-n"]
+prevStep = ["h", "S-Space", "C-p"]
 shiftSpread = []
 ```
 
 - An action you list gets exactly the keys you give it; `[]` leaves it
   with none. Actions you leave out keep their usual keys.
+- `Left` and `Right` belong to `scrollLeft` and `scrollRight`, which move
+  across a zoomed page and otherwise step like `h` and `l`. Give them to
+  `prevStep` and `nextStep` instead if you want them to always turn.
 - `C-f` is `Ctrl+f`, `S-Space` is `Shift+Space`, and named keys are
   written `Left`, `PageDown`, `Home`, `Esc`, `F11` and so on.
 - `gg` is two keys in a row. Put spaces between keys when one of them is
@@ -93,4 +97,4 @@ Restart ComicRedr to load your changes. If a line is wrong, ComicRedr
 says so when it starts, and `?` lists the problem in red with the keys it
 uses instead.
 
-[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On the phone](10-phone.md)
+[Contents](README.md) · Previous: [Touch](08-touch.md) · Next: [On a phone or tablet](10-phone.md)

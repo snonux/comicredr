@@ -15,6 +15,7 @@ import 'open_book.dart';
 import 'panel_detector.dart';
 import 'reader_providers.dart';
 import 'reader_state.dart';
+import 'recent_books.dart';
 import 'region.dart';
 import 'reset_dialog.dart';
 
@@ -27,8 +28,24 @@ class ReaderNotifier extends Notifier<ReaderState> {
   @override
   ReaderState build() {
     ref.onDispose(() => unawaited(_bookmarkWatch?.cancel()));
+    listenSelf((prev, next) {
+      final same = prev != null && prev.onWholePage && prev.page == next.page && identical(prev.book, next.book);
+      if (!next.onWholePage) {
+        _wholeSince = null;
+      } else if (!same) {
+        _wholeSince = clock();
+      }
+    });
     return const ReaderState();
   }
+
+  /// When the page on screen turned wine red ([ReaderState.onWholePage]):
+  /// a step onward within [pauseWindow] of it is held.
+  DateTime? _wholeSince;
+
+  /// The time now; tests put their own clock here.
+  @visibleForTesting
+  DateTime Function() clock = DateTime.now;
 
   ProgressStore get _progress => ref.read(progressStoreProvider);
   SidecarSync get _sidecars => ref.read(sidecarSyncProvider);
@@ -111,8 +128,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
     Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
     final whole = await flag(SettingsStore.wholePageSteps, state.wholePageSteps);
     final pause = await flag(SettingsStore.pauseWhole, state.pauseWhole);
-    final cueName = await _orNull(() => settings.loadString(SettingsStore.pauseCue));
-    final pauseCue = PauseCue.values.asNameMap()[cueName] ?? state.pauseCue;
     final night = await flag(SettingsStore.night, state.night);
     final trim = await flag(SettingsStore.autoTrim, state.trim);
     final cleanUp = await flag(SettingsStore.cleanUp, state.cleanUp);
@@ -139,7 +154,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
       balloons: saved?.balloons ?? state.balloons,
       wholePageSteps: whole,
       pauseWhole: pause,
-      pauseCue: pauseCue,
       cue: state.cue,
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
@@ -165,6 +179,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
           at == null && side?.elsewhere != null ? (path: book.path, contentKey: book.key, at: side!.elsewhere!) : null,
         );
     _sitting = (key: book.key, start: DateTime.now(), pages: <int>{});
+    // For `C`: this is now the comic read last.
+    unawaited(ref.read(recentBooksProvider.notifier).opened(book));
     // Opening a book counts as reading it: the library's Reading tab lists
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
@@ -374,7 +390,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
       balloons: state.balloons,
       wholePageSteps: state.wholePageSteps,
       pauseWhole: state.pauseWhole,
-      pauseCue: state.pauseCue,
       cue: state.cue,
       fullscreen: state.fullscreen,
       night: state.night,
@@ -660,24 +675,23 @@ class ReaderNotifier extends Notifier<ReaderState> {
       panel: forward ? pageEnd : pageStart,
       balloon: -1,
       held: hold,
-      cue: hold ? state.cue + 1 : state.cue,
       message: 'Whole page: press again for the ${forward ? 'next' : 'previous'} page',
     );
   }
 
-  /// Pauses of the step that would leave a page shown whole: the first
-  /// step onward stays on the page, moved to its far side ([pageEnd] going
-  /// forward, [pageStart] going back), and plays the cue; the step after it
-  /// turns. It stays held, [ReaderState.held], until left. A page arrived
-  /// on from the other side, or jumped to, starts on
-  /// the near side. After one pause the page is left by the next step
-  /// either way. Pages whose panels are not known yet are not held, nor is
-  /// a count (`3l`).
+  /// Pauses of the step that would leave a page shown whole
+  /// ([ReaderState.onWholePage], wine red since it appeared) when it comes
+  /// within [pauseWindow] of that: the step stays on the page, moved to its
+  /// far side ([pageEnd] going forward, [pageStart] going back), and plays
+  /// the zoom cue; the step after it turns. It stays held,
+  /// [ReaderState.held], until left. A step after the window turns at once.
+  /// A page arrived on from the other side, or jumped to, starts on the
+  /// near side. After one pause the page is left by the next step either
+  /// way. Pages whose panels are not known yet are not held, nor is a count
+  /// (`3l`); their window starts when detection finds no panels.
   bool _pauseOnWhole({required bool forward}) {
-    if (!state.pauseWhole ||
-        state.held ||
-        !state.panels.containsKey(state.page) ||
-        state.stopsOn(state.page).isNotEmpty) {
+    final since = _wholeSince;
+    if (!state.onWholePage || state.held || since == null || clock().difference(since) >= pauseWindow) {
       return false;
     }
     // Arriving from behind lands on pageStart or 0, from ahead on pageEnd
@@ -732,7 +746,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
     Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
     final whole = await flag(SettingsStore.wholePageSteps, defaults.wholePageSteps);
     final pause = await flag(SettingsStore.pauseWhole, defaults.pauseWhole);
-    final cueName = await _orNull(() => settings.loadString(SettingsStore.pauseCue));
     final night = await flag(SettingsStore.night, defaults.night);
     final trim = await flag(SettingsStore.autoTrim, defaults.trim);
     final cleanUp = await flag(SettingsStore.cleanUp, defaults.cleanUp);
@@ -741,7 +754,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
     state = state.copyWith(
       wholePageSteps: whole,
       pauseWhole: pause,
-      pauseCue: PauseCue.values.asNameMap()[cueName] ?? defaults.pauseCue,
       night: night,
       trim: trim,
       cleanUp: cleanUp,
@@ -865,9 +877,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
       return;
     }
     switch (c.intent) {
+      // Left and Right reach here when the view had no zoomed page to pan.
       case ReaderIntent.nextStep:
+      case ReaderIntent.scrollRight:
         step(mirror * c.times);
       case ReaderIntent.prevStep:
+      case ReaderIntent.scrollLeft:
         step(-mirror * c.times);
       case ReaderIntent.nextPage:
         pageStep(c.times);
@@ -898,24 +913,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
         final on = !state.pauseWhole;
         state = state.copyWith(
           pauseWhole: on,
-          message: on ? 'Pages shown whole hold for one more step' : 'Pages shown whole turn at once',
+          message: on ? 'Pages shown whole turn wine red and hold a quick step' : 'Pages shown whole turn at once',
         );
         _saveSetting(SettingsStore.pauseWhole, on);
-      case ReaderIntent.cyclePauseCue:
-        final cue = PauseCue.values[(state.pauseCue.index + 1) % PauseCue.values.length];
-        state = state.copyWith(
-          pauseCue: cue,
-          message: switch (cue) {
-            PauseCue.colour => 'Held pages: wine-red background',
-            PauseCue.zoom => 'Held pages: zoom out and back',
-          },
-        );
-        unawaited(
-          ref
-              .read(settingsStoreProvider)
-              .saveString(SettingsStore.pauseCue, cue.name)
-              .catchError((Object e) => debugPrint('Could not save a setting: $e')),
-        );
       case ReaderIntent.toggleSpread:
         // Guided view shows one page, so d from there goes to the spread.
         state.guided
@@ -1032,6 +1032,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.showTime:
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:
+      case ReaderIntent.continueReading:
       case ReaderIntent.showKeymap:
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:
