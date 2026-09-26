@@ -25,7 +25,7 @@ enum LibraryTab {
   reading('Reading', Icons.auto_stories),
   series('Series', Icons.collections_bookmark),
   books('Books', Icons.menu_book),
-  collections('Collections', Icons.label_outline),
+  collections('Collections', Icons.label_outline, short: 'Groups'),
   history('History', Icons.history),
   folders('Folders', Icons.folder),
   bookmarks('Bookmarks', Icons.bookmarks, short: 'Marks');

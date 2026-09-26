@@ -4,6 +4,7 @@ import 'package:archive/archive.dart';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/settings_store.dart';
+import 'package:comicredr/src/library/library_screen.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/scanner.dart';
@@ -53,6 +54,13 @@ void writeShelf(Directory root) {
 }
 
 void main() {
+  test("the phone's bottom tabs have labels short enough not to break", () {
+    // Seven tabs share a 411 dp phone: "Collections" wrapped as "Collectio ns".
+    for (final t in LibraryTab.values) {
+      expect(t.short.length, lessThanOrEqualTo(7), reason: t.label);
+    }
+  });
+
   late Directory tmp;
   late Directory root;
   late String covers;

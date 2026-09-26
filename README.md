@@ -123,7 +123,7 @@ The APK carries the same built-in panel detector.
 
 On first start, copy some comics into the phone's `Comics` folder, tap
 the folder button and allow **All files access** on the settings page it
-opens; back in the app, `Comics` is in the library. Any other folder is
+opens (Android 10 and older ask in a dialog); back in the app, `Comics` is in the library. Any other folder is
 added from the same button. The buttons on the reader's status line switch
 guided view, balloons and bookmarks, and a Bluetooth keyboard gets the same
 keys as the laptop.
