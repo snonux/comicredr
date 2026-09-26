@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # End-to-end check of the pause on whole pages in guided view, on the Linux
-# build: on a page guided view shows whole (no panels that pass the gate),
-# the first step onward stays on the page and turns the background wine red
-# until the page is left, with a hint on the status line; the next step
-# turns. Mirrored going back, the same from taps, not on pages with panels,
-# skipped by a count. `gw` switches to the zoom cue (the page zooms out and
-# back) and `W` turns it off, which survives a restart.
+# build: a page guided view shows whole (no panels that pass the gate) has
+# a wine-red background from the moment it shows until it is left. A step
+# onward within 5 seconds of that stays on the page, zooms it out and back
+# and puts a hint on the status line; the next step turns. A step after
+# 5 seconds turns at once. Mirrored going back, the same from taps, not on
+# pages with panels, skipped by a count. `W` turns it off, which survives a
+# restart.
 #
 #   tool/e2e_pause_whole.sh book.cbz [page]   # page: 1-based, default 3
 #
@@ -133,17 +134,29 @@ key $prev shift+g;   shot ref_prev
 key $page shift+g;   shot ref_a
 key l;               shot ref_b
 
-# On, the default, with the colour cue. Right holds once, then turns.
-key $page shift+g; key v; sleep 4
-shot k01_enter;      whole k01_enter ref_a; black k01_enter
-key Right;           shot k03_held;         held k03_held ref_a;  hint k03_held k01_enter
+# On, the default. Wine red on arrival; a quick Right zooms and holds
+# once, then the next turns.
+key $page shift+g; key v
+shot k01_enter;      held k01_enter ref_a
+xdotool key Right; sleep 0.15
+shot k02_cue;        moving k02_cue ref_a
+sleep "$step"
+shot k03_held;       held k03_held ref_a;  hint k03_held k01_enter
 sleep 2;             shot k03b_still_held;  held k03b_still_held ref_a
 key Right;           shot k04_turned;       whole k04_turned ref_b; black k04_turned
 key Right;           shot k05_panel;        zoomed k05_panel ref_b
 
+# Five seconds on the page: one Right turns at once, with no zoom.
+key $page shift+g;   shot w01_arrived;      held w01_arrived ref_a
+sleep 5
+xdotool key Right; sleep 0.15
+shot w02_no_cue;     whole w02_no_cue ref_b
+sleep "$step"
+shot w03_turned;     whole w03_turned ref_b; black w03_turned
+
 # Back: onto the page from ahead, held once, then the page before.
 key Left;            shot k06_back_next;    whole k06_back_next ref_b
-key Left;            shot k07_back_on;      whole k07_back_on ref_a
+key Left;            shot k07_back_on;      held k07_back_on ref_a
 key Left;            shot k08_back_held;    held k08_back_held ref_a
 key Left;            shot k09_back_turned;  whole k09_back_turned ref_prev
 # Arrived from behind: back leaves at once, then from ahead forward does.
@@ -164,21 +177,14 @@ tap 1200 340;        shot t02_tap_turned;   whole t02_tap_turned ref_b
 swipe 400 340 900;   shot t03_swipe_back;   whole t03_swipe_back ref_a
 swipe 400 340 900;   shot t04_swipe_held;   held t04_swipe_held ref_a
 
-# gw: the zoom cue instead; the background stays black.
-key $page shift+g; key g w
-xdotool key Right; sleep 0.15
-shot z01_cue;        moving z01_cue ref_a
-sleep "$step"
-shot z02_held;       whole z02_held ref_a;  black z02_held
-key Right;           shot z03_turned;       whole z03_turned ref_b
-key g w
-
-# Off (W): the page turns at once, and stays off after a restart.
+# Off (W): no wine red, the page turns at once, and it stays off after a
+# restart.
 key $page shift+g; key shift+w
+shot o00_off;        whole o00_off ref_a;   black o00_off
 key Right;           shot o01_at_once;      whole o01_at_once ref_b
 close_gracefully
 start
-key $page shift+g;   shot o02_restarted;    whole o02_restarted ref_a
+key $page shift+g;   shot o02_restarted;    whole o02_restarted ref_a; black o02_restarted
 key Right;           shot o03_still_off;    whole o03_still_off ref_b
 key $page shift+g; key shift+w
 key Right;           shot o04_on_again;     held o04_on_again ref_a

@@ -168,7 +168,6 @@ key t # auto-trim
 key c # clean-up
 key w # no whole-page steps
 key shift+w # pages shown whole turn at once
-key g w # the zoom cue
 key p; key plus plus; key Escape # bigger page thumbnails
 shot 01_reading
 key Escape; sleep 2
@@ -194,7 +193,7 @@ q "insert into collection_books (name, content_key, added_at) values ('Moore', '
 
 want_changed() { # every setting away from its default
   test "$(setting guided.wholePageSteps)" = false -a "$(setting guided.pauseWhole)" = false \
-    -a "$(setting guided.pauseCue)" = '"zoom"' -a "$(setting reader.night)" = true \
+    -a "$(setting reader.night)" = true \
     -a "$(setting reader.autoTrim)" = true -a "$(setting reader.fullscreen)" = true \
     -a "$(setting reader.cleanUp)" = true -a "$(setting sidecars.write)" = false \
     -a "$(setting sidecars.dir)" = "\"$stash\"" -a -n "$(setting grid.zoom)" \
