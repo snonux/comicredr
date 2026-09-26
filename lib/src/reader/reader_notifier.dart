@@ -15,6 +15,7 @@ import 'open_book.dart';
 import 'panel_detector.dart';
 import 'reader_providers.dart';
 import 'reader_state.dart';
+import 'recent_books.dart';
 import 'region.dart';
 import 'reset_dialog.dart';
 
@@ -174,6 +175,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
           at == null && side?.elsewhere != null ? (path: book.path, contentKey: book.key, at: side!.elsewhere!) : null,
         );
     _sitting = (key: book.key, start: DateTime.now(), pages: <int>{});
+    // For `C`: this is now the comic read last.
+    unawaited(ref.read(recentBooksProvider.notifier).opened(book));
     // Opening a book counts as reading it: the library's Reading tab lists
     // it from now on, even if it is closed on the cover.
     _saveProgress(book);
@@ -1020,6 +1023,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.showTime:
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:
+      case ReaderIntent.continueReading:
       case ReaderIntent.showKeymap:
       case ReaderIntent.addRoot:
       case ReaderIntent.rescan:

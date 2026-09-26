@@ -69,6 +69,21 @@ book; a folder that holds comics opens in the library's
 [Folders tab](03-library.md#folders), and is added to the library if it
 isn't in it yet.
 
+### Carry on where you stopped: `C`
+
+`C` opens the comic you read last, on the page you left it at, even after
+the app was closed: start ComicRedr and press `C`, and you are back on
+that page, in guided view on the same panel if that is how you were
+reading. The library's header shows the same thing as a button, a round
+play arrow whose tooltip names the comic, for touch and the mouse (on a
+phone, on the Reading tab).
+
+Inside a comic, `C` opens the one you read before it, so it takes you back
+and forth between two comics. A comic you moved to another folder of the
+library is still found. One that was deleted or moved out of the library
+gets a short notice instead, and pressing `C` again goes on to the comic
+read before it.
+
 ## Try guided view
 
 Open a comic, go to a page with a few panels and press `v`. The page
