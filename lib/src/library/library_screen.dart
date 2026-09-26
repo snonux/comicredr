@@ -717,6 +717,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     final series = _series == null ? null : _groups(books).where((s) => s.id == _series).firstOrNull;
     // A phone's header is tight: smaller buttons, and gs alone reshuffles.
     final narrow = MediaQuery.sizeOf(context).width < 600;
+    // A small tablet in portrait (600 to 840 wide) has the rail but not the
+    // room for the tab's name as well: the search box shrank to "Searc…".
+    // The rail names the tab there.
+    final titled = MediaQuery.sizeOf(context).width >= 840;
     final row = Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
       child: Row(
@@ -746,8 +750,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             ),
             Flexible(flex: 3, child: _breadcrumb(theme)),
             const SizedBox(width: 12),
-          ] else if (!narrow) ...[
-            // A phone's bottom tabs name the tab already.
+          ] else if (titled) ...[
+            // A phone's bottom tabs name the tab already, a small tablet's rail too.
             Text(tab.label, style: theme.textTheme.titleLarge),
             const SizedBox(width: 16),
           ],

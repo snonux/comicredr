@@ -3,7 +3,7 @@
 [Contents](README.md) · Previous: [Installing](01-installing.md) · Next: [The library](03-library.md)
 
 ComicRedr is a comic reader for a Linux laptop (tested on Fedora) and an
-Android phone. It
+Android phone or tablet. It
 reads the comics you already have, from your own folders, and it never
 needs an account or the network. Its best trick is **guided view**: it
 finds the panels on each page and glides from one to the next, the way
@@ -44,8 +44,8 @@ of pages:
 
 ![The welcome page of an empty library](images/empty.webp)
 
-On the phone, ComicRedr first asks for permission to read your comics
-where they are; [On the phone](10-phone.md#first-start) walks through it.
+On Android, ComicRedr first asks for permission to read your comics
+where they are; [On a phone or tablet](10-phone.md#first-start) walks through it.
 
 ## Open a comic
 
