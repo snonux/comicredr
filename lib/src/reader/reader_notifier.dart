@@ -54,6 +54,7 @@ class ReaderState {
     this.cue = 0,
     this.coverAlone = true,
     this.wide = const {},
+    this.wideAspects = const {},
     this.rightToLeft = false,
     this.rotation = 0,
     this.fullscreen = false,
@@ -117,6 +118,10 @@ class ReaderState {
   /// Pages wider than tall: scanned double-page spreads, shown alone in
   /// spread mode. Empty until the page sizes are read after opening.
   final Set<int> wide;
+
+  /// Width over height of each page in [wide], so guided view can read a
+  /// spread right to left page by page, as the detector does left to right.
+  final Map<int, double> wideAspects;
   final bool rightToLeft;
 
   /// Quarter turns clockwise the comic is shown at, 0 to 3 (`>`, `<`,
@@ -171,10 +176,10 @@ class ReaderState {
   /// Camera stops on [p] in reading order; empty when the page is shown
   /// whole, either because its panels are unknown or because the gate
   /// failed.
-  List<Panel> stopsOn(int p) => panels[p]?.stops(rightToLeft: rightToLeft) ?? const [];
+  List<Panel> stopsOn(int p) => panels[p]?.stops(rightToLeft: rightToLeft, aspect: wideAspects[p] ?? 1) ?? const [];
 
   /// The balloons inside stop [stop] on page [p], in reading order.
-  List<Panel> balloonsOn(int p, int stop) => panels[p]?.balloonsIn(stop, rightToLeft: rightToLeft) ?? const [];
+  List<Panel> balloonsOn(int p, int stop) => panels[p]?.balloonsIn(stop, rightToLeft: rightToLeft, aspect: wideAspects[p] ?? 1) ?? const [];
 
   /// The panel, or in balloon mode the balloon, guided view frames right
   /// now; null for the whole page.
@@ -246,6 +251,7 @@ class ReaderState {
     int? cue,
     bool? coverAlone,
     Set<int>? wide,
+    Map<int, double>? wideAspects,
     bool? rightToLeft,
     int? rotation,
     bool? fullscreen,
@@ -275,6 +281,7 @@ class ReaderState {
     cue: cue ?? this.cue,
     coverAlone: coverAlone ?? this.coverAlone,
     wide: wide ?? this.wide,
+    wideAspects: wideAspects ?? this.wideAspects,
     rightToLeft: rightToLeft ?? this.rightToLeft,
     rotation: rotation ?? this.rotation,
     fullscreen: fullscreen ?? this.fullscreen,
@@ -728,11 +735,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
       debugPrint('Could not read the page sizes of ${book.path}: $e');
       return;
     }
-    final wide = {
+    final aspects = {
       for (var i = 0; i < sizes.length; i++)
-        if (sizes[i] case (final w, final h) when isWidePage(w, h)) i,
+        if (sizes[i] case (final w, final h) when isWidePage(w, h)) i: w / h,
     };
-    if (wide.isNotEmpty && identical(state.book, book)) state = state.copyWith(wide: wide);
+    if (aspects.isNotEmpty && identical(state.book, book)) {
+      state = state.copyWith(wide: aspects.keys.toSet(), wideAspects: aspects);
+    }
   }
 
   /// Goes to [page], at [panel] or where guided view enters a page.
@@ -1078,6 +1087,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
       }
     } finally {
       _detecting = false;
+      // A book opened while this one was detecting queued its pages but
+      // found a drain running; that drain was this one, so start its own.
+      final now = state.book;
+      if (now != null && !identical(now, book) && _wanted.isNotEmpty) unawaited(_drain(now));
     }
   }
 
