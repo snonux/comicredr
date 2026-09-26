@@ -474,7 +474,8 @@ class S3Sync {
       }
       // The sidecar as it is now, so the other device starts from here.
       await sidecars.flush();
-      await sidecars.write(key);
+      // Written here even for a comic never opened, which has none yet.
+      await sidecars.writeBeside(at.path, key, folder: at.folder);
       final side = await sidecars.sidecarFor(at.path, folder: at.folder);
       final writtenAt = await _putSidecar(store, o, side);
       final manifest = m.encode();

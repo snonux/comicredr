@@ -170,6 +170,10 @@ fetch "$prefix/books/$round/sidecar.crdb" "$out/sidecar-1.crdb"
 check "bucket sidecar: the laptop's page" \
   "$(sqlite3 "$out/sidecar-1.crdb" "select page from progress where device = '$laptop_device'")" 3
 stop
+if [[ -n ${LAPTOP_ONLY:-} ]]; then
+  [[ $failed == 0 ]] && echo "LAPTOP PART PASSED" || { echo "SOME FAILED"; exit 1; }
+  exit 0
+fi
 
 # ----------------------------------------------------------------- phone
 adb wait-for-device
@@ -184,48 +188,57 @@ adb logcat -c
 adb shell am start -W -n "$pkg/.MainActivity" >/dev/null
 pshot() { adb exec-out screencap -p >"$out/$1.png"; }
 tap() { adb shell input tap "$1" "$2"; sleep "${3:-3}"; }
-text() { adb shell input text "$(printf %s "$1" | sed 's/ /%s/g')"; sleep 2; }
-pkey() { adb shell input keyevent "$@"; sleep 2; }
+pkey() { adb shell input keyevent "$@"; sleep 1; }
 read -r W H < <(adb shell wm size | sed -n 's/.*: \([0-9]*\)x\([0-9]*\).*/\1 \2/p' | tail -1)
-# The screen's density maps dp to pixels for the taps below.
-dens=$(adb shell wm density | sed -n 's/.*: \([0-9]*\).*/\1/p' | tail -1)
-dp() { echo $(($1 * dens / 160)); }
+# Flutter's semantics reach uiautomator: taps find their target by its
+# label, so no coordinates depend on the screen.
+ui_dump() { adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1; adb shell cat /sdcard/ui.xml | tr '<' '\n'; }
+ui_find() { # bounds of the first node whose text or label matches $1 (an ERE)
+  ui_dump | grep -E "(text|content-desc)=\"$1\"" | head -1 |
+    sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p'
+}
+uitap() { # uitap LABEL [wait] [scroll]: taps it, scrolling down to find it when asked
+  local b='' x1 y1 x2 y2
+  for _ in $(seq 1 15); do
+    b=$(ui_find "$1") && [[ -n $b ]] && break
+    [[ -n ${3:-} ]] && adb shell input swipe $((W / 2)) $((H * 2 / 3)) $((W / 2)) $((H / 3)) 400
+    sleep 2
+  done
+  [[ -n $b ]] || { echo "not on screen: $1" >&2; pshot "missing_$(date +%s)"; return 1; }
+  read -r x1 y1 x2 y2 <<<"$b"
+  tap $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) "${2:-3}"
+}
 sleep 30
 pshot 04_phone_empty
 
-# Settings (the gear in the header), scrolled to its end, "Set up S3 sync…".
-tap $((W - $(dp 28))) $(dp ${GEAR_DY:-52}) 5
-for _ in 1 2 3 4; do adb shell input swipe $((W / 2)) $((H * 3 / 4)) $((W / 2)) $((H / 5)) 300; sleep 1; done
-sleep 2
-pshot 05_phone_settings
-tap $((W / 2)) $((H - $(dp ${S3_BUTTON_DY:-150}))) 5
-pshot 06_phone_s3_dialog
+# Settings (the gear in the header), scrolled down to "Set up S3 sync…".
+uitap Settings 3
+uitap 'Set up S3 sync…' 3 scroll
+pshot 05_phone_s3_dialog
 # The address has the focus; Tab walks the fields in order.
-for f in "$phone_endpoint" "${GARAGE_TEST_REGION:-garage}" "$GARAGE_TEST_BUCKET" "$prefix" \
+dels=$(printf 'KEYCODE_DEL %.0s' $(seq 40))
+for f in "$phone_endpoint" "${GARAGE_TEST_REGION:-garage}" "$GARAGE_TEST_BUCKET" "$prefix/" \
   "$GARAGE_TEST_ACCESS_KEY_ID" "$GARAGE_TEST_SECRET_ACCESS_KEY"; do
-  pkey KEYCODE_MOVE_END
-  pkey --longpress KEYCODE_DEL
-  text "$f"
-  pkey KEYCODE_TAB
+  adb shell input keyevent KEYCODE_MOVE_END $dels
+  adb shell input text "$f"
+  adb shell input keyevent KEYCODE_TAB
 done
-pshot 07_phone_filled
-# Test connection, then Tab past Cancel to Save (Turn off is not shown yet).
-pkey KEYCODE_SPACE
-sleep 8
-pshot 08_phone_tested
-pkey KEYCODE_TAB; pkey KEYCODE_TAB; pkey KEYCODE_SPACE
-sleep 3
-pkey KEYCODE_ESCAPE
-sleep 20
-pshot 09_phone_shelf
+uitap 'Test connection' 2
+wait_for 30 test -n "$(ui_find 'Connected to[^"]*')" || true
+pshot 06_phone_tested
+check "phone: the connection test passes" "$(ui_find 'Connected to[^"]*' | wc -w)" 4
+uitap Save 3
+uitap Close 20
+pshot 07_phone_shelf
 
-# 2. The comic's page (a tap on its cover on a phone), then Download.
-tap $((W / 6)) $((H / 4)) 8
-pshot 10_phone_detail
-tap ${DOWNLOAD_X:-$(dp 90)} ${DOWNLOAD_Y:-$((H * 3 / 4))} 5
+# 2. The comic's page (a tap on its cover), then Download.
+uitap 'Books[^"]*' 3
+uitap 'Round Trip[^"]*' 5
+pshot 08_phone_detail
+uitap 'Download[^"]*' 5
 wait_for 120 adb shell test -f "'/sdcard/Comics/Golden Age/Round Trip 1.cbz'" || true
-sleep 15
-pshot 11_phone_downloaded
+sleep 10
+pshot 09_phone_downloaded
 check "phone: downloaded into its folder" \
   "$(adb shell sha256sum "'/sdcard/Comics/Golden Age/Round Trip 1.cbz'" | cut -d' ' -f1)" \
   "$(sha256sum "$home/Comics/Golden Age/Round Trip 1.cbz" | cut -d' ' -f1)"
@@ -233,15 +246,13 @@ check "phone: its sidecar came with it" \
   "$(adb shell test -f "'/sdcard/Comics/Golden Age/.Round Trip 1.cbz.crdb'" && echo yes || echo no)" yes
 check "phone: the other comic is not downloaded" "$(adb shell test -e /sdcard/Comics/Second\\ 1.cbz && echo yes || echo no)" no
 # Read: it opens where the laptop left it; three taps on the right edge on.
-tap ${READ_X:-$(dp 90)} ${READ_Y:-$((H * 3 / 4))} 15
-pshot 12_phone_resumed
-tap $((W - 20)) $((H / 2)) 6
-tap $((W - 20)) $((H / 2)) 6
-tap $((W - 20)) $((H / 2)) 6
-pshot 13_phone_page7
+uitap '(Continue reading|Read)' 15
+pshot 10_phone_resumed
+for _ in 1 2 3; do tap $((W - 20)) $((H / 2)) 6; done
+pshot 11_phone_page7
 pkey KEYCODE_BACK
 sleep 20
-pshot 14_phone_back
+pshot 12_phone_back
 
 sidecar_page() { # the page a device other than the laptop has in the bucket's sidecar
   fetch "$prefix/books/$round/sidecar.crdb" "$out/sidecar-2.crdb" &&
