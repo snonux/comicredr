@@ -208,6 +208,10 @@ void main() {
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.wholePageSteps)), isFalse);
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.cleanUp)), isTrue);
       expect(await tester.runAsync(() => settings.loadBool(SettingsStore.writeSidecars)), isFalse);
+      // Back up: everything but the comics to one file and back.
+      await tester.ensureVisible(find.byKey(const Key('setting-importSettings')));
+      expect(find.text('Export settings…'), findsOneWidget);
+      expect(find.text('Import settings…'), findsOneWidget);
       await tester.ensureVisible(find.byKey(const Key('setting-close')));
       await tester.tap(find.byKey(const Key('setting-close')));
       await settle(tester);

@@ -16,15 +16,28 @@ import '../version.dart';
 /// The settings (M8): what the reader and the sidecars do by default, which
 /// panel detector is in use, and the reading history. A dialog, so `Esc`
 /// closes it on the laptop and it fits a phone.
-Future<void> showSettings(BuildContext context, {VoidCallback? onExportSidecars}) => showDialog<void>(
+Future<void> showSettings(
+  BuildContext context, {
+  VoidCallback? onExportSidecars,
+  VoidCallback? onExportSettings,
+  VoidCallback? onImportSettings,
+}) => showDialog<void>(
   context: context,
-  builder: (_) => SettingsDialog(onExportSidecars: onExportSidecars),
+  builder: (_) => SettingsDialog(
+    onExportSidecars: onExportSidecars,
+    onExportSettings: onExportSettings,
+    onImportSettings: onImportSettings,
+  ),
 );
 
 class SettingsDialog extends ConsumerStatefulWidget {
-  const SettingsDialog({super.key, this.onExportSidecars});
+  const SettingsDialog({super.key, this.onExportSidecars, this.onExportSettings, this.onImportSettings});
 
   final VoidCallback? onExportSidecars;
+
+  /// Everything but the comics, to one file and back (Back up section).
+  final VoidCallback? onExportSettings;
+  final VoidCallback? onImportSettings;
 
   @override
   ConsumerState<SettingsDialog> createState() => _SettingsDialogState();
@@ -310,6 +323,41 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                         label: const Text('Clear reading history'),
                       ),
                     ),
+                    if (widget.onExportSettings != null || widget.onImportSettings != null) ...[
+                      heading('Back up'),
+                      Text(
+                        'Settings, library folders, keys.toml, positions, bookmarks, collections, edits and '
+                        'reading history in one file, to bring back after a reinstall or on another device.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (widget.onExportSettings case final export?)
+                            OutlinedButton.icon(
+                              key: const Key('setting-exportSettings'),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                export();
+                              },
+                              icon: const Icon(Icons.upload_file),
+                              label: const Text('Export settings…'),
+                            ),
+                          if (widget.onImportSettings case final import?)
+                            OutlinedButton.icon(
+                              key: const Key('setting-importSettings'),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                import();
+                              },
+                              icon: const Icon(Icons.download),
+                              label: const Text('Import settings…'),
+                            ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     Text('ComicRedr $appVersion', style: theme.textTheme.bodySmall),
                   ],

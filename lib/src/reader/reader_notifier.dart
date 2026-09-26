@@ -714,6 +714,33 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (on != null && on != state.fullscreen) state = state.copyWith(fullscreen: on);
   }
 
+  /// Takes up every saved setting the reader keeps, after an import changed
+  /// them: one that is not saved goes back to its default. The open book
+  /// stays where it is.
+  Future<void> reloadSettings() async {
+    final settings = ref.read(settingsStoreProvider);
+    const defaults = ReaderState();
+    Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
+    final whole = await flag(SettingsStore.wholePageSteps, defaults.wholePageSteps);
+    final pause = await flag(SettingsStore.pauseWhole, defaults.pauseWhole);
+    final cueName = await _orNull(() => settings.loadString(SettingsStore.pauseCue));
+    final night = await flag(SettingsStore.night, defaults.night);
+    final trim = await flag(SettingsStore.autoTrim, defaults.trim);
+    final cleanUp = await flag(SettingsStore.cleanUp, defaults.cleanUp);
+    final fullscreen = await flag(SettingsStore.fullscreen, defaults.fullscreen);
+    if (!ref.mounted) return;
+    state = state.copyWith(
+      wholePageSteps: whole,
+      pauseWhole: pause,
+      pauseCue: PauseCue.values.asNameMap()[cueName] ?? defaults.pauseCue,
+      night: night,
+      trim: trim,
+      cleanUp: cleanUp,
+      fullscreen: fullscreen,
+      message: state.message,
+    );
+  }
+
   /// Fullscreen on or off, remembered for the next book and launch. The
   /// window follows it (HomeScreen); the window manager leaving fullscreen
   /// by itself comes back here too.

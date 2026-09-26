@@ -29,6 +29,17 @@ class TouchPresetNotifier extends Notifier<TouchPreset> {
     }
   }
 
+  /// Takes up the saved preset again, after an import changed it.
+  Future<void> reload() async {
+    _picked = false;
+    try {
+      final name = await ref.read(settingsStoreProvider).loadString(SettingsStore.touchPreset);
+      if (ref.mounted) state = TouchPreset.byName(name);
+    } catch (_) {
+      // Keeps the one in use.
+    }
+  }
+
   /// Whether a preset was picked since the last call, so the reader can
   /// show its zones once.
   bool takeNewPick() {

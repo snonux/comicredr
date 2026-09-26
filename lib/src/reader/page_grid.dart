@@ -383,6 +383,10 @@ class PageGridState extends ConsumerState<PageGrid> {
 /// setting brings it back after a restart.
 final _lastZoom = Provider((ref) => _Zoom());
 
+/// Forgets the grid size used in this run, so the grid takes the saved one
+/// the next time it opens (after an import changed it).
+void forgetGridZoom(WidgetRef ref) => ref.invalidate(_lastZoom);
+
 class _Zoom {
   double? target;
 }

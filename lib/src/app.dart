@@ -11,6 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
+import 'data/settings_file.dart';
+import 'input/keys_file.dart';
 import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
 import 'input/touch_providers.dart';
@@ -21,6 +23,7 @@ import 'library/delete_book.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
 import 'library/scanner.dart';
+import 'library/settings_transfer.dart';
 import 'providers.dart';
 import 'reader/bookmark_list.dart';
 import 'reader/clock_flash.dart';
@@ -409,6 +412,145 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   });
 
+  static const _settingsFiles = XTypeGroup(label: 'ComicRedr settings', extensions: ['json']);
+
+  /// Settings → Export settings: everything that is not a comic, as one
+  /// file (SettingsFile). On the laptop the system's save dialog; on the
+  /// phone a folder from Android's picker, with a new file in it.
+  Future<void> _exportSettings() => _whilePicking(() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final name = settingsFileName(DateTime.now());
+      final String path;
+      if (Platform.isAndroid) {
+        final dir = await _pickOnAndroid('pickFolder');
+        if (dir == null) return;
+        path = await writeNewFile(dir, name, await _settingsText());
+      } else {
+        final at = await getSaveLocation(
+          suggestedName: name,
+          confirmButtonText: 'Export',
+          acceptedTypeGroups: const [_settingsFiles],
+        );
+        if (at == null) return;
+        path = at.path;
+        await File(path).writeAsString(await _settingsText(), flush: true);
+      }
+      messenger.showSnackBar(SnackBar(content: Text('Settings exported to $path')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Could not export settings: $e')));
+    } finally {
+      _keys.requestFocus();
+    }
+  });
+
+  Future<String> _settingsText() async {
+    await ref.read(readerProvider.notifier).flush();
+    return exportSettings(ref.read(databaseProvider), keysPath: await keysFilePath());
+  }
+
+  /// Settings → Import settings: a file Export settings wrote, checked,
+  /// shown and confirmed, then taken up at once.
+  Future<void> _importSettings() => _whilePicking(() async {
+    final messenger = ScaffoldMessenger.of(context);
+    void say(String text) =>
+        messenger.showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 8)));
+    try {
+      final String? path;
+      if (Platform.isAndroid) {
+        path = await _pickOnAndroid('pickFile');
+      } else {
+        path = (await openFile(acceptedTypeGroups: const [_settingsFiles], confirmButtonText: 'Import'))?.path;
+      }
+      if (path == null) return;
+      final SettingsFile file;
+      try {
+        file = SettingsFile.decode(await File(path).readAsString());
+      } on SettingsFileException catch (e) {
+        say('Could not import ${p.basename(path)}: ${e.message}');
+        return;
+      } on FileSystemException catch (e) {
+        say('Could not read $path: ${e.message}');
+        return;
+      }
+      if (!mounted || !await _confirmImport(p.basename(path), file)) return;
+      await ref.read(readerProvider.notifier).flush();
+      final done = await importSettings(file, library: ref.read(libraryStoreProvider), keysPath: await keysFilePath());
+      await _takeUpImport(done);
+      say(importNotice(done));
+    } catch (e) {
+      say('Could not import settings: $e');
+    } finally {
+      _keys.requestFocus();
+    }
+  });
+
+  /// Shows what [file] holds and asks before importing it.
+  Future<bool> _confirmImport(String name, SettingsFile file) async {
+    String n(int count, String one) => '$count $one${count == 1 ? '' : 's'}';
+    final from = [
+      if (file.appVersion case final v?) 'ComicRedr $v',
+      if (file.exportedAt case final t?)
+        'on ${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')}',
+    ];
+    final holds = [
+      n(file.settings.length, 'setting'),
+      n(file.folders.length, 'library folder'),
+      if (file.keysToml != null) 'keys.toml',
+      n(file.positions.length, 'position'),
+      n(file.bookmarks.where((b) => b.deletedAt == null).length, 'bookmark'),
+      n(
+        file.collections.where((c) => c.removedAt == null).length,
+        'collection entry',
+      ).replaceFirst('entrys', 'entries'),
+      n(file.edits.length, 'edit'),
+      n(file.history.length, 'history entry').replaceFirst('entrys', 'entries'),
+    ];
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Import settings from $name?'),
+        content: SizedBox(
+          width: 520,
+          child: Text(
+            '${from.isEmpty ? '' : 'Exported from ${from.join(' ')}. '}It holds ${holds.join(', ')}.\n\n'
+            'Your settings become the file\'s, except that where this device keeps its sidecars only changes when the '
+            'file says. Positions, bookmarks, collections, edits and history are merged '
+            'with what is here. Its library folders that are on this device are added; none is taken out.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('importSettings-cancel'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const Key('importSettings-go'),
+            autofocus: true,
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Import'),
+          ),
+        ],
+      ),
+    );
+    return go == true;
+  }
+
+  /// Makes everything an import changed show at once: the reader's and
+  /// the library's settings, the touch preset, the keymap, the sidecars of
+  /// the comics it named, and the library's folders.
+  Future<void> _takeUpImport(SettingsImport done) async {
+    if (done.keysWritten) ref.read(reloadedKeymapProvider.notifier).set(await loadKeymap());
+    await ref.read(readerProvider.notifier).reloadSettings();
+    await ref.read(touchPresetProvider.notifier).reload();
+    await _library.currentState?.reloadSettings();
+    forgetGridZoom(ref);
+    final sync = ref.read(sidecarSyncProvider)..placeChanged();
+    done.books.forEach(sync.touch);
+    unawaited(_rescan());
+  }
+
   /// `I` in the reader: the open comic's details. A page picked in them is
   /// gone to; Redo panels resets the comic's panels, as `X` does.
   Future<void> _details(OpenBook book) async {
@@ -767,6 +909,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       key: _library,
                       onAddRoot: _addRoot,
                       onExportSidecars: _exportSidecars,
+                      onExportSettings: _exportSettings,
+                      onImportSettings: _importSettings,
                       onOpenFile: _pickFile,
                       onOpenFolder: _pickFolder,
                       keysFocus: _keys,

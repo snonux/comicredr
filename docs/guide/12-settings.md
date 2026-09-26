@@ -20,6 +20,7 @@ brackets.
 | **Sidecars → Beside each comic / In one folder** | Where the sidecars go. See [keeping them in one folder](11-your-data.md#keeping-the-sidecars-in-one-folder). |
 | **Sidecars → Export sidecars to a folder…** | A copy of every sidecar, for a backup. |
 | **Touch** | **Standard**, **Left-handed** or **One thumb**. See [the tap zones](08-touch.md#the-tap-zones). |
+| **Back up → Export settings…** / **Import settings…** | Every setting, your library folders, `keys.toml`, positions, bookmarks, collections, edits and reading history in one file, and back. See [back up and restore](11-your-data.md#back-up-and-restore-your-settings). |
 | **Reading history → Clear reading history** | Empties the [History tab](03-library.md#history). Positions, bookmarks and collections stay. |
 
 The bottom of the dialog shows ComicRedr's version.

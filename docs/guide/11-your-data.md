@@ -61,7 +61,56 @@ kept in one folder. `?` shows which:
 
 Deleting that folder starts ComicRedr afresh. Add your comic folders
 again and one scan brings back everything the sidecars hold: positions,
-bookmarks, panels, edits and collections. Only the settings and the
-reading history are lost.
+bookmarks, panels, edits and collections. The settings and the reading
+history are lost, unless you exported them first.
+
+## Back up and restore your settings
+
+Settings → **Back up** → **Export settings…** saves everything of yours
+that is not a comic in one file, `comicredr-settings-2026-09-26.json`:
+
+- every setting, including the ones changed while reading (fullscreen,
+  the night filter, auto-trim, the page grid's size, shuffle);
+- your library folders and where the sidecars are kept;
+- your `keys.toml`, if you have one;
+- for every comic, where you are, your bookmarks, notes and marks, the
+  collections and Favourites, your edits to titles and series, and the
+  reading history.
+
+**Import settings…** reads such a file back, shows what it holds and
+asks before it changes anything. Everything shows at once: the settings,
+the keys, the touch zones and the library folders, which are scanned
+straight away.
+
+This is how to keep everything when the app's own data is wiped: on the
+phone, moving from a build you made yourself to the F-Droid one means
+uninstalling, which deletes it. Export first, keep the file somewhere
+safe (Downloads, or your comics folder), install the new app, give it
+All files access and import.
+
+- On the laptop, a save dialog asks where the file goes. On the phone,
+  pick a folder; the file is made there, never over another one.
+- Your settings become the file's, except where this device keeps its
+  sidecars and whether it writes them: those change only when the file
+  sets them, so a file from the laptop never moves the phone's sidecars.
+  Positions, bookmarks, collections,
+  edits and history are merged with what is already there, the same way
+  two sidecars are: the later position wins, and a bookmark you took off
+  stays off. Importing twice is the same as importing once.
+- Comics are recognised by their content, so positions and bookmarks
+  find a comic even where its path is different. Library folders and the
+  sidecar folder are paths: the ones that do not exist on this device
+  are left out, and the notice says which. An import only adds library
+  folders; it never takes one out, and taking `~/Comics` out of the
+  library stays each device's own choice.
+- A `keys.toml` already there is kept as `keys.toml.bak` when the file's
+  is different. Should it fail to be written, the notice says so; the
+  rest is imported all together or not at all.
+- Not in the file: the comics, their covers, thumbnails and panels (a
+  scan and the sidecars bring those back; panels would make the file
+  megabytes), a detector model you added (copy that file yourself), and
+  the device's name for the sidecars, which stays each device's own.
+- A file from another app, or from a newer ComicRedr, is refused with a
+  message saying why; settings a newer version added are skipped.
 
 [Contents](README.md) · Previous: [On the phone](10-phone.md) · Next: [Settings](12-settings.md)
