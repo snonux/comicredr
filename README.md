@@ -9,6 +9,9 @@ an Android phone. It reads CBZ, CBT, comic EPUB, PDF, folders of page
 images and one-page PNG, JPEG or WebP comics, runs entirely on your own
 machine, and needs no account, sync or network.
 
+How it works inside, with diagrams and the panel detector model
+explained: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Screenshots
 
 ![The library: series of covers, with the selected book's details beside them](docs/screenshots/library.webp)
