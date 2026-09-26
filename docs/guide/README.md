@@ -87,7 +87,7 @@ come back here for a key you forgot.
 12. [Settings](12-settings.md)
 
 How ComicRedr works inside is a different story, told in
-[the architecture document](../ARCHITECTURE.md).
+[the architecture document](../architecture.md).
 
 ## Credits
 
