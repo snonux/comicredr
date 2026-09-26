@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Fetches the detector model from where you keep it and puts it where the
-# build packs it (assets/models/). `make fetch-model URL=...` runs this.
+# Checks a detector model and puts it where the build packs it
+# (assets/models/). `make train-model` runs this on the model it trained.
 #
-#   tool/fetch_model.sh https://example.org/comicredr-panels.onnx
-#   HF_TOKEN=hf_... tool/fetch_model.sh https://huggingface.co/you/private-repo/resolve/main/comicredr-panels.onnx
-#   tool/fetch_model.sh ~/Downloads/comicredr-panels.onnx   # a path works too
+#   tool/fetch_model.sh spike/out/comicredr-panels.onnx
+#   tool/fetch_model.sh https://example.org/comicredr-panels.onnx   # a URL works too
 #
-# HF_TOKEN is sent to huggingface.co only, for a private repository there.
-# The file is checked before it replaces the model in the checkout: it must
-# be an ONNX model whose output is the detector's [1, 300, 6] rows.
+# HF_TOKEN, if set, is sent to huggingface.co only, for a private repository
+# there. The file is checked before it replaces the model in the checkout:
+# it must be an ONNX model whose output is the detector's [1, 300, 6] rows.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

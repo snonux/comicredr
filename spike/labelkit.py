@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Label panels and balloons on page images, for the M5 eval and training sets.
 
-  python3 spike/labelkit.py candidates PAGES_DIR [--weights best.pt]
+  python3 spike/labelkit.py candidates PAGES_DIR [--weights model.onnx|best.pt]
   python3 spike/labelkit.py show PAGE [--out img.jpg]
-  python3 spike/labelkit.py set PAGE --panels SPEC --balloons SPEC
+  python3 spike/labelkit.py set PAGE --panels SPEC --balloons SPEC [--captions SPEC]
   python3 spike/labelkit.py check PAGE [--out img.jpg]
   python3 spike/labelkit.py sheet PAGES_DIR OUT.jpg
 
@@ -27,11 +27,27 @@ What counts, so every labeller draws the same thing:
   panel    one frame of story art, border included. A splash is one panel.
            Borderless art gets the box of the art. Covers, text pages and
            ads without comic panels get no panels at all.
-  balloon  speech, thought and whisper balloons and narration captions,
-           tail excluded. Not sound effects, signs or title lettering.
+  balloon  speech, thought and whisper balloons, tail excluded, and speech
+           with no outline (the box of its text). Not captions, sound
+           effects, signs or title lettering.
+  caption  boxed narration ("Meanwhile...", a narrator's voice), usually a
+           rectangle on or near a panel edge. Kept apart from balloons so
+           balloon mode stops only on what characters say or think.
 
 `check` draws the saved label so it can be verified. `sheet` makes a contact
 sheet of every labelled page in a folder.
+
+  python3 spike/labelkit.py crops OUT_DIR PAGES_DIR... [--guess]
+  python3 spike/labelkit.py flip OUT_DIR/map.json 12,40,41 [--drop 7,9]
+  python3 spike/labelkit.py review OUT_DIR/map.json REVIEW.txt...
+
+`crops` cuts every balloon and caption out of the labels into numbered
+contact sheets, so a reviewer can sort speech from narration quickly
+(purple S = balloon, orange N = caption). `--guess` first moves boxes that
+look like rectangles filled edge to edge into captions. `flip` moves the
+given crop numbers to the other kind and `--drop` deletes boxes that are
+neither (sound effects, signs). `review` applies reviewers' files, one line
+per sheet: `sheet_007 flip=12,40 drop=55`.
 
   python3 spike/labelkit.py export PAGES_DIR spike/labels/eval
   python3 spike/labelkit.py import spike/labels/eval PAGES_DIR
@@ -53,7 +69,7 @@ import detect_cv  # noqa: E402
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 COLOURS = {"C": (60, 170, 40), "F": (200, 120, 20), "B": (160, 40, 180), "T": (0, 150, 230),
-           "P": (40, 40, 220), "L": (160, 40, 180)}
+           "P": (40, 40, 220), "L": (160, 40, 180), "N": (0, 140, 255)}
 SNAP = 0.015
 
 
@@ -73,13 +89,24 @@ def label_path(page):
 # ---------------------------------------------------------------- candidates
 
 def candidates(folder, weights):
-    from ultralytics import YOLO
-    model = YOLO(weights) if weights else None
+    onnx = weights and str(weights).endswith(".onnx")
+    if onnx:
+        # The app's own model (e.g. the bundled D-FINE detector): T are its captions.
+        from evaluate import Onnx
+        model = Onnx(weights)
+    elif weights:
+        from ultralytics import YOLO
+        model = YOLO(weights)
+    else:
+        model = None
     for p in pages_in(folder):
         img = cv2.imread(str(p))
         h, w = img.shape[:2]
         out = {"w": w, "h": h, "C": detect_cv.detect(img).panels, "F": [], "B": [], "T": []}
-        if model:
+        if onnx:
+            out["F"], out["B"] = (sorted(b, key=lambda r: (r[1], r[0])) for b in model(img))
+            out["T"] = sorted(model.captions, key=lambda r: (r[1], r[0]))
+        elif model:
             r = model.predict(str(p), imgsz=1024, device="cpu", verbose=False, conf=0.25)[0]
             key = {"frame": "F", "balloon": "B", "text": "T"}
             rows = sorted(zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist()),
@@ -116,7 +143,7 @@ def _boxes(img, boxes, prefix, colour, thick=3):
         cv2.rectangle(img, p0, p1, colour, thick)
         tag = f"{prefix}{i + 1}"
         (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
-        o = (p0[0] + 2, p0[1] + 2) if prefix != "B" and prefix != "L" else (p1[0] - tw - 8, p1[1] - th - 8)
+        o = (p0[0] + 2, p0[1] + 2) if prefix not in ("B", "L", "N") else (p1[0] - tw - 8, p1[1] - th - 8)
         cv2.rectangle(img, o, (o[0] + tw + 6, o[1] + th + 6), colour, -1)
         cv2.putText(img, tag, (o[0] + 3, o[1] + th + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
@@ -148,6 +175,7 @@ def check(page, out):
     norm = lambda bs: [[x / lab["w"], y / lab["h"], bw / lab["w"], bh / lab["h"]] for x, y, bw, bh in bs]
     _boxes(img, norm(lab["panels"]), "P", COLOURS["P"], 4)
     _boxes(img, norm(lab["balloons"]), "L", COLOURS["L"])
+    _boxes(img, norm(lab.get("captions", [])), "N", COLOURS["N"])
     cv2.imwrite(str(out), img, [cv2.IMWRITE_JPEG_QUALITY, 85])
     print(out)
 
@@ -165,6 +193,8 @@ def sheet(folder, out, cols=5, thumb=420):
                "P", COLOURS["P"], 3)
         _boxes(img, [[x / lab["w"], y / lab["h"], w / lab["w"], h / lab["h"]] for x, y, w, h in lab["balloons"]],
                "L", COLOURS["L"], 2)
+        _boxes(img, [[x / lab["w"], y / lab["h"], w / lab["w"], h / lab["h"]] for x, y, w, h in lab.get("captions", [])],
+               "N", COLOURS["N"], 2)
         cv2.putText(img, p.stem[-28:], (4, img.shape[0] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
         cv2.putText(img, p.stem[-28:], (4, img.shape[0] - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         tiles.append(img)
@@ -262,7 +292,7 @@ def _parse(spec, cand, w, h, kind, fg, gray):
     return out
 
 
-def set_label(page, panels, balloons):
+def set_label(page, panels, balloons, captions=""):
     img = cv2.imread(str(page))
     h, w = img.shape[:2]
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -271,9 +301,107 @@ def set_label(page, panels, balloons):
     cand = json.loads(cp.read_text()) if cp.exists() else {}
     lab = {"w": w, "h": h,
            "panels": _parse(panels, cand, w, h, "panel", fg, gray),
-           "balloons": _parse(balloons, cand, w, h, "balloon", fg, gray)}
+           "balloons": _parse(balloons, cand, w, h, "balloon", fg, gray),
+           "captions": _parse(captions, cand, w, h, "balloon", fg, gray)}
     label_path(page).write_text(json.dumps(lab))
-    print(f"{page.name}: {len(lab['panels'])} panels, {len(lab['balloons'])} balloons")
+    print(f"{page.name}: {len(lab['panels'])} panels, {len(lab['balloons'])} balloons, "
+          f"{len(lab['captions'])} captions")
+
+
+# ---------------------------------------------------------------- captions
+
+def looks_like_caption(img, box):
+    """A caption is a rectangle filled edge to edge: its four corners share the
+    fill of its middle band, where a balloon's corners fall outside its oval."""
+    x, y, w, h = box
+    crop = img[max(y, 0):y + h, max(x, 0):x + w]
+    if crop.shape[0] < 12 or crop.shape[1] < 12:
+        return False
+    ch, cw = crop.shape[:2]
+    band = np.vstack([crop[:, :max(cw // 12, 2)].reshape(-1, 3), crop[:, -max(cw // 12, 2):].reshape(-1, 3)])
+    fill = np.median(band, axis=0)
+    k = max(min(ch, cw) // 10, 3)
+    corners = [crop[2:2 + k, 2:2 + k], crop[2:2 + k, -2 - k:-2], crop[-2 - k:-2, 2:2 + k], crop[-2 - k:-2, -2 - k:-2]]
+    same = sum(np.abs(np.median(c.reshape(-1, 3), axis=0) - fill).max() < 30 for c in corners if c.size)
+    return same >= 4
+
+
+def crops(out, folders, guess, per_sheet=30, cols=6, tile=260):
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    items, tiles = [], []
+    for folder in folders:
+        for page in pages_in(folder):
+            lp = label_path(page)
+            if not lp.exists():
+                continue
+            lab = json.loads(lp.read_text())
+            lab.setdefault("captions", [])
+            img = cv2.imread(str(page))
+            if guess:
+                keep = []
+                for b in lab["balloons"]:
+                    (lab["captions"] if looks_like_caption(img, b) else keep).append(b)
+                lab["balloons"] = keep
+            lp.write_text(json.dumps(lab))
+            for kind in ("balloons", "captions"):
+                for b in lab[kind]:
+                    x, y, w, h = b
+                    px, py = int(w * 0.25) + 8, int(h * 0.25) + 8
+                    c = img[max(y - py, 0):y + h + py, max(x - px, 0):x + w + px].copy()
+                    cv2.rectangle(c, (x - max(x - px, 0), y - max(y - py, 0)),
+                                  (x - max(x - px, 0) + w, y - max(y - py, 0) + h),
+                                  (160, 40, 180) if kind == "balloons" else (0, 140, 255), 2)
+                    s = tile / max(c.shape[:2])
+                    c = cv2.resize(c, None, fx=s, fy=s, interpolation=cv2.INTER_AREA)
+                    t = np.full((tile + 28, tile, 3), 255, np.uint8)
+                    t[:c.shape[0], :c.shape[1]] = c
+                    n = len(items)
+                    tag = f"{n} {'S' if kind == 'balloons' else 'N'}"
+                    col = (160, 40, 180) if kind == "balloons" else (0, 140, 255)
+                    cv2.rectangle(t, (0, tile), (tile, tile + 28), col, -1)
+                    cv2.putText(t, tag, (6, tile + 21), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2)
+                    items.append({"page": str(page), "box": b, "kind": kind})
+                    tiles.append(t)
+    for i in range(0, len(tiles), per_sheet):
+        chunk = tiles[i:i + per_sheet]
+        while len(chunk) % cols:
+            chunk.append(np.full_like(tiles[0], 255))
+        rows = [np.hstack([np.pad(t, ((3, 3), (3, 3), (0, 0))) for t in chunk[j:j + cols]])
+                for j in range(0, len(chunk), cols)]
+        cv2.imwrite(str(out / f"sheet_{i // per_sheet:03d}.jpg"), np.vstack(rows), [cv2.IMWRITE_JPEG_QUALITY, 82])
+    (out / "map.json").write_text(json.dumps(items))
+    print(f"{len(items)} crops on {(len(tiles) + per_sheet - 1) // per_sheet} sheets in {out}")
+
+
+def flip(map_path, ids, drop=()):
+    items = json.loads(Path(map_path).read_text())
+    for i in drop:
+        it = items[i]
+        lp = label_path(Path(it["page"]))
+        lab = json.loads(lp.read_text())
+        kind = next((k for k in ("balloons", "captions") if it["box"] in lab.get(k, [])), None)
+        if kind is None:
+            print(f"{i}: box no longer in {lp.name}, skipped")
+            continue
+        lab[kind].remove(it["box"])
+        lp.write_text(json.dumps(lab))
+        print(f"{i}: {Path(it['page']).name} dropped from {kind}")
+    for i in ids:
+        it = items[i]
+        lp = label_path(Path(it["page"]))
+        lab = json.loads(lp.read_text())
+        lab.setdefault("captions", [])
+        # The kind shown on the sheet decides, so applying a review twice is harmless.
+        src = it.get("kind") or ("balloons" if it["box"] in lab["balloons"] else "captions")
+        dst = "captions" if src == "balloons" else "balloons"
+        if it["box"] not in lab[src]:
+            print(f"{i}: box not in {lp.name} {src} (already applied?), skipped")
+            continue
+        lab[src].remove(it["box"])
+        lab[dst].append(it["box"])
+        lp.write_text(json.dumps(lab))
+        print(f"{i}: {Path(it['page']).name} {src} -> {dst}")
 
 
 def export(folder, dest):
@@ -302,6 +430,10 @@ def import_labels(src, folder):
         print(f"no extracted page for {len(missing)} labels, e.g. {missing[:3]}")
 
 
+def _ids(text):
+    return [int(v) for v in text.replace(" ", "").split(",") if v]
+
+
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -310,6 +442,11 @@ def main():
     k = sub.add_parser("check"); k.add_argument("page"); k.add_argument("--out")
     t = sub.add_parser("set"); t.add_argument("page"); t.add_argument("--panels", default="")
     t.add_argument("--balloons", default="")
+    t.add_argument("--captions", default="")
+    r = sub.add_parser("crops"); r.add_argument("out"); r.add_argument("folders", nargs="+")
+    r.add_argument("--guess", action="store_true")
+    f = sub.add_parser("flip"); f.add_argument("map"); f.add_argument("ids"); f.add_argument("--drop", default="")
+    v = sub.add_parser("review"); v.add_argument("map"); v.add_argument("files", nargs="+")
     h = sub.add_parser("sheet"); h.add_argument("folder"); h.add_argument("out")
     e = sub.add_parser("export"); e.add_argument("folder"); e.add_argument("dest")
     i = sub.add_parser("import"); i.add_argument("src"); i.add_argument("folder")
@@ -323,13 +460,25 @@ def main():
         page = Path(a.page)
         check(page, a.out or page.with_suffix(".check.jpg"))
     elif a.cmd == "set":
-        set_label(Path(a.page), a.panels, a.balloons)
+        set_label(Path(a.page), a.panels, a.balloons, a.captions)
     elif a.cmd == "sheet":
         sheet(a.folder, a.out)
     elif a.cmd == "export":
         export(a.folder, a.dest)
     elif a.cmd == "import":
         import_labels(a.src, a.folder)
+    elif a.cmd == "crops":
+        crops(a.out, a.folders, a.guess)
+    elif a.cmd == "flip":
+        flip(a.map, _ids(a.ids), _ids(a.drop))
+    elif a.cmd == "review":
+        flips, drops = [], []
+        for f in a.files:
+            for line in Path(f).read_text().splitlines():
+                for part in line.split()[1:]:
+                    key, _, val = part.partition("=")
+                    (flips if key == "flip" else drops if key == "drop" else []).extend(_ids(val))
+        flip(a.map, sorted(set(flips) - set(drops)), sorted(set(drops)))
 
 
 if __name__ == "__main__":
