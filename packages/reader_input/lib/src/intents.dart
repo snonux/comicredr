@@ -10,6 +10,8 @@ enum ReaderIntent {
   panDown('Pan down; the cover below in the library'),
   panUp('Pan up; the cover above in the library'),
   scrollRight('Moves a zoomed page right (smoothly), else the next step, as l'),
+  scrollFaster('Smooth scrolling faster: longer steps, quicker glide; kept'),
+  scrollSlower('Smooth scrolling slower: shorter steps, gentler glide; kept'),
   scrollLeft('Moves a zoomed page left (smoothly), else the previous step, as h'),
   halfPageDown('A screen down in the page grid (continuous scroll is not built yet)'),
   halfPageUp('A screen up in the page grid (continuous scroll is not built yet)'),

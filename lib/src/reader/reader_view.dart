@@ -16,6 +16,7 @@ import 'page_cache.dart';
 import 'page_painters.dart';
 import 'reader_notifier.dart';
 import 'region.dart';
+import 'scroll_speed.dart';
 
 /// How the page is fitted before any zoom.
 enum Fit { page, width, height }
@@ -128,6 +129,8 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // The saved scrolling speed loads now, not on the first key press.
+    ref.read(scrollSpeedProvider);
   }
 
   /// The system is short of memory: keep only what is on screen.
@@ -384,13 +387,13 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         if (_scale > 1.01) return handle(const ReaderCommand(ReaderIntent.zoomReset));
         _zoom(math.pow(1.25, 4).toDouble(), at: _unturned(c.at));
       case ReaderIntent.panDown:
-        _pan(Offset(0, 0.15 * _screen.height * c.times), held: c.held);
+        _pan(Offset(0, _stepShare * _screen.height * c.times), held: c.held);
       case ReaderIntent.panUp:
-        _pan(Offset(0, -0.15 * _screen.height * c.times), held: c.held);
+        _pan(Offset(0, -_stepShare * _screen.height * c.times), held: c.held);
       case ReaderIntent.scrollRight:
-        return _panSideways(0.15 * _screen.width * c.times, guided: guided, held: c.held);
+        return _panSideways(_stepShare * _screen.width * c.times, guided: guided, held: c.held);
       case ReaderIntent.scrollLeft:
-        return _panSideways(-0.15 * _screen.width * c.times, guided: guided, held: c.held);
+        return _panSideways(-_stepShare * _screen.width * c.times, guided: guided, held: c.held);
       default:
         return false;
     }
@@ -609,6 +612,9 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
 
   double get _scale => _transform.value.getMaxScaleOnAxis();
 
+  /// One key pan, as a share of the screen: the speed picked in Settings.
+  double get _stepShare => ref.read(scrollSpeedProvider).step;
+
   /// Zoom and pan as they are now, for the touch layer to tell a swipe that
   /// panned the page from one that could not move it. On a turned comic the
   /// pan is turned back to the screen's directions, so a sideways drag is
@@ -739,7 +745,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     final dt = (elapsed - _glideTime).inMicroseconds / 1e6;
     _glideTime = elapsed;
     // Eased out: each frame covers the same share of what is left.
-    final share = 1 - math.exp(-dt / 0.07);
+    final share = 1 - math.exp(-dt / ref.read(scrollSpeedProvider).seconds);
     var step = _glideLeft * share;
     if ((_glideLeft - step).distance < 0.5) step = _glideLeft;
     _glideLeft -= step;

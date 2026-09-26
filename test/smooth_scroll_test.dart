@@ -6,6 +6,7 @@ import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
+import 'package:comicredr/src/reader/scroll_speed.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -129,5 +130,40 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pump();
     expect(start.dy - shift(tester).dy, inInclusiveRange(0.13 * 900, 0.15 * 900));
+  });
+
+  testWidgets('g+ and g- change how far a press goes, and the speed is kept', (tester) async {
+    // Reduced motion, so each step lands at once and can be measured.
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    final c = await openZoomed(tester);
+    Future<double> step(LogicalKeyboardKey k) async {
+      final before = shift(tester).dy;
+      await tester.sendKeyEvent(k);
+      await tester.pump();
+      return (before - shift(tester).dy).abs();
+    }
+
+    Future<void> type(String keys) async {
+      for (final ch in keys.split('')) {
+        final k = switch (ch) {
+          'g' => LogicalKeyboardKey.keyG,
+          '+' => LogicalKeyboardKey.equal,
+          _ => LogicalKeyboardKey.minus,
+        };
+        await tester.sendKeyEvent(k, character: ch);
+      }
+      await settle(tester);
+    }
+
+    final normal = await step(LogicalKeyboardKey.arrowDown);
+    await type('g+g+g+');
+    expect(c.read(scrollSpeedProvider), ScrollSpeed.fastest, reason: 'stops at the fastest');
+    expect(c.read(readerProvider).message, contains('fastest'));
+    expect(await step(LogicalKeyboardKey.arrowDown), closeTo(normal * 0.27 / 0.15, 1));
+    await type('g-g-g-g-g-');
+    expect(c.read(scrollSpeedProvider), ScrollSpeed.slowest);
+    expect(await step(LogicalKeyboardKey.arrowUp), closeTo(normal * 0.08 / 0.15, 1));
+    expect(await SettingsStore(db).loadString(SettingsStore.scrollSpeed), 'slowest');
   });
 }

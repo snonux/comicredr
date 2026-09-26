@@ -11,6 +11,7 @@ import '../input/touch_providers.dart';
 import '../input/touch_zones.dart';
 import '../providers.dart';
 import '../reader/reader_notifier.dart';
+import '../reader/scroll_speed.dart';
 import '../version.dart';
 
 /// The settings (M8): what the reader and the sidecars do by default, which
@@ -214,6 +215,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       value: _cleanUp!,
                       onChanged: (v) => _set(SettingsStore.cleanUp, v),
                     ),
+                    _ScrollSpeedPicker(),
                     heading('Guided view'),
                     SwitchListTile(
                       key: const Key('setting-wholePage'),
@@ -353,6 +355,38 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+}
+
+/// Picks how fast the arrow keys glide a zoomed page, five notches from
+/// slowest to fastest.
+class _ScrollSpeedPicker extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final speed = ref.watch(scrollSpeedProvider);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Smooth scrolling speed: ${speed.label}', style: theme.textTheme.bodyLarge),
+          Slider(
+            key: const Key('setting-scrollSpeed'),
+            value: speed.index.toDouble(),
+            max: ScrollSpeed.values.length - 1.0,
+            divisions: ScrollSpeed.values.length - 1,
+            label: speed.label,
+            onChanged: (v) => ref.read(scrollSpeedProvider.notifier).pick(ScrollSpeed.values[v.round()]),
+          ),
+          Text(
+            'How far an arrow key moves a zoomed page and how quickly it glides there; a held key goes '
+            'faster too. g+ and g- change it while reading.',
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ),
     );
   }
 }

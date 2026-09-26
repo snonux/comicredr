@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Smooth scrolling speed:** `g+` and `g-`, or the slider in Settings
+  under Pages, pick one of five speeds from Slowest to Fastest: how far
+  an arrow key moves a zoomed page and how quickly it glides there. Kept
+  across restarts and in the settings backup.
+
 - **Continue reading (`C`):** opens the comic read last on the page it
   was left at, even after a restart, guided view and panel included; in
   a comic, the one read before it. The library's header has the same as

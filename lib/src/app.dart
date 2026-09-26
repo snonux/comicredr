@@ -35,6 +35,7 @@ import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
 import 'reader/recent_books.dart';
 import 'reader/reset_dialog.dart';
+import 'reader/scroll_speed.dart';
 import 'reader/status_line.dart';
 
 class ComicRedrApp extends StatelessWidget {
@@ -541,10 +542,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Makes everything an import changed show at once: the reader's and
   /// the library's settings, the touch preset, the keymap, the sidecars of
   /// the comics it named, and the library's folders.
+  /// `g+` `g-`: smooth scrolling a notch faster or slower, said in the
+  /// reader's status line or, in the library, a short notice.
+  Future<void> _changeScrollSpeed(int by) async {
+    final speed = ref.read(scrollSpeedProvider).notch(by);
+    await ref.read(scrollSpeedProvider.notifier).pick(speed);
+    if (!mounted) return;
+    final text = 'Smooth scrolling: ${speed.label.toLowerCase()} (${speed.index + 1} of ${ScrollSpeed.values.length})';
+    if (ref.read(readerProvider).book != null) {
+      ref.read(readerProvider.notifier).notice(text);
+    } else {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 2)));
+    }
+  }
+
   Future<void> _takeUpImport(SettingsImport done) async {
     if (done.keysWritten) ref.read(reloadedKeymapProvider.notifier).set(await loadKeymap());
     await ref.read(readerProvider.notifier).reloadSettings();
     await ref.read(touchPresetProvider.notifier).reload();
+    await ref.read(scrollSpeedProvider.notifier).reload();
     await _library.currentState?.reloadSettings();
     forgetGridZoom(ref);
     final sync = ref.read(sidecarSyncProvider)..placeChanged();
@@ -775,6 +793,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Nothing else reaches the library or the reader hidden behind the help:
     // Enter would open a book under it, gd ask to delete one.
     if (_showKeymap && c.intent != ReaderIntent.fullscreen) return;
+    if (c.intent == ReaderIntent.scrollFaster || c.intent == ReaderIntent.scrollSlower) {
+      unawaited(_changeScrollSpeed(c.intent == ReaderIntent.scrollFaster ? c.times : -c.times));
+      return;
+    }
     // Left and Right pan a zoomed page; anywhere else, and at the page's
     // edge, they step as they always did.
     if (c.intent == ReaderIntent.scrollLeft || c.intent == ReaderIntent.scrollRight) {

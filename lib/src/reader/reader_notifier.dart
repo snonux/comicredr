@@ -1012,6 +1012,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         _saveSetting(SettingsStore.cleanUp, on);
       case ReaderIntent.panDown:
       case ReaderIntent.panUp:
+      case ReaderIntent.scrollFaster:
+      case ReaderIntent.scrollSlower:
       case ReaderIntent.fitWidth:
       case ReaderIntent.fitHeight:
       case ReaderIntent.fitPage:

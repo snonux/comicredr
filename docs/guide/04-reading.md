@@ -117,6 +117,21 @@ Say you zoom in on a dense golden-age page with `+` a few times. Hold
 bottom right a fresh press of `→` turns the page. With reduced motion
 turned on in your system settings, each press jumps straight there.
 
+#### How fast
+
+`g+` makes smooth scrolling a notch faster and `g-` a notch slower; the
+status line says which of the five speeds you are on, from **Slowest**
+to **Fastest**. A faster speed moves further with each press and glides
+there sooner, so a held key covers the page quicker too: at **Fastest** a
+press goes about a quarter of the screen, at **Slowest** about a
+twelfth. The speed is kept for every comic and across restarts, and
+[Settings](12-settings.md) has the same choice as a slider under
+**Pages**.
+
+For example, on a phone-sized window where a press feels too timid,
+press `g+` twice; to read a dense page line by line, `g-` once or
+twice.
+
 To enlarge just part of a page, see [Parts of a page](#parts-of-a-page).
 
 ## Parts of a page

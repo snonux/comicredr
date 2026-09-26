@@ -19,6 +19,7 @@ cd "$(dirname "$0")/.."
 out=build/e2e-smooth
 rm -rf "$out" && mkdir -p "$out/home" "$out/books"
 [[ -x build/linux/x64/release/bundle/comicredr ]] || flutter build linux --release
+cc -o "$out/close_window" tool/close_window.c -lX11
 
 python3 - "$out/books" <<'EOF2'
 import io, random, sys, zipfile
@@ -50,14 +51,24 @@ xset r on 2>/dev/null || true
 # The glide is about looks, not panels: classic CV keeps detection cheap.
 export COMICREDR_MODEL="${COMICREDR_MODEL:-none}"
 
-HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$book" >"$out/app.log" 2>&1 &
-app=$!
-sleep 6
-win=$(xdotool search --name ComicRedr | tail -1)
-xdotool windowmove "$win" 0 0 windowsize --sync "$win" 1280 800 windowactivate --sync "$win" 2>/dev/null || true
-xdotool mousemove 640 400 click 1 2>/dev/null || true
-xdotool mousemove 5 700 2>/dev/null || true
-sleep 2
+start() {
+  HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$book" >>"$out/app.log" 2>&1 &
+  app=$!
+  sleep 6
+  win=$(xdotool search --name ComicRedr | tail -1)
+  xdotool windowmove "$win" 0 0 windowsize --sync "$win" 1280 800 windowactivate --sync "$win" 2>/dev/null || true
+  xdotool mousemove 640 400 click 1 2>/dev/null || true
+  xdotool mousemove 5 700 2>/dev/null || true
+  sleep 2
+}
+stop() {
+  "$out/close_window" "$win"
+  for _ in $(seq 1 20); do kill -0 "$app" 2>/dev/null || { app=; return 0; }; sleep 0.25; done
+  kill "$app"
+  app=
+}
+q() { sqlite3 "$out/home/.local/share/org.snonux.comicredr/comicredr.sqlite" "$1"; }
+start
 
 failed=0
 fail() { echo "  FAIL: $*"; failed=1; }
@@ -175,6 +186,41 @@ key Right; sleep 1
 record narrow 0.3 true
 [[ "$(tail -1 "$out/narrow.txt" | awk '{print $3}')" == green ]] && ok "Right on a page that fits sideways: page 2" \
   || fail "Right on a page that fits sideways did not turn"
+
+echo "== g+ twice: the fastest speed, longer steps, kept across a restart"
+key equal; key plus plus plus
+record normal_again 1.2 xdotool key Down
+normal=$(tail -1 "$out/normal_again.txt" | awk '{print ($2 < 0 ? -$2 : $2)}')
+key g plus g plus; sleep 1
+record fastest 1.2 xdotool key Down
+if check_glide fastest 2 "$((normal * 16 / 10))" "$((normal * 2))"; then ok "fastest: a press goes about 1.8 times as far, still gliding"
+else fail "g+ did not lengthen the step (normal $normal px)"; fi
+[[ "$(q "select value from settings where key = 'reader.scrollSpeed'")" == '"fastest"' ]] && ok "saved as fastest" \
+  || fail "the speed was not saved"
+stop
+start
+key plus plus plus
+record restarted 1.2 xdotool key Down
+if check_glide restarted 2 "$((normal * 16 / 10))" "$((normal * 2))"; then ok "after a restart, still the fastest"
+else fail "the speed was lost across the restart"; fi
+key g minus g minus g minus g minus g minus; sleep 1
+record slowest 1.5 xdotool key Down
+if check_glide slowest 2 "$((normal * 4 / 10))" "$((normal * 7 / 10))"; then ok "g- to the slowest: a press goes about half as far"
+else fail "g- did not shorten the step"; fi
+
+echo "== Settings shows the speed as a slider"
+key Escape; key Escape; sleep 1
+# The empty library's Settings button (this HOME has no library folder).
+xdotool mousemove 824 413 click 1 2>/dev/null; sleep 2
+import -window root -crop 1280x800+0+0 +repage "$out/settings.png"
+# The slider's middle notch, Normal (the dialog sits in the same place in
+# a 1280 x 800 window).
+xdotool mousemove 640 292 click 1 2>/dev/null; sleep 1
+import -window root -crop 1280x800+0+0 +repage "$out/settings_normal.png"
+[[ "$(q "select value from settings where key = 'reader.scrollSpeed'")" == '"normal"' ]] \
+  && ok "the Settings slider set it back to normal" || fail "the Settings slider did not save"
+xdotool mousemove 5 700 2>/dev/null
+key Escape
 
 if grep -iE "exception|error" "$out/app.log" | grep -vE "libEGL|Atk-CRITICAL|GLib-GIO|dbus|Gdk-WARNING" >/dev/null; then
   fail "the app logged errors (see $out/app.log)"

@@ -26,6 +26,10 @@ panDown = ["j", "Down"]
 panUp = ["k", "Up"]
 # Moves a zoomed page right (smoothly), else the next step, as l
 scrollRight = ["Right"]
+# Smooth scrolling faster: longer steps, quicker glide; kept
+scrollFaster = ["g+"]
+# Smooth scrolling slower: shorter steps, gentler glide; kept
+scrollSlower = ["g-"]
 # Moves a zoomed page left (smoothly), else the previous step, as h
 scrollLeft = ["Left"]
 # A screen down in the page grid (continuous scroll is not built yet)

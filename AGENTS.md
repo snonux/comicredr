@@ -17,8 +17,7 @@ it in step when the architecture or the model changes.
   contents page `docs/guide/README.md`. A changed feature has its text,
   keys and pictures corrected where they are; a removed one is taken out,
   contents line included. Retake the pictures that no longer match with
-  `tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
-tool/guide_shots.sh [section...]` from the release build (WebP stills,
+  `tool/guide_shots.sh [section...]` from the release build (WebP stills,
   small GIFs); if that can't be done in the container, say so in the PR.
   The guide is `docs/guide/`: a contents page and one chapter a file,
   written for people, starting with installing.
@@ -365,7 +364,11 @@ refreshes right away instead of within six hours.
   shown pages' edges (`_onPages`), not the letterbox a drag can reach, and
   don't move along a side the pages fit. Anything else setting the
   transform (a drag, a page turn, the camera) ends the glide. Reduced
-  motion jumps. Tiles still wait for 150 ms of stillness.
+  motion jumps. Tiles still wait for 150 ms of stillness. The step and
+  time constant come from `ScrollSpeed` (`scroll_speed.dart`, five
+  notches, normal 15% and 70 ms), picked in Settings or with `g+` `g-`
+  (`scrollFaster`/`scrollSlower`, handled in app.dart) and saved as
+  `reader.scrollSpeed`.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.

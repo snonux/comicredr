@@ -47,6 +47,7 @@ come back here for a key you forgot.
    - [Two pages side by side](04-reading.md#two-pages-side-by-side)
    - [Zoom](04-reading.md#zoom)
      - [Smooth scrolling](04-reading.md#smooth-scrolling)
+       - [How fast](04-reading.md#how-fast)
    - [Parts of a page](04-reading.md#parts-of-a-page)
    - [Turn the comic](04-reading.md#turn-the-comic)
    - [Old scans: clean-up, trim and the night filter](04-reading.md#old-scans-clean-up-trim-and-the-night-filter)

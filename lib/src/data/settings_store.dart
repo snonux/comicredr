@@ -48,6 +48,9 @@ class SettingsStore {
   /// so starts no longer add it back.
   static const defaultFolderRemoved = 'library.defaultFolderRemoved';
 
+  /// How fast the arrow keys glide a zoomed page (a ScrollSpeed name).
+  static const scrollSpeed = 'reader.scrollSpeed';
+
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
 
@@ -73,6 +76,7 @@ class SettingsStore {
     gridZoom: false,
     shuffle: true,
     touchPreset: false,
+    scrollSpeed: false,
   };
 
   /// Settings about this device's own storage: where its sidecars go and
