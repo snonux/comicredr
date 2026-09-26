@@ -19,19 +19,24 @@ it in step when the architecture or the model changes.
   `package:lints` with strict casts, inference and raw types, the app the
   same over `flutter_lints`; `make analyze` also fails on unformatted
   Dart. Code is written to 120 columns.
-- The README is short and written for a human (snonux, 2026-09-26): an
-  intro with a few highlights, the screenshots, the install steps and a
-  quick start that points to the in-app `?` help. Every feature, with
-  examples and screenshots, belongs in the usage guide (`docs/guide/`),
-  which the README links to; no long feature list in the README.
-  Internals go here, and training in `docs/training.md`. The `?` overlay
-  and `docs/keys.toml` are generated from the keymap and are the key
-  reference.
+- The README is as lean as it can be (snonux, 2026-09-26): an intro, a
+  link to the usage guide near the top, a few highlights, the
+  screenshots, a five-step quick start that ends with a link to carry on
+  in the guide, and the links to ARCHITECTURE.md, training.md, this file
+  and the changelog at the bottom. Nothing else: touch, data, CBR and the
+  like are guide chapters. Install steps live in `docs/install-linux.md`
+  and `docs/install-android.md` (F-Droid first, via snonux's repo
+  github.com/snonux/fdroid, then building the APK); the README's quick
+  start and the guide's Installing chapter only point to them. Installing and every feature, with examples and screenshots,
+  belong in the guide. Internals go here, and training in
+  `docs/training.md`. The `?` overlay and `docs/keys.toml` are generated
+  from the keymap and are the key reference.
 - The usage guide is `docs/guide/`: a contents page (`README.md`) and one
-  chapter a file, written for people. A feature that changes what a user
-  sees or types gets its chapter updated in the same PR, and new section
-  headings go in the contents. Its pictures are made by
-  `tool/guide_shots.sh` from the release build (WebP stills, small GIFs).
+  chapter a file, written for people, starting with installing. A
+  feature that changes what a user sees or types gets its chapter updated
+  in the same PR, and new section headings go in the contents. Its
+  pictures are made by `tool/guide_shots.sh` from the release build (WebP
+  stills, small GIFs).
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
@@ -42,10 +47,39 @@ it in step when the architecture or the model changes.
   root (`packages/reader_input/test/keys_toml_test.dart` fails otherwise).
 - Version bumps touch `pubspec.yaml`, `lib/src/version.dart` and
   `CHANGELOG.md` together (`test/version_test.dart` checks the first two).
-- The app points users at README sections by name: "The CBR files you
-  already have" (`lib/src/reader/open_book.dart`) and "The trained
-  detector" (`lib/src/library/settings_dialog.dart`). Keep those headings
-  or update the strings.
+- The app points users at sections of the guide's Installing chapter
+  (`docs/guide/01-installing.md`) by name: "The CBR files you already
+  have" (`lib/src/reader/open_book.dart`) and "The panel detector"
+  (`lib/src/library/settings_dialog.dart`). Keep those headings or update
+  the strings.
+
+## Releases
+
+A release is a `vX.Y.Z` tag on a commit whose `pubspec.yaml` says
+`version: X.Y.Z+N`, with `N` one more than the last release:
+
+1. Bump `version:` in `pubspec.yaml` and move the `Unreleased` notes in
+   `CHANGELOG.md` under the new version.
+2. Write `fastlane/metadata/android/en-US/changelogs/N.txt`, a few lines
+   (at most 500 characters) that F-Droid shows as *What's new*.
+3. Commit, `git tag vX.Y.Z`, `git push && git push --tags`.
+
+The tag starts `.github/workflows/release.yml`, which builds the arm64 APK with
+the release key and attaches it to the GitHub release of the tag. The
+[F-Droid repository](https://github.com/snonux/fdroid) picks it up with the
+store listing in `fastlane/` at that tag. The workflow needs these
+repository secrets, taken from `android/key.properties`:
+
+```sh
+base64 -w0 ~/.config/comicredr/release.jks | gh secret set ANDROID_KEYSTORE
+gh secret set ANDROID_KEY_ALIAS          # comicredr
+gh secret set ANDROID_KEYSTORE_PASSWORD  # storePassword
+gh secret set ANDROID_KEY_PASSWORD       # keyPassword
+```
+
+With an optional `FDROID_DISPATCH_TOKEN` (a fine-grained token with
+*Contents: read and write* on snonux/fdroid) the F-Droid repository
+refreshes right away instead of within six hours.
 
 ## Cloud container setup
 
@@ -135,6 +169,11 @@ it in step when the architecture or the model changes.
 - The library's first scan reads each book once in the background (about a
   third of a second a book); later starts only compare sizes and dates. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
+  Symlinked comics and folders are followed (`findBooks`, the watcher,
+  `FolderDocument`, `isFolderBook`), each real folder once (`firstVisit`
+  in comic_formats), so a link back up the tree ends the walk; a dangling
+  link is skipped. A linked book's sidecar goes beside the link, and
+  deleting it removes the link only (`removePath`).
 - Panels are detected in the background, starting at the current page,
   and cached in the app database and the book's sidecar. A confidence gate
   shows the page whole when the panels don't look like a real layout; the
@@ -341,6 +380,13 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 
 ## Develop and test
 
+`flutter test` runs every test file under an empty scratch home
+(`test/flutter_test_config.dart`, `debugUseHome` in `data_dirs.dart`):
+widget tests run the real start-up, and with the real HOME they scanned
+the developer's `~/Comics`, made a `~/Comics/.comicredr` and wrote test
+positions into its sidecars. Code that reads HOME or the XDG variables
+goes through `appEnvironment`, not `Platform.environment`.
+
 The e2e scripts use the detector built into the release build (and pass
 its file where they need one); `COMICREDR_MODEL=file.onnx` tries another,
 `COMICREDR_MODEL=none` forces classic CV.
@@ -392,6 +438,7 @@ tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
+tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 

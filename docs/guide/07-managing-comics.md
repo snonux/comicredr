@@ -1,6 +1,6 @@
-# 6. Managing your comics
+# 7. Managing your comics
 
-[Contents](README.md) · Previous: [Bookmarks and marks](05-bookmarks.md) · Next: [Touch](07-touch.md)
+[Contents](README.md) · Previous: [Bookmarks and marks](06-bookmarks.md) · Next: [Touch](08-touch.md)
 
 This chapter covers everything you can do *to* a comic rather than with
 it: look at its details, fix its title, start it afresh, or delete it.
@@ -11,7 +11,7 @@ Press `I` in a comic, or on a selected cover in the library, for
 everything ComicRedr knows about it:
 
 - **File**: where it is, its format and size, and where its
-  [sidecar](10-your-data.md) is.
+  [sidecar](11-your-data.md) is.
 - **Pages**: how many, their size in pixels, how the images are stored,
   their JPEG quality, and a plain verdict on how sharp the scans will look
   on your screen ("Plenty of pixels", "A little soft on this screen"). For
@@ -41,7 +41,7 @@ volume, year, title, writers, artists and summary.
 ![Editing a comic's details](images/edit.webp)
 
 - The comic file itself is never changed. Your edits are kept in its
-  [sidecar](10-your-data.md), so they travel with it.
+  [sidecar](11-your-data.md), so they travel with it.
 - A field you changed has an undo button that puts back what the comic
   says.
 - To rename a whole series, select the series on the Series tab and press
@@ -70,7 +70,9 @@ comic** in its details) deletes it, after asking.
 - **Cancel** is selected, so a stray `Enter` or `Esc` deletes nothing.
 - The comic and its sidecar are deleted for good. They do **not** go to
   the trash, so they can't be restored.
+- A comic that is a symlink loses only the link (the button says
+  **Delete the link**); the comic it points to stays where it is.
 - If you were reading it, you are back in the library with the next cover
   selected.
 
-[Contents](README.md) · Previous: [Bookmarks and marks](05-bookmarks.md) · Next: [Touch](07-touch.md)
+[Contents](README.md) · Previous: [Bookmarks and marks](06-bookmarks.md) · Next: [Touch](08-touch.md)

@@ -5,6 +5,28 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## 0.2.1
+
+Android fixes.
+
+- **Open a comic (`o`) opens the file where it is:** the system picker
+  now hands back the file's real path instead of a copy in the app's
+  cache, so big PDFs no longer run it out of memory, and the position,
+  sidecar and Delete apply to the real comic. Open a folder (`O`) works
+  for SD cards too.
+- **Android 7 to 10:** the app asks for storage access, so the library
+  is no longer empty there.
+- **System bars:** the reader's status line and progress bar stay clear
+  of the navigation bar (Android 15 and after leaving fullscreen), and
+  back leaves fullscreen first.
+- **Phone layout:** the status text gets its own line above the buttons,
+  Settings labels and the Collections tab ("Groups") no longer break
+  mid-word, and a hardware keyboard no longer draws a green frame round
+  the app.
+- **Smaller APK:** only the ABIs built for are packed (the arm64 APK is
+  about 10 MB smaller), so a 32-bit phone is no longer offered one that
+  crashes.
+
 ## 0.2.0
 
 - **The panel detector is built in and open:** a new D-FINE-S model,

@@ -1,0 +1,5 @@
+* Open a comic opens the file itself, not a copy; big PDFs and SD cards work.
+* Android 7 to 10 ask for storage access, so the library fills.
+* The reader stays clear of the navigation bar; back leaves fullscreen first.
+* Phone layout: the status text gets its own line, labels no longer break mid-word, no green frame with a keyboard.
+* A smaller APK.

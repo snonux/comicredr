@@ -85,7 +85,7 @@ Future<OpenBook> openBook(String path) async {
     case BookKind.rar:
       throw const OpenBookException(
         'This is a RAR archive. ComicRedr reads CBZ, so convert it once with '
-        'unar and zip (see "The CBR files you already have" in the README).',
+        'unar and zip (see "The CBR files you already have" in the guide).',
       );
     case BookKind.unknown:
       throw OpenBookException('Not a comic book: ${p.basename(path)}');
@@ -122,7 +122,7 @@ Future<String?> siblingBook(String path, {required bool next}) async {
   final dir = Directory(p.dirname(path));
   final images = isSingleImageName(p.basename(path)) || !isFolderBook(dir.path);
   final books = <String>[];
-  await for (final e in dir.list(followLinks: false)) {
+  await for (final e in dir.list(followLinks: true)) {
     final name = p.basename(e.path);
     if (name.startsWith('.')) continue;
     if (e is File && (isComicFileName(name) || (images && isSingleImageName(name)))) books.add(p.normalize(e.path));
