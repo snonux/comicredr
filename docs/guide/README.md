@@ -55,7 +55,7 @@ come back here for a key you forgot.
    - [Panel by panel](05-guided-view.md#panel-by-panel)
    - [Balloon by balloon](05-guided-view.md#balloon-by-balloon)
    - [Pages shown whole](05-guided-view.md#pages-shown-whole) and
-     [the first press stays](05-guided-view.md#the-first-press-stays)
+     [a quick press stays](05-guided-view.md#a-quick-press-stays)
    - [How panels are found](05-guided-view.md#how-panels-are-found)
 6. [Bookmarks and marks](06-bookmarks.md)
    - [Set a bookmark](06-bookmarks.md#set-a-bookmark)

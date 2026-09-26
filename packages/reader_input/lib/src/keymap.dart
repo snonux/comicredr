@@ -62,7 +62,6 @@ class Keymap {
       Binding(['b'], ReaderIntent.toggleBalloons),
       Binding(['w'], ReaderIntent.toggleWholePage),
       Binding(['W'], ReaderIntent.togglePauseWhole),
-      Binding(['g', 'w'], ReaderIntent.cyclePauseCue),
       Binding(['Tab'], ReaderIntent.cycleModeForward, layer: s),
       Binding(['S-Tab'], ReaderIntent.cycleModeBack, layer: s),
       Binding(['d'], ReaderIntent.toggleSpread),

@@ -8,18 +8,14 @@ import 'layout.dart';
 import 'open_book.dart';
 import 'region.dart';
 
-/// How guided view shows that it holds on a page shown whole.
-enum PauseCue {
-  /// The background around the page turns [heldColour] until it is left.
-  colour,
-
-  /// The page zooms out a little and back in.
-  zoom,
-}
-
-/// The background of a held page: a deep wine red, dim enough for a dark
-/// room yet plainly not black.
+/// The background of a page guided view shows whole
+/// ([ReaderState.onWholePage]): a deep wine red, dim enough for a dark room
+/// yet plainly not black.
 const heldColour = Color(0xFF3A0D16);
+
+/// How long after a page shown whole appears a step onward stays on it
+/// ([ReaderState.pauseWhole]); a step after that turns at once.
+const pauseWindow = Duration(seconds: 5);
 
 /// Everything about the open book that page navigation changes. Zoom and pan
 /// are view concerns and live in the reader screen instead.
@@ -34,7 +30,6 @@ class ReaderState {
     this.balloons = false,
     this.wholePageSteps = true,
     this.pauseWhole = true,
-    this.pauseCue = PauseCue.colour,
     this.held = false,
     this.cue = 0,
     this.coverAlone = true,
@@ -82,15 +77,13 @@ class ReaderState {
   /// default; `w` toggles it.
   final bool wholePageSteps;
 
-  /// On a page guided view shows whole, the first step onward stays on the
-  /// page and shows a cue ([pauseCue]); the next one turns. So a page
-  /// without usable panels is not skipped before it is looked at. A
-  /// setting, on by default; `W` toggles it.
+  /// On a page guided view shows whole, the background turns wine red on
+  /// arrival ([onWholePage]), and a step onward within [pauseWindow] of it
+  /// stays on the page and zooms out and back; the next one turns. A step
+  /// after that time turns at once. So a page without usable panels is not
+  /// skipped by a quick run of presses before it is looked at. A setting,
+  /// on by default; `W` toggles it.
   final bool pauseWhole;
-
-  /// How a held page shows it is held: the background turns wine red
-  /// until the page is left (the default), or the page zooms out and back.
-  final PauseCue pauseCue;
 
   /// Guided view is holding on this page: the next step leaves it.
   final bool held;
@@ -157,6 +150,11 @@ class ReaderState {
       : guided
       ? [page]
       : unitAt(page, pageCount, mode, coverAlone: coverAlone, wide: wide);
+
+  /// Guided view shows this page whole, with the pause on: its panels are
+  /// known and none passed the gate, and no part of it is enlarged. The
+  /// background is wine red for as long as it is.
+  bool get onWholePage => guided && pauseWhole && region == null && panels.containsKey(page) && stopsOn(page).isEmpty;
 
   /// Camera stops on [p] in reading order; empty when the page is shown
   /// whole, either because its panels are unknown or because the gate
@@ -232,7 +230,6 @@ class ReaderState {
     bool? balloons,
     bool? wholePageSteps,
     bool? pauseWhole,
-    PauseCue? pauseCue,
     bool? held,
     int? cue,
     bool? coverAlone,
@@ -262,7 +259,6 @@ class ReaderState {
     balloons: balloons ?? this.balloons,
     wholePageSteps: wholePageSteps ?? this.wholePageSteps,
     pauseWhole: pauseWhole ?? this.pauseWhole,
-    pauseCue: pauseCue ?? this.pauseCue,
     held: held ?? this.held,
     cue: cue ?? this.cue,
     coverAlone: coverAlone ?? this.coverAlone,

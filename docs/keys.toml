@@ -46,10 +46,8 @@ toggleGuided = ["v"]
 toggleBalloons = ["b"]
 # Whole page before and after its panels in guided view, on and off
 toggleWholePage = ["w"]
-# Hold one step on a page guided view shows whole before turning, on and off
+# Wine red on a page guided view shows whole, and a quick step held there, on and off
 togglePauseWhole = ["W"]
-# How a held page shows it: wine-red background or zoom out and back
-cyclePauseCue = ["gw"]
 # Cycle single, double, guided; next library tab
 cycleModeForward = ["Tab"]
 # Cycle modes backwards; previous library tab
