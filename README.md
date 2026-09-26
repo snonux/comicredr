@@ -134,7 +134,8 @@ keys as the laptop.
    through the speech balloons too. Pages the detector isn't sure about,
    such as a splash page, are shown whole.
 4. **Press `?` whenever you need a key.** It shows the full keymap, and `/`
-   searches it (`zoom`, `bookmark`, `night`).
+   searches it (`zoom`, `bookmark`, `night`). Everything else, with
+   pictures, is in [the guide](docs/guide/README.md).
 
 A single file opens without the library too: `comicredr book.cbz`,
 **Open With → ComicRedr** in Files, `o` in the app, or drag it onto the
@@ -220,6 +221,7 @@ A `.cbr` that is really a ZIP opens as it is.
 
 ## More
 
+- Every feature, with screenshots and short animations: [the ComicRedr guide](docs/guide/README.md)
 - What changed in each version: [CHANGELOG.md](CHANGELOG.md)
 - How it works inside, with diagrams and the detector model explained: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Training the panel detector: [docs/training.md](docs/training.md)
