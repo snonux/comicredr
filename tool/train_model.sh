@@ -34,12 +34,19 @@ if ! python3 -c "import cv2, numpy, PIL, pypdfium2, torch, transformers, onnx, o
 fi
 
 echo "== Fetching the training comics"
-# archive.org sometimes answers 500; a retry fetches only what is missing.
-for try in 1 2 3; do
-  python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train && break
-  [[ $try == 3 ]] && { echo "Some comics could not be fetched; run make train-model again later."; exit 1; }
-  echo "Retrying the ones that failed in 30 s"; sleep 30
-done
+# archive.org sometimes answers 500 for a while; a retry fetches only what
+# is missing, waiting longer each time (about 15 minutes in all).
+fetch() {
+  local wait=30
+  for try in 1 2 3 4 5; do
+    python3 spike/fetch_corpus.py --manifest "$1" --out "$2" && return 0
+    [[ $try == 5 ]] && break
+    echo "Retrying the ones that failed in $wait s"; sleep "$wait"; wait=$((wait * 2))
+  done
+  echo "Some comics could not be fetched; run make train-model again later: it keeps what it has."
+  exit 1
+}
+fetch test/train.manifest.toml test/corpus-train
 echo "== Extracting the labelled pages"
 python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 400 --manifest test/train.manifest.toml
 # Only the committed labels: a label left from an earlier set would train too.
@@ -48,11 +55,7 @@ python3 spike/labelkit.py import spike/labels/train spike/train_pages
 pages=(spike/train_pages)
 if [[ -n "$LOCAL" ]]; then
   echo "== LOCAL=1: the books only a model kept at home may learn from"
-  for try in 1 2 3; do
-    python3 spike/fetch_corpus.py --manifest test/train-local.manifest.toml --out test/corpus-train-local && break
-    [[ $try == 3 ]] && { echo "Some comics could not be fetched; run it again later."; exit 1; }
-    sleep 30
-  done
+  fetch test/train-local.manifest.toml test/corpus-train-local
   python3 spike/extract_pages.py test/corpus-train-local spike/train_pages_local --per-book 400 --manifest test/train-local.manifest.toml
   find spike/train_pages_local -name '*.json' ! -name '*.cand.json' -delete
   python3 spike/labelkit.py import spike/labels/train-local spike/train_pages_local
