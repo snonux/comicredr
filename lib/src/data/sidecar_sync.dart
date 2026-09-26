@@ -369,10 +369,16 @@ class SidecarSync {
     return _serial(() async {
       _dirty.remove(contentKey);
       if (_where[contentKey] case final w? when p.equals(w.path, path)) _where.remove(contentKey);
-      return [
-        for (final s in await sidecarsOf(path, folder: folder))
-          if (FileSystemEntity.typeSync(s) != FileSystemEntityType.notFound) s,
-      ];
+      bool there(String s) => FileSystemEntity.typeSync(s) != FileSystemEntityType.notFound;
+      final found = <String>[];
+      for (final s in await sidecarsOf(path, folder: folder)) {
+        if (there(s)) found.add(s);
+        // One still under its old visible name, never opened since: left
+        // behind, it would come back when the comic did.
+        final old = legacySidecarPath(s);
+        if (old != null && there(old) && readSidecar(old)?.contentKey == contentKey) found.add(old);
+      }
+      return found;
     });
   }
 
