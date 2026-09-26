@@ -11,6 +11,10 @@ install steps use Fedora's package names.
 
 ![Guided view stepping from panel to panel](images/guided.gif)
 
+GitHub shows the animations paused when your system asks for reduced
+motion (or its own setting, Accessibility → Autoplay animated images, is
+off): click one to play it.
+
 In the app, `?` lists every key and searches them, so you never have to
 come back here for a key you forgot.
 

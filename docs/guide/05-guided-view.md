@@ -9,6 +9,10 @@ but dimmed, so you never lose your place.
 
 ![Guided view: the page whole, then panel by panel](images/guided.gif)
 
+This chapter has six short animations. GitHub shows them paused when
+your system asks for reduced motion (or when its own setting,
+Accessibility → Autoplay animated images, is off): click one to play it.
+
 ## Panel by panel
 
 1. Open a comic and press `v` (or the guided view button on the status
