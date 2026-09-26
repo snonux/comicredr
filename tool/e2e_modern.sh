@@ -5,7 +5,7 @@
 # trained model, jumps to a page with slanted, inset or spread panels, and
 # steps through its panels with real key presses, one screenshot a step.
 #
-#   COMICREDR_MODEL=comicredr-panels.onnx tool/e2e_modern.sh
+#   tool/e2e_modern.sh   (COMICREDR_MODEL=file.onnx tries another model than the built-in one)
 #
 # E2E_SKIP_BUILD=1 reuses the release build already in build/.
 # Needs: Xvfb, xdotool, ImageMagick (import, montage).
