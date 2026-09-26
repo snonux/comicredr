@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/book_paths.dart';
+import '../data/s3_sync.dart';
 import '../reader/reader_notifier.dart';
 import 'library_items.dart';
 import 'library_panes.dart';
+import 'library_store.dart';
 import 'providers.dart';
 import 'shuffle.dart';
 
@@ -47,7 +49,11 @@ class CoverCard extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     this.shufflePage,
+    this.marked = false,
   });
+
+  /// Marked with the others for an action on several (`V`, Ctrl+click).
+  final bool marked;
 
   final LibraryItem item;
 
@@ -97,12 +103,14 @@ class CoverCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if ((shufflePage, book) case (final page?, final book?))
+                    if ((shufflePage, book) case (final page?, final book?) when !book.remoteOnly)
                       ShuffledPage(
                         book: book,
                         page: page,
                         cover: CoverImage(bookKey: book.key),
                       )
+                    else if (onlyBook?.remoteOnly ?? false)
+                      Opacity(opacity: 0.45, child: CoverImage(bookKey: book?.key))
                     else
                       CoverImage(bookKey: book?.key),
                     if (item is FolderItem)
@@ -144,6 +152,26 @@ class CoverCard extends StatelessWidget {
                       ),
                     if (onlyBook != null && onlyBook.finished)
                       const Positioned(right: 6, top: 6, child: Icon(Icons.check_circle, color: Colors.greenAccent)),
+                    if (onlyBook?.s3 != null) Positioned(right: 6, bottom: 8, child: S3Badge(book: onlyBook!)),
+                    if (marked)
+                      Positioned.fill(
+                        child: ColoredBox(
+                          color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: Icon(
+                                Icons.check_circle,
+                                key: const Key('markedTick'),
+                                size: 28,
+                                color: theme.colorScheme.primary,
+                                shadows: const [Shadow(blurRadius: 3)],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (onlyBook != null && onlyBook.inProgress)
                       Positioned(
                         left: 0,
@@ -165,6 +193,56 @@ class CoverCard extends StatelessWidget {
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The cloud in a cover's corner (design plan section 13): on S3 and in
+/// step, something still to go up, the bucket out of reach, or on S3 only.
+/// While the comic goes up or down, how far it got.
+class S3Badge extends ConsumerWidget {
+  const S3Badge({super.key, required this.book});
+
+  final LibraryBook book;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(s3StatusProvider).value ?? const S3Status();
+    final shelf = book.s3;
+    if (shelf == null) return const SizedBox.shrink();
+    final out = status.reach == S3Reach.unreachable && shelf.mark != S3Mark.remote;
+    final (icon, tip, name) = switch (shelf.mark) {
+      _ when out => (Icons.cloud_off, 'On S3; the bucket is out of reach, saved here', 's3Unreachable'),
+      S3Mark.synced => (Icons.cloud_done, 'On S3', 's3Synced'),
+      S3Mark.waiting => (Icons.cloud_upload, 'On S3; changes waiting to go up', 's3Waiting'),
+      S3Mark.remote => (Icons.cloud_download, 'On S3 only; not downloaded', 's3Remote'),
+    };
+    final theme = Theme.of(context);
+    final done = status.transfers[book.key];
+    return Tooltip(
+      message: tip,
+      child: Container(
+        key: Key(name),
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: out ? theme.colorScheme.errorContainer : theme.colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: out ? theme.colorScheme.onErrorContainer : theme.colorScheme.onSecondaryContainer,
+            ),
+            if (done != null) ...[
+              const SizedBox(width: 4),
+              SizedBox(width: 14, height: 14, child: CircularProgressIndicator(value: done, strokeWidth: 2)),
+            ],
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,6 @@
 # 12. Settings
 
-[Contents](README.md) · Previous: [Your data](11-your-data.md) · Next: [Credits](README.md#credits)
+[Contents](README.md) · Previous: [Your data](11-your-data.md) · Next: [Syncing through S3](13-s3-sync.md)
 
 Open Settings with the gear button at the top of the library. Most
 settings can also be switched while reading, with the key named in
@@ -22,6 +22,7 @@ brackets.
 | **Touch** | **Standard**, **Left-handed** or **One thumb**. See [the tap zones](08-touch.md#the-tap-zones). |
 | **Back up → Export settings…** / **Import settings…** | Every setting, your library folders, `keys.toml`, positions, bookmarks, collections, edits and reading history in one file, and back. See [back up and restore](11-your-data.md#back-up-and-restore-your-settings). |
 | **Reading history → Clear reading history** | Empties the [History tab](03-library.md#history). Positions, bookmarks and collections stay. |
+| **S3 sync → Set up S3 sync…** | Your own S3 bucket, to carry comics and their sidecars between devices. See [syncing through S3](13-s3-sync.md). |
 
 The bottom of the dialog shows ComicRedr's version.
 
@@ -31,4 +32,4 @@ setting: [fullscreen](04-reading.md#fullscreen), the page grid's size,
 [two pages](04-reading.md#two-pages-side-by-side), the reading direction
 and [the turn](04-reading.md#turn-the-comic).
 
-[Contents](README.md) · Previous: [Your data](11-your-data.md) · Next: [Credits](README.md#credits)
+[Contents](README.md) · Previous: [Your data](11-your-data.md) · Next: [Syncing through S3](13-s3-sync.md)

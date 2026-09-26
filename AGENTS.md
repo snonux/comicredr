@@ -92,7 +92,7 @@ refreshes right away instead of within six hours.
 ## Cloud container setup
 
 - The Linux e2e scripts need
-  `apt-get install libgtk-3-dev xvfb xdotool imagemagick sqlite3 openbox
+  `apt-get install libgtk-3-dev libsecret-1-dev xvfb xdotool imagemagick sqlite3 openbox
   x11-utils desktop-file-utils wmctrl` first (xprop for e2e_fullscreen,
   update-desktop-database for e2e_images); most also use Python with
   Pillow, e2e_margins OpenCV (`pip install opencv-python-headless`), and
@@ -449,6 +449,49 @@ refreshes right away instead of within six hours.
   file_selector's save and open dialogs; Android `MainActivity`'s
   `pickFolder` (a new `comicredr-settings-DATE.json` in it, never
   overwriting) and `pickFile`, both real paths under All files access.
+- S3 sync (design plan section 13): `packages/comic_sync` holds
+  `RemoteStore`, `S3Store` (the `minio` package, path-style, region
+  `garage` by default, 3 s connect timeout, `https_proxy` honoured),
+  `checkConnection` and the shelf (`BookObjects`: `<prefix>books/<content
+  key>/{manifest.json, comic.<ext> or files/…, cover.jpg, sidecar.crdb}`,
+  the manifest written last and deleted first; `Manifest`; `listShelf`;
+  `compareSidecars`). Settings → S3 sync (`s3_settings_dialog.dart`)
+  saves `s3.endpoint`, `s3.region`, `s3.bucket`, `s3.prefix` and
+  `s3.accessKey` as settings (exported, and `perInstall`, so a file
+  without them leaves them); the secret key goes through `SecretStore`
+  (`lib/src/data/secret_store.dart`): flutter_secure_storage (libsecret
+  on Linux, so building needs `libsecret-1-dev` / `libsecret-devel`),
+  and when the keyring does not answer within 3 s, a mode 0600
+  `s3-secret` file beside keys.toml (`~/.config/comicredr/`), which is
+  what Xvfb e2e runs use. `S3Settings.config()` reads the keyring only
+  once the other settings are there. `S3Sync` (`lib/src/data/s3_sync.dart`,
+  `s3SyncProvider`) works off the `s3_books` table (schema 11): a row per
+  comic on the shelf, its manifest, `pending` (upload, sidecar, remove,
+  sent oldest first by `drain`) and the bucket sidecar's `written_at`.
+  `SidecarSync.onWritten` marks a synced comic's sidecar to go up after
+  `pushDelay` (10 s); closing a book, pause and exit `flush`. Opening one
+  runs `pullOnOpen` (2 s) before `attach`; a newer bucket sidecar replaces
+  the local file and is imported whole (`attach(whole: true)`, no merge).
+  The shelf is listed at start, resume, `R`, after a settings change and
+  every 5 minutes; a comic without a local file is a `LibraryBook` with
+  `s3.mark == S3Mark.remote` at the path a download would use (under the
+  first library folder), which opens its page with Download instead of
+  the reader. Downloads check the content key. Unreachable: one notice,
+  retry from 30 s doubling to 5 min, "S3 is back; N comics caught up".
+  Keys `gu`, `gU`, `V` (marks, `_marked` in `LibraryScreenState`, with a
+  bar over the grid; Ctrl+click; Select on a phone-wide header). Delete
+  of a comic on S3 offers Delete only here / Delete here and from S3
+  (`DeleteChoice`). Tests override `secretStoreProvider` and
+  `remoteStoreFactoryProvider`; `test/s3_sync_test.dart` runs two
+  devices over a `MemoryStore`. The S3 tests in `packages/comic_sync`
+  and the e2e run against `GARAGE_TEST_*` and are skipped without them;
+  `tool/garage_local.sh start` runs a one-node Garage (static binary
+  from garagehq.deuxfleurs.fr) and `eval "$(tool/garage_local.sh env)"`
+  points them at it; `stop` plays a switched-off home cluster.
+  `tool/e2e_s3_android.sh` needs the emulator (it reaches the host's
+  Garage at 10.0.2.2). Never commit or post real bucket credentials.
+  Android declares INTERNET and clear text (a home Garage is often plain
+  http).
 - `make install` puts the bundle in `~/.local/lib/comicredr`, a symlink in
   `~/.local/bin` and the launcher and icons in `~/.local/share`; it never
   runs Flutter, so `sudo make install PREFIX=/usr/local` is safe, and
@@ -464,6 +507,7 @@ lib/                      Flutter app: library, reader screen, page cache, keybo
 packages/comic_formats    ComicDocument, the CBZ, CBT, EPUB, PDF and folder adapters, the worker isolate, sniffing, sort
 packages/comic_analysis   Panel model, classic-CV detection, reading order, the confidence gate
 packages/reader_input     ReaderIntents, default keymap, vi key-sequence resolver
+packages/comic_sync       S3 sync: RemoteStore, the S3 client, the connection check, the bucket layout
 spike/                    M1 throwaway: classic-CV panel detection and overlays
 test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus/
 ```
@@ -532,6 +576,8 @@ tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
 tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
+tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
+tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```

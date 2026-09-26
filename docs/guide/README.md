@@ -89,6 +89,18 @@ come back here for a key you forgot.
     - [The app's own folder](11-your-data.md#the-apps-own-folder)
     - [Back up and restore your settings](11-your-data.md#back-up-and-restore-your-settings)
 12. [Settings](12-settings.md)
+13. [Syncing through S3](13-s3-sync.md)
+    - [Setting it up](13-s3-sync.md#setting-it-up)
+    - [Uploading comics](13-s3-sync.md#uploading-comics)
+    - [The cloud on a cover](13-s3-sync.md#the-cloud-on-a-cover)
+    - [On the other device](13-s3-sync.md#on-the-other-device)
+    - [Carrying on where you left off](13-s3-sync.md#carrying-on-where-you-left-off)
+    - [When the server is off](13-s3-sync.md#when-the-server-is-off)
+    - [Taking a comic off S3](13-s3-sync.md#taking-a-comic-off-s3)
+    - [Keys](13-s3-sync.md#keys)
+    - [The secret key](13-s3-sync.md#the-secret-key)
+    - [Plain http](13-s3-sync.md#plain-http)
+    - [Turning it off](13-s3-sync.md#turning-it-off)
 
 How ComicRedr works inside is a different story, told in
 [the architecture document](../architecture.md).

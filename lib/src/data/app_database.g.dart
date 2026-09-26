@@ -4896,6 +4896,392 @@ class CollectionBooksCompanion extends UpdateCompanion<CollectionBook> {
   }
 }
 
+class $S3BooksTable extends S3Books with TableInfo<$S3BooksTable, S3Book> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $S3BooksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _contentKeyMeta = const VerificationMeta(
+    'contentKey',
+  );
+  @override
+  late final GeneratedColumn<String> contentKey = GeneratedColumn<String>(
+    'content_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _manifestMeta = const VerificationMeta(
+    'manifest',
+  );
+  @override
+  late final GeneratedColumn<String> manifest = GeneratedColumn<String>(
+    'manifest',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pendingMeta = const VerificationMeta(
+    'pending',
+  );
+  @override
+  late final GeneratedColumn<String> pending = GeneratedColumn<String>(
+    'pending',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _pendingSinceMeta = const VerificationMeta(
+    'pendingSince',
+  );
+  @override
+  late final GeneratedColumn<DateTime> pendingSince = GeneratedColumn<DateTime>(
+    'pending_since',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _sidecarAtMeta = const VerificationMeta(
+    'sidecarAt',
+  );
+  @override
+  late final GeneratedColumn<int> sidecarAt = GeneratedColumn<int>(
+    'sidecar_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    contentKey,
+    manifest,
+    pending,
+    pendingSince,
+    sidecarAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 's3_books';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<S3Book> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('content_key')) {
+      context.handle(
+        _contentKeyMeta,
+        contentKey.isAcceptableOrUnknown(data['content_key']!, _contentKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentKeyMeta);
+    }
+    if (data.containsKey('manifest')) {
+      context.handle(
+        _manifestMeta,
+        manifest.isAcceptableOrUnknown(data['manifest']!, _manifestMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_manifestMeta);
+    }
+    if (data.containsKey('pending')) {
+      context.handle(
+        _pendingMeta,
+        pending.isAcceptableOrUnknown(data['pending']!, _pendingMeta),
+      );
+    }
+    if (data.containsKey('pending_since')) {
+      context.handle(
+        _pendingSinceMeta,
+        pendingSince.isAcceptableOrUnknown(
+          data['pending_since']!,
+          _pendingSinceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sidecar_at')) {
+      context.handle(
+        _sidecarAtMeta,
+        sidecarAt.isAcceptableOrUnknown(data['sidecar_at']!, _sidecarAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {contentKey};
+  @override
+  S3Book map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return S3Book(
+      contentKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_key'],
+      )!,
+      manifest: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manifest'],
+      )!,
+      pending: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}pending'],
+      ),
+      pendingSince: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}pending_since'],
+      ),
+      sidecarAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sidecar_at'],
+      ),
+    );
+  }
+
+  @override
+  $S3BooksTable createAlias(String alias) {
+    return $S3BooksTable(attachedDatabase, alias);
+  }
+}
+
+class S3Book extends DataClass implements Insertable<S3Book> {
+  final String contentKey;
+
+  /// The comic's manifest.json, as uploaded.
+  final String manifest;
+
+  /// What still has to reach the bucket: upload, sidecar or remove; null
+  /// when it is in step.
+  final String? pending;
+
+  /// When a change first started waiting, to send the oldest first.
+  final DateTime? pendingSince;
+
+  /// The written_at of the bucket's sidecar as last sent or fetched.
+  final int? sidecarAt;
+  const S3Book({
+    required this.contentKey,
+    required this.manifest,
+    this.pending,
+    this.pendingSince,
+    this.sidecarAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['content_key'] = Variable<String>(contentKey);
+    map['manifest'] = Variable<String>(manifest);
+    if (!nullToAbsent || pending != null) {
+      map['pending'] = Variable<String>(pending);
+    }
+    if (!nullToAbsent || pendingSince != null) {
+      map['pending_since'] = Variable<DateTime>(pendingSince);
+    }
+    if (!nullToAbsent || sidecarAt != null) {
+      map['sidecar_at'] = Variable<int>(sidecarAt);
+    }
+    return map;
+  }
+
+  S3BooksCompanion toCompanion(bool nullToAbsent) {
+    return S3BooksCompanion(
+      contentKey: Value(contentKey),
+      manifest: Value(manifest),
+      pending: pending == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pending),
+      pendingSince: pendingSince == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pendingSince),
+      sidecarAt: sidecarAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sidecarAt),
+    );
+  }
+
+  factory S3Book.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return S3Book(
+      contentKey: serializer.fromJson<String>(json['contentKey']),
+      manifest: serializer.fromJson<String>(json['manifest']),
+      pending: serializer.fromJson<String?>(json['pending']),
+      pendingSince: serializer.fromJson<DateTime?>(json['pendingSince']),
+      sidecarAt: serializer.fromJson<int?>(json['sidecarAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'contentKey': serializer.toJson<String>(contentKey),
+      'manifest': serializer.toJson<String>(manifest),
+      'pending': serializer.toJson<String?>(pending),
+      'pendingSince': serializer.toJson<DateTime?>(pendingSince),
+      'sidecarAt': serializer.toJson<int?>(sidecarAt),
+    };
+  }
+
+  S3Book copyWith({
+    String? contentKey,
+    String? manifest,
+    Value<String?> pending = const Value.absent(),
+    Value<DateTime?> pendingSince = const Value.absent(),
+    Value<int?> sidecarAt = const Value.absent(),
+  }) => S3Book(
+    contentKey: contentKey ?? this.contentKey,
+    manifest: manifest ?? this.manifest,
+    pending: pending.present ? pending.value : this.pending,
+    pendingSince: pendingSince.present ? pendingSince.value : this.pendingSince,
+    sidecarAt: sidecarAt.present ? sidecarAt.value : this.sidecarAt,
+  );
+  S3Book copyWithCompanion(S3BooksCompanion data) {
+    return S3Book(
+      contentKey: data.contentKey.present
+          ? data.contentKey.value
+          : this.contentKey,
+      manifest: data.manifest.present ? data.manifest.value : this.manifest,
+      pending: data.pending.present ? data.pending.value : this.pending,
+      pendingSince: data.pendingSince.present
+          ? data.pendingSince.value
+          : this.pendingSince,
+      sidecarAt: data.sidecarAt.present ? data.sidecarAt.value : this.sidecarAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('S3Book(')
+          ..write('contentKey: $contentKey, ')
+          ..write('manifest: $manifest, ')
+          ..write('pending: $pending, ')
+          ..write('pendingSince: $pendingSince, ')
+          ..write('sidecarAt: $sidecarAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(contentKey, manifest, pending, pendingSince, sidecarAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is S3Book &&
+          other.contentKey == this.contentKey &&
+          other.manifest == this.manifest &&
+          other.pending == this.pending &&
+          other.pendingSince == this.pendingSince &&
+          other.sidecarAt == this.sidecarAt);
+}
+
+class S3BooksCompanion extends UpdateCompanion<S3Book> {
+  final Value<String> contentKey;
+  final Value<String> manifest;
+  final Value<String?> pending;
+  final Value<DateTime?> pendingSince;
+  final Value<int?> sidecarAt;
+  final Value<int> rowid;
+  const S3BooksCompanion({
+    this.contentKey = const Value.absent(),
+    this.manifest = const Value.absent(),
+    this.pending = const Value.absent(),
+    this.pendingSince = const Value.absent(),
+    this.sidecarAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  S3BooksCompanion.insert({
+    required String contentKey,
+    required String manifest,
+    this.pending = const Value.absent(),
+    this.pendingSince = const Value.absent(),
+    this.sidecarAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : contentKey = Value(contentKey),
+       manifest = Value(manifest);
+  static Insertable<S3Book> custom({
+    Expression<String>? contentKey,
+    Expression<String>? manifest,
+    Expression<String>? pending,
+    Expression<DateTime>? pendingSince,
+    Expression<int>? sidecarAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (contentKey != null) 'content_key': contentKey,
+      if (manifest != null) 'manifest': manifest,
+      if (pending != null) 'pending': pending,
+      if (pendingSince != null) 'pending_since': pendingSince,
+      if (sidecarAt != null) 'sidecar_at': sidecarAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  S3BooksCompanion copyWith({
+    Value<String>? contentKey,
+    Value<String>? manifest,
+    Value<String?>? pending,
+    Value<DateTime?>? pendingSince,
+    Value<int?>? sidecarAt,
+    Value<int>? rowid,
+  }) {
+    return S3BooksCompanion(
+      contentKey: contentKey ?? this.contentKey,
+      manifest: manifest ?? this.manifest,
+      pending: pending ?? this.pending,
+      pendingSince: pendingSince ?? this.pendingSince,
+      sidecarAt: sidecarAt ?? this.sidecarAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (contentKey.present) {
+      map['content_key'] = Variable<String>(contentKey.value);
+    }
+    if (manifest.present) {
+      map['manifest'] = Variable<String>(manifest.value);
+    }
+    if (pending.present) {
+      map['pending'] = Variable<String>(pending.value);
+    }
+    if (pendingSince.present) {
+      map['pending_since'] = Variable<DateTime>(pendingSince.value);
+    }
+    if (sidecarAt.present) {
+      map['sidecar_at'] = Variable<int>(sidecarAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('S3BooksCompanion(')
+          ..write('contentKey: $contentKey, ')
+          ..write('manifest: $manifest, ')
+          ..write('pending: $pending, ')
+          ..write('pendingSince: $pendingSince, ')
+          ..write('sidecarAt: $sidecarAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4913,6 +5299,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CollectionBooksTable collectionBooks = $CollectionBooksTable(
     this,
   );
+  late final $S3BooksTable s3Books = $S3BooksTable(this);
   late final Index filesContentKey = Index(
     'files_content_key',
     'CREATE INDEX files_content_key ON files (content_key)',
@@ -4934,6 +5321,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     readLog,
     settings,
     collectionBooks,
+    s3Books,
     filesContentKey,
   ];
 }
@@ -8005,6 +8393,211 @@ typedef $$CollectionBooksTableProcessedTableManager =
       CollectionBook,
       PrefetchHooks Function()
     >;
+typedef $$S3BooksTableCreateCompanionBuilder = S3BooksCompanion Function({
+  required String contentKey,
+  required String manifest,
+  Value<String?> pending,
+  Value<DateTime?> pendingSince,
+  Value<int?> sidecarAt,
+  Value<int> rowid,
+});
+typedef $$S3BooksTableUpdateCompanionBuilder = S3BooksCompanion Function({
+  Value<String> contentKey,
+  Value<String> manifest,
+  Value<String?> pending,
+  Value<DateTime?> pendingSince,
+  Value<int?> sidecarAt,
+  Value<int> rowid,
+});
+
+class $$S3BooksTableFilterComposer
+    extends Composer<_$AppDatabase, $S3BooksTable> {
+  $$S3BooksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manifest => $composableBuilder(
+    column: $table.manifest,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get pending => $composableBuilder(
+    column: $table.pending,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get pendingSince => $composableBuilder(
+    column: $table.pendingSince,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sidecarAt => $composableBuilder(
+    column: $table.sidecarAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$S3BooksTableOrderingComposer
+    extends Composer<_$AppDatabase, $S3BooksTable> {
+  $$S3BooksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manifest => $composableBuilder(
+    column: $table.manifest,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get pending => $composableBuilder(
+    column: $table.pending,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get pendingSince => $composableBuilder(
+    column: $table.pendingSince,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sidecarAt => $composableBuilder(
+    column: $table.sidecarAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$S3BooksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $S3BooksTable> {
+  $$S3BooksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get manifest =>
+      $composableBuilder(column: $table.manifest, builder: (column) => column);
+
+  GeneratedColumn<String> get pending =>
+      $composableBuilder(column: $table.pending, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get pendingSince => $composableBuilder(
+    column: $table.pendingSince,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get sidecarAt =>
+      $composableBuilder(column: $table.sidecarAt, builder: (column) => column);
+}
+
+class $$S3BooksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $S3BooksTable,
+          S3Book,
+          $$S3BooksTableFilterComposer,
+          $$S3BooksTableOrderingComposer,
+          $$S3BooksTableAnnotationComposer,
+          $$S3BooksTableCreateCompanionBuilder,
+          $$S3BooksTableUpdateCompanionBuilder,
+          (S3Book, BaseReferences<_$AppDatabase, $S3BooksTable, S3Book>),
+          S3Book,
+          PrefetchHooks Function()
+        > {
+  $$S3BooksTableTableManager(_$AppDatabase db, $S3BooksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$S3BooksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$S3BooksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$S3BooksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> contentKey = const Value.absent(),
+                Value<String> manifest = const Value.absent(),
+                Value<String?> pending = const Value.absent(),
+                Value<DateTime?> pendingSince = const Value.absent(),
+                Value<int?> sidecarAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => S3BooksCompanion(
+                contentKey: contentKey,
+                manifest: manifest,
+                pending: pending,
+                pendingSince: pendingSince,
+                sidecarAt: sidecarAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String contentKey,
+                required String manifest,
+                Value<String?> pending = const Value.absent(),
+                Value<DateTime?> pendingSince = const Value.absent(),
+                Value<int?> sidecarAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => S3BooksCompanion.insert(
+                contentKey: contentKey,
+                manifest: manifest,
+                pending: pending,
+                pendingSince: pendingSince,
+                sidecarAt: sidecarAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$S3BooksTable, S3Book>(table),
+                  BaseReferences<_$AppDatabase, $S3BooksTable, S3Book>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$S3BooksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $S3BooksTable,
+      S3Book,
+      $$S3BooksTableFilterComposer,
+      $$S3BooksTableOrderingComposer,
+      $$S3BooksTableAnnotationComposer,
+      $$S3BooksTableCreateCompanionBuilder,
+      $$S3BooksTableUpdateCompanionBuilder,
+      (S3Book, BaseReferences<_$AppDatabase, $S3BooksTable, S3Book>),
+      S3Book,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -8033,4 +8626,6 @@ class $AppDatabaseManager {
       $$SettingsTableTableManager(_db, _db.settings);
   $$CollectionBooksTableTableManager get collectionBooks =>
       $$CollectionBooksTableTableManager(_db, _db.collectionBooks);
+  $$S3BooksTableTableManager get s3Books =>
+      $$S3BooksTableTableManager(_db, _db.s3Books);
 }

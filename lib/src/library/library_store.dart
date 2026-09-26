@@ -1,4 +1,5 @@
 import 'package:comic_formats/comic_formats.dart';
+import 'package:comic_sync/comic_sync.dart' show Manifest;
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
@@ -31,6 +32,7 @@ class LibraryBook {
     this.readAt,
     this.collections = const [],
     this.fromFile = const {},
+    this.s3,
   });
 
   final String key;
@@ -65,6 +67,13 @@ class LibraryBook {
   /// The facts edited by hand, each with what the file itself says (null
   /// where it says nothing). The edited values are the ones above.
   final Map<MetaField, String?> fromFile;
+
+  /// On the S3 shelf (design plan section 13); null when it is not.
+  final S3Shelf? s3;
+
+  /// On S3 only, not downloaded to this device: [path] is where a download
+  /// would put it, and there is nothing there to open.
+  bool get remoteOnly => s3?.mark == S3Mark.remote;
 
   /// The book's value of [f] as the edit dialog shows it.
   String? fact(MetaField f) => switch (f) {
@@ -117,6 +126,30 @@ class LibraryBook {
     if ((na == null) != (nb == null)) return na == null ? 1 : -1;
     return naturalCompare(p.basename(a.path), p.basename(b.path));
   }
+}
+
+/// How a comic stands with the S3 shelf, for its badge.
+enum S3Mark {
+  /// Here and on S3, in step.
+  synced,
+
+  /// Here and on S3, with an upload or sidecar change still to go up.
+  waiting,
+
+  /// On S3 only.
+  remote,
+}
+
+/// A comic's place on the S3 shelf.
+class S3Shelf {
+  const S3Shelf(this.mark, {this.uploadedBy, this.uploadedAt, this.size});
+
+  final S3Mark mark;
+  final String? uploadedBy;
+  final DateTime? uploadedAt;
+
+  /// The bytes a download fetches.
+  final int? size;
 }
 
 /// A series as the library shows it: its books in reading order.
@@ -443,8 +476,16 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
 
   /// Every book in the library, live: a scan adding a book or a page turn
   /// saving progress updates whoever watches.
-  Stream<List<LibraryBook>> watchBooks() =>
-      _live({db.books, db.seriesTable, db.files, db.roots, db.progress, db.collectionBooks, db.overrides}, books);
+  Stream<List<LibraryBook>> watchBooks() => _live({
+    db.books,
+    db.seriesTable,
+    db.files,
+    db.roots,
+    db.progress,
+    db.collectionBooks,
+    db.overrides,
+    db.s3Books,
+  }, books);
 
   Future<List<LibraryBook>> books() async {
     final rows = await db.customSelect(_booksSql).get();
@@ -463,7 +504,59 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
     for (final MapEntry(:key, :value) in names.entries) {
       ids[key] = await _seriesId(value);
     }
-    return [for (final r in rows) _book(r, edits[r.read<String>('content_key')] ?? const {}, ids)];
+    final shelf = {
+      for (final r in await (db.select(
+        db.s3Books,
+      )..where((t) => t.pending.isNull() | t.pending.equals('remove').not())).get())
+        r.contentKey: r,
+    };
+    final local = [for (final r in rows) _book(r, edits[r.read<String>('content_key')] ?? const {}, ids, shelf)];
+    return [
+      ...local,
+      ...await _remoteOnly(shelf, {for (final b in local) b.key}),
+    ];
+  }
+
+  /// The comics on S3 that are not on this device: shown where a download
+  /// would put them, under the first library folder.
+  Future<List<LibraryBook>> _remoteOnly(Map<String, S3Book> shelf, Set<String> here) async {
+    final missing = shelf.values.where((r) => !here.contains(r.contentKey)).toList();
+    if (missing.isEmpty) return const [];
+    final root =
+        await (db.select(db.roots)
+              ..orderBy([(r) => OrderingTerm(expression: r.id)])
+              ..limit(1))
+            .getSingleOrNull();
+    if (root == null) return const [];
+    final progress = {
+      for (final r in await (db.select(db.progress)..where((t) => t.contentKey.isIn(shelf.keys))).get())
+        r.contentKey: r,
+    };
+    return [
+      for (final r in missing)
+        if (Manifest.decode(r.manifest) case final m?)
+          await _remoteBook(m, p.joinAll([root.path, ...m.relPath.split('/')]), progress[m.contentKey]),
+    ];
+  }
+
+  Future<LibraryBook> _remoteBook(Manifest m, String path, ProgressData? pr) async {
+    final series = m.series ?? m.title;
+    return LibraryBook(
+      key: m.contentKey,
+      series: series,
+      seriesId: await _seriesId(series),
+      number: m.number,
+      year: m.year,
+      pageCount: m.pageCount ?? 0,
+      format: m.format,
+      path: path,
+      addedAt: m.uploadedAt,
+      page: pr?.page,
+      percent: pr?.percent,
+      finished: pr?.finished ?? false,
+      readAt: pr?.updatedAt,
+      s3: S3Shelf(S3Mark.remote, uploadedBy: m.uploadedBy, uploadedAt: m.uploadedAt, size: m.size),
+    );
   }
 
   /// Saves hand edits to the book [contentKey]'s facts. They stay in the
@@ -484,7 +577,12 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       o.field: o.value,
   });
 
-  LibraryBook _book(QueryRow r, Map<MetaField, String?> edits, Map<String, int> seriesIds) {
+  LibraryBook _book(
+    QueryRow r,
+    Map<MetaField, String?> edits,
+    Map<String, int> seriesIds, [
+    Map<String, S3Book> shelf = const {},
+  ]) {
     List<String> list(String col) => r.readNullable<String>(col)?.split(', ') ?? const [];
     DateTime? time(String col) {
       final v = r.readNullable<int>(col);
@@ -531,7 +629,16 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,
       readAt: time('p_updated'),
       collections: [...collections]..sort(naturalCompare),
+      s3: switch (shelf[r.read<String>('content_key')]) {
+        null => null,
+        final row => _shelf(row, row.pending == null ? S3Mark.synced : S3Mark.waiting),
+      },
     );
+  }
+
+  static S3Shelf _shelf(S3Book row, S3Mark mark) {
+    final m = Manifest.decode(row.manifest);
+    return S3Shelf(mark, uploadedBy: m?.uploadedBy, uploadedAt: m?.uploadedAt, size: m?.size);
   }
 
   /// The book before or after [contentKey] in its series, for `]` and `[`.
@@ -541,7 +648,7 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
     final all = await books();
     final me = all.where((b) => b.key == contentKey).firstOrNull;
     if (me == null) return null;
-    final series = all.where((b) => b.seriesId == me.seriesId).toList()..sort(LibraryBook.seriesOrder);
+    final series = all.where((b) => b.seriesId == me.seriesId && !b.remoteOnly).toList()..sort(LibraryBook.seriesOrder);
     if (series.length < 2) return null;
     final i = series.indexWhere((b) => b.key == contentKey) + (next ? 1 : -1);
     return (path: i >= 0 && i < series.length ? series[i].path : null);

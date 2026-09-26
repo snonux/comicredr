@@ -33,7 +33,7 @@ comics="$home/Comics"
 db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
 sections=("$@")
-[[ ${#sections[@]} -gt 0 ]] || sections=(library reader guided guided-more parts keys touch bookmarks details dialogs history empty)
+[[ ${#sections[@]} -gt 0 ]] || sections=(library reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
 mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
@@ -265,6 +265,20 @@ empty)
   still empty
   stop
   start
+  ;;
+
+s3)
+  # Settings → S3 sync, filled in with a made-up home Garage: no server
+  # needed, and no real keys in a picture.
+  key Escape; key Escape; tab History; click 1252 28 2
+  xdotool mousemove 640 400; for _ in $(seq 1 15); do xdotool click 5; done; sleep 1
+  click 471 568 1.5
+  typ "http://garage.lan:3900"; key Tab; key Tab
+  typ "comics"; key Tab; key Tab
+  typ "GK31c2f218a2e44f485b94239e"; key Tab
+  typ "not-a-real-secret"; key Tab
+  park; still s3-settings
+  key Escape; key Escape
   ;;
 
 *) echo "unknown section $s"; exit 1 ;;

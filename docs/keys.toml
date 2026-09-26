@@ -160,6 +160,12 @@ reshuffle = ["gs"]
 resetBook = ["X"]
 # Delete this comic and its sidecar, after asking; the selected book in the library
 deleteBook = ["gd", "S-Delete"]
+# Upload this comic to your S3 bucket; in the library the selected book, or every marked one
+uploadToS3 = ["gu"]
+# Take this comic off S3, after asking; the copy on this device stays
+removeFromS3 = ["gU"]
+# Mark the selected book in the library, or unmark it, for an action on several (upload, remove, download)
+markBook = ["V"]
 # Edit the selected book's title, series, issue and creators in the library; on a series, rename it
 editBook = ["e"]
 # Show the keymap

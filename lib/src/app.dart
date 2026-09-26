@@ -22,6 +22,7 @@ import 'library/default_folder.dart';
 import 'library/delete_book.dart';
 import 'library/library_screen.dart';
 import 'library/providers.dart';
+import 'library/s3_actions.dart';
 import 'library/scanner.dart';
 import 'library/settings_transfer.dart';
 import 'providers.dart';
@@ -92,6 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _keys = FocusNode(debugLabel: 'keys');
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _watch;
+  StreamSubscription<String>? _s3Notices;
   String _pending = '';
   bool _showKeymap = false;
 
@@ -131,6 +133,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // default Comics folder in.
       onResume: () {
         ref.read(readerProvider.notifier).resumeSitting();
+        unawaited(ref.read(s3SyncProvider).sync());
         if (Platform.isAndroid) unawaited(_addDefaultFolder().then((_) => ref.read(scannerProvider).scan()));
       },
       onExitRequested: () async {
@@ -241,6 +244,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (!mounted) return;
     await _rescan();
+    if (!mounted) return;
+    _s3Notices = ref.read(s3SyncProvider).notices.listen((text) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    });
+    unawaited(ref.read(s3SyncProvider).start());
   }
 
   /// ~/Comics (on Android the Comics folder in shared storage, once the app
@@ -271,6 +279,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    unawaited(_s3Notices?.cancel());
     _lifecycle.dispose();
     _zonesTimer?.cancel();
     _keys.dispose();
@@ -586,6 +595,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (scope != null) await ref.read(readerProvider.notifier).reset(scope);
   }
 
+  /// `gu` or `gU` in the reader: the open comic onto S3 or off it.
+  Future<void> _s3OpenBook(OpenBook open, {required bool upload}) async {
+    final books = await ref.read(libraryStoreProvider).books();
+    final book = books.where((b) => b.key == open.key).firstOrNull;
+    if (!mounted) return;
+    if (book == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Only comics in the library can go on S3: add its folder (A)')));
+      return;
+    }
+    await (upload ? uploadBooks(context, ref, [book]) : removeBooksFromS3(context, ref, [book]));
+    _keys.requestFocus();
+  }
+
   /// `gd` or Shift+Delete in the reader: asks, then deletes the open comic
   /// and goes back to the library with the cover next to it selected. When
   /// the delete fails the comic opens again where it was.
@@ -598,10 +621,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       folder: book.folder,
       pages: ref.read(readerProvider).pageCount,
     );
+    final onS3 = await ref.read(s3SyncProvider).onShelf(book.key).catchError((_) => false);
     if (!mounted) return;
-    final go = await askDelete(context, facts);
+    final choice = await askDelete(context, facts.withS3(onS3));
     _keys.requestFocus();
-    if (!go) return;
+    if (choice == DeleteChoice.cancel) return;
     _library.currentState?.selectNeighbourOf(book.key);
     await reader.close();
     try {
@@ -612,7 +636,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         sidecars: ref.read(sidecarSyncProvider),
         store: ref.read(libraryStoreProvider),
         coverDir: ref.read(coverDirProvider),
+        keepCover: onS3 && choice == DeleteChoice.here,
       );
+      if (choice == DeleteChoice.everywhere) await ref.read(s3SyncProvider).removeFromS3([book.key]);
       messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.title, stuck))));
     } on FileSystemException catch (e) {
       messenger.showSnackBar(SnackBar(content: Text('Could not delete ${book.title}: ${e.message}')));
@@ -827,6 +853,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (c.intent == ReaderIntent.rescan) {
       unawaited(_rescan());
+      unawaited(ref.read(s3SyncProvider).sync());
       return;
     }
     if (c.intent == ReaderIntent.showFavourites) {
@@ -843,6 +870,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (c.intent == ReaderIntent.resetBook) {
       if (ref.read(readerProvider).book case final book?) {
         unawaited(_reset(book.title));
+      } else {
+        _library.currentState?.handle(c);
+      }
+      return;
+    }
+    if (c.intent == ReaderIntent.uploadToS3 || c.intent == ReaderIntent.removeFromS3) {
+      if (ref.read(readerProvider).book case final book?) {
+        unawaited(_s3OpenBook(book, upload: c.intent == ReaderIntent.uploadToS3));
       } else {
         _library.currentState?.handle(c);
       }

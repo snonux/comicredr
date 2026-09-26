@@ -190,6 +190,33 @@ class Settings extends Table {
   Set<Column> get primaryKey => {key};
 }
 
+/// Comics on the S3 shelf, as this device last saw the bucket (design plan
+/// section 13). A row whose book has no file here is a comic on S3 only,
+/// shown with its cover until downloaded.
+@DataClassName('S3Book')
+class S3Books extends Table {
+  @override
+  String get tableName => 's3_books';
+
+  TextColumn get contentKey => text()();
+
+  /// The comic's manifest.json, as uploaded.
+  TextColumn get manifest => text()();
+
+  /// What still has to reach the bucket: upload, sidecar or remove; null
+  /// when it is in step.
+  TextColumn get pending => text().nullable()();
+
+  /// When a change first started waiting, to send the oldest first.
+  DateTimeColumn get pendingSince => dateTime().nullable()();
+
+  /// The written_at of the bucket's sidecar as last sent or fetched.
+  IntColumn get sidecarAt => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {contentKey};
+}
+
 @DriftDatabase(
   tables: [
     Books,
@@ -204,6 +231,7 @@ class Settings extends Table {
     ReadLog,
     Settings,
     CollectionBooks,
+    S3Books,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -220,7 +248,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   /// What the detector found about a book: redone by a reset of its panels.
   List<TableInfo<Table, Object?>> get detectionTables => [analysedPages, panels];
@@ -267,6 +295,7 @@ class AppDatabase extends _$AppDatabase {
       if (from >= 2 && from < 9) await m.addColumn(analysedPages, analysedPages.trim);
       // Every book's path and copies are looked up by content key.
       if (from < 10) await customStatement('CREATE INDEX IF NOT EXISTS files_content_key ON files (content_key)');
+      if (from < 11) await m.createTable(s3Books); // S3 sync
     },
   );
 }
