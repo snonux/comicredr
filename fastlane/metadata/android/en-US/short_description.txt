@@ -1,0 +1,1 @@
+Comic reader with a guided view that glides from panel to panel
