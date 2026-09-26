@@ -56,6 +56,7 @@ class ShufflePages {
   Future<String?> get(LibraryBook book, int index) {
     final path = pathOf(book.key, index);
     if (File(path).existsSync()) return Future.value(path);
+    if (_closed) return Future.value(); // Nothing would ever make it now.
     final key = (book.key, index);
     if (_running[key] case final running?) return running;
     final (_, c) = _waiting.remove(key) ?? (book.path, Completer<String?>());

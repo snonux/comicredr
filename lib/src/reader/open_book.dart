@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:comic_formats/comic_formats.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../data/meta_edits.dart';
@@ -95,14 +96,20 @@ Future<OpenBook> openBook(String path) async {
   } on FormatException catch (e) {
     throw OpenBookException('Could not read ${p.basename(path)}: ${e.message}');
   }
-  final key = await contentKey(path);
-  ComicMeta? meta;
   try {
-    meta = await doc.embeddedMetadata();
-  } on FormatException {
-    meta = null; // A broken ComicInfo.xml costs the metadata, not the book.
+    final key = await contentKey(path);
+    ComicMeta? meta;
+    try {
+      meta = await doc.embeddedMetadata();
+    } on FormatException {
+      meta = null; // A broken ComicInfo.xml costs the metadata, not the book.
+    }
+    return OpenBook(path: path, key: key, doc: doc, meta: meta, folder: isDir);
+  } on Object {
+    // The book is not handed out, so nobody else would close its worker.
+    await doc.close().catchError((Object e) => debugPrint('Could not close ${p.basename(path)}: $e'));
+    rethrow;
   }
-  return OpenBook(path: path, key: key, doc: doc, meta: meta, folder: isDir);
 }
 
 /// The next or previous book beside [path] in its folder, in natural order,
