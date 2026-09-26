@@ -201,6 +201,29 @@ void main() {
       );
     });
 
+    test('symlinked pages and folders are read, a link loop is not', () {
+      final real = writeFolder('real', {
+        '2.png': [..._png, 2],
+      });
+      final dir = writeFolder('linked', {
+        '1.png': [..._png, 1],
+      });
+      Link('${dir.path}/extras').createSync(real.path);
+      Link('${dir.path}/3.png').createSync('${real.path}/2.png');
+      Link('${real.path}/back').createSync(dir.path); // A loop through extras/.
+      final doc = FolderDocument.open(dir.path);
+      expect(doc.pageNames.take(2), ['1.png', '3.png']);
+      expect(doc.pageNames, contains('extras/2.png'));
+      expect(isFolderBook(dir.path), isTrue);
+      // A folder whose only folder of pages is a link is not itself a book.
+      final shelf = writeFolder('shelf', {
+        'x.txt': [0],
+      });
+      Link('${shelf.path}/Book').createSync(dir.path);
+      expect(isFolderBook('${shelf.path}/Book'), isTrue);
+      expect(holdsComicFiles(shelf.listSync(followLinks: true)), isFalse);
+    });
+
     test('serves pages from the background isolate', () async {
       final dir = writeFolder('book', {
         'b.png': [..._png, 2],

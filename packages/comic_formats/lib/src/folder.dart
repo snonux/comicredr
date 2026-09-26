@@ -22,7 +22,8 @@ class FolderDocument implements ComicDocument {
     // Without a trailing slash, or [_relative] cuts a letter off each name.
     final root = dir.absolute.path.replaceFirst(RegExp(r'(?<=.)/+$'), '');
     final pages = [
-      for (final e in Directory(root).listSync(recursive: true, followLinks: false))
+      // Linked pages and folders count; Dart's listing stops at a link loop.
+      for (final e in Directory(root).listSync(recursive: true, followLinks: true))
         if (e is File && isPageEntry(_relative(root, e.path))) _relative(root, e.path),
     ]..sort(naturalCompare);
     if (pages.isEmpty) throw FormatException('No page images in $path');
@@ -126,7 +127,7 @@ bool isFolderBook(String path) {
   final dir = Directory(path);
   if (!dir.existsSync()) return false;
   try {
-    final entries = dir.listSync(followLinks: false);
+    final entries = dir.listSync(followLinks: true);
     return entries.any((e) => e is File && isPageEntry(e.path.split('/').last)) && !holdsOtherBooks(entries);
   } on FileSystemException {
     return false;
@@ -148,11 +149,12 @@ bool holdsOtherBooks(List<FileSystemEntity> entries) {
 }
 
 /// Whether [dir], or any folder under it, holds page images directly.
-bool _holdsPages(Directory dir) {
+bool _holdsPages(Directory dir, [Set<String>? seen]) {
+  if (!firstVisit(dir, seen ??= {})) return false;
   try {
-    final inner = dir.listSync(followLinks: false);
+    final inner = dir.listSync(followLinks: true);
     if (inner.any((f) => f is File && isPageEntry(f.path.split('/').last))) return true;
-    return inner.any((e) => e is Directory && !e.path.split('/').last.startsWith('.') && _holdsPages(e));
+    return inner.any((e) => e is Directory && !e.path.split('/').last.startsWith('.') && _holdsPages(e, seen));
   } on FileSystemException {
     return false; // Unreadable: nothing in it the library could list either.
   }
@@ -160,18 +162,30 @@ bool _holdsPages(Directory dir) {
 
 /// Whether [entries], or any folder among them, holds a comic file. Hidden
 /// files and folders are skipped, as the library skips them.
-bool holdsComicFiles(List<FileSystemEntity> entries) {
+bool holdsComicFiles(List<FileSystemEntity> entries, [Set<String>? seen]) {
+  seen ??= {};
   for (final e in entries) {
     final name = e.path.split('/').last;
     if (name.startsWith('.')) continue;
     if (e is File && isComicFileName(name)) return true;
-    if (e is Directory) {
+    if (e is Directory && firstVisit(e, seen)) {
       try {
-        if (holdsComicFiles(e.listSync(followLinks: false))) return true;
+        if (holdsComicFiles(e.listSync(followLinks: true), seen)) return true;
       } on FileSystemException {
         // Unreadable: nothing in it the library could list either.
       }
     }
   }
   return false;
+}
+
+/// Adds [dir]'s real path to [seen]; false when it was there already, so a
+/// walk that follows symlinked folders goes into each folder once and a
+/// link back up the tree ends it.
+bool firstVisit(Directory dir, Set<String> seen) {
+  try {
+    return seen.add(dir.resolveSymbolicLinksSync());
+  } on FileSystemException {
+    return false; // A dangling link: nothing to walk.
+  }
 }
