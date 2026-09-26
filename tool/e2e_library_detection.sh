@@ -21,7 +21,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 corpus="${1:-test/corpus}"
-export COMICREDR_MODEL="${2:-${COMICREDR_MODEL:-$HOME/.local/share/org.snonux.comicredr/models/comicredr-panels.onnx}}"
+export COMICREDR_MODEL="${2:-${COMICREDR_MODEL:-$PWD/assets/models/comicredr-panels.onnx}}"
 [[ -f "$COMICREDR_MODEL" ]] || { echo "No model at $COMICREDR_MODEL"; exit 2; }
 out=build/e2e-library-detection
 rm -rf "$out" && mkdir -p "$out/Comics" "$out/home"
