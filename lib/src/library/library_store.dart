@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
 import '../data/app_database.dart';
+import '../data/book_paths.dart';
 import '../data/meta_edits.dart';
 import '../data/panel_store.dart' show newId;
 
@@ -354,7 +355,7 @@ class LibraryStore {
     var left = 0;
     for (final r in rows) {
       final rel = r.read<String>('rel_path');
-      final at = rel.isEmpty ? r.read<String>('root') : p.join(r.read<String>('root'), rel);
+      final at = bookPath(r.read<String>('root'), rel);
       if (p.equals(at, path)) {
         await forgetFiles(r.read<int>('root_id'), [rel]);
       } else {
@@ -362,14 +363,7 @@ class LibraryStore {
       }
     }
     if (left > 0) return false;
-    final key = contentKey;
-    await (db.delete(db.analysedPages)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.panels)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.bookmarks)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.progress)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.readLog)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.overrides)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.collectionBooks)..where((r) => r.contentKey.equals(key))).go();
+    await db.deleteBookRows(contentKey, db.bookTables);
     await removeOrphans();
     return true;
   });

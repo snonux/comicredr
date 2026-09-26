@@ -19,6 +19,6 @@ export 'src/image_size.dart';
 export 'src/natural_sort.dart';
 export 'src/open.dart';
 export 'src/page_facts.dart';
-export 'src/pdf_images.dart';
 export 'src/pdf.dart';
+export 'src/pdf_images.dart';
 export 'src/sniff.dart' hide isTarHeader, sniffLength;

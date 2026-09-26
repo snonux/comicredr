@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/meta_edits.dart';
-import 'library_store.dart';
 import '../reader/reader_notifier.dart';
+import 'library_store.dart';
 import 'providers.dart';
 
 /// `e` on a book, or Edit in its details: asks for new facts and saves

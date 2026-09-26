@@ -46,7 +46,10 @@ bool adoptLegacySidecar(String sidecar, {required String device, String? appVers
     if (!hidden.existsSync()) return false; // The folder refused the rename.
     final a = readSidecar(old), b = readSidecar(sidecar);
     if ((a?.schemaVersion ?? 0) > sidecarSchemaVersion || (b?.schemaVersion ?? 0) > sidecarSchemaVersion) return false;
-    if (file.lastModifiedSync().isAfter(hidden.lastModifiedSync())) {
+    // A file that doesn't read as a sidecar never wins over one that does,
+    // however new it is: the visible one is left alone, a hidden one taken over.
+    if (a == null && b != null) return false;
+    if ((a != null && b == null) || file.lastModifiedSync().isAfter(hidden.lastModifiedSync())) {
       file.renameSync(sidecar);
       return true;
     }

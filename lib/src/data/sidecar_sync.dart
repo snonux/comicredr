@@ -9,9 +9,10 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart' show SqliteException;
 
-import 'app_database.dart';
-import 'progress_store.dart';
 import '../version.dart';
+import 'app_database.dart';
+import 'book_paths.dart';
+import 'progress_store.dart';
 import 'sidecar.dart';
 
 /// This install, as sidecar positions name it.
@@ -89,20 +90,32 @@ class SidecarSync {
   /// This install's id and name, made once and kept in the index.
   Future<Device> device() async {
     if (_device case final d?) return d;
-    final rows = {for (final r in await _db.select(_db.settings).get()) r.key: jsonDecode(r.value)};
-    var id = rows['device.id'] as String?;
-    final name = rows['device.name'] as String? ?? _deviceName();
-    if (id == null) {
+    final d = await _loadDevice();
+    return _device ??= d;
+  }
+
+  static const _deviceIdKey = 'device.id', _deviceNameKey = 'device.name';
+
+  Future<Device> _loadDevice() async {
+    Future<Map<String, Object?>> stored() async => {
+      for (final r in await (_db.select(_db.settings)..where((r) => r.key.isIn([_deviceIdKey, _deviceNameKey]))).get())
+        r.key: jsonDecode(r.value),
+    };
+    var rows = await stored();
+    if (rows[_deviceIdKey] == null) {
       final r = Random.secure();
-      id = List.generate(16, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+      final id = List.generate(16, (_) => r.nextInt(256).toRadixString(16).padLeft(2, '0')).join();
+      // Everything asks at start-up at once: the first id written is the
+      // one everybody reads back, so no sidecar gets a second one.
       await _db.batch((b) {
-        b.insertAllOnConflictUpdate(_db.settings, [
-          SettingsCompanion.insert(key: 'device.id', value: jsonEncode(id)),
-          SettingsCompanion.insert(key: 'device.name', value: jsonEncode(name)),
-        ]);
+        b.insertAll(_db.settings, [
+          SettingsCompanion.insert(key: _deviceIdKey, value: jsonEncode(id)),
+          SettingsCompanion.insert(key: _deviceNameKey, value: jsonEncode(rows[_deviceNameKey] ?? _deviceName())),
+        ], mode: InsertMode.insertOrIgnore);
       });
+      rows = await stored();
     }
-    return _device = (id: id, name: name);
+    return (id: rows[_deviceIdKey]! as String, name: rows[_deviceNameKey] as String? ?? _deviceName());
   }
 
   static String _deviceName() {
@@ -116,7 +129,8 @@ class SidecarSync {
     try {
       final dir = await storeDir?.call();
       return dir == null || dir.isEmpty ? null : dir;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Could not read the sidecar folder setting, so sidecars go beside the comics: $e');
       return null;
     }
   }
@@ -175,10 +189,7 @@ class SidecarSync {
     final adopt = mine == null ? newest : null;
 
     await _db.transaction(() async {
-      await (_db.delete(_db.analysedPages)..where((r) => r.contentKey.equals(key))).go();
-      await (_db.delete(_db.panels)..where((r) => r.contentKey.equals(key))).go();
-      await (_db.delete(_db.bookmarks)..where((r) => r.contentKey.equals(key))).go();
-      await (_db.delete(_db.collectionBooks)..where((r) => r.contentKey.equals(key))).go();
+      await _db.deleteBookRows(key, _db.sidecarMergedTables);
       await _db.batch((b) {
         b.insertAll(_db.analysedPages, merged.analysed);
         b.insertAll(_db.panels, merged.panels, mode: InsertMode.insertOrReplace);
@@ -206,7 +217,7 @@ class SidecarSync {
       }
     });
     if ((coverDir, merged.cover) case (final dir?, final cover?)) {
-      final f = File(p.join(dir, '$key.jpg'));
+      final f = File(coverFile(dir, key));
       if (!f.existsSync()) {
         try {
           await f.parent.create(recursive: true);
@@ -245,7 +256,7 @@ class SidecarSync {
         .getSingleOrNull();
     Uint8List? cover;
     if (coverDir case final dir?) {
-      final f = File(p.join(dir, '$contentKey.jpg'));
+      final f = File(coverFile(dir, contentKey));
       if (await f.exists()) cover = await f.readAsBytes();
     }
     return SidecarData(
@@ -394,14 +405,8 @@ class SidecarSync {
       await progress.flush();
       final key = contentKey;
       await _db.transaction(() async {
-        await (_db.delete(_db.analysedPages)..where((r) => r.contentKey.equals(key))).go();
-        await (_db.delete(_db.panels)..where((r) => r.contentKey.equals(key))).go();
-        if (everything) {
-          await (_db.delete(_db.bookmarks)..where((r) => r.contentKey.equals(key))).go();
-          await (_db.delete(_db.progress)..where((r) => r.contentKey.equals(key))).go();
-          await (_db.delete(_db.readLog)..where((r) => r.contentKey.equals(key))).go();
-          await (_db.delete(_db.overrides)..where((r) => r.contentKey.equals(key))).go();
-        }
+        await _db.deleteBookRows(key, _db.detectionTables);
+        if (everything) await _db.deleteBookRows(key, _db.personalTables);
       });
       final places = {
         for (final w in [?_where[key], ...await _copies(key)]) ...await sidecarsOf(w.path, folder: w.folder),
@@ -441,9 +446,7 @@ class SidecarSync {
     return [
       for (final r in rows)
         (
-          path: r.read<String>('rel_path').isEmpty
-              ? r.read<String>('root')
-              : p.join(r.read<String>('root'), r.read<String>('rel_path')),
+          path: bookPath(r.read<String>('root'), r.read<String>('rel_path')),
           folder: r.read<String>('format') == 'folder',
         ),
     ];

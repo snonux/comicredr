@@ -44,6 +44,7 @@ class Roots extends Table {
 /// The same book can live at many paths, across roots. `relPath` is relative
 /// to its root; size and mtime let a rescan skip unchanged files.
 @DataClassName('BookFile')
+@TableIndex(name: 'files_content_key', columns: {#contentKey})
 class Files extends Table {
   TextColumn get contentKey => text().references(Books, #contentKey)();
   IntColumn get rootId => integer()();
@@ -219,7 +220,33 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
+
+  /// What the detector found about a book: redone by a reset of its panels.
+  List<TableInfo<Table, Object?>> get detectionTables => [analysedPages, panels];
+
+  /// What the reader made of a book: a full reset clears it, with the
+  /// detection. Collections keep the book either way.
+  List<TableInfo<Table, Object?>> get personalTables => [bookmarks, progress, readLog, overrides];
+
+  /// The rows a sidecar merge replaces with the merged sidecar's.
+  List<TableInfo<Table, Object?>> get sidecarMergedTables => [analysedPages, panels, bookmarks, collectionBooks];
+
+  /// Everything kept about a book, for when its last copy is deleted.
+  List<TableInfo<Table, Object?>> get bookTables => [...detectionTables, ...personalTables, collectionBooks];
+
+  /// Deletes [contentKey]'s rows from each of [tables], every one of which
+  /// has a `content_key` column, telling their watchers.
+  Future<void> deleteBookRows(String contentKey, Iterable<TableInfo<Table, Object?>> tables) async {
+    for (final t in tables) {
+      await customUpdate(
+        'DELETE FROM ${t.actualTableName} WHERE content_key = ?',
+        variables: [Variable(contentKey)],
+        updates: {t},
+        updateKind: UpdateKind.delete,
+      );
+    }
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -238,6 +265,8 @@ class AppDatabase extends _$AppDatabase {
       if (from < 8) await m.addColumn(panels, panels.shape); // Non-rectangular frames
       // Detection on trimmed pages; an index from before M4 got the column with the table.
       if (from >= 2 && from < 9) await m.addColumn(analysedPages, analysedPages.trim);
+      // Every book's path and copies are looked up by content key.
+      if (from < 10) await customStatement('CREATE INDEX IF NOT EXISTS files_content_key ON files (content_key)');
     },
   );
 }

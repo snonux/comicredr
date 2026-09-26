@@ -9,9 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
+import '../data/progress_store.dart';
 import 'guided.dart';
 import 'layout.dart';
-import '../data/progress_store.dart';
 import 'page_cache.dart';
 import 'reader_notifier.dart';
 import 'region.dart';

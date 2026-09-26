@@ -7,8 +7,8 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
-import 'package:path/path.dart' as p;
 
+import '../data/book_paths.dart';
 import '../library/providers.dart';
 import 'reader_notifier.dart';
 
@@ -168,7 +168,7 @@ Future<Uint8List> _encodeJpeg(ByteData rgba, int w, int h) => Isolate.run(
 final thumbnailsProvider = Provider<Thumbnails?>((ref) {
   final book = ref.watch(readerProvider.select((s) => s.book));
   if (book == null) return null;
-  final t = Thumbnails(book.doc, dir: p.join(ref.watch(coverDirProvider), 'pages', book.key));
+  final t = Thumbnails(book.doc, dir: pageThumbDir(ref.watch(coverDirProvider), book.key));
   ref.onDispose(t.close);
   return t;
 });

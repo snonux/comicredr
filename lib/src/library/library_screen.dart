@@ -8,10 +8,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
+import '../data/book_paths.dart';
 import '../data/settings_store.dart';
 import '../providers.dart';
-import '../reader/comic_details.dart';
 import '../reader/bookmark_list.dart';
+import '../reader/comic_details.dart';
 import '../reader/guided.dart';
 import '../reader/open_book.dart';
 import '../reader/reader_notifier.dart';
@@ -1067,7 +1068,7 @@ class CoverImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dir = ProviderScope.containerOf(context).read(coverDirProvider);
-    final file = File('$dir/$bookKey.jpg');
+    final file = File(coverFile(dir, bookKey));
     final placeholder = ColoredBox(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: const Center(child: Icon(Icons.menu_book, size: 40)),

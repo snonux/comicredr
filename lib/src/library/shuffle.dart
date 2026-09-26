@@ -6,6 +6,7 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/book_paths.dart';
 import '../reader/thumbnails.dart';
 import 'library_store.dart';
 import 'providers.dart';
@@ -116,7 +117,7 @@ class ShufflePages {
 }
 
 final shufflePagesProvider = Provider<ShufflePages>((ref) {
-  final s = ShufflePages(dir: '${ref.watch(coverDirProvider)}/pages');
+  final s = ShufflePages(dir: pageThumbsRoot(ref.watch(coverDirProvider)));
   ref.onDispose(s.close);
   return s;
 });

@@ -16,6 +16,7 @@ linter:
     - unawaited_futures
     - prefer_const_constructors
     - prefer_final_locals
+    - directives_ordering
 
 formatter:
   page_width: 120

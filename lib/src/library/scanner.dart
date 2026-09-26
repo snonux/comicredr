@@ -7,6 +7,7 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
+import '../data/book_paths.dart';
 import '../data/data_dirs.dart';
 import '../data/sidecar.dart';
 import 'library_store.dart';
@@ -94,7 +95,7 @@ class LibraryScanner {
         final k = known[c.relPath];
         final unchanged = k != null && k.size == c.size && k.mtime.millisecondsSinceEpoch ~/ 1000 == c.mtimeMs ~/ 1000;
         // A cleared cache loses covers; reading the book again puts it back.
-        if (unchanged && File('$coverDir/${k.contentKey}.jpg').existsSync()) continue;
+        if (unchanged && File(coverFile(coverDir, k.contentKey)).existsSync()) continue;
         todo.add((root.id, root.path, c));
       }
       await store.forgetFiles(root.id, known.keys.where((k) => !seen.contains(k)));
@@ -110,7 +111,7 @@ class LibraryScanner {
     Future<void> worker() async {
       while (next < todo.length) {
         final (rootId, rootPath, c) = todo[next++];
-        final path = c.relPath.isEmpty ? rootPath : p.join(rootPath, c.relPath);
+        final path = bookPath(rootPath, c.relPath);
         try {
           final info = await _read(path, coverDir);
           await store.putBook(rootId, c.relPath, c.size, DateTime.fromMillisecondsSinceEpoch(c.mtimeMs), info);
