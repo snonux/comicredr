@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 import '../data/app_database.dart';
 import '../data/settings_file.dart';
 import '../data/settings_store.dart';
-import 'default_folder.dart';
 import 'library_store.dart';
 
 /// What an import brought in, for the notice after it.
@@ -15,6 +14,7 @@ typedef SettingsImport = ({
   List<String> foldersMissing,
   String? sidecarDirMissing,
   bool keysWritten,
+  String? keysError,
   int positions,
   int bookmarks,
   int collections,
@@ -54,55 +54,47 @@ Future<String> writeNewFile(String dir, String name, String text) async {
 
 /// Puts [file] into this install: settings, per-comic rows, library
 /// folders and `keys.toml` (to [keysPath]). Library folders are added when
-/// they exist here and are not in the library yet; none is taken out,
-/// except the default folder ([defaultFolder], `~/Comics`) when the file
-/// says it was taken out and does not list it, since a fresh start put it
-/// back. A `keys.toml` already here that differs is kept as `keys.toml.bak`;
-/// a file without one leaves this one alone.
-Future<SettingsImport> importSettings(
-  SettingsFile file, {
-  required LibraryStore library,
-  required SettingsStore settings,
-  String? keysPath,
-  String? defaultFolder,
-}) async {
+/// they exist here and are not in the library yet; none is ever taken out.
+/// The index changes in one transaction, so a failure there leaves it as it
+/// was. `keys.toml` is written after it; when that fails the import stands
+/// and [SettingsImport.keysError] says why. A `keys.toml` already here that
+/// differs is kept as `keys.toml.bak`; a file without one leaves this one
+/// alone.
+Future<SettingsImport> importSettings(SettingsFile file, {required LibraryStore library, String? keysPath}) async {
   bool there(String dir) => Directory(dir).existsSync();
   final sidecarDir = file.settings[SettingsStore.sidecarDir] as String?;
   final sidecarDirMissing = sidecarDir != null && !there(sidecarDir) ? sidecarDir : null;
-  await file.mergeInto(library.db, keepSidecarDir: sidecarDirMissing != null);
-
-  final roots = await library.roots();
-  bool inLibrary(String dir) => roots.any((r) => p.equals(r.path, dir));
   final missing = <String>[];
   var added = 0;
-  for (final dir in file.folders) {
-    final path = p.normalize(p.absolute(dir));
-    if (inLibrary(path)) continue;
-    if (!there(path)) {
-      missing.add(dir);
-      continue;
-    }
-    await library.addRoot(path);
-    added++;
-  }
-  if (file.settings[SettingsStore.defaultFolderRemoved] == true && defaultFolder != null) {
-    final home = p.normalize(p.absolute(defaultFolder));
-    if (!file.folders.any((f) => p.equals(p.normalize(p.absolute(f)), home))) {
-      for (final r in await library.roots()) {
-        if (p.equals(r.path, home)) await removeLibraryFolder(library, settings, r.id, r.path, defaultFolder: home);
+  await library.db.transaction(() async {
+    await file.mergeInto(library.db, keepSidecarDir: sidecarDirMissing != null);
+    final roots = await library.roots();
+    for (final dir in file.folders) {
+      final path = p.normalize(p.absolute(dir));
+      if (roots.any((r) => p.equals(r.path, path))) continue;
+      if (!there(path)) {
+        missing.add(dir);
+        continue;
       }
+      await library.addRoot(path);
+      added++;
     }
-  }
+  });
 
   var keysWritten = false;
+  String? keysError;
   if ((file.keysToml, keysPath) case (final text?, final path?)) {
-    final f = File(path);
-    final had = await f.exists() ? await f.readAsString() : null;
-    if (had != text) {
-      await f.parent.create(recursive: true);
-      if (had != null) await f.copy('$path.bak');
-      await f.writeAsString(text, flush: true);
-      keysWritten = true;
+    try {
+      final f = File(path);
+      final had = await f.exists() ? await f.readAsString() : null;
+      if (had != text) {
+        await f.parent.create(recursive: true);
+        if (had != null) await f.copy('$path.bak');
+        await f.writeAsString(text, flush: true);
+        keysWritten = true;
+      }
+    } on FileSystemException catch (e) {
+      keysError = '${e.message}${e.path == null ? '' : ': ${e.path}'}';
     }
   }
 
@@ -112,6 +104,7 @@ Future<SettingsImport> importSettings(
     foldersMissing: missing,
     sidecarDirMissing: sidecarDirMissing,
     keysWritten: keysWritten,
+    keysError: keysError,
     positions: file.positions.length,
     bookmarks: file.bookmarks.where((b) => b.deletedAt == null).length,
     collections: file.collections.where((c) => c.removedAt == null).length,
@@ -139,6 +132,7 @@ String importNotice(SettingsImport r) {
     if (r.foldersMissing.isNotEmpty)
       '${n(r.foldersMissing.length, 'library folder')} not on this device: ${r.foldersMissing.join(', ')}.',
     if (r.sidecarDirMissing case final dir?) 'The sidecar folder $dir is not on this device; kept this one\'s.',
+    if (r.keysError case final e?) 'keys.toml could not be written ($e); the rest was imported.',
     if (r.skipped > 0) '${n(r.skipped, 'entry', 'entries')} this version does not know skipped.',
   ];
   return ['Imported ${_list(parts)}.', ...notes].join(' ');

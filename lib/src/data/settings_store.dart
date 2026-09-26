@@ -56,7 +56,9 @@ class SettingsStore {
   /// Every setting a settings file carries (SettingsFile), with the kind of
   /// value it holds: true for a flag, false for a string. This install's
   /// identity (`device.id`, `device.name`, see SidecarSync) is not a setting
-  /// and stays out. A new setting goes here too, or export leaves it behind.
+  /// and stays out, and so does [defaultFolderRemoved]: whether this
+  /// device's own Comics folder was taken out says nothing about another
+  /// device's. A new setting goes here too, or export leaves it behind.
   static const backedUp = <String, bool>{
     wholePageSteps: true,
     pauseWhole: true,
@@ -69,9 +71,16 @@ class SettingsStore {
     sidecarDir: false,
     gridZoom: false,
     shuffle: true,
-    defaultFolderRemoved: true,
     touchPreset: false,
   };
+
+  /// Settings about this device's own storage: where its sidecars go and
+  /// whether its folders are written to. An import sets them when the file
+  /// has them (a restore on the same device) and otherwise leaves them as
+  /// they are, where the others go back to their defaults: a file from the
+  /// laptop, whose sidecars sit beside its comics, must not move the
+  /// phone's out of the folder it keeps them in.
+  static const perInstall = {sidecarDir, writeSidecars};
 
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();

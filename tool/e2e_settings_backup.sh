@@ -128,7 +128,8 @@ open_path() {
 }
 # Every table an export carries, as text, in a fixed order.
 dump() {
-  q "select key, value from settings where key not like 'device.%' order by key"
+  # ~/Comics taken out is this device's own business: never exported.
+  q "select key, value from settings where key not like 'device.%' and key != 'library.defaultFolderRemoved' order by key"
   echo ---; q "select path from roots order by path"
   echo ---; q "select content_key, page, panel, percent, finished, updated_at, view_json from progress order by 1"
   echo ---; q "select id, content_key, page, panel, mark, note, created_at, deleted_at from bookmarks order by 1"
@@ -228,7 +229,8 @@ check "it says it is ComicRedr's settings, format 1" python3 -c "
 import json, sys
 j = json.load(open(sys.argv[1]))
 assert j['app'] == 'org.snonux.comicredr' and j['kind'] == 'settings' and j['format'] == 1, j
-assert len(j['settings']) == 13 and 'device.id' not in j['settings'], j['settings']
+assert len(j['settings']) == 12 and 'device.id' not in j['settings'], j['settings']
+assert 'library.defaultFolderRemoved' not in j['settings'], j['settings']
 assert j['keysToml'] == open(sys.argv[2]).read()
 " "$backup" "$keys"
 
@@ -308,6 +310,29 @@ for bad in other newer keys; do
 done
 dump >"$out/after_refused.txt"
 check "refused files change nothing" diff "$out/after_restart.txt" "$out/after_refused.txt"
+
+# 7. Another device's file: its own sidecars beside its comics and written
+# (the defaults, so not in the file), its ~/Comics taken out, one folder
+# not on this device. Nothing of this device's library or sidecar place
+# may change; the other settings become the file's.
+printf '{"app": "org.snonux.comicredr", "kind": "settings", "format": 1,
+  "settings": {"reader.night": true, "library.defaultFolderRemoved": true},
+  "libraryFolders": ["/nowhere/Comics"]}\n' >"$files/laptop.json"
+roots_before=$(q "select path from roots order by path")
+at 43 100
+settings_bottom
+backup_button import
+sleep 1.5
+open_path "$files/laptop.json"
+sleep 1.5
+shot 15_laptop_confirm
+key Return
+sleep 2
+shot 16_laptop_imported
+check "another device's file takes no library folder out" test "$(q "select path from roots order by path")" = "$roots_before"
+check "nor moves this device's sidecars" test "$(setting sidecars.dir)" = "\"$stash\"" -a "$(setting sidecars.write)" = false
+check "its other settings are the file's" test "$(setting reader.night)" = true -a -z "$(setting reader.cleanUp)"
+check "and it does not carry ~/Comics being taken out" test -z "$(setting library.defaultFolderRemoved)"
 stop
 
 montage "$out"/[01]*.png -tile 4x -geometry 480x338+4+4 "$out/contact.png" 2>/dev/null || true

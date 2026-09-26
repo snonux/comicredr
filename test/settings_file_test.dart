@@ -58,7 +58,6 @@ void main() {
     SettingsStore.sidecarDir: (await dir('Stash')).path,
     SettingsStore.gridZoom: '212.5',
     SettingsStore.shuffle: true,
-    SettingsStore.defaultFolderRemoved: true,
     SettingsStore.touchPreset: 'oneThumb',
   };
 
@@ -69,6 +68,8 @@ void main() {
     for (final MapEntry(:key, :value) in (await changedSettings()).entries) {
       value is bool ? await settings.saveBool(key, value) : await settings.saveString(key, value as String);
     }
+    // This device's own ~/Comics taken out: not for another device to act on.
+    await settings.saveBool(SettingsStore.defaultFolderRemoved, true);
     await from.batch((b) {
       b.insertAll(from.settings, [
         SettingRow(key: 'device.id', value: jsonEncode('laptop')),
@@ -115,13 +116,8 @@ void main() {
     for (final r in await db.select(db.settings).get()) r.key: jsonDecode(r.value),
   };
 
-  Future<SettingsImport> import(String text, {String? keysPath, String? defaultFolder}) => importSettings(
-    SettingsFile.decode(text),
-    library: LibraryStore(to),
-    settings: SettingsStore(to),
-    keysPath: keysPath,
-    defaultFolder: defaultFolder,
-  );
+  Future<SettingsImport> import(String text, {String? keysPath}) =>
+      importSettings(SettingsFile.decode(text), library: LibraryStore(to), keysPath: keysPath);
 
   test('the test changes every setting a file carries', () async {
     expect((await changedSettings()).keys.toSet(), SettingsStore.backedUp.keys.toSet());
@@ -138,6 +134,7 @@ void main() {
     expect(json['kind'], 'settings');
     expect(json['format'], settingsFileFormat);
     expect(json['exportedAt'], at(60).toUtc().toIso8601String());
+    expect((json['settings']! as Map).keys, isNot(contains(SettingsStore.defaultFolderRemoved)));
 
     final newKeys = p.join(tmp.path, 'new', 'keys.toml');
     final done = await import(text, keysPath: newKeys);
@@ -162,7 +159,7 @@ void main() {
     expect(done.books, {'a', 'b'});
     expect(
       importNotice(done),
-      'Imported 13 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
+      'Imported 12 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
       'and 2 history entries.',
     );
 
@@ -328,19 +325,98 @@ void main() {
     expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], ['Comics']);
     expect(done.foldersMissing, [p.join(tmp.path, 'Manga')]);
     expect(done.sidecarDirMissing, here);
-    expect(done.settings, 12);
+    expect(done.settings, 11);
     expect(importNotice(done), contains('1 library folder not on this device: ${p.join(tmp.path, 'Manga')}.'));
     expect(importNotice(done), contains("The sidecar folder $here is not on this device; kept this one's."));
   });
 
-  test('~/Comics put back by a fresh start goes again when the file took it out', () async {
-    await fill(); // Took the default folder out; the library is Comics and Manga.
-    final home = await dir('home/Comics');
-    final text = await exportSettings(from);
-    await LibraryStore(to).addRoot(home.path);
-    await import(text, defaultFolder: home.path);
-    expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], unorderedEquals(['Comics', 'Manga']));
-    expect((await LibraryStore(to).roots()).map((r) => r.path), isNot(contains(home.path)));
+  test("import never takes a library folder out, nor carries ~/Comics being taken out", () async {
+    // This device's library: its own Comics folder and one of its own.
+    final mine = await dir('phone/Comics');
+    final other = await dir('phone/Books');
+    await LibraryStore(to).addRoot(mine.path);
+    await LibraryStore(to).addRoot(other.path);
+    final text = jsonEncode({
+      'app': 'org.snonux.comicredr',
+      'kind': 'settings',
+      'format': 1,
+      'settings': {SettingsStore.defaultFolderRemoved: true, SettingsStore.night: true},
+      'libraryFolders': [(await dir('laptop/Comics')).path],
+    });
+    final done = await import(text);
+    expect([
+      for (final r in await LibraryStore(to).roots()) r.path,
+    ], unorderedEquals([mine.path, other.path, p.join(tmp.path, 'laptop', 'Comics')]));
+    expect(await settingsOf(to), {SettingsStore.night: true});
+    expect(done.skipped, 1, reason: 'defaultFolderRemoved is not a setting a file carries');
+
+    // Taken out here, it stays taken out whatever the file says.
+    await SettingsStore(to).saveBool(SettingsStore.defaultFolderRemoved, true);
+    await import(jsonEncode({'app': 'org.snonux.comicredr', 'kind': 'settings', 'format': 1}));
+    expect(await SettingsStore(to).loadBool(SettingsStore.defaultFolderRemoved), isTrue);
+  });
+
+  test("a file without this device's sidecar settings leaves them; one with them sets them", () async {
+    final stash = (await dir('PhoneStash')).path;
+    await SettingsStore(to).saveString(SettingsStore.sidecarDir, stash);
+    await SettingsStore(to).saveBool(SettingsStore.writeSidecars, false);
+    await SettingsStore(to).saveBool(SettingsStore.night, true);
+    // The laptop's: sidecars beside its comics, written, both the defaults.
+    await SettingsStore(from).saveBool(SettingsStore.cleanUp, true);
+    await import(await exportSettings(from));
+    expect(await settingsOf(to), {
+      SettingsStore.sidecarDir: stash,
+      SettingsStore.writeSidecars: false,
+      SettingsStore.cleanUp: true,
+    }, reason: 'the night filter goes back to its default, the sidecar settings stay');
+
+    // A backup of this device's own, after a reinstall, brings them back.
+    await to.delete(to.settings).go();
+    await SettingsStore(from).saveString(SettingsStore.sidecarDir, stash);
+    await SettingsStore(from).saveBool(SettingsStore.writeSidecars, false);
+    await import(await exportSettings(from));
+    expect((await settingsOf(to))[SettingsStore.sidecarDir], stash);
+    expect((await settingsOf(to))[SettingsStore.writeSidecars], false);
+  });
+
+  test('keys.toml that cannot be written is said so, and the rest is imported', () async {
+    final blocker = File(p.join(tmp.path, 'not-a-folder'))..writeAsStringSync('');
+    final text = jsonEncode({
+      'app': 'org.snonux.comicredr',
+      'kind': 'settings',
+      'format': 1,
+      'settings': {SettingsStore.night: true},
+      'keysToml': '[keys]\n',
+      'libraryFolders': [(await dir('Comics')).path],
+    });
+    final done = await import(text, keysPath: p.join(blocker.path, 'keys.toml'));
+    expect(done.keysWritten, isFalse);
+    expect(done.keysError, isNotNull);
+    expect(await settingsOf(to), {SettingsStore.night: true});
+    expect(await LibraryStore(to).roots(), hasLength(1));
+    expect(importNotice(done), contains('keys.toml could not be written ('));
+    expect(importNotice(done), contains('the rest was imported.'));
+  });
+
+  test('the index changes all or nothing', () async {
+    await SettingsStore(to).saveBool(SettingsStore.night, true);
+    // Adding the library folder, the last step, fails.
+    await to.customStatement(
+      "CREATE TRIGGER no_roots BEFORE INSERT ON roots BEGIN SELECT RAISE(ABORT, 'no folders today'); END",
+    );
+    final text = jsonEncode({
+      'app': 'org.snonux.comicredr',
+      'kind': 'settings',
+      'format': 1,
+      'settings': {SettingsStore.cleanUp: true},
+      'positions': [
+        {'contentKey': 'a', 'page': 3, 'percent': 0.2, 'updatedAt': t0.toUtc().toIso8601String()},
+      ],
+      'libraryFolders': [(await dir('Comics')).path],
+    });
+    await expectLater(import(text), throwsA(anything));
+    expect(await settingsOf(to), {SettingsStore.night: true}, reason: 'the settings are as they were');
+    expect(await to.select(to.progress).get(), isEmpty, reason: 'and no position came in');
   });
 
   test('a keys.toml already here is kept aside when it differs; none in the file leaves it be', () async {

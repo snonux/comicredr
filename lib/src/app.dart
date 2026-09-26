@@ -475,13 +475,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       if (!mounted || !await _confirmImport(p.basename(path), file)) return;
       await ref.read(readerProvider.notifier).flush();
-      final done = await importSettings(
-        file,
-        library: ref.read(libraryStoreProvider),
-        settings: ref.read(settingsStoreProvider),
-        keysPath: await keysFilePath(),
-        defaultFolder: defaultComicsFolder(),
-      );
+      final done = await importSettings(file, library: ref.read(libraryStoreProvider), keysPath: await keysFilePath());
       await _takeUpImport(done);
       say(importNotice(done));
     } catch (e) {
@@ -520,8 +514,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           width: 520,
           child: Text(
             '${from.isEmpty ? '' : 'Exported from ${from.join(' ')}. '}It holds ${holds.join(', ')}.\n\n'
-            'Your settings become the file\'s. Positions, bookmarks, collections, edits and history are merged '
-            'with what is here, and its library folders are added.',
+            'Your settings become the file\'s, except that where this device keeps its sidecars only changes when the '
+            'file says. Positions, bookmarks, collections, edits and history are merged '
+            'with what is here. Its library folders that are on this device are added; none is taken out.',
           ),
         ),
         actions: [

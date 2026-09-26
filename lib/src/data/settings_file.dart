@@ -123,8 +123,9 @@ class SettingsFile {
 
   /// Writes the file's settings and per-comic rows into [db], in one
   /// transaction. The settings become the file's: one it does not have
-  /// goes back to its default. With [keepSidecarDir] the sidecar folder
-  /// stays this install's (the file's is not on this device). Per comic,
+  /// goes back to its default, except the [SettingsStore.perInstall] ones,
+  /// which stay as they are. With [keepSidecarDir] the sidecar folder stays
+  /// this install's (the file's is not on this device). Per comic,
   /// the rows merge with what is here by the sidecar rules
   /// ([mergeSidecars]): bookmarks are a union with removals winning, the
   /// later edit per field and the later change per collection win. The
@@ -134,6 +135,7 @@ class SettingsFile {
     for (final key in SettingsStore.backedUp.keys) {
       if (key == SettingsStore.sidecarDir && keepSidecarDir) continue;
       final v = settings[key];
+      if (v == null && SettingsStore.perInstall.contains(key)) continue;
       if (v == null) {
         await (db.delete(db.settings)..where((s) => s.key.equals(key))).go();
       } else {

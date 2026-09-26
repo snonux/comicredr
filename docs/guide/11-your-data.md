@@ -90,16 +90,22 @@ All files access and import.
 
 - On the laptop, a save dialog asks where the file goes. On the phone,
   pick a folder; the file is made there, never over another one.
-- Your settings become the file's. Positions, bookmarks, collections,
+- Your settings become the file's, except where this device keeps its
+  sidecars and whether it writes them: those change only when the file
+  sets them, so a file from the laptop never moves the phone's sidecars.
+  Positions, bookmarks, collections,
   edits and history are merged with what is already there, the same way
   two sidecars are: the later position wins, and a bookmark you took off
   stays off. Importing twice is the same as importing once.
 - Comics are recognised by their content, so positions and bookmarks
   find a comic even where its path is different. Library folders and the
   sidecar folder are paths: the ones that do not exist on this device
-  are left out, and the notice says which.
+  are left out, and the notice says which. An import only adds library
+  folders; it never takes one out, and taking `~/Comics` out of the
+  library stays each device's own choice.
 - A `keys.toml` already there is kept as `keys.toml.bak` when the file's
-  is different.
+  is different. Should it fail to be written, the notice says so; the
+  rest is imported all together or not at all.
 - Not in the file: the comics, their covers, thumbnails and panels (a
   scan and the sidecars bring those back; panels would make the file
   megabytes), a detector model you added (copy that file yourself), and

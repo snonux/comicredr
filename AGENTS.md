@@ -372,17 +372,21 @@ refreshes right away instead of within six hours.
   the pickers in `HomeScreen._exportSettings`/`_importSettings`): one JSON
   file, `{"app": "org.snonux.comicredr", "kind": "settings", "format": 1}`
   plus the settings in `SettingsStore.backedUp` (a new setting goes there,
-  or export leaves it out; `device.id`/`device.name` stay per install), the
-  library folders, `keys.toml`'s text and the `progress`, `bookmarks`,
+  or export leaves it out; `device.id`/`device.name` and
+  `library.defaultFolderRemoved` stay per install and are never exported),
+  the library folders, `keys.toml`'s text and the `progress`, `bookmarks`,
   `collection_books`, `overrides` and `read_log` rows by content key.
   Books, series, files, panels and covers stay out: a rescan and the
   sidecars rebuild them. A newer `format`, another `app` or not JSON is
   refused; unknown keys and broken rows are skipped and counted. Import
-  sets the settings to the file's (missing ones back to default; a
-  sidecar folder not on this device keeps this one), merges the rows by
-  `mergeSidecars`' rules (the later position wins, history deduplicated),
-  adds folders that exist, takes out `~/Comics` when the file says it was
-  taken out, keeps a differing `keys.toml` as `keys.toml.bak`, then
+  sets the settings to the file's (missing ones back to default, except
+  `SettingsStore.perInstall`, `sidecars.dir` and `sidecars.write`, which
+  only change when the file sets them; a sidecar folder not on this
+  device keeps this one), merges the rows by `mergeSidecars`' rules (the
+  later position wins, history deduplicated) and adds folders that exist,
+  all in one transaction; it never removes a library folder. Then it
+  writes `keys.toml`, keeping a differing one as `keys.toml.bak` (a failure
+  there is reported, the rest stands), and
   `_takeUpImport` reloads the reader, touch preset, shuffle, grid size and
   keymap (`reloadedKeymapProvider`) and rescans. Linux uses
   file_selector's save and open dialogs; Android `MainActivity`'s
@@ -469,7 +473,7 @@ tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a fol
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
-tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files; checks the index with sqlite3; makes its own books
+tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 
