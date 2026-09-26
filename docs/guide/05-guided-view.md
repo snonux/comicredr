@@ -27,13 +27,15 @@ The status line says where you are: `guided: panel 2 / 6`.
 On the phone a panel fills the width of the screen. The panels of this
 comic were found on the laptop and came along in its
 [sidecar file](11-your-data.md), so guided view was ready on the phone
-straight away:
+straight away. Each tap on the right edge goes to the next panel:
 
-<img src="images/android-guided.webp" width="260" alt="Guided view on an Android phone">
+<img src="images/android-guided.gif" width="260" alt="Guided view on an Android phone, a tap on the right edge for each panel">
 
 Don't want the whole page before and after its panels? Press `w` to go
 straight from the last panel of one page to the first panel of the next.
 `w` again brings it back; Settings has the same switch.
+
+![With w, guided view goes straight from the last panel of one page to the first of the next](images/guided-straight.gif)
 
 Other keys that help in guided view:
 
@@ -43,6 +45,12 @@ Other keys that help in guided view:
 
 Panels that aren't rectangles (slanted, round or cut at an angle) are
 followed along their real edges, so the dimming hugs the panel's shape.
+
+It works on modern art as well as on old scans. Here it steps through a
+painted page of Pepper&Carrot whose panels have no gutters between them,
+then shows the page whole before moving on:
+
+![Guided view on a painted Pepper&Carrot page](images/guided-painted.gif)
 
 ## Balloon by balloon
 
