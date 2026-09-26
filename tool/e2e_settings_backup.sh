@@ -228,7 +228,7 @@ check "it says it is ComicRedr's settings, format 1" python3 -c "
 import json, sys
 j = json.load(open(sys.argv[1]))
 assert j['app'] == 'org.snonux.comicredr' and j['kind'] == 'settings' and j['format'] == 1, j
-assert len(j['settings']) == 12 and 'device.id' not in j['settings'], j['settings']
+assert len(j['settings']) == 11 and 'device.id' not in j['settings'], j['settings']
 assert 'library.defaultFolderRemoved' not in j['settings'], j['settings']
 assert j['keysToml'] == open(sys.argv[2]).read()
 " "$backup" "$keys"

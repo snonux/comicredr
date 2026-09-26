@@ -146,6 +146,19 @@ sleep 2;             shot k03b_still_held;  held k03b_still_held ref_a
 key Right;           shot k04_turned;       whole k04_turned ref_b; black k04_turned
 key Right;           shot k05_panel;        zoomed k05_panel ref_b
 
+# Back: onto the page from ahead, held once, then the page before (shown
+# whole too in the test book, so also wine red).
+key Left;            shot k06_back_next;    whole k06_back_next ref_b
+key Left;            shot k07_back_on;      held k07_back_on ref_a
+key Left;            shot k08_back_held;    held k08_back_held ref_a
+key Left;            shot k09_back_turned;  held k09_back_turned ref_prev
+# Arrived from behind: back leaves at once, then from ahead forward does.
+key $page shift+g;   shot k10_jump;         held k10_jump ref_a
+key Left;            shot k11_back_at_once; held k11_back_at_once ref_prev
+key $page shift+g; key Right; key Right; key Left
+shot k12_from_ahead; held k12_from_ahead ref_a
+key Right;           shot k13_fwd_at_once;  whole k13_fwd_at_once ref_b
+
 # Five seconds on the page: one Right turns at once, with no zoom.
 key $page shift+g;   shot w01_arrived;      held w01_arrived ref_a
 sleep 5
@@ -153,18 +166,6 @@ xdotool key Right; sleep 0.15
 shot w02_no_cue;     whole w02_no_cue ref_b
 sleep "$step"
 shot w03_turned;     whole w03_turned ref_b; black w03_turned
-
-# Back: onto the page from ahead, held once, then the page before.
-key Left;            shot k06_back_next;    whole k06_back_next ref_b
-key Left;            shot k07_back_on;      held k07_back_on ref_a
-key Left;            shot k08_back_held;    held k08_back_held ref_a
-key Left;            shot k09_back_turned;  whole k09_back_turned ref_prev
-# Arrived from behind: back leaves at once, then from ahead forward does.
-key $page shift+g;   shot k10_jump;         whole k10_jump ref_a
-key Left;            shot k11_back_at_once; whole k11_back_at_once ref_prev
-key $page shift+g; key Right; key Right; key Left
-shot k12_from_ahead; whole k12_from_ahead ref_a
-key Right;           shot k13_fwd_at_once;  whole k13_fwd_at_once ref_b
 
 # A count does not hold.
 key $page shift+g; key 2 l
@@ -174,7 +175,7 @@ shot k14_count;      zoomed k14_count ref_b
 key $page shift+g
 tap 1200 340;        shot t01_tap_held;     held t01_tap_held ref_a
 tap 1200 340;        shot t02_tap_turned;   whole t02_tap_turned ref_b
-swipe 400 340 900;   shot t03_swipe_back;   whole t03_swipe_back ref_a
+swipe 400 340 900;   shot t03_swipe_back;   held t03_swipe_back ref_a
 swipe 400 340 900;   shot t04_swipe_held;   held t04_swipe_held ref_a
 
 # Off (W): no wine red, the page turns at once, and it stays off after a
