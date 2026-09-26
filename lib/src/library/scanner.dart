@@ -205,10 +205,12 @@ Future<List<Candidate>> _find(String root) => Isolate.run(() => findBooks(root))
 
 Future<List<String>> _folders(String root) => Isolate.run(() {
   final out = <String>[];
+  final seen = <String>{};
   void walk(Directory d) {
+    if (!firstVisit(d, seen)) return;
     out.add(d.path);
     try {
-      for (final e in d.listSync(followLinks: false)) {
+      for (final e in d.listSync(followLinks: true)) {
         if (e is Directory && !p.basename(e.path).startsWith('.')) walk(e);
       }
     } on FileSystemException {
@@ -227,13 +229,17 @@ Future<BookInfo> _read(String path, String coverDir) => readBookInfoInBackground
 /// it), with size and mtime. A PNG, JPEG or WebP outside a folder book,
 /// such as one beside CBZs or a cover.jpg beside image-folder comics, is a one-page comic of
 /// its own.
-/// Hidden files and folders are skipped. Runs on a worker isolate.
+/// Hidden files and folders are skipped. Symlinked comics and folders are
+/// followed, each real folder once, so a link back up the tree ends there.
+/// Runs on a worker isolate.
 List<Candidate> findBooks(String root) {
   final out = <Candidate>[];
+  final seen = <String>{};
   void walk(Directory dir, String rel) {
+    if (!firstVisit(dir, seen)) return;
     final List<FileSystemEntity> entries;
     try {
-      entries = dir.listSync(followLinks: false);
+      entries = dir.listSync(followLinks: true);
     } on FileSystemException {
       return; // Unreadable folder: skip it, keep going.
     }
@@ -280,7 +286,7 @@ List<Candidate> findBooks(String root) {
 
 Iterable<File> _filesUnder(Directory d) {
   try {
-    return d.listSync(recursive: true, followLinks: false).whereType<File>();
+    return d.listSync(recursive: true, followLinks: true).whereType<File>();
   } on FileSystemException {
     return const [];
   }

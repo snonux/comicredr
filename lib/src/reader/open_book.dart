@@ -115,7 +115,7 @@ Future<String?> siblingBook(String path, {required bool next}) async {
   final dir = Directory(p.dirname(path));
   final images = isSingleImageName(p.basename(path)) || !isFolderBook(dir.path);
   final books = <String>[];
-  await for (final e in dir.list(followLinks: false)) {
+  await for (final e in dir.list(followLinks: true)) {
     final name = p.basename(e.path);
     if (name.startsWith('.')) continue;
     if (e is File && (isComicFileName(name) || (images && isSingleImageName(name)))) books.add(p.normalize(e.path));

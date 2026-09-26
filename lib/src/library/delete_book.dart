@@ -14,6 +14,7 @@ class DeleteFacts {
     required this.folder,
     required this.bytes,
     required this.pages,
+    this.link = false,
   });
 
   final String name;
@@ -23,6 +24,9 @@ class DeleteFacts {
   final bool folder;
   final int bytes;
   final int pages;
+
+  /// A symlink in the library: only the link goes, never what it points to.
+  final bool link;
 }
 
 /// Gathers what [askDelete] shows about the book at [path].
@@ -39,7 +43,8 @@ Future<DeleteFacts> deleteFacts(String name, String path, {required bool folder,
   } on FileSystemException {
     // The dialog shows no size rather than failing.
   }
-  return DeleteFacts(name: name, path: path, folder: folder, bytes: bytes, pages: pages);
+  final link = await FileSystemEntity.isLink(path);
+  return DeleteFacts(name: name, path: path, folder: folder, bytes: bytes, pages: pages, link: link);
 }
 
 /// `1.2 MB`, `830 KB`.
@@ -75,9 +80,12 @@ Future<bool> askDelete(BuildContext context, DeleteFacts f) async =>
                 const SizedBox(height: 4),
                 SelectableText(p.dirname(f.path), style: theme.textTheme.bodySmall),
                 const SizedBox(height: 16),
-                const Text(
-                  'It is deleted for good with its sidecar, its bookmarks, position and panels. '
-                  'It does not go to the trash, so it cannot be restored.',
+                Text(
+                  f.link
+                      ? 'It is a link: the link is deleted with its sidecar, its bookmarks, position and panels. '
+                            'The comic it points to stays where it is.'
+                      : 'It is deleted for good with its sidecar, its bookmarks, position and panels. '
+                            'It does not go to the trash, so it cannot be restored.',
                 ),
               ],
             ),
@@ -97,7 +105,7 @@ Future<bool> askDelete(BuildContext context, DeleteFacts f) async =>
               ),
               onPressed: () => Navigator.pop(context, true),
               icon: const Icon(Icons.delete_outline),
-              label: const Text('Delete for good'),
+              label: Text(f.link ? 'Delete the link' : 'Delete for good'),
             ),
           ],
         );
@@ -108,7 +116,9 @@ Future<bool> askDelete(BuildContext context, DeleteFacts f) async =>
 /// Deletes [path] for good, a file or a whole folder. Throws a
 /// [FileSystemException] when it can't.
 Future<void> removePath(String path) async {
-  if (await FileSystemEntity.isDirectory(path)) {
+  if (await FileSystemEntity.isLink(path)) {
+    await Link(path).delete(); // The link only; what it points to stays.
+  } else if (await FileSystemEntity.isDirectory(path)) {
     await Directory(path).delete(recursive: true);
   } else {
     await File(path).delete();

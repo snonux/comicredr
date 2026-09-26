@@ -77,6 +77,26 @@ void main() {
     Future<List<String>> delete(String path, String key) =>
         deleteComic(path: path, contentKey: key, folder: false, sidecars: sync, store: store, coverDir: covers());
 
+    test('a symlinked comic or folder loses only the link', () async {
+      final nas = Directory('${tmp.path}/nas')..createSync();
+      final book = writeBook(nas, 'Saga 01.cbz', 2);
+      final pages = Directory('${nas.path}/Pepper')..createSync();
+      File('${pages.path}/01.png').writeAsBytesSync(png);
+      final shelf = Directory('${tmp.path}/shelf')..createSync();
+      final fileLink = Link('${shelf.path}/Saga 01.cbz')..createSync(book);
+      final folderLink = Link('${shelf.path}/Pepper')..createSync(pages.path);
+
+      final facts = await deleteFacts('Saga', fileLink.path, folder: false, pages: 2);
+      expect(facts.link, isTrue);
+      expect(facts.bytes, File(book).lengthSync());
+      expect((await deleteFacts('Pepper', pages.path, folder: true, pages: 1)).link, isFalse);
+
+      await removePath(fileLink.path);
+      await removePath(folderLink.path);
+      expect([fileLink.existsSync(), folderLink.existsSync()], [false, false]);
+      expect([File(book).existsSync(), File('${pages.path}/01.png').existsSync()], [true, true]);
+    });
+
     test('a copy goes with its sidecar; the book stays while another copy does', () async {
       final (a, b, key) = await shelf();
       expect(await delete(a, key), isEmpty);
