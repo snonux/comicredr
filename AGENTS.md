@@ -251,6 +251,12 @@ refreshes right away instead of within six hours.
   keys.toml over it. A tap only waits for a possible second tap in a zone
   that has a double-tap action, so edge taps turn at once. Pinch zoom and
   panning stay with the InteractiveViewer and can't be remapped.
+  Nothing in it is per platform: Flutter's Linux engine turns GTK touch
+  events into touch pointers (`FlTouchManager`; the view selects
+  `GDK_TOUCH_MASK`, which `tool/touch_inject.c` reports), so a Linux
+  touchscreen gets every gesture. Android's back gesture is the one thing
+  Linux lacked; there the status line starts with a back arrow sending
+  `ReaderIntent.back` (`_StatusLine.showBack`).
 - Page thumbnails (the `p` grid and the progress bar's preview) come from
   `Thumbnails` in `lib/src/reader/thumbnails.dart`: made on demand through
   the book's own document (so PDFs use the shared PDFium isolate), scaled
@@ -406,6 +412,7 @@ tool/e2e_margins.sh           # guided view on eval pages padded with a wide sca
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_library_detection.sh [corpus] [model]  # whole-library panel pass: starts by itself, resumes after a kill, fills sidecars
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e_touch_linux.sh       # touch alone, no key or mouse: a comic opened from the library, every default reader gesture, the progress bar, the page grid pinched, scrolled and tapped, guided view, the back arrow out to the library, a long press on a cover; checks the view selects touch events and the index with sqlite3
 tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3
 tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart, grid zoom with + and Ctrl+wheel kept across a restart
 tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
