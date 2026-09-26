@@ -62,7 +62,8 @@ fail() { echo "  FAIL: $*"; failed=1; }
 ok() { echo "  ok: $*"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 1.2; }
 start() {
-  HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$@" >>"$out/app.log" 2>&1 &
+  # Classic CV: the bundled model finds no panels on these flat test pages.
+  COMICREDR_MODEL=none HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$@" >>"$out/app.log" 2>&1 &
   app=$!
   sleep 6
   win=$(xdotool search --name ComicRedr | tail -1)
