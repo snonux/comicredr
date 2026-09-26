@@ -19,7 +19,8 @@ These pictures are from the Android 14 emulator.
    however you like).
 2. Start ComicRedr and tap the folder button.
 3. Android asks you to allow **All files access** for ComicRedr on a
-   settings page. Allow it, then come back.
+   settings page. Allow it, then come back. (Android 10 and older ask
+   in a dialog instead.)
 4. `Comics` is now in the library. The folder button adds any other
    folder.
 

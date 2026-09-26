@@ -38,6 +38,17 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Only the ABIs asked for (`--target-platform`, APK_ABI in the
+        // Makefile). Plugins ship native libraries for others too
+        // (armeabi-v7a), which made a 32-bit phone install an APK with no
+        // Flutter engine for it, and cost 10 MB.
+        (project.findProperty("target-platform") as String?)?.let { platforms ->
+            val abis = mapOf("android-arm" to "armeabi-v7a", "android-arm64" to "arm64-v8a", "android-x64" to "x86_64")
+            ndk {
+                abiFilters.clear()
+                abiFilters += platforms.split(",").mapNotNull { abis[it.trim()] }
+            }
+        }
     }
 
     signingConfigs {

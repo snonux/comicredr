@@ -331,8 +331,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Android: All-files access first, explained in a sentence, then the
   /// folder as a real path.
   Future<String?> _askAndroidFolder() async {
+    if (!await _hasAndroidAccess()) return null;
+    return _askPath('Add a folder to the library', 'Add');
+  }
+
+  /// Whether All-files access is on; when it is not, says why it is needed
+  /// and offers the settings page.
+  Future<bool> _hasAndroidAccess() async {
     final granted = await _storage.invokeMethod<bool>('hasAllFilesAccess').catchError((_) => true) ?? true;
-    if (!mounted) return null;
+    if (!mounted) return false;
     if (!granted) {
       final go = await showDialog<bool>(
         context: context,
@@ -340,7 +347,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           title: const Text('Allow access to your comics'),
           content: const Text(
             'ComicRedr reads comics where they are on the phone. Android asks for that once, '
-            'as "All files access", on a settings page. Turn it on there, come back, and add the folder again.',
+            'as "All files access", on a settings page. Turn it on there, then come back and try again.',
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
@@ -349,9 +356,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
       if (go == true) await _storage.invokeMethod<void>('requestAllFilesAccess');
-      return null;
     }
-    return _askPath('Add a folder to the library', 'Add');
+    return granted;
   }
 
   /// A folder typed as a path: Android has no folder picker that gives one.
@@ -498,10 +504,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// Android's own picker, answered with the real path of what was picked
+  /// (`MainActivity.pathOf`). file_selector's picker hands back a copy in
+  /// the app's cache instead, read whole into memory: the sidecar, the
+  /// history and Delete then went to the copy, never to the comic.
+  Future<String?> _pickOnAndroid(String method) async {
+    if (!await _hasAndroidAccess()) return null;
+    try {
+      return await _storage.invokeMethod<String>(method);
+    } on PlatformException catch (e) {
+      ref
+          .read(readerProvider.notifier)
+          .notice(
+            e.code == 'no-path'
+                ? 'That has no path on the phone ComicRedr can read; pick it from the phone\'s own storage'
+                : 'Could not open the picker: ${e.message}',
+          );
+      return null;
+    }
+  }
+
   Future<void> _pickFile() async {
     if (_picking) return;
     _picking = true;
     try {
+      if (Platform.isAndroid) {
+        final path = await _pickOnAndroid('pickFile');
+        if (path != null) await ref.read(readerProvider.notifier).open(path);
+        return;
+      }
       final file = await openFile(
         acceptedTypeGroups: const [
           XTypeGroup(
@@ -520,7 +551,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_picking) return;
     _picking = true;
     try {
-      final dir = await getDirectoryPath(confirmButtonText: 'Open as a book');
+      final dir = Platform.isAndroid
+          ? await _pickOnAndroid('pickFolder')
+          : await getDirectoryPath(confirmButtonText: 'Open as a book');
       if (dir != null) await _openPath(dir);
     } finally {
       _picking = false;
@@ -534,7 +567,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_showKeymap || ref.read(readerProvider).book != null) {
       _onCommand(const ReaderCommand(ReaderIntent.back));
     } else if (!(_library.currentState?.back() ?? false)) {
-      unawaited(SystemNavigator.pop());
+      // As Esc: fullscreen goes first, then the app.
+      if (ref.read(readerProvider).fullscreen) {
+        ref.read(readerProvider.notifier).setFullscreen(false);
+      } else {
+        unawaited(SystemNavigator.pop());
+      }
     }
   }
 
@@ -833,19 +871,23 @@ extension on _HomeScreenState {
     onCommand: _onCommand,
   );
 
-  /// The page above the status line.
-  Widget _windowedReader(ReaderState s) => Column(
-    children: [
-      Expanded(
-        child: Stack(
-          children: [
-            Positioned.fill(child: _page),
-            ..._overPage(s),
-          ],
+  /// The page above the status line, clear of the phone's status and
+  /// navigation bars, which Android 15 and a return from fullscreen draw
+  /// over the app.
+  Widget _windowedReader(ReaderState s) => SafeArea(
+    child: Column(
+      children: [
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(child: _page),
+              ..._overPage(s),
+            ],
+          ),
         ),
-      ),
-      _statusLine(s),
-    ],
+        _statusLine(s),
+      ],
+    ),
   );
 
   /// Only the page, over the whole screen. The status line and progress
@@ -870,7 +912,8 @@ extension on _HomeScreenState {
                     Expanded(
                       child: Stack(children: _overPage(s, chrome: chrome)),
                     ),
-                    if (chrome) _statusLine(s),
+                    // Above the navigation bar while a swipe brings it back.
+                    if (chrome) SafeArea(top: false, child: _statusLine(s)),
                   ],
                 ),
               ),
@@ -958,79 +1001,95 @@ class _StatusLine extends StatelessWidget {
         final narrow = constraints.maxWidth < 600;
         final left = (narrow ? [...details, if (book != null) book.title] : [if (book != null) book.title, ...details])
             .join('  ·  ');
+        final status = Expanded(
+          // A live region, so a screen reader reads out each notice and page
+          // turn as it happens.
+          child: Semantics(
+            liveRegion: true,
+            child: Text(
+              state.message ?? left,
+              key: const Key('status'),
+              maxLines: narrow ? 2 : 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        );
+        final pendingKeys = Text(
+          pending,
+          key: const Key('pending'),
+          style: const TextStyle(fontFamily: 'monospace'),
+        );
+        final buttons = [
+          if (book != null) ...[
+            const SizedBox(width: 4),
+            if (state.guided)
+              _button(
+                'balloonsButton',
+                state.balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
+                'Balloon by balloon (b)',
+                ReaderIntent.toggleBalloons,
+                on: state.balloons,
+              ),
+            _button(
+              'guidedButton',
+              state.guided ? Icons.view_quilt : Icons.view_quilt_outlined,
+              'Guided view (v)',
+              ReaderIntent.toggleGuided,
+              on: state.guided,
+            ),
+            _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
+            // A phone has no room for it here; the page grid has one.
+            if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
+            if (state.bookmarksHere.isNotEmpty)
+              _button(
+                'bookmarkButton',
+                Icons.bookmark,
+                'Remove the bookmark here (mm)',
+                ReaderIntent.bookmark,
+                on: true,
+              )
+            else
+              _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
+            _button(
+              'bookmarksButton',
+              Icons.bookmarks_outlined,
+              'Bookmarks (M)',
+              ReaderIntent.bookmarkList,
+              on: bookmarksOpen,
+            ),
+            _button(
+              'fullscreenButton',
+              state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+              state.fullscreen ? 'Leave fullscreen (f)' : 'Fullscreen (f)',
+              ReaderIntent.fullscreen,
+            ),
+          ],
+        ];
         return Container(
           color: theme.colorScheme.surfaceContainer,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Row(
-            children: [
-              Expanded(
-                // A live region, so a screen reader reads out each notice
-                // and page turn as it happens.
-                child: Semantics(
-                  liveRegion: true,
-                  child: Text(
-                    state.message ?? left,
-                    key: const Key('status'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+          // On a phone the buttons left the text a dozen characters, so a
+          // notice or why guided view shows the page whole could not be
+          // read: there the text has a line of its own above the buttons.
+          child: narrow && book != null
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(children: [status, pendingKeys]),
+                    Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
+                  ],
+                )
+              : Row(
+                  children: [
+                    status,
+                    pendingKeys,
+                    if (book != null && !narrow) ...[
+                      const SizedBox(width: 12),
+                      Text(p.basename(book.path), style: theme.textTheme.bodySmall),
+                    ],
+                    ...buttons,
+                  ],
                 ),
-              ),
-              Text(
-                pending,
-                key: const Key('pending'),
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-              if (book != null && !narrow) ...[
-                const SizedBox(width: 12),
-                Text(p.basename(book.path), style: theme.textTheme.bodySmall),
-              ],
-              if (book != null) ...[
-                const SizedBox(width: 4),
-                if (state.guided)
-                  _button(
-                    'balloonsButton',
-                    state.balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
-                    'Balloon by balloon (b)',
-                    ReaderIntent.toggleBalloons,
-                    on: state.balloons,
-                  ),
-                _button(
-                  'guidedButton',
-                  state.guided ? Icons.view_quilt : Icons.view_quilt_outlined,
-                  'Guided view (v)',
-                  ReaderIntent.toggleGuided,
-                  on: state.guided,
-                ),
-                _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
-                // A phone has no room for it here; the page grid has one.
-                if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
-                if (state.bookmarksHere.isNotEmpty)
-                  _button(
-                    'bookmarkButton',
-                    Icons.bookmark,
-                    'Remove the bookmark here (mm)',
-                    ReaderIntent.bookmark,
-                    on: true,
-                  )
-                else
-                  _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here (mm)', ReaderIntent.bookmark),
-                _button(
-                  'bookmarksButton',
-                  Icons.bookmarks_outlined,
-                  'Bookmarks (M)',
-                  ReaderIntent.bookmarkList,
-                  on: bookmarksOpen,
-                ),
-                _button(
-                  'fullscreenButton',
-                  state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                  state.fullscreen ? 'Leave fullscreen (f)' : 'Fullscreen (f)',
-                  ReaderIntent.fullscreen,
-                ),
-              ],
-            ],
-          ),
         );
       },
     );

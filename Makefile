@@ -12,6 +12,8 @@
 #   make install-model MODEL=comicredr-panels.onnx   override it per user
 #   make keystore         create the Android release key (once, back it up)
 #   make apk              signed release APK for the phone (arm64)
+#                         APK_ABI=android-arm64,android-x64 adds the emulator,
+#                         fetching ONNX Runtime's x86_64 library for it
 #   make install-apk      sideload it over USB with adb
 #   make push-model MODEL=comicredr-panels.onnx   override it on the phone
 #   make push-keys        your keys.toml onto the phone
@@ -69,6 +71,13 @@ APK_ABI  ?= android-arm64
 APK      := build/app/outputs/flutter-apk/app-release.apk
 ADB      ?= adb
 PHONE_MODELDIR := /sdcard/Android/data/$(APP_ID)/files/models
+# The onnxruntime plugin carries ONNX Runtime for ARM only, so the detector
+# could not run on the x86_64 emulator. The official Android package of the
+# same version has it; an x86_64 APK takes it from there.
+ORT_VERSION := 1.15.1
+ORT_SHA256  := ff98a189aca2e731688d54f7876da49995484e855497d90cf9ffd3fe276d3c63
+MAVEN       ?= https://repo1.maven.org/maven2
+ORT_X64     := android/app/src/main/jniLibs/x86_64/libonnxruntime.so
 ANDROID_ICONS := mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192
 
 # pubspec.yaml's version without the +build suffix: 0.1.0+1 gives 0.1.0.
@@ -223,10 +232,16 @@ keystore:
 	@echo "Release key in $(KEYSTORE), password in $(KEYPROPS)."
 	@echo "Back both up: an APK signed with another key cannot update the installed app."
 
-apk: deps check-model
+apk: deps check-model $(if $(findstring android-x64,$(APK_ABI)),$(ORT_X64))
 	@test -f $(KEYPROPS) || { echo "No release key: run make keystore once (or restore $(KEYPROPS) and the keystore)."; exit 1; }
 	$(FLUTTER) build apk --release --target-platform $(APK_ABI)
 	@echo "Built $(APK)"
+
+$(ORT_X64):
+	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
+	curl -fsSL -o "$$tmp/ort.aar" "$(MAVEN)/com/microsoft/onnxruntime/onnxruntime-android/$(ORT_VERSION)/onnxruntime-android-$(ORT_VERSION).aar" && \
+	echo "$(ORT_SHA256)  $$tmp/ort.aar" | sha256sum -c --quiet && \
+	mkdir -p $(dir $@) && unzip -oqj "$$tmp/ort.aar" jni/x86_64/libonnxruntime.so -d $(dir $@)
 
 install-apk:
 	@test -f $(APK) || { echo "No APK yet: run make apk first."; exit 1; }
