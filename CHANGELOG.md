@@ -18,6 +18,12 @@ the `?` overlay.
   Narration captions are their own class, so balloon mode stops only on
   speech and thought balloons. Panels are detected again on first open.
 
+- **Turn the comic (`>`, `<`, `gr`):** a quarter turn clockwise or
+  counter-clockwise, with a count for more (`2>` turns it upside down),
+  and `gr` back upright. Guided view frames its panels on the turned page,
+  zoom, `j` `k`, fit width and `H1`-`Q4` follow the screen, and the turn
+  is kept for that comic with its position, in the sidecar too.
+
 - **Everything in ~/Comics:** on Linux, when `~/Comics` exists and the app
   has no database in `~/.local/share` yet, it keeps its database, covers,
   thumbnails, `keys.toml` and installed models in `~/Comics/.comicredr/`,

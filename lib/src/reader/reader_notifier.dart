@@ -55,6 +55,7 @@ class ReaderState {
     this.coverAlone = true,
     this.wide = const {},
     this.rightToLeft = false,
+    this.rotation = 0,
     this.fullscreen = false,
     this.night = false,
     this.trim = false,
@@ -117,6 +118,12 @@ class ReaderState {
   /// spread mode. Empty until the page sizes are read after opening.
   final Set<int> wide;
   final bool rightToLeft;
+
+  /// Quarter turns clockwise the comic is shown at, 0 to 3 (`>`, `<`,
+  /// `gr`). Kept for this book with its position; guided view, page turns
+  /// and zoom all happen on the turned page. Panels stay in the page's own
+  /// coordinates, so turning never asks for detection again.
+  final int rotation;
   final bool fullscreen;
   final bool night;
 
@@ -240,6 +247,7 @@ class ReaderState {
     bool? coverAlone,
     Set<int>? wide,
     bool? rightToLeft,
+    int? rotation,
     bool? fullscreen,
     bool? night,
     bool? trim,
@@ -268,6 +276,7 @@ class ReaderState {
     coverAlone: coverAlone ?? this.coverAlone,
     wide: wide ?? this.wide,
     rightToLeft: rightToLeft ?? this.rightToLeft,
+    rotation: rotation ?? this.rotation,
     fullscreen: fullscreen ?? this.fullscreen,
     night: night ?? this.night,
     trim: trim ?? this.trim,
@@ -438,6 +447,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       cue: state.cue,
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
+      rotation: (saved?.rotation ?? 0) % 4,
       fullscreen: fullscreen,
       night: night,
       trim: trim,
@@ -763,6 +773,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         spread: state.mode == PageMode.spread,
         coverAlone: state.coverAlone,
         rightToLeft: state.rightToLeft,
+        rotation: state.rotation,
         view: _view,
       ),
       state.pageCount,
@@ -1173,6 +1184,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
           rightToLeft: !state.rightToLeft,
           message: state.rightToLeft ? 'Left to right' : 'Right to left',
         );
+      case ReaderIntent.rotateClockwise:
+        _rotateTo(state.rotation + c.times);
+      case ReaderIntent.rotateCounterClockwise:
+        _rotateTo(state.rotation - c.times);
+      case ReaderIntent.rotateReset:
+        _rotateTo(0);
       case ReaderIntent.fullscreen:
         setFullscreen(!state.fullscreen);
       case ReaderIntent.nightFilter:
@@ -1287,6 +1304,20 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // Mode switches (guided, balloons, spread, direction) are part of the
     // spot too. Saves are debounced, so this costs nothing per key.
     if (state.book case final book?) _saveProgress(book);
+  }
+
+  /// Shows the comic at [quarters] quarter turns clockwise (any integer).
+  void _rotateTo(int quarters) {
+    final r = quarters % 4;
+    state = state.copyWith(
+      rotation: r,
+      message: switch (r) {
+        0 => 'Upright',
+        1 => 'Turned a quarter clockwise',
+        2 => 'Upside down',
+        _ => 'Turned a quarter counter-clockwise',
+      },
+    );
   }
 
   void _saveSetting(String key, bool on) => unawaited(

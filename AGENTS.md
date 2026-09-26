@@ -240,6 +240,18 @@ build internals, test scripts, detector work and conventions here.
   order, across a spread's other page, then to the whole page; in guided
   view that whole page is held like a page without panels. Leaving the
   page, a mode switch, Esc or the same keys end it.
+- Turning the comic (`>`, `<`, `gr`; `ReaderState.rotation`, quarter
+  turns clockwise): ReaderView puts its whole view in a `RotatedBox`, so
+  layout, fit, guided view's camera and dim, zoom tiles and page parts all
+  work in the turned frame, whose viewport is the screen with its sides
+  swapped. Only what crosses to the screen is turned: a tapped point
+  (`_unturned`), the transform the touch layer reads, `j` `k` (`_pan`),
+  the fit (`_frameFit`: fit width on a quarter turn fits the frame's
+  height), where a new page starts (`_home`, the page's top left as seen)
+  and `H1`-`Q4` (`unturnRect`). Panels stay in page coordinates and
+  detection never sees the turn. Saved per book in the position's
+  `view_json` (`rotation`), so it travels in the sidecar. Page thumbnails
+  are not turned.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -339,6 +351,7 @@ tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
+tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 ```
 

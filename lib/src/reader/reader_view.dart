@@ -27,6 +27,13 @@ enum Fit { page, width, height }
 /// page stays one image, and an animated transform moves between panels
 /// while the rest of the page is dimmed.
 ///
+/// A turned comic (ReaderState.rotation) is the whole view in a
+/// [RotatedBox]: everything below lays out, zooms and aims the camera in the
+/// turned frame, where the viewport is the screen with its sides swapped for
+/// a quarter turn, so guided view, zoom tiles and parts of the page need no
+/// rotation maths of their own. Only what comes from the screen (a tapped
+/// point) or goes back to it (the transform the touch layer reads) is turned.
+///
 /// Pages decode at the size they are shown at. Zoomed in past that, by hand
 /// or by the guided camera, a sharp tile of just what is on screen is drawn
 /// over the page, so memory stays near one screenful however far in the
@@ -102,6 +109,9 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   Size _viewport = Size.zero;
   Size _content = Size.zero;
 
+  /// Quarter turns clockwise of the frame last laid out (ReaderState.rotation).
+  int _turns = 0;
+
   /// The saved zoom and scroll of the book just opened, applied once its
   /// first page is laid out. Nothing is reported back until then, so the
   /// page loading at identity does not overwrite it.
@@ -174,7 +184,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final w = math.max(64, (_viewport.width * dpr / pages).ceil());
     final h = math.max(64, (_viewport.height * dpr).ceil());
-    return switch (guided ? Fit.page : _fit) {
+    return switch (guided ? Fit.page : _frameFit) {
       Fit.page => (width: w, height: h),
       Fit.width => (width: w, height: 0),
       Fit.height => (width: 0, height: h),
@@ -327,20 +337,20 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
       case ReaderIntent.fitPage:
         _setFit(Fit.page);
       case ReaderIntent.zoomIn:
-        _zoom(math.pow(1.25, c.times).toDouble(), at: c.at);
+        _zoom(math.pow(1.25, c.times).toDouble(), at: _unturned(c.at));
       case ReaderIntent.zoomOut:
-        _zoom(math.pow(0.8, c.times).toDouble(), at: c.at);
+        _zoom(math.pow(0.8, c.times).toDouble(), at: _unturned(c.at));
       case ReaderIntent.zoomReset:
-        _transform.value = Matrix4.identity();
+        _transform.value = _home();
       case ReaderIntent.zoomToggle:
         // A double-tap: back out when zoomed (re-centring the panel in
         // guided view), else about 2.4x on the spot tapped.
         if (_scale > 1.01) return handle(const ReaderCommand(ReaderIntent.zoomReset));
-        _zoom(math.pow(1.25, 4).toDouble(), at: c.at);
+        _zoom(math.pow(1.25, 4).toDouble(), at: _unturned(c.at));
       case ReaderIntent.panDown:
-        _pan(0.15 * _viewport.height * c.times);
+        _pan(0.15 * _screen.height * c.times);
       case ReaderIntent.panUp:
-        _pan(-0.15 * _viewport.height * c.times);
+        _pan(-0.15 * _screen.height * c.times);
       default:
         return false;
     }
@@ -402,8 +412,13 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   /// fitted to the new size at once, keeping the zoom and the point in the
   /// middle of the screen; guided view's camera re-frames its panel by
   /// itself. The pages decode again at the new size once it settles.
-  void _resized(Size old, ReaderState s) {
-    if (old != Size.zero && _images.isNotEmpty && _restore == null && !s.guided && !_transform.value.isIdentity()) {
+  void _resized(Size old, ReaderState s, {bool keepView = true}) {
+    if (keepView &&
+        old != Size.zero &&
+        _images.isNotEmpty &&
+        _restore == null &&
+        !s.guided &&
+        !_transform.value.isIdentity()) {
       final keep = _spot();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && !ref.read(readerProvider).guided) _applyRestore(keep);
@@ -437,11 +452,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   /// or when the system asks for reduced motion, it cuts.
   void _aimCamera(ReaderState s) {
     final trim = _trimOf(s, 0);
-    final child = _childSize;
-    final origin = Offset(
-      (child.width - _content.width) / 2,
-      !s.guided && _fit == Fit.width ? 0.0 : (child.height - _content.height) / 2,
-    );
+    final origin = _origin(s.guided);
     // What to frame, in the child's coordinates, and the dimming hole, as
     // fractions of the shown pages.
     Rect? rect, focus;
@@ -449,7 +460,8 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     if (s.region case final r?) {
       for (final p in _pageRects(s)) {
         if (p.page != r.page) continue;
-        final part = partRect(r.split, r.part);
+        // Parts are of the page as it is seen, turned or not.
+        final part = unturnRect(partRect(r.split, r.part), _turns);
         rect = Rect.fromLTWH(
           p.rect.left + part.left * p.rect.width,
           p.rect.top + part.top * p.rect.height,
@@ -504,7 +516,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         last.viewport == key.viewport &&
         !MediaQuery.disableAnimationsOf(context);
     _cameraKey = key;
-    final target = Matrix4.identity();
+    final target = rect == null ? _home() : Matrix4.identity();
     Rect? hole;
     List<Offset>? shape;
     if (rect != null && focus != null) {
@@ -558,8 +570,32 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   double get _scale => _transform.value.getMaxScaleOnAxis();
 
   /// Zoom and pan as they are now, for the touch layer to tell a swipe that
-  /// panned the page from one that could not move it.
-  Matrix4 get transform => _transform.value.clone();
+  /// panned the page from one that could not move it. On a turned comic the
+  /// pan is turned back to the screen's directions, so a sideways drag is
+  /// still told by x.
+  Matrix4 get transform {
+    final m = _transform.value.clone();
+    if (_turns == 0) return m;
+    final t = m.getTranslation();
+    final (x, y) = switch (_turns) {
+      1 => (-t.y, t.x),
+      2 => (-t.x, -t.y),
+      _ => (t.y, -t.x),
+    };
+    return m..setTranslationRaw(x, y, 0);
+  }
+
+  /// A point on the screen (as the touch layer reports it) in the turned
+  /// frame the page is laid out in.
+  math.Point<double>? _unturned(math.Point<double>? at) {
+    if (at == null || _turns == 0) return at;
+    final v = _viewport; // The frame; the screen is v with its sides swapped for odd turns.
+    return switch (_turns) {
+      1 => math.Point(at.y, v.height - at.x),
+      2 => math.Point(v.width - at.x, v.height - at.y),
+      _ => math.Point(v.width - at.y, at.x),
+    };
+  }
 
   /// Zooms by [factor] keeping the point [at] still, or the middle of the
   /// viewport when a key asked.
@@ -574,8 +610,15 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     _transform.value = _clamped(m);
   }
 
+  /// Moves the view [dy] down the screen, whichever way the comic is turned.
   void _pan(double dy) {
-    final m = Matrix4.translationValues(0, -dy, 0)..multiply(_transform.value);
+    final (x, y) = switch (_turns) {
+      1 => (-dy, 0.0),
+      2 => (0.0, dy),
+      3 => (dy, 0.0),
+      _ => (0.0, -dy),
+    };
+    final m = Matrix4.translationValues(x, y, 0)..multiply(_transform.value);
     _transform.value = _clamped(m);
   }
 
@@ -602,9 +645,9 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
 
   /// Where each shown page sits in the zoomable child, in display order.
   List<({int page, Rect rect, ui.Image image, Trim trim})> _pageRects(ReaderState s) {
-    final child = _childSize;
-    final top = !s.guided && _fit == Fit.width ? 0.0 : (child.height - _content.height) / 2;
-    var x = (child.width - _content.width) / 2;
+    final origin = _origin(s.guided);
+    final top = origin.dy;
+    var x = origin.dx;
     final h = _content.height;
     final out = <({int page, Rect rect, ui.Image image, Trim trim})>[];
     final order = [for (var k = 0; k < _images.length && k < _shownUnit.length; k++) k];
@@ -711,6 +754,51 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         outer.top + outer.height >= inner.top + inner.height - slack;
   }
 
+  /// The screen: the frame with its sides swapped on a quarter turn.
+  Size get _screen => _turns.isOdd ? _viewport.flipped : _viewport;
+
+  /// The fit in the turned frame: fitting a comic turned a quarter to the
+  /// screen's width fits it to the frame's height.
+  Fit get _frameFit => !_turns.isOdd
+      ? _fit
+      : switch (_fit) {
+          Fit.width => Fit.height,
+          Fit.height => Fit.width,
+          Fit.page => Fit.page,
+        };
+
+  /// Where the page sits in the zoomable child when it is smaller than the
+  /// screen: fitted to the width, at the top of the screen, else centred.
+  Alignment _alignment(bool guided) => guided || _fit != Fit.width
+      ? Alignment.center
+      : switch (_turns) {
+          1 => Alignment.centerLeft,
+          2 => Alignment.bottomCenter,
+          3 => Alignment.centerRight,
+          _ => Alignment.topCenter,
+        };
+
+  /// The top-left corner of the laid-out pages in the zoomable child.
+  Offset _origin(bool guided) {
+    final child = _childSize;
+    return _alignment(guided).alongOffset(Offset(child.width - _content.width, child.height - _content.height));
+  }
+
+  /// The view a new page, a new fit or a reset starts from: the page's top
+  /// left as the screen shows it, which on a turned comic is another corner
+  /// of the frame. Upright, no transform at all.
+  Matrix4 _home() {
+    final child = _childSize;
+    final dx = math.min(0.0, _viewport.width - child.width), dy = math.min(0.0, _viewport.height - child.height);
+    final (x, y) = switch (_turns) {
+      1 => (0.0, dy),
+      2 => (dx, dy),
+      3 => (dx, 0.0),
+      _ => (0.0, 0.0),
+    };
+    return Matrix4.translationValues(x, y, 0);
+  }
+
   Size get _childSize => Size(math.max(_content.width, _viewport.width), math.max(_content.height, _viewport.height));
 
   /// Natural size of the unit laid side by side at a common height, then
@@ -719,7 +807,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     if (pages.isEmpty) return Size.zero;
     final h = pages.map((p) => p.height).reduce(math.max);
     final w = pages.fold<double>(0, (sum, p) => sum + p.width * h / p.height);
-    final scale = switch (guided ? Fit.page : _fit) {
+    final scale = switch (guided ? Fit.page : _frameFit) {
       Fit.page => math.min(_viewport.width / w, _viewport.height / h),
       Fit.width => _viewport.width / w,
       Fit.height => _viewport.height / h,
@@ -737,12 +825,19 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
       if (_seenCue != null && s.cue > _seenCue! && s.pauseCue == PauseCue.zoom && !still) _pulse.forward(from: 0);
       _seenCue = s.cue;
     }
-    return LayoutBuilder(
+    final view = LayoutBuilder(
       builder: (context, constraints) {
+        final turned = _turns != s.rotation;
+        if (turned) {
+          // A new turn starts the view over, from the page's top left as
+          // the screen now shows it, or from the panel in guided view.
+          _turns = s.rotation;
+          _cameraKey = null;
+        }
         final viewport = constraints.biggest;
         if (viewport != _viewport) {
           // Measured against the old size and layout, before they change.
-          _resized(_viewport, s);
+          _resized(_viewport, s, keepView: !turned);
           _viewport = viewport;
         }
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -824,14 +919,13 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
           child: SizedBox(
             width: child.width,
             height: child.height,
-            child: Align(
-              alignment: !s.guided && _fit == Fit.width ? Alignment.topCenter : Alignment.center,
-              child: pages,
-            ),
+            child: Align(alignment: _alignment(s.guided), child: pages),
           ),
         );
       },
     );
+    // Upright or turned, the view is laid out in its own frame (see the class).
+    return RotatedBox(quarterTurns: s.rotation, child: view);
   }
 }
 

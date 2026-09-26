@@ -30,6 +30,11 @@ enum ReaderIntent {
   shiftSpread('Shift the spread pairing by one'),
   toggleContinuous('Continuous vertical scroll on or off'),
   toggleDirection('Reading direction for this book'),
+  rotateClockwise(
+    'Turn the comic a quarter turn clockwise, or N quarters with a count; kept for this book, in guided view too',
+  ),
+  rotateCounterClockwise('Turn the comic a quarter turn counter-clockwise'),
+  rotateReset('Turn the comic back upright'),
   fitWidth('Fit width'),
   fitHeight('Fit height'),
   fitPage('Fit whole page; re-centre the panel in guided view'),

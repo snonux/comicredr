@@ -47,6 +47,9 @@ Potion Contest*, by David Revoy, licensed
   `H2` for the upper or lower half, `B1` to `B3` for thirds, `Q1` to `Q4`
   for quarters. `→` steps through the parts before the page turns; `Esc`
   shows the whole page again.
+- **Turn the comic** a quarter at a time: `>` clockwise, `<` the other
+  way, `gr` back upright. A sideways scan stays turned in guided view,
+  across pages and the next time you open it.
 - **Fullscreen** (`f` or F11), for the library and the comic: no title
   bar or border, and in the reader only the comic; move the mouse to the
   bottom edge to see where you are.

@@ -62,6 +62,12 @@ shiftSpread = ["D"]
 toggleContinuous = ["s"]
 # Reading direction for this book
 toggleDirection = ["r"]
+# Turn the comic a quarter turn clockwise, or N quarters with a count; kept for this book, in guided view too
+rotateClockwise = [">"]
+# Turn the comic a quarter turn counter-clockwise
+rotateCounterClockwise = ["<"]
+# Turn the comic back upright
+rotateReset = ["gr"]
 # Fit width
 fitWidth = ["zw"]
 # Fit height
