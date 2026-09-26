@@ -12,10 +12,11 @@ build internals, test scripts, detector work and conventions here.
   plainly in the PR.
 - Merge with merge commits, not squash, and keep `main` green
   (`make test`).
-- The README is written for a human (snonux, 2026-09-26): a short intro
-  with a few highlights, the screenshots, the install steps, a quick start
-  that points to the in-app `?` help, and a detailed feature list at the
-  bottom of the page, grouped by topic. Add a new feature to that list.
+- The README is short and written for a human (snonux, 2026-09-26): an
+  intro with a few highlights, the screenshots, the install steps and a
+  quick start that points to the in-app `?` help. Every feature, with
+  examples and screenshots, belongs in the usage guide (`docs/guide/`),
+  which the README links to; no long feature list in the README.
   Internals go here, and training in `docs/training.md`. The `?` overlay
   and `docs/keys.toml` are generated from the keymap and are the key
   reference.
