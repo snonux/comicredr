@@ -2,7 +2,7 @@
 
 This is a map of the app: what the parts are, how a page gets from a file
 to the screen, how guided view finds its panels, and what the detector
-model is. For using the app, see the [README](../README.md); for building,
+model is. For using the app, see [the guide](guide/README.md); for building,
 testing and the finer details of each feature, see [AGENTS.md](../AGENTS.md).
 
 The diagrams are [Mermaid](https://mermaid.js.org); GitHub draws them.
@@ -314,8 +314,7 @@ flowchart LR
   little inside the input.
 - **Everything on the CPU.** No GPU is needed anywhere, for training or
   reading. `make train-model` runs the whole pipeline; the steps and
-  requirements are in the README's
-  [Train it yourself](../README.md#train-it-yourself) section.
+  requirements are in [docs/training.md](training.md).
 
 **How good is it?** `spike/evaluate.py` runs a model over labelled pages
 from books it never trained on and asks, per page, whether guided view

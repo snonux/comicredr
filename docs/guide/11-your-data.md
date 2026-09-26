@@ -1,6 +1,6 @@
-# 10. Your data
+# 11. Your data
 
-[Contents](README.md) · Previous: [On the phone](09-phone.md) · Next: [Settings](11-settings.md)
+[Contents](README.md) · Previous: [On the phone](10-phone.md) · Next: [Settings](12-settings.md)
 
 ComicRedr keeps everything on your own machine, in two places: a small
 file beside each comic, and one folder for the app itself. Nothing is
@@ -15,7 +15,7 @@ inside a folder book. It holds:
 - where you are, on each of your devices, and how the comic was turned;
 - the panels and balloons found on its pages;
 - your bookmarks, notes and marks;
-- your [edits](06-managing-comics.md#fix-a-title-or-series) to its title
+- your [edits](07-managing-comics.md#fix-a-title-or-series) to its title
   and series;
 - the collections it is in, Favourites included.
 
@@ -64,4 +64,4 @@ again and one scan brings back everything the sidecars hold: positions,
 bookmarks, panels, edits and collections. Only the settings and the
 reading history are lost.
 
-[Contents](README.md) · Previous: [On the phone](09-phone.md) · Next: [Settings](11-settings.md)
+[Contents](README.md) · Previous: [On the phone](10-phone.md) · Next: [Settings](12-settings.md)

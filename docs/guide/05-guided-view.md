@@ -1,6 +1,6 @@
-# 4. Guided view
+# 5. Guided view
 
-[Contents](README.md) · Previous: [Reading a comic](03-reading.md) · Next: [Bookmarks and marks](05-bookmarks.md)
+[Contents](README.md) · Previous: [Reading a comic](04-reading.md) · Next: [Bookmarks and marks](06-bookmarks.md)
 
 Guided view is the reason ComicRedr exists. Instead of shrinking a whole
 page onto your screen, it moves from panel to panel, each one as large as
@@ -26,7 +26,7 @@ The status line says where you are: `guided: panel 2 / 6`.
 
 On the phone a panel fills the width of the screen. The panels of this
 comic were found on the laptop and came along in its
-[sidecar file](10-your-data.md), so guided view was ready on the phone
+[sidecar file](11-your-data.md), so guided view was ready on the phone
 straight away:
 
 <img src="images/android-guided.webp" width="260" alt="Guided view on an Android phone">
@@ -100,14 +100,14 @@ fifth of a second a page. Nothing leaves your machine.
   low priority. The line at the bottom of the library shows its progress,
   with a pause button. Settings can turn this off; on the phone it is off
   unless you turn it on.
-- The results are saved in the comic's [sidecar file](10-your-data.md),
+- The results are saved in the comic's [sidecar file](11-your-data.md),
   so a comic copied to your phone doesn't need finding again.
-- The [details view](06-managing-comics.md#details-of-a-comic) (`I`)
+- The [details view](07-managing-comics.md#details-of-a-comic) (`I`)
   shows, page by page, how many panels and balloons were found and why a
   page is shown whole.
 
 If a comic's panels look wrong after an update, `X` → **Redo panels**
 finds them again (see
-[Reset a comic](06-managing-comics.md#reset-a-comic)).
+[Reset a comic](07-managing-comics.md#reset-a-comic)).
 
-[Contents](README.md) · Previous: [Reading a comic](03-reading.md) · Next: [Bookmarks and marks](05-bookmarks.md)
+[Contents](README.md) · Previous: [Reading a comic](04-reading.md) · Next: [Bookmarks and marks](06-bookmarks.md)

@@ -15,15 +15,20 @@ it in step when the architecture or the model changes.
   plainly in the PR.
 - Merge with merge commits, not squash, and keep `main` green
   (`make test`).
-- The README stays lean and written for a human: a feature list, the
-  install steps, a quick start that points to the in-app `?` help, and the
-  screenshots. Don't document every key there; the `?` overlay and
-  `docs/keys.toml` are generated from the keymap and are the reference.
+- The README is as lean as it can be (snonux, 2026-09-26): an intro, a
+  link to the usage guide near the top, a few highlights, the
+  screenshots, one line pointing to the install chapter, and the links to
+  ARCHITECTURE.md, training.md, this file and the changelog at the
+  bottom. Installing and every feature, with examples and screenshots,
+  belong in the guide. Internals go here, and training in
+  `docs/training.md`. The `?` overlay and `docs/keys.toml` are generated
+  from the keymap and are the key reference.
 - The usage guide is `docs/guide/`: a contents page (`README.md`) and one
-  chapter a file, written for people. A feature that changes what a user
-  sees or types gets its chapter updated in the same PR, and new section
-  headings go in the contents. Its pictures are made by
-  `tool/guide_shots.sh` from the release build (WebP stills, small GIFs).
+  chapter a file, written for people, starting with installing. A
+  feature that changes what a user sees or types gets its chapter updated
+  in the same PR, and new section headings go in the contents. Its
+  pictures are made by `tool/guide_shots.sh` from the release build (WebP
+  stills, small GIFs).
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
@@ -34,10 +39,11 @@ it in step when the architecture or the model changes.
   root (`packages/reader_input/test/keys_toml_test.dart` fails otherwise).
 - Version bumps touch `pubspec.yaml`, `lib/src/version.dart` and
   `CHANGELOG.md` together (`test/version_test.dart` checks the first two).
-- The app points users at README sections by name: "The CBR files you
-  already have" (`lib/src/reader/open_book.dart`) and "The trained
-  detector" (`lib/src/library/settings_dialog.dart`). Keep those headings
-  or update the strings.
+- The app points users at sections of the guide's Installing chapter
+  (`docs/guide/01-installing.md`) by name: "The CBR files you already
+  have" (`lib/src/reader/open_book.dart`) and "The panel detector"
+  (`lib/src/library/settings_dialog.dart`). Keep those headings or update
+  the strings.
 
 ## Cloud container setup
 
@@ -390,6 +396,11 @@ carries a per-style summary.
 
 ## Train the detector
 
+The full recipe, for people and agents alike, is
+[docs/training.md](docs/training.md): what the shipped model is, the one
+command that rebuilds it, the licence rules, adding books and labels,
+scoring and shipping. The notes below add the history.
+
 The model built into the app is D-FINE-S (Apache-2.0 code and weights),
 fine-tuned from its COCO-only checkpoint (`ustc-community/dfine-small-coco`
 on Hugging Face) on our own labels, and committed at
@@ -412,7 +423,7 @@ load it. The labels are committed in `spike/labels/` (how they were drawn:
 `spike/LABELLING.md`); the comics are fetched.
 
 ```sh
-pip install opencv-python-headless numpy pillow pypdfium2 torch transformers onnx onnxruntime onnxslim
+python3 -m pip install --user -r spike/requirements-train.txt   # the versions the shipped model used
 python3 spike/fetch_corpus.py                                   # eval comics
 python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train
 python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern
