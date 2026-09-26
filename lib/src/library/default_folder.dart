@@ -2,15 +2,17 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../data/data_dirs.dart';
 import '../data/settings_store.dart';
 import 'library_store.dart';
 
 /// The folder the library starts with: `~/Comics` on the laptop, the
 /// Comics folder in the phone's shared storage on Android. Null when there
-/// is no home to look in.
+/// is no home to look in. The home comes from [appEnvironment], so tests
+/// get their scratch one.
 String? defaultComicsFolder({Map<String, String>? environment, bool? android}) {
   if (android ?? Platform.isAndroid) return '/storage/emulated/0/Comics';
-  final home = (environment ?? Platform.environment)['HOME'];
+  final home = (environment ?? appEnvironment)['HOME'];
   if (home == null || home.isEmpty) return null;
   return p.join(home, 'Comics');
 }

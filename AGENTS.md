@@ -371,6 +371,13 @@ test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus
 
 ## Develop and test
 
+`flutter test` runs every test file under an empty scratch home
+(`test/flutter_test_config.dart`, `debugUseHome` in `data_dirs.dart`):
+widget tests run the real start-up, and with the real HOME they scanned
+the developer's `~/Comics`, made a `~/Comics/.comicredr` and wrote test
+positions into its sidecars. Code that reads HOME or the XDG variables
+goes through `appEnvironment`, not `Platform.environment`.
+
 The e2e scripts use the detector built into the release build (and pass
 its file where they need one); `COMICREDR_MODEL=file.onnx` tries another,
 `COMICREDR_MODEL=none` forces classic CV.

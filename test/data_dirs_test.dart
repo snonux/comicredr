@@ -69,4 +69,18 @@ void main() {
     expect(xdgKeysFile({'HOME': '/h', 'XDG_CONFIG_HOME': '/c'}), '/c/comicredr/keys.toml');
     expect(xdgDataFolder({'HOME': '/h'}), '/h/.local/share/org.snonux.comicredr');
   });
+
+  // flutter_test_config.dart gives every test file a scratch home, so a
+  // run on a laptop leaves its ~/Comics and app data alone.
+  test('tests keep out of the real home', () async {
+    final scratch = appEnvironment['HOME']!;
+    expect(scratch, isNot(Platform.environment['HOME']));
+    expect(p.isWithin(Directory.systemTemp.path, scratch), isTrue);
+    final dirs = await appDirs();
+    for (final path in [dirs.data, dirs.cache, dirs.keys!, xdgDataFolder()!]) {
+      expect(p.isWithin(scratch, path), isTrue, reason: path);
+    }
+    expect(dirs.inComics, isFalse);
+    expect(comicsDataFolder(), isNull);
+  });
 }
