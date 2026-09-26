@@ -112,6 +112,11 @@ make run              # try it without installing
 make install          # add it to the GNOME app grid, no sudo needed
 ```
 
+The panel detector for guided view is part of the repository, so `make`
+builds it in: there is nothing else to download or train. If you installed
+a model yourself before (`make install-model`), `make install` moves it
+aside to `comicredr-panels.onnx.old` so the built-in one is used.
+
 After `make install`, ComicRedr is in Activities with its own icon, and
 **Open With → ComicRedr** works on CBZ, CBT, EPUB and PDF files, on
 folders, and on PNG, JPEG and WebP images without becoming your image
@@ -163,7 +168,9 @@ model are in [AGENTS.md](AGENTS.md).
 | `make model MODEL=file.onnx` | Replaces the built-in model in the checkout. |
 | `make NO_MODEL=1` | Builds without a model; the app uses classic computer vision. |
 
-Restart the app after `install-model` or `push-model`.
+Restart the app after `install-model` or `push-model`. The next
+`make install` or `make install-apk` moves such a model aside again and
+goes back to the built-in one.
 
 ## Install on an Android phone
 
@@ -189,6 +196,8 @@ make keystore       # once: creates your signing key
 make apk            # build the APK
 make install-apk    # install it, keeping the app's data
 ```
+
+The APK carries the same built-in panel detector.
 
 > **Back up `~/.config/comicredr/release.jks` and `android/key.properties`.**
 > Android only installs an update over the old app, keeping your library

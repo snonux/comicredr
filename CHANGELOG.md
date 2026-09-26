@@ -17,6 +17,9 @@ the `?` overlay.
   in it comes from Manga109 or Ultralytics.
   Narration captions are their own class, so balloon mode stops only on
   speech and thought balloons. Panels are detected again on first open.
+  `make install` and `make install-apk` move a model installed earlier
+  with `make install-model` or `make push-model` aside (`.onnx.old`), so
+  the built-in one is used without any other step.
 
 - **Turn the comic (`>`, `<`, `gr`):** a quarter turn clockwise or
   counter-clockwise, with a count for more (`2>` turns it upside down),
