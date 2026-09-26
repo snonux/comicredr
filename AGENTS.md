@@ -12,10 +12,13 @@ build internals, test scripts, detector work and conventions here.
   plainly in the PR.
 - Merge with merge commits, not squash, and keep `main` green
   (`make test`).
-- The README stays lean and written for a human: a feature list, the
-  install steps, a quick start that points to the in-app `?` help, and the
-  screenshots. Don't document every key there; the `?` overlay and
-  `docs/keys.toml` are generated from the keymap and are the reference.
+- The README is written for a human (snonux, 2026-09-26): a short intro
+  with a few highlights, the screenshots, the install steps, a quick start
+  that points to the in-app `?` help, and a detailed feature list at the
+  bottom of the page, grouped by topic. Add a new feature to that list.
+  Internals go here, and training in `docs/training.md`. The `?` overlay
+  and `docs/keys.toml` are generated from the keymap and are the key
+  reference.
 - README screenshots live in `docs/screenshots/` as WebP, taken from the
   release build. Use only public-domain comics or Pepper&Carrot, and keep
   the credits (David Revoy, CC BY 4.0).
@@ -378,6 +381,11 @@ carries a per-style summary.
 
 ## Train the detector
 
+The full recipe, for people and agents alike, is
+[docs/training.md](docs/training.md): what the shipped model is, the one
+command that rebuilds it, the licence rules, adding books and labels,
+scoring and shipping. The notes below add the history.
+
 The model built into the app is D-FINE-S (Apache-2.0 code and weights),
 fine-tuned from its COCO-only checkpoint (`ustc-community/dfine-small-coco`
 on Hugging Face) on our own labels, and committed at
@@ -400,7 +408,7 @@ load it. The labels are committed in `spike/labels/` (how they were drawn:
 `spike/LABELLING.md`); the comics are fetched.
 
 ```sh
-pip install opencv-python-headless numpy pillow pypdfium2 torch transformers onnx onnxruntime onnxslim
+python3 -m pip install --user -r spike/requirements-train.txt   # the versions the shipped model used
 python3 spike/fetch_corpus.py                                   # eval comics
 python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train
 python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern

@@ -51,6 +51,7 @@ app.*.map.json
 # Real comics are fetched, never committed (design plan section 10).
 /test/corpus/
 /test/corpus-train/
+/test/corpus-train-local/
 /test/corpus-modern/
 /test/corpus-diagonal/
 /test/corpus-diagonal-eval/
@@ -60,6 +61,7 @@ app.*.map.json
 /spike/out/
 /spike/eval_pages/
 /spike/train_pages/
+/spike/train_pages_local/
 /spike/modern_pages/
 /spike/label_new/
 /spike/diagonal_pages/
