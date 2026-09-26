@@ -136,6 +136,8 @@ searchNext = ["n"]
 searchPrev = ["N"]
 # Open a file without adding it to the library
 openFile = ["o"]
+# Continue the comic read last, where it was left, even after a restart; in a comic, the one read before it
+continueReading = ["C"]
 # Open a folder of page images as a book
 openFolder = ["O"]
 # Back out one level, ending at the library

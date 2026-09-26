@@ -256,6 +256,15 @@ refreshes right away instead of within six hours.
   (`LibraryScreenState._favourites`), where `*`, `x` and the details' star
   take a comic out with an Undo notice. Renamed or emptied, the next
   favourite makes the collection again.
+- Continue (`C`, the library header's play button, widget key `continue`):
+  `RecentBooks` (`lib/src/reader/recent_books.dart`) keeps the last five
+  comics opened, path, content key and title, newest first, in the
+  setting `reader.recent`; `ReaderNotifier.open` puts each one first. It
+  is per install (paths), so not in `SettingsStore.backedUp`.
+  `HomeScreen._continueReading` opens the newest that is not the open
+  comic; the position comes back as on any open. A missing path is looked
+  up by content key in the library (a moved comic); failing that, a
+  notice and the entry is dropped.
 - Touch: `ReaderTouch` looks every gesture up in a `TouchMap`
   (`reader_input` touch_map.dart): taps, double-taps and long presses on a
   3x3 grid (30% side columns, rows in thirds), four swipes and a
@@ -469,6 +478,7 @@ tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, t
 tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole holds one step with the wine-red and the zoom cue (gw), keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
+tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books

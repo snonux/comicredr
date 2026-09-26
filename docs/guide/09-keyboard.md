@@ -33,6 +33,7 @@ The top of the list also shows ComicRedr's data folder, and which
 | `←` `h` | Back | Previous cover |
 | `↓` `↑` `j` `k` | Move down and up a zoomed page | Cover below and above |
 | `Enter` | | Open |
+| `C` | [The comic read before this one](02-getting-started.md#carry-on-where-you-stopped-c) | The comic read last, where you stopped |
 | `Esc` | Out of guided view, then back to the library | Back out of a series, folder or search |
 | `v` | [Guided view](05-guided-view.md) | |
 | `b` | [Balloon by balloon](05-guided-view.md#balloon-by-balloon) | |

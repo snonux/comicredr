@@ -77,6 +77,9 @@ enum ReaderIntent {
   searchNext('Next match in a book (not built yet)'),
   searchPrev('Previous match in a book (not built yet)'),
   openFile('Open a file without adding it to the library'),
+  continueReading(
+    'Continue the comic read last, where it was left, even after a restart; in a comic, the one read before it',
+  ),
   openFolder('Open a folder of page images as a book'),
   back('Back out one level, ending at the library'),
   up('Up to the folder above in the library'),

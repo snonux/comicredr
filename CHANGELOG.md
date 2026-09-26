@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Continue reading (`C`):** opens the comic read last on the page it
+  was left at, even after a restart, guided view and panel included; in
+  a comic, the one read before it. The library's header has the same as
+  a play button for touch. A comic moved in the library is found by its
+  content; a deleted one gets a notice.
+
 ## 0.3.0
 
 Back up and restore your settings.
