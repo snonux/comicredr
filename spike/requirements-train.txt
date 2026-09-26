@@ -1,0 +1,15 @@
+# The Python packages the built-in model was trained and exported with
+# (2026-09-26, Python 3.11, CPU only). Newer versions usually work; these
+# are the ones known to.
+#   python3 -m pip install --user -r spike/requirements-train.txt
+torch==2.14.0
+transformers==5.17.0
+accelerate==1.15.0
+safetensors==0.8.0
+onnx==1.23.0
+onnxruntime==1.30.0
+onnxslim==0.1.96
+opencv-python-headless==5.0.0.93
+numpy==2.4.6
+pillow==12.3.0
+pypdfium2==5.13.0

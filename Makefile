@@ -3,11 +3,11 @@
 #   make                  release build into build/linux/x64/release/bundle/
 #   make run [BOOK=path]  release build, then start it, optionally on a book
 #   make dev              debug build with hot reload (flutter run -d linux)
-#   make install          per-user install under ~/.local, no sudo
+#   make install          per-user install under ~/.local, no sudo (KEEP_MODEL=1 keeps an installed model)
 #   make uninstall        remove what make install put there
 #   make tarball          release build packed as build/comicredr-VERSION-linux-ARCH.tar.gz
 #   make keys             copy the default keymap to keys.toml (KEYS below) to edit
-#   make train-model      rebuild the built-in detector model from free comics (hours, CPU)
+#   make train-model      rebuild the built-in detector model from free comics (hours, CPU; docs/training.md)
 #   make model MODEL=path   replace the built-in detector model with another file
 #   make install-model MODEL=comicredr-panels.onnx   override it per user
 #   make keystore         create the Android release key (once, back it up)
@@ -122,12 +122,13 @@ install:
 	done
 	$(MAKE) --no-print-directory _refresh
 	@if [ -z "$(DESTDIR)" ]; then $(PKG)/keep-viewer.sh restore build/viewer-defaults "$(APPSDIR)"; fi
-	@if [ -z "$(DESTDIR)" ]; then $(MAKE) --no-print-directory _retire-models; fi
+	@if [ -z "$(DESTDIR)$(KEEP_MODEL)" ]; then $(MAKE) --no-print-directory _retire-models; fi
 	@echo "Installed. ComicRedr is in the app grid; $(BINDIR)/comicredr starts it from a shell."
 
 # A model left by an earlier `make install-model` wins over the one built
 # into the app, so installing moves one that differs aside (as .old): the
 # app you just installed then uses the model it was built with.
+# KEEP_MODEL=1 keeps it, for a model of your own (make train-model LOCAL=1).
 USER_MODELS := $(sort $(APPDATA)/models $(XDG_DATA)/$(APP_ID)/models $(XDG_DATA)/comicredr/models)
 _retire-models:
 	@for d in $(USER_MODELS); do \
@@ -185,9 +186,15 @@ ifeq ($(NO_MODEL),)
 endif
 
 # EPOCHS=1 for a quick run through the pipeline; 30 matches the built-in model.
+# LOCAL=1 also trains on the NC/ND/SA books: that model may not be
+# published, so it is never put in assets/; `make install-model` uses it.
 train-model:
-	EPOCHS=$(EPOCHS) tool/train_model.sh
-	tool/fetch_model.sh spike/out/comicredr-panels.onnx
+	EPOCHS=$(EPOCHS) LOCAL=$(LOCAL) tool/train_model.sh
+	@if [ -n "$(LOCAL)" ]; then \
+	  echo "Local model in spike/out/local/comicredr-panels.onnx (not for publishing):"; \
+	  echo "  make install-model MODEL=spike/out/local/comicredr-panels.onnx"; \
+	  echo "  (and make install KEEP_MODEL=1 from then on, or make install puts the built-in one back)"; \
+	else tool/fetch_model.sh spike/out/comicredr-panels.onnx; fi
 
 model:
 	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
@@ -226,7 +233,7 @@ install-apk:
 	$(ADB) install -r $(APK)
 	@# A model pushed earlier wins over the built-in one; move it aside, as make install does.
 	@f=$(PHONE_MODELDIR)/comicredr-panels.onnx; \
-	if $(ADB) shell test -f $$f 2>/dev/null && \
+	if [ -z "$(KEEP_MODEL)" ] && $(ADB) shell test -f $$f 2>/dev/null && \
 	   [ "$$($(ADB) shell md5sum $$f | cut -d' ' -f1)" != "$$(md5sum $(BUNDLED_MODEL) | cut -d' ' -f1)" ]; then \
 	  $(ADB) shell mv -f $(PHONE_MODELDIR)/comicredr-panels.onnx $(PHONE_MODELDIR)/comicredr-panels.onnx.old && \
 	  echo "Moved the model pushed earlier to $(PHONE_MODELDIR)/comicredr-panels.onnx.old, so ComicRedr uses its built-in one."; \
