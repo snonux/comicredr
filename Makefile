@@ -18,7 +18,8 @@
 #   make push-model MODEL=comicredr-panels.onnx   override it on the phone
 #   make push-keys        your keys.toml onto the phone
 #   make test             flutter analyze + all tests
-#   make analyze          flutter analyze only
+#   make analyze          flutter analyze and the format check only
+#   make format           format the Dart code (120 columns, analysis_options.yaml)
 #   make icons            re-render the PNG icons from the SVG
 #   make clean            flutter clean
 #   make version          print the app version from pubspec.yaml
@@ -44,10 +45,13 @@ XDG_DATA := $(or $(XDG_DATA_HOME),$(HOME)/.local/share)
 # An install whose index is still in the old executable-named folder keeps
 # it there: path_provider only moves to $(APP_ID) once that folder exists,
 # so making it (install-model) would start the app on an empty library.
-APPDATA  ?= $(shell if [ ! -f "$(XDG_DATA)/$(APP_ID)/comicredr.sqlite" ] && [ ! -f "$(XDG_DATA)/comicredr/comicredr.sqlite" ] \
+# Worked out once (a plain ?= would run the shell at every use).
+ifeq ($(origin APPDATA),undefined)
+APPDATA  := $(shell if [ ! -f "$(XDG_DATA)/$(APP_ID)/comicredr.sqlite" ] && [ ! -f "$(XDG_DATA)/comicredr/comicredr.sqlite" ] \
               && [ -d "$(HOME)/Comics" ]; then echo "$(HOME)/Comics/.comicredr"; \
               elif [ ! -d "$(XDG_DATA)/$(APP_ID)" ] && [ -f "$(XDG_DATA)/comicredr/comicredr.sqlite" ]; then echo "$(XDG_DATA)/comicredr"; \
               else echo "$(XDG_DATA)/$(APP_ID)"; fi)
+endif
 XDG_KEYS := $(or $(XDG_CONFIG_HOME),$(HOME)/.config)/comicredr/keys.toml
 # In ~/Comics/.comicredr unless only the old ~/.config one exists, as the
 # app reads it (keysFilePath).
@@ -85,13 +89,13 @@ VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
 TARNAME := comicredr-$(VERSION)-linux-$(ARCH)
 TARBALL := build/$(TARNAME).tar.gz
 
-.PHONY: all build deps run dev test analyze install uninstall _retire-models model train-model install-model check-model icons clean help version \
+.PHONY: all build deps run dev test analyze format install uninstall _retire-models model train-model install-model check-model icons clean help version \
 	keystore apk install-apk push-model push-keys tarball keys
 
 all: build
 
 help:
-	@sed -n '2,27p' Makefile | sed 's/^# \{0,1\}//'
+	@sed -n '2,/^$$/p' Makefile | sed -e '/^$$/d' -e 's/^# \{0,1\}//'
 
 version:
 	@echo $(VERSION)
@@ -108,8 +112,15 @@ run: build
 dev: deps
 	$(FLUTTER) run -d linux $(if $(BOOK),-a "$(BOOK)")
 
+# Generated Drift code keeps the generator's own layout.
+DART_SOURCES = $(shell find lib test packages -name '*.dart' ! -name '*.g.dart' ! -path '*/.dart_tool/*')
+
 analyze: deps
 	$(FLUTTER) analyze
+	$(DART) format --output=none --set-exit-if-changed $(DART_SOURCES)
+
+format:
+	$(DART) format $(DART_SOURCES)
 
 test: analyze
 	$(FLUTTER) test

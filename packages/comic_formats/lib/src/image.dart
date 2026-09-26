@@ -2,12 +2,11 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'document.dart';
-import 'image_size.dart';
-import 'page_facts.dart';
+import 'stored_pages.dart';
 
 /// A single PNG, JPEG or WebP file read as a one-page comic: a strip or a
 /// one-pager that never went into an archive.
-class ImageDocument implements ComicDocument {
+class ImageDocument with StoredPages implements ComicDocument {
   ImageDocument._(this.path);
 
   /// Checks [path] exists. Throws [FormatException] when it does not.
@@ -22,43 +21,13 @@ class ImageDocument implements ComicDocument {
   int get pageCount => 1;
 
   @override
-  Future<PageImage> page(int index, {required int targetWidth, required int targetHeight, PageRegion? region}) async =>
-      PageImage(await _read(index));
+  Future<Uint8List> storedPage(int index) => _file(index).readAsBytes();
 
   @override
-  Future<Uint8List?> rawPage(int index) => _read(index);
+  Future<Uint8List> storedHead(int index, int n) => readFileHead(_file(index), n);
 
   @override
-  Future<List<(int, int)?>> pageSizes() async {
-    try {
-      final f = await File(path).open();
-      try {
-        final head = await f.read(headBytes);
-        if (imageSize(head) case final size?) return [size];
-        return [await f.length() > headBytes ? imageSize(await _read(0)) : null];
-      } finally {
-        await f.close();
-      }
-    } on FileSystemException {
-      return [null];
-    }
-  }
-
-  @override
-  Future<List<PageFacts>> pageFacts() async {
-    try {
-      final f = await File(path).open();
-      try {
-        final total = await f.length();
-        final facts = imageFacts(await f.read(headBytes), total: total);
-        return [facts.width != null || total <= headBytes ? facts : imageFacts(await _read(0), total: total)];
-      } finally {
-        await f.close();
-      }
-    } on FileSystemException {
-      return [PageFacts.unknown];
-    }
-  }
+  Future<int> storedLength(int index) => _file(index).length();
 
   @override
   Future<ComicMeta?> embeddedMetadata() async => null;
@@ -66,8 +35,8 @@ class ImageDocument implements ComicDocument {
   @override
   Future<void> close() async {}
 
-  Future<Uint8List> _read(int index) {
+  File _file(int index) {
     RangeError.checkValidIndex(index, this, 'index', 1);
-    return File(path).readAsBytes();
+    return File(path);
   }
 }

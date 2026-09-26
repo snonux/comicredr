@@ -58,7 +58,7 @@ final libraryDetectionProvider = Provider<LibraryDetection>((ref) {
     detector: () => ref.read(panelDetectorProvider.future),
     enabled: () async =>
         await settings.loadBool(SettingsStore.detectLibrary).catchError((_) => null) ?? detectLibraryByDefault,
-    onBook: (book) => sidecars.attach(book.path, book.key, folder: book.format == 'folder'),
+    onBook: (book) => sidecars.attach(book.path, book.key, folder: book.isFolder),
     onSaved: sidecars.touch,
     busy: () =>
         ref.read(readerProvider.notifier).detecting ||

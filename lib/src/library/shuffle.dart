@@ -6,6 +6,7 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/book_paths.dart';
 import '../reader/thumbnails.dart';
 import 'library_store.dart';
 import 'providers.dart';
@@ -55,6 +56,7 @@ class ShufflePages {
   Future<String?> get(LibraryBook book, int index) {
     final path = pathOf(book.key, index);
     if (File(path).existsSync()) return Future.value(path);
+    if (_closed) return Future.value(); // Nothing would ever make it now.
     final key = (book.key, index);
     if (_running[key] case final running?) return running;
     final (_, c) = _waiting.remove(key) ?? (book.path, Completer<String?>());
@@ -116,7 +118,7 @@ class ShufflePages {
 }
 
 final shufflePagesProvider = Provider<ShufflePages>((ref) {
-  final s = ShufflePages(dir: '${ref.watch(coverDirProvider)}/pages');
+  final s = ShufflePages(dir: pageThumbsRoot(ref.watch(coverDirProvider)));
   ref.onDispose(s.close);
   return s;
 });

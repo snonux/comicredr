@@ -13,10 +13,10 @@ Future<void> main(List<String> args) async {
     try {
       final doc = await openDocument(path);
       final names = switch (doc) {
-        CbzDocument d => d.pageNames,
-        CbtDocument d => d.pageNames,
-        EpubDocument d => d.pageNames,
-        FolderDocument d => d.pageNames,
+        final CbzDocument d => d.pageNames,
+        final CbtDocument d => d.pageNames,
+        final EpubDocument d => d.pageNames,
+        final FolderDocument d => d.pageNames,
         _ => const <String>[],
       };
       final m = await doc.embeddedMetadata();

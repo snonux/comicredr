@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -61,8 +62,14 @@ Future<BookInfo> readBookInfo(String path, {required String coverDir, int coverW
         final bytes = await coverJpeg(doc, page, width: coverWidth);
         Directory(coverDir).createSync(recursive: true);
         // Written aside and renamed, so a half-written cover never shows.
-        final tmp = File('$coverPath.$pid.tmp')..writeAsBytesSync(bytes, flush: true);
-        tmp.renameSync(coverPath);
+        // Named at random too: two scan workers can meet copies of one book.
+        final tmp = File('$coverPath.$pid.${Random().nextInt(1 << 32)}.tmp');
+        try {
+          tmp.writeAsBytesSync(bytes, flush: true);
+          tmp.renameSync(coverPath);
+        } finally {
+          if (tmp.existsSync()) tmp.deleteSync();
+        }
       } catch (_) {
         cover = null; // A book with an unreadable cover is still a book.
       }

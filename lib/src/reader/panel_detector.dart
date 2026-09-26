@@ -6,6 +6,7 @@ import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/foundation.dart';
 
+import 'decode_image.dart';
 import 'model_detector.dart';
 
 /// What one detector found on one page.
@@ -122,22 +123,18 @@ Future<(Uint8List, int, int)> pageRgba(ComicDocument doc, int index, int longSid
 /// Decodes [bytes] with the long side at most [longSide] and returns raw
 /// RGBA.
 Future<(Uint8List, int, int)> decodeSmall(Uint8List bytes, int longSide) async {
-  final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
-  final descriptor = await ui.ImageDescriptor.encoded(buffer);
-  final scale = longSide / math.max(descriptor.width, descriptor.height);
-  final codec = await descriptor.instantiateCodec(
-    targetWidth: scale < 1 ? (descriptor.width * scale).round() : null,
-    targetHeight: scale < 1 ? (descriptor.height * scale).round() : null,
+  final (image, _) = await decodeImage(
+    bytes,
+    size: (w, h) {
+      final scale = longSide / math.max(w, h);
+      return scale < 1 ? (width: (w * scale).round(), height: (h * scale).round()) : (width: null, height: null);
+    },
   );
-  final image = (await codec.getNextFrame()).image;
   try {
     final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     return (data!.buffer.asUint8List(), image.width, image.height);
   } finally {
     image.dispose();
-    codec.dispose();
-    descriptor.dispose();
-    buffer.dispose();
   }
 }
 

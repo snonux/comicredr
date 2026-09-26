@@ -17,7 +17,7 @@ void main(List<String> args) {
     final name = f.uri.pathSegments.last.replaceAll('.rgba', '');
     final meta = jsonDecode(File(f.path.replaceAll('.rgba', '.json')).readAsStringSync()) as Map<String, dynamic>;
     List<Panel> panels(String key, PanelKind kind) => [
-      for (final b in (meta[key] as List).cast<List>())
+      for (final b in (meta[key] as List<dynamic>).cast<List<dynamic>>())
         Panel(
           (b[0] as num).toDouble(),
           (b[1] as num).toDouble(),

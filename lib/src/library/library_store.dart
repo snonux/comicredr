@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:path/path.dart' as p;
 
 import '../data/app_database.dart';
+import '../data/book_paths.dart';
 import '../data/meta_edits.dart';
 import '../data/panel_store.dart' show newId;
 
@@ -79,6 +80,10 @@ class LibraryBook {
 
   /// `Daredevil #181`, or the series alone for a book without a number.
   String get name => number == null ? series : '$series #$number';
+
+  /// A folder of page images rather than a comic file: its sidecar goes
+  /// inside it.
+  bool get isFolder => format == 'folder';
 
   /// A second line for the cover: the issue's own title, or its year.
   String? get subtitle => issueTitle ?? year?.toString();
@@ -319,7 +324,7 @@ class LibraryStore {
   /// [query] now and again whenever one of [tables] changes. Drift's own
   /// watch() does the same, but leaves a timer behind when it is cancelled,
   /// which widget tests refuse.
-  Stream<T> _live<T>(Set<TableInfo> tables, Future<T> Function() query) async* {
+  Stream<T> _live<T>(Set<TableInfo<Table, Object?>> tables, Future<T> Function() query) async* {
     yield await query();
     await for (final _ in db.tableUpdates(TableUpdateQuery.onAllTables(tables))) {
       yield await query();
@@ -354,7 +359,7 @@ class LibraryStore {
     var left = 0;
     for (final r in rows) {
       final rel = r.read<String>('rel_path');
-      final at = rel.isEmpty ? r.read<String>('root') : p.join(r.read<String>('root'), rel);
+      final at = bookPath(r.read<String>('root'), rel);
       if (p.equals(at, path)) {
         await forgetFiles(r.read<int>('root_id'), [rel]);
       } else {
@@ -362,14 +367,7 @@ class LibraryStore {
       }
     }
     if (left > 0) return false;
-    final key = contentKey;
-    await (db.delete(db.analysedPages)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.panels)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.bookmarks)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.progress)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.readLog)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.overrides)..where((r) => r.contentKey.equals(key))).go();
-    await (db.delete(db.collectionBooks)..where((r) => r.contentKey.equals(key))).go();
+    await db.deleteBookRows(contentKey, db.bookTables);
     await removeOrphans();
     return true;
   });

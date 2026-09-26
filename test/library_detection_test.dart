@@ -32,7 +32,7 @@ class _CountingDetector extends PanelDetector {
   Future<DetectedPage> detect(ComicDocument doc, int page) async {
     seen.add((_docs.putIfAbsent(doc, () => _docs.length), page));
     return DetectedPage(
-      [Panel(0, 0, 0.5, 0.5, confidence: 0.9)],
+      [const Panel(0, 0, 0.5, 0.5, confidence: 0.9)],
       const [],
       source: PanelSource.model,
       version: ver,

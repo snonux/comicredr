@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'panel.dart';
+import 'raster.dart';
 
 /// Finds the real outline of frames that are not rectangles: slanted
 /// panels, panels with a cut corner, trapezoids between diagonal gutters.
@@ -33,7 +34,7 @@ List<Panel> refineOutlines(Uint8List rgba, int w, int h, List<Panel> frames, Lis
 const outlineLongSide = 800;
 
 const _paperTolerance = 30; // max channel difference from the paper colour
-const _erode = 5; // snaps ink bridges this thin across a gutter
+const _erodeSize = 5; // snaps ink bridges this thin across a gutter
 const _inset = 3; // px inside/outside an edge where it is sampled
 const _band = 16; // depth of solid art required inside a cut edge
 const _minSupport = 0.85; // share of the edge the art must reach
@@ -43,6 +44,9 @@ const _minLen = 0.3; // cut edges at least this share of the box's short side
 const _minAngle = 2.0; // degrees off the axes; less is a loose box, not a slant
 const _minCut = 0.015; // a cut removes at least this share of the box
 const _solid = 0.75; // art must fill this share of the outline
+
+/// A box in page pixels, exact ([x0] to [y1]) and rounded to whole pixels.
+typedef _PixelBox = ({double x0, double y0, double x1, double y1, int xi0, int yi0, int xi1, int yi1});
 
 class _Outliner {
   _Outliner(this.rgba, this.w, this.h, this.frames, this.balloons);
@@ -69,7 +73,7 @@ class _Outliner {
     ];
   }
 
-  ({double x0, double y0, double x1, double y1, int xi0, int yi0, int xi1, int yi1}) _box(Panel p) {
+  _PixelBox _box(Panel p) {
     final x0 = p.x * w, y0 = p.y * h, x1 = p.right * w, y1 = p.bottom * h;
     return (
       x0: x0,
@@ -86,7 +90,7 @@ class _Outliner {
   /// Paper colour from the page outside every box (or its outer band when
   /// the boxes cover nearly all of it), then a flood over paper-coloured
   /// pixels from there: the gutters.
-  void _flood(List<({double x0, double y0, double x1, double y1, int xi0, int yi0, int xi1, int yi1})> boxes) {
+  void _flood(List<_PixelBox> boxes) {
     final n = w * h;
     final outside = Uint8List(n)..fillRange(0, n, 1);
     for (final b in boxes) {
@@ -171,7 +175,7 @@ class _Outliner {
   /// Art pieces: what the flood did not reach, balloons cut out, thin
   /// bridges eroded, split into 4-connected components, each owned by the
   /// box holding the largest share of it.
-  void _components(List<({double x0, double y0, double x1, double y1, int xi0, int yi0, int xi1, int yi1})> boxes) {
+  void _components(List<_PixelBox> boxes) {
     final n = w * h;
     var ink = Uint8List(n);
     for (var i = 0; i < n; i++) {
@@ -183,7 +187,7 @@ class _Outliner {
         ink.fillRange(y * w + bb.xi0, y * w + math.max(bb.xi0, bb.xi1), 0);
       }
     }
-    ink = _morph(ink, w, h, _erode, erode: true);
+    ink = erode(ink, w, h, _erodeSize ~/ 2);
     comp = Int32List(n);
     final area = <int>[0];
     final queue = Int32List(n);
@@ -237,7 +241,7 @@ class _Outliner {
   }
 
   /// The outline of box [i] in page coordinates, or null to keep the box.
-  List<double>? _outline(int i, ({double x0, double y0, double x1, double y1, int xi0, int yi0, int xi1, int yi1}) b) {
+  List<double>? _outline(int i, _PixelBox b) {
     final bw = b.xi1 - b.xi0, bh = b.yi1 - b.yi0;
     if (bw < 8 || bh < 8) return null;
     final size = bw * bh;
@@ -256,7 +260,7 @@ class _Outliner {
       }
     }
     if (!any) return null;
-    mask = _morph(mask, bw, bh, _erode, erode: false);
+    mask = dilate(mask, bw, bh, _erodeSize ~/ 2);
     // Put this panel's balloons back.
     for (final bl in balloons) {
       final bx0 = bl.x * w, by0 = bl.y * h, bx1 = bl.right * w, by1 = bl.bottom * h;
@@ -419,43 +423,6 @@ class _Outliner {
     }
     return inside == 0 ? 0 : set / inside;
   }
-}
-
-/// Erosion (or dilation) of a 0/1 image with a [k] x [k] square. Outside the
-/// image counts as set for erosion and unset for dilation, as in OpenCV.
-Uint8List _morph(Uint8List src, int w, int h, int k, {required bool erode}) {
-  final r = k ~/ 2;
-  final tmp = Uint8List(w * h), out = Uint8List(w * h);
-  final keep = erode ? 1 : 0;
-  for (var y = 0; y < h; y++) {
-    for (var x = 0; x < w; x++) {
-      var v = keep;
-      for (var d = -r; d <= r; d++) {
-        final xx = x + d;
-        if (xx < 0 || xx >= w) continue;
-        if (src[y * w + xx] != keep) {
-          v = 1 - keep;
-          break;
-        }
-      }
-      tmp[y * w + x] = v;
-    }
-  }
-  for (var y = 0; y < h; y++) {
-    for (var x = 0; x < w; x++) {
-      var v = keep;
-      for (var d = -r; d <= r; d++) {
-        final yy = y + d;
-        if (yy < 0 || yy >= h) continue;
-        if (tmp[yy * w + x] != keep) {
-          v = 1 - keep;
-          break;
-        }
-      }
-      out[y * w + x] = v;
-    }
-  }
-  return out;
 }
 
 /// Convex hull of the set pixels (monotone chain over each row's ends),

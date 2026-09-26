@@ -212,6 +212,38 @@ void main() {
     expect(readSidecar(hidden(path))!.progress, hasLength(2), reason: "the laptop's position and the phone's");
   });
 
+  test('a newer file under the old visible name that is no sidecar never replaces the hidden one', () async {
+    final (path, key) = await readOnLaptop();
+    final visible = File('$path.crdb')..writeAsStringSync('not a sidecar');
+    visible.setLastModifiedSync(DateTime.now().add(const Duration(hours: 1)));
+
+    final got = await phone.sync.attach(path, key, folder: false);
+    expect(got.found, isTrue);
+    expect(readSidecar(hidden(path))?.contentKey, key);
+    expect(visible.existsSync(), isTrue, reason: 'left alone, not deleted');
+    expect((await phone.progress.load(key))?.page, 2);
+  });
+
+  test('an older visible sidecar replaces a hidden file that is no sidecar', () async {
+    final (path, key) = await readOnLaptop();
+    final visible = '$path.crdb';
+    File(hidden(path)).renameSync(visible);
+    File(visible).setLastModifiedSync(DateTime.now().subtract(const Duration(hours: 1)));
+    File(hidden(path)).writeAsStringSync('damaged');
+
+    final got = await phone.sync.attach(path, key, folder: false);
+    expect(got.found, isTrue);
+    expect(File(visible).existsSync(), isFalse);
+    expect(readSidecar(hidden(path))?.contentKey, key);
+  });
+
+  test('this install gets one device id however many ask for it at once', () async {
+    final ids = await Future.wait([for (var i = 0; i < 5; i++) laptop.sync.device()]);
+    expect(ids.map((d) => d.id).toSet(), hasLength(1));
+    final fresh = SidecarSync(laptop.db, progress: laptop.progress);
+    expect((await fresh.device()).id, ids.first.id, reason: 'kept in the index');
+  });
+
   test('an orphan under the old visible name is re-linked to the renamed book', () async {
     final (path, key) = await readOnLaptop();
     final there = '${dir('phone').path}/dd-181.cbz';

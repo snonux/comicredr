@@ -4,6 +4,7 @@ import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/keymap_overlay.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';

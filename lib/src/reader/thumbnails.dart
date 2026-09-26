@@ -7,9 +7,10 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
-import 'package:path/path.dart' as p;
 
+import '../data/book_paths.dart';
 import '../library/providers.dart';
+import 'decode_image.dart';
 import 'reader_notifier.dart';
 
 /// Small pictures of the open book's pages, for the page grid (`p`) and the
@@ -140,15 +141,11 @@ class Thumbnails {
 Future<Uint8List> thumbnailJpeg(ComicDocument doc, int index, int width) async {
   // A PDF renders at this width; stored images come back as they are.
   final page = await doc.page(index, targetWidth: width, targetHeight: 1 << 16);
-  final buffer = await ui.ImmutableBuffer.fromUint8List(page.bytes);
-  final descriptor = page.bgra
-      ? ui.ImageDescriptor.raw(buffer, width: page.width!, height: page.height!, pixelFormat: ui.PixelFormat.bgra8888)
-      : await ui.ImageDescriptor.encoded(buffer);
-  final codec = await descriptor.instantiateCodec(targetWidth: descriptor.width > width ? width : null);
-  final image = (await codec.getNextFrame()).image;
-  codec.dispose();
-  descriptor.dispose();
-  buffer.dispose();
+  final (image, _) = await decodeImage(
+    page.bytes,
+    raw: page.bgra ? (width: page.width!, height: page.height!) : null,
+    size: (w, _) => (width: w > width ? width : null, height: null),
+  );
   try {
     final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (rgba == null) throw const FormatException('The page could not be read back');
@@ -168,7 +165,7 @@ Future<Uint8List> _encodeJpeg(ByteData rgba, int w, int h) => Isolate.run(
 final thumbnailsProvider = Provider<Thumbnails?>((ref) {
   final book = ref.watch(readerProvider.select((s) => s.book));
   if (book == null) return null;
-  final t = Thumbnails(book.doc, dir: p.join(ref.watch(coverDirProvider), 'pages', book.key));
+  final t = Thumbnails(book.doc, dir: pageThumbDir(ref.watch(coverDirProvider), book.key));
   ref.onDispose(t.close);
   return t;
 });

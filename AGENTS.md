@@ -15,6 +15,10 @@ it in step when the architecture or the model changes.
   plainly in the PR.
 - Merge with merge commits, not squash, and keep `main` green
   (`make test`).
+- Lints: each package has its own `analysis_options.yaml` on
+  `package:lints` with strict casts, inference and raw types, the app the
+  same over `flutter_lints`; `make analyze` also fails on unformatted
+  Dart. Code is written to 120 columns.
 - The README is as lean as it can be (snonux, 2026-09-26): an intro, a
   link to the usage guide near the top, a few highlights, the
   screenshots, a five-step quick start that ends with a link to carry on
@@ -395,7 +399,8 @@ its file where they need one); `COMICREDR_MODEL=file.onnx` tries another,
 
 ```sh
 make dev                         # debug build with hot reload (r in the terminal)
-make test                        # analyzer and every test
+make test                        # analyzer, format check and every test
+make format                      # dart format at 120 columns (generated *.g.dart left alone)
 dart run build_runner build -d   # regenerate Drift code after schema edits
 flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done   # make test runs all three

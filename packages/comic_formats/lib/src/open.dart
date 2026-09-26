@@ -10,6 +10,7 @@ import 'folder.dart';
 import 'image.dart';
 import 'pdf.dart';
 import 'sniff.dart';
+import 'zip_entries.dart';
 
 /// What kind of book a path holds, decided by its content: a directory is a
 /// folder book, a file goes by its first bytes (design plan section 3). An
