@@ -786,6 +786,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         view: _view,
       ),
       state.pageCount,
+      // The pair 2-3 of a three-page book shows its last page: finished.
+      lastShown: state.unit.isEmpty ? null : state.unit.last,
     );
     _sidecars.touch(book.key);
   }
@@ -1364,6 +1366,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// Saves the position and writes pending sidecars: on pause and exit.
+  /// The app came back to the front: the sitting [flush] started when it
+  /// left begins now, so the time away is not logged as reading.
+  void resumeSitting() {
+    if (_sitting case final s? when s.pages.isEmpty) _sitting = (key: s.key, start: DateTime.now(), pages: s.pages);
+  }
+
   Future<void> flush() async {
     await _progress.flush();
     // The app may not come back: log the sitting, and start a new one that

@@ -128,6 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // All files access may have been granted meanwhile, which lets the
       // default Comics folder in.
       onResume: () {
+        ref.read(readerProvider.notifier).resumeSitting();
         if (Platform.isAndroid) unawaited(_addDefaultFolder().then((_) => ref.read(scannerProvider).scan()));
       },
       onExitRequested: () async {

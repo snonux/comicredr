@@ -105,13 +105,16 @@ class ProgressStore {
     return row == null ? null : ReadingPosition._fromRow(row);
   }
 
-  void save(String contentKey, ReadingPosition at, int pageCount) {
+  /// [lastShown] is the last page on screen, past [at]'s page in two-page
+  /// mode: the percent and whether the book is finished go by it.
+  void save(String contentKey, ReadingPosition at, int pageCount, {int? lastShown}) {
+    final last = lastShown ?? at.page;
     _pendingRow = ProgressCompanion.insert(
       contentKey: contentKey,
       page: at.page,
       panel: Value(at.panel),
-      percent: pageCount <= 1 ? 1 : at.page / (pageCount - 1),
-      finished: Value(at.page >= pageCount - 1),
+      percent: pageCount <= 1 ? 1 : (last / (pageCount - 1)).clamp(0.0, 1.0),
+      finished: Value(last >= pageCount - 1),
       updatedAt: DateTime.now(),
       viewJson: Value(jsonEncode(at._viewJson())),
     );
