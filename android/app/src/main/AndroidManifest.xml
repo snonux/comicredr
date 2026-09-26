@@ -1,8 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- All-files access for the library's folders; sideloaded, so no store policy applies. -->
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- Android 10 and older have no All-files access: reading and writing
+         (sidecars) are asked for at run time, and Android 10 reads comics by
+         path only with legacy storage. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <application
+        android:requestLegacyExternalStorage="true"
         android:label="ComicRedr"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

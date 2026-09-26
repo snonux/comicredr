@@ -330,8 +330,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Android: All-files access first, explained in a sentence, then the
   /// folder as a real path.
   Future<String?> _askAndroidFolder() async {
+    if (!await _hasAndroidAccess()) return null;
+    return _askPath('Add a folder to the library', 'Add');
+  }
+
+  /// Whether All-files access is on; when it is not, says why it is needed
+  /// and offers the settings page.
+  Future<bool> _hasAndroidAccess() async {
     final granted = await _storage.invokeMethod<bool>('hasAllFilesAccess').catchError((_) => true) ?? true;
-    if (!mounted) return null;
+    if (!mounted) return false;
     if (!granted) {
       final go = await showDialog<bool>(
         context: context,
@@ -339,7 +346,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           title: const Text('Allow access to your comics'),
           content: const Text(
             'ComicRedr reads comics where they are on the phone. Android asks for that once, '
-            'as "All files access", on a settings page. Turn it on there, come back, and add the folder again.',
+            'as "All files access", on a settings page. Turn it on there, then come back and try again.',
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
@@ -348,9 +355,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
       if (go == true) await _storage.invokeMethod<void>('requestAllFilesAccess');
-      return null;
     }
-    return _askPath('Add a folder to the library', 'Add');
+    return granted;
   }
 
   /// A folder typed as a path: Android has no folder picker that gives one.
@@ -497,10 +503,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  /// Android's own picker, answered with the real path of what was picked
+  /// (`MainActivity.pathOf`). file_selector's picker hands back a copy in
+  /// the app's cache instead, read whole into memory: the sidecar, the
+  /// history and Delete then went to the copy, never to the comic.
+  Future<String?> _pickOnAndroid(String method) async {
+    if (!await _hasAndroidAccess()) return null;
+    try {
+      return await _storage.invokeMethod<String>(method);
+    } on PlatformException catch (e) {
+      ref.read(readerProvider.notifier).notice(
+        e.code == 'no-path'
+            ? 'That has no path on the phone ComicRedr can read; pick it from the phone\'s own storage'
+            : 'Could not open the picker: ${e.message}',
+      );
+      return null;
+    }
+  }
+
   Future<void> _pickFile() async {
     if (_picking) return;
     _picking = true;
     try {
+      if (Platform.isAndroid) {
+        final path = await _pickOnAndroid('pickFile');
+        if (path != null) await ref.read(readerProvider.notifier).open(path);
+        return;
+      }
       final file = await openFile(
         acceptedTypeGroups: const [
           XTypeGroup(
@@ -519,7 +548,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_picking) return;
     _picking = true;
     try {
-      final dir = await getDirectoryPath(confirmButtonText: 'Open as a book');
+      final dir = Platform.isAndroid
+          ? await _pickOnAndroid('pickFolder')
+          : await getDirectoryPath(confirmButtonText: 'Open as a book');
       if (dir != null) await _openPath(dir);
     } finally {
       _picking = false;
