@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Building on Linux** now checks for the GTK and libsecret development
+  packages first and names the one to install, instead of failing in
+  CMake. Builds since 0.4.0 need `libsecret-devel` (Debian:
+  `libsecret-1-dev`).
+
 ## 0.4.0
 
 S3 sync between your devices, tablets, and continue reading.

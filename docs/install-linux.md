@@ -34,7 +34,9 @@ After `make install`, ComicRedr is in Activities with its own icon, and
 folders, and on PNG, JPEG and WebP images, without becoming your image
 viewer or file manager.
 
-- To update: `git pull && make && make install`.
+- To update: `git pull && make && make install`. Since 0.4.0 the build
+  also needs `libsecret-devel` (for the S3 sync key in the keyring); `make`
+  says so and names the package when it is missing.
 - To remove it: `make uninstall`. Your reading progress stays.
 - `make help` lists everything else.
 
