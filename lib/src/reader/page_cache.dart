@@ -265,9 +265,20 @@ typedef _Key = ({int index, int width, int height, PageRegion? region, bool shar
 /// where the whole app should stay well clear of what Android kills for.
 /// A phone page decoded at screen size is some 8 MB, so even the floor
 /// holds the page on screen, the two after it, the one before and a tile.
-int pageBudgetBytes({required bool phone, int? memTotal}) {
+///
+/// A tablet's screen holds two to three times a phone's pixels, so a page
+/// fitted to it is some 16 MB and the phone's floor held two of them.
+/// Given the screen's size in device pixels ([screenPixels]), the floor on
+/// Android is four screenfuls, still at most a thirty-second of the RAM.
+int pageBudgetBytes({required bool phone, int? memTotal, int? screenPixels}) {
   const mb = 1 << 20;
-  if (phone) return memTotal == null ? 48 * mb : (memTotal ~/ 128).clamp(40 * mb, 80 * mb);
+  if (phone) {
+    final base = memTotal == null ? 48 * mb : (memTotal ~/ 128).clamp(40 * mb, 80 * mb);
+    if (screenPixels == null) return base;
+    final screens = screenPixels * 4 * 4;
+    final cap = memTotal == null ? 128 * mb : memTotal ~/ 32;
+    return math.max(base, math.min(screens, cap));
+  }
   return memTotal == null ? 256 * mb : (memTotal ~/ 64).clamp(128 * mb, 512 * mb);
 }
 

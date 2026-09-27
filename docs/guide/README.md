@@ -5,7 +5,7 @@ it, and what it looks like. Read it front to back as a tutorial, or jump
 to what you need from the contents below. Every picture is taken from the
 app itself.
 
-ComicRedr runs on a Linux laptop and an Android phone. It should work on
+ComicRedr runs on a Linux laptop and an Android phone or tablet. It should work on
 any Linux distribution, but it has only been tested on Fedora.
 
 ![Guided view stepping from panel to panel](images/guided.gif)
@@ -21,7 +21,7 @@ come back here for a key you forgot.
 
 1. [Installing](01-installing.md)
    - [On Linux](01-installing.md#on-linux)
-   - [On an Android phone](01-installing.md#on-an-android-phone)
+   - [On an Android phone or tablet](01-installing.md#on-an-android-phone-or-tablet)
    - [The panel detector](01-installing.md#the-panel-detector)
    - [The CBR files you already have](01-installing.md#the-cbr-files-you-already-have)
 2. [Getting started](02-getting-started.md)
@@ -80,9 +80,10 @@ come back here for a key you forgot.
    - [The keys you'll use most](09-keyboard.md#the-keys-youll-use-most)
    - [Sequences and counts](09-keyboard.md#sequences-and-counts)
    - [Your own keys](09-keyboard.md#your-own-keys)
-10. [On the phone](10-phone.md)
+10. [On a phone or tablet](10-phone.md)
     - [First start](10-phone.md#first-start)
     - [What is different on the phone](10-phone.md#what-is-different-on-the-phone)
+    - [On a tablet](10-phone.md#on-a-tablet)
     - [From the laptop to the phone and back](10-phone.md#from-the-laptop-to-the-phone-and-back)
 11. [Your data](11-your-data.md)
     - [The sidecar beside each comic](11-your-data.md#the-sidecar-beside-each-comic)
@@ -90,6 +91,18 @@ come back here for a key you forgot.
     - [The app's own folder](11-your-data.md#the-apps-own-folder)
     - [Back up and restore your settings](11-your-data.md#back-up-and-restore-your-settings)
 12. [Settings](12-settings.md)
+13. [Syncing through S3](13-s3-sync.md)
+    - [Setting it up](13-s3-sync.md#setting-it-up)
+    - [Uploading comics](13-s3-sync.md#uploading-comics)
+    - [The cloud on a cover](13-s3-sync.md#the-cloud-on-a-cover)
+    - [On the other device](13-s3-sync.md#on-the-other-device)
+    - [Carrying on where you left off](13-s3-sync.md#carrying-on-where-you-left-off)
+    - [When the server is off](13-s3-sync.md#when-the-server-is-off)
+    - [Taking a comic off S3](13-s3-sync.md#taking-a-comic-off-s3)
+    - [Keys](13-s3-sync.md#keys)
+    - [The secret key](13-s3-sync.md#the-secret-key)
+    - [Plain http](13-s3-sync.md#plain-http)
+    - [Turning it off](13-s3-sync.md#turning-it-off)
 
 How ComicRedr works inside is a different story, told in
 [the architecture document](../architecture.md).

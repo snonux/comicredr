@@ -93,7 +93,8 @@ class _NoSidecars extends SidecarSync {
   _NoSidecars(super.db, ProgressStore progress) : super(progress: progress);
 
   @override
-  Future<SidecarImport> attach(String path, String contentKey, {required bool folder}) async => SidecarImport.none;
+  Future<SidecarImport> attach(String path, String contentKey, {required bool folder, bool whole = false}) async =>
+      SidecarImport.none;
 
   @override
   void touch(String contentKey) {}

@@ -190,6 +190,18 @@ void main() {
     expect(readMemTotal(), greaterThan(0));
   });
 
+  test('on a tablet the page budget holds four screenfuls', () {
+    const mb = 1 << 20, gb = 1 << 30;
+    // A 1080x2400 phone: four screenfuls fit the phone's slice already.
+    expect(pageBudgetBytes(phone: true, memTotal: 8 * gb, screenPixels: 1080 * 2400), 64 * mb);
+    // A 2560x1600 tablet with 4 GB: four screenfuls, some 62 MB.
+    expect(pageBudgetBytes(phone: true, memTotal: 4 * gb, screenPixels: 2560 * 1600), 2560 * 1600 * 16);
+    // A 1.5 GB tablet: no more than a thirty-second of its memory.
+    expect(pageBudgetBytes(phone: true, memTotal: 3 * gb ~/ 2, screenPixels: 2560 * 1600), 48 * mb);
+    // The laptop's budget does not look at the screen.
+    expect(pageBudgetBytes(phone: false, memTotal: 8 * gb, screenPixels: 3840 * 2160), 128 * mb);
+  });
+
   testWidgets('a page turned to is not stuck behind the requests queued after its prefetch', (tester) async {
     await tester.runAsync(() async {
       final doc = LifoDoc();

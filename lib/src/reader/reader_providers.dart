@@ -1,9 +1,15 @@
+import 'dart:async';
+
+import 'package:comic_sync/comic_sync.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/panel_store.dart';
 import '../data/progress_store.dart';
 import '../data/read_log_store.dart';
+import '../data/s3_settings.dart';
+import '../data/s3_sync.dart';
+import '../data/secret_store.dart';
 import '../data/settings_store.dart';
 import '../data/sidecar.dart';
 import '../data/sidecar_sync.dart';
@@ -51,6 +57,46 @@ final readLogStoreProvider = Provider<ReadLogStore>((ref) => ReadLogStore(ref.wa
 final panelStoreProvider = Provider<PanelStore>((ref) => PanelStore(ref.watch(databaseProvider)));
 
 final settingsStoreProvider = Provider<SettingsStore>((ref) => SettingsStore(ref.watch(databaseProvider)));
+
+/// Secrets: the platform keystore, a private file when there is none.
+/// Overridden with a MemorySecretStore in tests.
+final secretStoreProvider = Provider<SecretStore>((ref) => KeyringSecretStore(fallbackDir: secretFallbackDir));
+
+/// Makes the store for a bucket: S3 over the network. Tests hand out a
+/// MemoryStore instead.
+final remoteStoreFactoryProvider = Provider<RemoteStore Function(S3Config)>((ref) => S3Store.new);
+
+/// The S3 sync settings (design plan section 13).
+final s3SettingsProvider = Provider<S3Settings>(
+  (ref) => S3Settings(ref.watch(settingsStoreProvider), ref.watch(secretStoreProvider)),
+);
+
+/// S3 sync (design plan section 13): started by the app, fed every sidecar
+/// write.
+final s3SyncProvider = Provider<S3Sync>((ref) {
+  final sidecars = ref.watch(sidecarSyncProvider);
+  final sync = S3Sync(
+    ref.watch(databaseProvider),
+    sidecars: sidecars,
+    settings: ref.watch(s3SettingsProvider),
+    storeFor: ref.watch(remoteStoreFactoryProvider),
+    coverDir: ref.watch(coverDirProvider),
+    onDownloaded: () => ref.read(scannerProvider).scan(),
+  );
+  sidecars.onWritten = (key) => unawaited(sync.sidecarWritten(key));
+  ref.onDispose(() {
+    sidecars.onWritten = null;
+    unawaited(sync.dispose());
+  });
+  return sync;
+});
+
+/// Whether the bucket answers, what waits and what is going up or down.
+final s3StatusProvider = StreamProvider<S3Status>((ref) async* {
+  final sync = ref.watch(s3SyncProvider);
+  yield sync.current;
+  yield* sync.status;
+});
 
 final markStoreProvider = Provider<MarkStore>((ref) => MarkStore(ref.watch(databaseProvider)));
 

@@ -57,6 +57,16 @@ class SettingsStore {
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
 
+  /// S3 sync (design plan section 13): where the bucket is and the access
+  /// key id. The secret key is never a setting; it is in the keystore
+  /// (S3Settings, SecretStore), so it stays out of settings files.
+  static const s3Endpoint = 's3.endpoint';
+  static const s3Region = 's3.region';
+  static const s3Bucket = 's3.bucket';
+  static const s3Prefix = 's3.prefix';
+  static const s3AccessKey = 's3.accessKey';
+  static const s3Keys = [s3Endpoint, s3Region, s3Bucket, s3Prefix, s3AccessKey];
+
   /// The comics opened last, newest first, for `C` (RecentBooks). Paths on
   /// this device, so a settings file leaves them out.
   static const recentBooks = 'reader.recent';
@@ -81,6 +91,11 @@ class SettingsStore {
     touchPreset: false,
     scrollSpeed: false,
     scrollSmoothness: false,
+    s3Endpoint: false,
+    s3Region: false,
+    s3Bucket: false,
+    s3Prefix: false,
+    s3AccessKey: false,
   };
 
   /// Settings about this device's own storage: where its sidecars go and
@@ -89,7 +104,10 @@ class SettingsStore {
   /// they are, where the others go back to their defaults: a file from the
   /// laptop, whose sidecars sit beside its comics, must not move the
   /// phone's out of the folder it keeps them in.
-  static const perInstall = {sidecarDir, writeSidecars};
+  ///
+  /// The S3 settings are the same kind: a file without them (made before
+  /// S3 sync, or on a device without it) must not turn sync off here.
+  static const perInstall = {sidecarDir, writeSidecars, ...s3Keys};
 
   Future<bool?> loadBool(String key) async {
     final row = await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();

@@ -4,7 +4,7 @@
 
 <h1 align="center">ComicRedr</h1>
 
-A comic reader for a Linux laptop and an Android phone, made for reading
+A comic reader for a Linux laptop and an Android phone or tablet, made for reading
 panel by panel. It should work on any Linux distribution, but has only
 been tested on Fedora. Its **guided view** glides from one panel to the next, and
 from one speech balloon to the next, like Comixology did. It reads the
@@ -31,7 +31,7 @@ table of contents.
 - A **library** of your comics folders: covers, series, folders, search,
   collections, favourites, bookmarks with notes and a reading history.
 - **Picks up where you left off**, on the same page, panel and zoom, and
-  carries that and your bookmarks to the phone with the file.
+  carries that and your bookmarks to the phone or tablet with the file.
 - **Keyboard first**, with a vi layer for those who want it, full touch
   support, and every key and tap zone can be changed.
 - Free software under the Apache License 2.0.

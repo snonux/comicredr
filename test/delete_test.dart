@@ -218,7 +218,7 @@ void main() {
       await settle(tester);
       await gd(tester);
       expect(find.byKey(const Key('deleteDialog')), findsOneWidget);
-      expect(find.text('Delete 01.cbz', findRichText: true), findsWidgets);
+      expect(find.textContaining('Delete 01.cbz ('), findsOneWidget);
       expect(find.textContaining('deleted for good'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await settle(tester);
