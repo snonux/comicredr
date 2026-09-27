@@ -1089,6 +1089,7 @@ extension on _HomeScreenState {
     pending: _pending,
     gridOpen: _showPages,
     bookmarksOpen: _showBookmarks,
+    s3Progress: s.book == null ? null : ref.watch(s3StatusProvider).value?.transfers[s.book!.key],
     onCommand: _onCommand,
   );
 

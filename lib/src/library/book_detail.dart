@@ -146,13 +146,21 @@ class BookDetail extends ConsumerWidget {
                   icon: const Icon(Icons.cloud_upload),
                   label: const Text('Upload to S3 (gu)'),
                 )
-              else
+              else ...[
+                if (!book.remoteOnly)
+                  OutlinedButton.icon(
+                    key: const Key('syncS3'),
+                    onPressed: () => uploadBooks(context, ref, [book]),
+                    icon: const Icon(Icons.sync),
+                    label: const Text('Sync with S3 (gu)'),
+                  ),
                 OutlinedButton.icon(
                   key: const Key('removeS3'),
                   onPressed: () => removeBooksFromS3(context, ref, [book]),
                   icon: const Icon(Icons.cloud_off),
                   label: const Text('Remove from S3… (gU)'),
                 ),
+              ],
             ],
           ),
         ],

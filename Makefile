@@ -17,6 +17,7 @@
 #   make install-apk      sideload it over USB with adb
 #   make push-model MODEL=comicredr-panels.onnx   override it on the phone
 #   make push-keys        your keys.toml onto the phone
+#   make check-libs       check the GTK and libsecret build libraries are installed
 #   make test             flutter analyze + all tests
 #   make analyze          flutter analyze and the format check only
 #   make format           format the Dart code (120 columns, analysis_options.yaml)
@@ -89,7 +90,7 @@ VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
 TARNAME := comicredr-$(VERSION)-linux-$(ARCH)
 TARBALL := build/$(TARNAME).tar.gz
 
-.PHONY: all build deps run dev test analyze format install uninstall _retire-models model train-model install-model check-model icons clean help version \
+.PHONY: all build deps run dev test analyze format install uninstall _retire-models model train-model install-model check-model check-libs icons clean help version \
 	keystore apk install-apk push-model push-keys tarball keys
 
 all: build
@@ -103,13 +104,13 @@ version:
 deps:
 	$(FLUTTER) pub get
 
-build: deps check-model
+build: deps check-model check-libs
 	$(FLUTTER) build linux --release
 
 run: build
 	$(BUNDLE)/comicredr $(if $(BOOK),"$(BOOK)")
 
-dev: deps
+dev: deps check-libs
 	$(FLUTTER) run -d linux $(if $(BOOK),-a "$(BOOK)")
 
 # Generated Drift code keeps the generator's own layout.
@@ -198,6 +199,19 @@ keys:
 
 # Every release build packs the model; stop early if the checkout lost it
 # rather than ship an app that quietly falls back to classic CV.
+# The Linux libraries the plugins build against, checked up front so a
+# missing one gets the package to install rather than a CMake error.
+# libsecret keeps the S3 secret key in the keyring (flutter_secure_storage).
+check-libs:
+	@command -v pkg-config >/dev/null || { echo "pkg-config is missing: sudo dnf install pkgconf-pkg-config"; exit 1; }
+	@missing=; \
+	pkg-config --exists 'gtk+-3.0' || missing="$$missing gtk3-devel/libgtk-3-dev"; \
+	pkg-config --exists 'libsecret-1 >= 0.18.4' || missing="$$missing libsecret-devel/libsecret-1-dev"; \
+	if [ -n "$$missing" ]; then \
+	  echo "Missing build libraries (Fedora/Debian package):$$missing"; \
+	  echo "On Fedora: sudo dnf install gtk3-devel libsecret-devel"; \
+	  echo "See docs/install-linux.md"; exit 1; fi
+
 check-model:
 ifeq ($(NO_MODEL),)
 	@test -s $(BUNDLED_MODEL) || { \

@@ -189,6 +189,11 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('setting-wholePage')));
       await tester.tap(find.byKey(const Key('setting-wholePage')));
       await settle(tester);
+      // The time a quick step on a page without panels holds: 5 s.
+      await tester.ensureVisible(find.byKey(const Key('setting-pauseSeconds')));
+      await tester.tap(find.descendant(of: find.byKey(const Key('setting-pauseSeconds')), matching: find.text('5 s')));
+      await settle(tester);
+      expect(await tester.runAsync(() => c.read(settingsStoreProvider).loadString(SettingsStore.pauseSeconds)), '5');
       // The wine red and the hold on pages without panels: off.
       await tester.ensureVisible(find.byKey(const Key('setting-pauseWhole')));
       await tester.tap(find.byKey(const Key('setting-pauseWhole')));

@@ -40,7 +40,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// When the page on screen turned wine red ([ReaderState.onWholePage]):
-  /// a step onward within [pauseWindow] of it is held.
+  /// a step onward within [ReaderState.pauseWindow] of it is held.
   DateTime? _wholeSince;
 
   /// The time now; tests put their own clock here.
@@ -128,6 +128,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
     final whole = await flag(SettingsStore.wholePageSteps, state.wholePageSteps);
     final pause = await flag(SettingsStore.pauseWhole, state.pauseWhole);
+    final seconds =
+        SettingsStore.parseSeconds(await _orNull<String?>(() => settings.loadString(SettingsStore.pauseSeconds))) ??
+        state.pauseSeconds;
     final night = await flag(SettingsStore.night, state.night);
     final trim = await flag(SettingsStore.autoTrim, state.trim);
     final cleanUp = await flag(SettingsStore.cleanUp, state.cleanUp);
@@ -154,6 +157,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       balloons: saved?.balloons ?? state.balloons,
       wholePageSteps: whole,
       pauseWhole: pause,
+      pauseSeconds: seconds,
       cue: state.cue,
       coverAlone: saved?.coverAlone ?? state.coverAlone,
       rightToLeft: saved?.rightToLeft ?? book.meta?.rightToLeft ?? false,
@@ -390,6 +394,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       balloons: state.balloons,
       wholePageSteps: state.wholePageSteps,
       pauseWhole: state.pauseWhole,
+      pauseSeconds: state.pauseSeconds,
       cue: state.cue,
       fullscreen: state.fullscreen,
       night: state.night,
@@ -681,7 +686,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// Pauses of the step that would leave a page shown whole
   /// ([ReaderState.onWholePage], wine red since it appeared) when it comes
-  /// within [pauseWindow] of that: the step stays on the page, moved to its
+  /// within [ReaderState.pauseWindow] of that: the step stays on the page, moved to its
   /// far side ([pageEnd] going forward, [pageStart] going back), and plays
   /// the zoom cue; the step after it turns. It stays held,
   /// [ReaderState.held], until left. A step after the window turns at once.
@@ -691,7 +696,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// (`3l`); their window starts when detection finds no panels.
   bool _pauseOnWhole({required bool forward}) {
     final since = _wholeSince;
-    if (!state.onWholePage || state.held || since == null || clock().difference(since) >= pauseWindow) {
+    if (!state.onWholePage || state.held || since == null || clock().difference(since) >= state.pauseWindow) {
       return false;
     }
     // Arriving from behind lands on pageStart or 0, from ahead on pageEnd
@@ -746,6 +751,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
     final whole = await flag(SettingsStore.wholePageSteps, defaults.wholePageSteps);
     final pause = await flag(SettingsStore.pauseWhole, defaults.pauseWhole);
+    final seconds =
+        SettingsStore.parseSeconds(await _orNull<String?>(() => settings.loadString(SettingsStore.pauseSeconds))) ??
+        defaults.pauseSeconds;
     final night = await flag(SettingsStore.night, defaults.night);
     final trim = await flag(SettingsStore.autoTrim, defaults.trim);
     final cleanUp = await flag(SettingsStore.cleanUp, defaults.cleanUp);
@@ -754,6 +762,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     state = state.copyWith(
       wholePageSteps: whole,
       pauseWhole: pause,
+      pauseSeconds: seconds,
       night: night,
       trim: trim,
       cleanUp: cleanUp,

@@ -97,7 +97,9 @@ enum ReaderIntent {
     'Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one',
   ),
   deleteBook('Delete this comic and its sidecar, after asking; the selected book in the library, or every marked one'),
-  uploadToS3('Upload this comic to your S3 bucket; in the library the selected book, or every marked one'),
+  uploadToS3(
+    'Upload this comic to your S3 bucket, or sync its sidecar if it is there; in the library the selected book, or every marked one',
+  ),
   removeFromS3('Take this comic off S3, after asking; the copy on this device stays; in the library every marked one'),
   markBook(
     'Mark the selected book in the library, or unmark it, for an action on several (delete, reset, favourite, upload, remove from S3)',
