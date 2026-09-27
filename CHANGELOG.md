@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.4.0
+
+S3 sync between your devices, tablets, and continue reading.
+
 - **S3 sync:** upload comics to a bucket on your own S3 server (Garage,
   MinIO) and carry on reading on the other device. Settings → S3 sync
   sets it up, with a Test connection that says which step failed; the

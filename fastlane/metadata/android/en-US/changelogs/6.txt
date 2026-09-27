@@ -1,0 +1,5 @@
+* S3 sync: upload comics to your own S3 server (Garage, MinIO) and carry on reading on another device where you left off. Set up in Settings > S3 sync.
+* Tablets: a two-page button and better layouts for small tablets and split screen.
+* Continue reading (C, or the play button) reopens the last comic.
+* Smooth scrolling on zoomed pages.
+* Pages shown whole in guided view turn wine red on arrival.
