@@ -361,10 +361,16 @@ refreshes right away instead of within six hours.
 - Parts of a page (`H1` `H2`, `B1`-`B3`, `Q1`-`Q4`, `lib/src/reader/region.dart`):
   `ReaderState.region` is the split, the part and the page of the unit it
   is on. ReaderView frames it with guided view's camera and dim, in guided
-  view or out of it (`_aimCamera`). Steps go through the parts in reading
-  order, across a spread's other page, then to the whole page; in guided
-  view that whole page is held like a page without panels. Leaving the
-  page, a mode switch, Esc or the same keys end it.
+  view or out of it (`_aimCamera`). A part key also sets
+  `ReaderState.parts`, the split every step (`→` `←`, `l` `h`, taps) then
+  goes through page by page (`_stepParts`): the parts in reading order,
+  across a spread's other page, then the next page (or spread) whole on
+  its near side (`_turnInParts`, panel `pageStart`), then its first part;
+  back mirrors it (`pageEnd`, then the last part). In guided view a page
+  with stops ends the parts (at the turn, or on the next step when its
+  panels came late), so guided view goes on. Arrows never pan in parts
+  (`_panSideways`). Esc, the same key, a jump (`_goTo` clears both) or a
+  mode switch end it.
 - Turning the comic (`>`, `<`, `gr`; `ReaderState.rotation`, quarter
   turns clockwise): ReaderView puts its whole view in a `RotatedBox`, so
   layout, fit, guided view's camera and dim, zoom tiles and page parts all

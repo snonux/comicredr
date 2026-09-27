@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/providers.dart';
+import 'package:comicredr/src/reader/guided.dart';
 import 'package:comicredr/src/reader/layout.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
@@ -126,55 +127,67 @@ void main() {
     return c;
   }
 
-  testWidgets('in guided view on a page without panels: halves, then held, then the next page', (tester) async {
+  testWidgets('in guided view: parts page by page, each page whole first, guided view again on panels', (tester) async {
     final c = await open(tester);
     await key(tester, LogicalKeyboardKey.keyV);
     expect(c.read(readerProvider).guided, isTrue);
 
     await part(tester, 'H', 1);
-    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 0));
+    var s = c.read(readerProvider);
+    expect((s.region, s.parts), ((split: PageSplit.halves, part: 0, page: 0), PageSplit.halves));
     expectFramed(tester, PageSplit.halves, 0);
     expect(status(tester), contains('Upper half (1 / 2)'));
     expect(find.byKey(const Key('guided-dim')), findsOneWidget, reason: 'the rest of the page dimmed');
 
-    await key(tester, LogicalKeyboardKey.keyL);
+    await key(tester, LogicalKeyboardKey.arrowRight);
     expect(c.read(readerProvider).region?.part, 1);
     expectFramed(tester, PageSplit.halves, 1);
 
-    // Past the last part: the whole page, held, and the next step turns.
-    await key(tester, LogicalKeyboardKey.keyL);
-    var s = c.read(readerProvider);
-    expect((s.page, s.region), (0, null));
-    expect(s.held, isTrue);
+    // Past the last part: the next page, whole, and still in halves.
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts, s.held), (1, null, PageSplit.halves, false));
     expect(background(tester), heldColour);
     expect(pageOnScreen(tester).height, closeTo(tester.getRect(find.byType(ReaderView)).height, 1));
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 1));
+    expectFramed(tester, PageSplit.halves, 0);
+
+    // Back: the page before, whole, then its last part, then on again.
+    await key(tester, LogicalKeyboardKey.arrowLeft);
+    s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts), (0, null, PageSplit.halves));
+    expect(pageOnScreen(tester).height, closeTo(tester.getRect(find.byType(ReaderView)).height, 1));
+    await key(tester, LogicalKeyboardKey.arrowLeft);
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 0));
     await key(tester, LogicalKeyboardKey.keyL);
     s = c.read(readerProvider);
-    expect((s.page, s.region, s.guided), (1, null, true));
+    expect((s.page, s.region), (1, null));
+    await key(tester, LogicalKeyboardKey.keyL, times: 2);
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 1));
 
-    // Back through the parts the other way.
-    await part(tester, 'B', 3);
-    expectFramed(tester, PageSplit.thirds, 2);
-    await key(tester, LogicalKeyboardKey.keyH);
-    expect(c.read(readerProvider).region?.part, 1);
-    expectFramed(tester, PageSplit.thirds, 1);
-    await key(tester, LogicalKeyboardKey.keyH, times: 2);
+    // Page 3 has panels: it shows whole, and guided view goes on over them.
+    await key(tester, LogicalKeyboardKey.arrowRight);
     s = c.read(readerProvider);
-    expect((s.page, s.region, s.held), (1, null, true));
-    await key(tester, LogicalKeyboardKey.keyH);
-    expect(c.read(readerProvider).page, 0);
+    expect((s.page, s.region, s.parts, s.guided), (2, null, null, true));
+    expect(s.panel, pageStart);
+    expect(status(tester), contains('guided view goes on'));
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(c.read(readerProvider).panelIndex, 0);
 
     // The same keys again, or Esc, show the whole page and stay in guided view.
+    await key(tester, LogicalKeyboardKey.home);
     await part(tester, 'Q', 2);
     expectFramed(tester, PageSplit.quarters, 1);
     await part(tester, 'Q', 2);
-    expect(c.read(readerProvider).region, isNull);
+    s = c.read(readerProvider);
+    expect((s.region, s.parts), (null, null));
     expect(pageOnScreen(tester).height, closeTo(tester.getRect(find.byType(ReaderView)).height, 1));
     await part(tester, 'Q', 4);
     expectFramed(tester, PageSplit.quarters, 3);
     await key(tester, LogicalKeyboardKey.escape);
     s = c.read(readerProvider);
-    expect((s.region, s.guided, s.page), (null, true, 0));
+    expect((s.region, s.parts, s.guided, s.page), (null, null, true, 0));
     expect(status(tester), 'Whole page');
 
     // The ? help has a section for them.
@@ -185,14 +198,22 @@ void main() {
     expect(find.textContaining('Upper third of the page'), findsOneWidget);
     await key(tester, LogicalKeyboardKey.escape);
 
-    // A page with panels: the part wins over the panel while it is shown.
+    // A page with panels: the part wins over the panel while it is shown,
+    // and a page without panels after it stays in parts.
     await key(tester, LogicalKeyboardKey.pageDown, times: 2);
     expect(c.read(readerProvider).stopsOn(2), hasLength(4));
     await part(tester, 'B', 2);
     expectFramed(tester, PageSplit.thirds, 1);
+    await key(tester, LogicalKeyboardKey.arrowRight, times: 2);
+    s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts), (3, null, PageSplit.thirds));
+    await key(tester, LogicalKeyboardKey.arrowRight, times: 3);
+    expect(c.read(readerProvider).region, (split: PageSplit.thirds, part: 2, page: 3));
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(status(tester), contains('last part of the last page'));
   });
 
-  testWidgets('outside guided view: thirds step through, then the whole page, then the next page', (tester) async {
+  testWidgets('outside guided view: thirds page by page, until a jump or a mode switch', (tester) async {
     final c = await open(tester);
     expect(c.read(readerProvider).guided, isFalse);
     await part(tester, 'B', 1);
@@ -203,29 +224,40 @@ void main() {
     expectFramed(tester, PageSplit.thirds, 2);
     await key(tester, LogicalKeyboardKey.keyL);
     var s = c.read(readerProvider);
-    expect((s.page, s.region, s.held), (0, null, false));
+    expect((s.page, s.region, s.parts, s.held), (1, null, PageSplit.thirds, false));
     expect(pageOnScreen(tester).height, closeTo(tester.getRect(find.byType(ReaderView)).height, 1));
-    await key(tester, LogicalKeyboardKey.keyL);
-    expect(c.read(readerProvider).page, 1);
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expectFramed(tester, PageSplit.thirds, 0);
+    // A panel page is read in thirds too outside guided view.
+    await key(tester, LogicalKeyboardKey.arrowRight, times: 3);
+    s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts), (2, null, PageSplit.thirds));
 
     // Quarters in reading order: across, then down.
     await part(tester, 'Q', 1);
     for (final p in [1, 2, 3]) {
-      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.arrowRight);
       expectFramed(tester, PageSplit.quarters, p);
     }
-    // A page turn ends it.
-    await key(tester, LogicalKeyboardKey.pageDown);
+    // A page key ends it.
+    await key(tester, LogicalKeyboardKey.pageUp);
     s = c.read(readerProvider);
-    expect((s.page, s.region), (2, null));
+    expect((s.page, s.region, s.parts), (1, null, null));
     // So does switching into guided view.
     await part(tester, 'H', 2);
-    expect(c.read(readerProvider).region, isNotNull);
+    expect(c.read(readerProvider).parts, PageSplit.halves);
     await key(tester, LogicalKeyboardKey.keyV);
-    expect(c.read(readerProvider).region, isNull);
+    s = c.read(readerProvider);
+    expect((s.region, s.parts), (null, null));
+    // And the first part of the first page goes back no further.
+    await key(tester, LogicalKeyboardKey.home);
+    await part(tester, 'H', 1);
+    await key(tester, LogicalKeyboardKey.arrowLeft);
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 0));
+    expect(status(tester), contains('first part of the first page'));
   });
 
-  testWidgets('in two-page mode the parts go on across the other page', (tester) async {
+  testWidgets('in two-page mode the parts go on across the other page, then the next spread', (tester) async {
     final c = await open(tester);
     await key(tester, LogicalKeyboardKey.keyD);
     await key(tester, LogicalKeyboardKey.keyL);
@@ -235,14 +267,21 @@ void main() {
     await part(tester, 'H', 2);
     expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 1));
     expectFramed(tester, PageSplit.halves, 1, 0);
-    await key(tester, LogicalKeyboardKey.keyL);
+    await key(tester, LogicalKeyboardKey.arrowRight);
     expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 2));
     expectFramed(tester, PageSplit.halves, 0, 1);
-    await key(tester, LogicalKeyboardKey.keyL, times: 2);
+    await key(tester, LogicalKeyboardKey.arrowRight, times: 2);
+    s = c.read(readerProvider);
+    expect(s.unit, [3]);
+    expect((s.region, s.parts), (null, PageSplit.halves));
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 3));
+    expectFramed(tester, PageSplit.halves, 0);
+    await key(tester, LogicalKeyboardKey.arrowLeft);
     s = c.read(readerProvider);
     expect(s.unit, [1, 2]);
     expect(s.region, isNull);
-    await key(tester, LogicalKeyboardKey.keyL);
-    expect(c.read(readerProvider).unit, [3]);
+    await key(tester, LogicalKeyboardKey.arrowLeft);
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 2));
   });
 }
