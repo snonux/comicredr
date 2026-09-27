@@ -136,8 +136,11 @@ of it by key:
 | `Q1` `Q2` `Q3` `Q4` | The quarters: top left, top right, bottom left, bottom right |
 
 Once you are on a part, `→` steps to the next part in reading order and,
-after the last one, on to the whole next page. `Esc` (or the same key
-again) shows the whole page. It works in guided view too, which is handy
+after the last one, on to the whole next page. To read a whole comic part
+by part, use `)` instead: it goes to the next part and, after the last
+one, straight to the first part of the next page, in the same split. `(`
+goes back the same way, onto the last part of the page before. `Esc` (or
+the same key again) shows the whole page. It works in guided view too, which is handy
 on a page the panel finder couldn't split up.
 
 ![Thirds, then quarters of a page](images/parts.gif)

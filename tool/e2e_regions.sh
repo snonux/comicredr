@@ -16,6 +16,8 @@
 #
 # Needs: Xvfb, xdotool, ImageMagick, Python with Pillow, a C compiler and
 # GTK 3 and X11 headers.
+# ) and ( step part by part across pages, keeping the split.
+#
 # Output: build/e2e-regions/*.png and build/e2e-regions/contact.png.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -60,9 +62,10 @@ tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep "$step"; }
 part() { key "shift+${1,,}" "$2"; }
 
 failed=0
-# framed shot split n: the shot frames part n of split, of the page in ref_a.
+# framed shot split n [ref]: the shot frames part n of split, of the page in
+# ref (ref_a by default).
 framed() {
-  local got; got=$(python3 tool/region_check.py "$out/ref_a.png" "$out/$1.png")
+  local got; got=$(python3 tool/region_check.py "$out/${4:-ref_a}.png" "$out/$1.png")
   read -r split n score <<<"$got"
   if [[ "$split $n" == "$2 $3" && "${score%.*}" -lt 20 ]]; then echo "ok    $1: $2 $3 framed (off by $score)"
   else echo "FAIL  $1: expected $2 $3 framed, best match $got"; failed=1; fi
@@ -137,6 +140,20 @@ tap 80 340;   shot t03_tap_back;  framed t03_tap_back quarters 1
 # Esc: the whole page first, then out of guided view, still in the book.
 key Escape; key Escape; shot g18_unguided; whole g18_unguided ref_a
 
+# ) and ( keep the split from page to page.
+part H 1;          shot p01_half_1;       framed p01_half_1 halves 1
+key parenright;    shot p02_half_2;       framed p02_half_2 halves 2
+key parenright;    shot p03_next_half_1;  framed p03_next_half_1 halves 1 ref_b
+key parenright;    shot p04_next_half_2;  framed p04_next_half_2 halves 2 ref_b
+key parenleft;     shot p05_back_half_1;  framed p05_back_half_1 halves 1 ref_b
+key parenleft;     shot p06_prev_half_2;  framed p06_prev_half_2 halves 2
+key Escape;        shot p07_esc;          whole p07_esc ref_a
+# In guided view too, onto a page with panels; Esc shows it whole.
+key v; sleep 2
+part B 3;          shot p08_third_3;      framed p08_third_3 thirds 3
+key parenright;    shot p09_next_third_1; framed p09_next_third_1 thirds 1 ref_b
+key parenright;    shot p10_next_third_2; framed p10_next_third_2 thirds 2 ref_b
+key Escape;        shot p11_esc;          whole p11_esc ref_b
 close_gracefully
 montage -label '%t' "$out"/*.png -tile 5x -geometry 384x270+4+14 "$out/contact.png"
 grep -i 'detector' "$out/app.log" | sort | uniq -c || true

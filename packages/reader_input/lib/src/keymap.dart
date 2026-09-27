@@ -89,6 +89,8 @@ class Keymap {
       Binding(['Q', '2'], ReaderIntent.regionTopRight),
       Binding(['Q', '3'], ReaderIntent.regionBottomLeft),
       Binding(['Q', '4'], ReaderIntent.regionBottomRight),
+      Binding([')'], ReaderIntent.nextPart),
+      Binding(['('], ReaderIntent.prevPart),
       Binding(['t'], ReaderIntent.autoTrim),
       Binding(['i'], ReaderIntent.nightFilter),
       Binding(['c'], ReaderIntent.cleanUp),

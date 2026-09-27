@@ -102,6 +102,10 @@ regionTopRight = ["Q2"]
 regionBottomLeft = ["Q3"]
 # Bottom-right quarter of the page, enlarged
 regionBottomRight = ["Q4"]
+# Next part of the page in the same split, then the first part of the next page; Esc leaves
+nextPart = [")"]
+# Previous part of the page in the same split, then the last part of the page before
+prevPart = ["("]
 # Auto-trim scan margins
 autoTrim = ["t"]
 # Night filter

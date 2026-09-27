@@ -245,4 +245,70 @@ void main() {
     await key(tester, LogicalKeyboardKey.keyL);
     expect(c.read(readerProvider).unit, [3]);
   });
+
+  Future<void> paren(WidgetTester tester, String ch, {int times = 1}) async {
+    for (var i = 0; i < times; i++) {
+      await tester.sendKeyEvent(
+        ch == ')' ? LogicalKeyboardKey.digit0 : LogicalKeyboardKey.digit9,
+        character: ch,
+      );
+    }
+    await settle(tester);
+  }
+
+  testWidgets(') and ( go part by part across pages, keeping the split', (tester) async {
+    final c = await open(tester);
+    await paren(tester, ')');
+    expect(c.read(readerProvider).region, isNull);
+    expect(status(tester), contains('Pick a part of the page first'));
+
+    await part(tester, 'H', 1);
+    await paren(tester, ')');
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 0));
+    expectFramed(tester, PageSplit.halves, 1);
+    await paren(tester, ')');
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 1));
+    expectFramed(tester, PageSplit.halves, 0);
+    await paren(tester, '(');
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 0));
+    expectFramed(tester, PageSplit.halves, 1);
+    await paren(tester, '(', times: 2);
+    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 0));
+    expect(status(tester), contains('first part of the first page'));
+
+    // In guided view, onto a page with panels too; Esc leaves the parts only.
+    await key(tester, LogicalKeyboardKey.escape);
+    await key(tester, LogicalKeyboardKey.keyV);
+    await key(tester, LogicalKeyboardKey.keyL); // held
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(c.read(readerProvider).page, 1);
+    await part(tester, 'B', 3);
+    await paren(tester, ')');
+    var s = c.read(readerProvider);
+    expect((s.page, s.guided, s.region), (2, true, (split: PageSplit.thirds, part: 0, page: 2)));
+    expectFramed(tester, PageSplit.thirds, 0);
+    await paren(tester, ')', times: 6);
+    s = c.read(readerProvider);
+    expect((s.page, s.region), (3, (split: PageSplit.thirds, part: 2, page: 3)));
+    expect(status(tester), contains('last part of the last page'));
+    await key(tester, LogicalKeyboardKey.escape);
+    s = c.read(readerProvider);
+    expect((s.page, s.guided, s.region), (3, true, null));
+
+    // Two pages: across the other page of the spread, then the next spread.
+    await key(tester, LogicalKeyboardKey.keyD);
+    await key(tester, LogicalKeyboardKey.home);
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(c.read(readerProvider).unit, [1, 2]);
+    await part(tester, 'Q', 4);
+    await paren(tester, ')');
+    expect(c.read(readerProvider).region, (split: PageSplit.quarters, part: 0, page: 2));
+    await paren(tester, ')', times: 4);
+    s = c.read(readerProvider);
+    expect(s.unit, [3]);
+    expect(s.region, (split: PageSplit.quarters, part: 0, page: 3));
+    expectFramed(tester, PageSplit.quarters, 0);
+    await paren(tester, '(');
+    expect(c.read(readerProvider).region, (split: PageSplit.quarters, part: 3, page: 2));
+  });
 }

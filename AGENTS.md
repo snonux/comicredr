@@ -351,7 +351,10 @@ refreshes right away instead of within six hours.
   view or out of it (`_aimCamera`). Steps go through the parts in reading
   order, across a spread's other page, then to the whole page; in guided
   view that whole page is held like a page without panels. Leaving the
-  page, a mode switch, Esc or the same keys end it.
+  page, a mode switch, Esc or the same keys end it. `)` `(` (`nextPart`,
+  `prevPart`, `_stepPart`) keep the split across pages instead: past the
+  last part they turn to the next page (or spread) on its first part
+  (`_turnInParts`), and back onto the previous one's last part.
 - Turning the comic (`>`, `<`, `gr`; `ReaderState.rotation`, quarter
   turns clockwise): ReaderView puts its whole view in a `RotatedBox`, so
   layout, fit, guided view's camera and dim, zoom tiles and page parts all

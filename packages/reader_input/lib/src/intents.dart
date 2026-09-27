@@ -58,6 +58,8 @@ enum ReaderIntent {
   regionTopRight('Top-right quarter of the page, enlarged'),
   regionBottomLeft('Bottom-left quarter of the page, enlarged'),
   regionBottomRight('Bottom-right quarter of the page, enlarged'),
+  nextPart('Next part of the page in the same split, then the first part of the next page; Esc leaves'),
+  prevPart('Previous part of the page in the same split, then the last part of the page before'),
   autoTrim('Auto-trim scan margins'),
   nightFilter('Night filter'),
   cleanUp('Clean up old scans: paper, contrast, sharpness'),

@@ -662,6 +662,80 @@ class ReaderNotifier extends Notifier<ReaderState> {
     );
   }
 
+  /// `)` and `(`: the next or previous part in the same split, and past
+  /// the last (or first) part of the pages shown, the first (or last) part
+  /// of the next (or previous) page, so a comic reads part by part. Only
+  /// while a part is shown; Esc leaves.
+  void _stepPart(int steps) {
+    if (state.region == null) {
+      _notice('Pick a part of the page first: H1, B1 or Q1');
+      return;
+    }
+    for (var k = 0; k < steps.abs(); k++) {
+      final r = state.region!;
+      final order = partOrder(r.split, rightToLeft: state.rightToLeft);
+      final unit = state.unit;
+      var at = unit.indexOf(r.page);
+      if (at < 0) at = 0;
+      var i = order.indexOf(r.part);
+      if (steps > 0) {
+        if (i < order.length - 1) {
+          i++;
+        } else if (at < unit.length - 1) {
+          at++;
+          i = 0;
+        } else if (unit.last >= state.pageCount - 1) {
+          _notice('This is the last part of the last page');
+          return;
+        } else {
+          _turnInParts(r.split, forward: true);
+          continue;
+        }
+      } else {
+        if (i > 0) {
+          i--;
+        } else if (at > 0) {
+          at--;
+          i = order.length - 1;
+        } else if (unit.first <= 0) {
+          _notice('This is the first part of the first page');
+          return;
+        } else {
+          _turnInParts(r.split, forward: false);
+          continue;
+        }
+      }
+      state = state.copyWith(region: (split: r.split, part: order[i], page: unit[at]));
+    }
+    final region = state.region!;
+    state = state.copyWith(
+      message:
+          '${_capitalised(describeRegion(region, rightToLeft: state.rightToLeft))}'
+          '${state.unit.length > 1 ? ', page ${region.page + 1}' : ''}',
+    );
+  }
+
+  /// Turns to the next or previous page (or spread) keeping [split]: on its
+  /// first part going on, its last going back.
+  void _turnInParts(PageSplit split, {required bool forward}) {
+    final page = state.guided
+        ? state.page + (forward ? 1 : -1)
+        : stepFrom(
+            state.page,
+            forward ? 1 : -1,
+            state.pageCount,
+            state.mode,
+            coverAlone: state.coverAlone,
+            wide: state.wide,
+          );
+    _goTo(page, panel: forward ? pageStart : pageEnd);
+    final order = partOrder(split, rightToLeft: state.rightToLeft);
+    final unit = state.unit;
+    state = state.copyWith(
+      region: (split: split, part: forward ? order.first : order.last, page: forward ? unit.first : unit.last),
+    );
+  }
+
   /// Past the last part going on, or the first going back: the whole page,
   /// on its far side, so the next step leaves it.
   void _leaveRegion({required bool forward}) {
@@ -871,6 +945,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final step = state.region != null ? _stepRegion : (state.guided ? _stepGuided : _step);
     final pageStep = state.guided ? (int n) => _goTo(state.page + n) : _step;
     final shownBefore = (state.guided, state.mode);
+    if (c.intent == ReaderIntent.nextPart || c.intent == ReaderIntent.prevPart) {
+      _stepPart(c.intent == ReaderIntent.nextPart ? c.times : -c.times);
+      _saveProgress(state.book!);
+      return;
+    }
     if (regionFor(c.intent) case final r?) {
       _showRegion(r.split, r.part);
       _saveProgress(state.book!);
@@ -1060,6 +1139,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.regionTopRight:
       case ReaderIntent.regionBottomLeft:
       case ReaderIntent.regionBottomRight:
+      case ReaderIntent.nextPart:
+      case ReaderIntent.prevPart:
         break; // Handled by the screen, or only mean something in the library.
     }
     // A part of the page belongs to the view it was picked in.
