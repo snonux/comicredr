@@ -187,7 +187,10 @@ guided)
     [[ "$(q "select page from progress order by updated_at desc limit 1")" == 2 ]] && break
   done
   sleep 1.5; still held-whole
-  rec held 8; sleep 1; key l; sleep 3; key l; sleep 2; gif held
+  # Back a page and on again, so the GIF starts on arrival: a quick press
+  # (within guided view's 2 s) holds and zooms, the next one turns.
+  key h
+  rec held 8; key l; key l; sleep 3; key l; sleep 2; gif held
   key v
   ;;
 

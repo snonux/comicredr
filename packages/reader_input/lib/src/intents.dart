@@ -94,7 +94,9 @@ enum ReaderIntent {
   filterFolders("Filter the library's Folders tab by type, size and modification date"),
   resetBook('Reset this comic: find its panels again, or forget its bookmarks and position too'),
   deleteBook('Delete this comic and its sidecar, after asking; the selected book in the library'),
-  uploadToS3('Upload this comic to your S3 bucket; in the library the selected book, or every marked one'),
+  uploadToS3(
+    'Upload this comic to your S3 bucket, or sync its sidecar if it is there; in the library the selected book, or every marked one',
+  ),
   removeFromS3('Take this comic off S3, after asking; the copy on this device stays'),
   markBook('Mark the selected book in the library, or unmark it, for an action on several (upload, remove, download)'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),

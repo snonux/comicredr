@@ -29,10 +29,13 @@ also has a QR code to scan instead of the link.
 If you would rather not use F-Droid, build the APK on a Linux laptop and
 install it over USB. On top of the
 [Linux build setup](install-linux.md#build-tools-and-flutter), you need
-a JDK and the Android command-line tools:
+a JDK, `openssl` (for `make keystore`), `adb` and the Android
+command-line tools. Checked on a bare Fedora 42, which built the APK with
+exactly these steps; the first `make apk` then downloads the rest of the
+SDK and Gradle by itself:
 
 ```sh
-sudo dnf install java-21-openjdk-devel android-tools
+sudo dnf install java-21-openjdk-devel openssl android-tools
 mkdir -p ~/Android/Sdk/cmdline-tools && cd ~/Android/Sdk/cmdline-tools
 curl -LO https://dl.google.com/android/repository/commandlinetools-linux-16111833_latest.zip
 unzip commandlinetools-linux-*_latest.zip && mv cmdline-tools latest

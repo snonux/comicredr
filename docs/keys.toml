@@ -162,7 +162,7 @@ filterFolders = ["F"]
 resetBook = ["X"]
 # Delete this comic and its sidecar, after asking; the selected book in the library
 deleteBook = ["gd", "S-Delete"]
-# Upload this comic to your S3 bucket; in the library the selected book, or every marked one
+# Upload this comic to your S3 bucket, or sync its sidecar if it is there; in the library the selected book, or every marked one
 uploadToS3 = ["gu"]
 # Take this comic off S3, after asking; the copy on this device stays
 removeFromS3 = ["gU"]

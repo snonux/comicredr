@@ -49,6 +49,7 @@ void main() {
   Future<Map<String, Object>> changedSettings() async => {
     SettingsStore.wholePageSteps: false,
     SettingsStore.pauseWhole: false,
+    SettingsStore.pauseSeconds: '5',
     SettingsStore.night: true,
     SettingsStore.autoTrim: true,
     SettingsStore.fullscreen: true,
@@ -164,7 +165,7 @@ void main() {
     expect(done.books, {'a', 'b'});
     expect(
       importNotice(done),
-      'Imported 17 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
+      'Imported 18 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
       'and 2 history entries.',
     );
 
@@ -330,7 +331,7 @@ void main() {
     expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], ['Comics']);
     expect(done.foldersMissing, [p.join(tmp.path, 'Manga')]);
     expect(done.sidecarDirMissing, here);
-    expect(done.settings, 16);
+    expect(done.settings, 17);
     expect(importNotice(done), contains('1 library folder not on this device: ${p.join(tmp.path, 'Manga')}.'));
     expect(importNotice(done), contains("The sidecar folder $here is not on this device; kept this one's."));
   });
@@ -456,8 +457,8 @@ void main() {
     await container.read(touchPresetProvider.notifier).reload();
     final s = container.read(readerProvider);
     expect(
-      (s.wholePageSteps, s.pauseWhole, s.night, s.trim, s.cleanUp, s.fullscreen),
-      (false, false, true, true, true, true),
+      (s.wholePageSteps, s.pauseWhole, s.pauseSeconds, s.night, s.trim, s.cleanUp, s.fullscreen),
+      (false, false, 5, true, true, true, true),
     );
     expect(container.read(touchPresetProvider), TouchPreset.oneThumb);
 
@@ -475,6 +476,6 @@ void main() {
     await import(await exportSettings(empty));
     await container.read(readerProvider.notifier).reloadSettings();
     final d = container.read(readerProvider);
-    expect((d.wholePageSteps, d.pauseWhole, d.night, d.fullscreen), (true, true, false, false));
+    expect((d.wholePageSteps, d.pauseWhole, d.pauseSeconds, d.night, d.fullscreen), (true, true, 2, false, false));
   });
 }

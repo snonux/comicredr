@@ -16,7 +16,7 @@ class S3Config {
 
   /// Every object ComicRedr writes goes under this, so the bucket can hold
   /// other things too.
-  static const defaultPrefix = 'comicredr/';
+  static const defaultPrefix = 'Comics/';
 
   /// The S3 endpoint, like `https://garage.example.org` or
   /// `http://garage.lan:3900`. Path-style addressing, so no bucket in it.

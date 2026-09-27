@@ -194,7 +194,7 @@ flowchart TB
    page, together covering at least 60% of it, and at most four tiny
    scraps (ads and text pages look like a crowd of scraps). Otherwise the
    page is shown whole on a wine-red background, and a press within
-   5 seconds of arriving is held once.
+   2 seconds of arriving (a setting) is held once.
 8. **Cache.** The result is stored in the app's index database and in the
    comic's `.crdb` sidecar, keyed by content key, page and detector
    version. A comic copied to the phone opens there with its panels

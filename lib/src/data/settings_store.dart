@@ -15,6 +15,16 @@ class SettingsStore {
   /// holds a quick step there before turning.
   static const pauseWhole = 'guided.pauseWhole';
 
+  /// How many seconds after such a page shows a step still stays on it: a
+  /// number as a string, `2` by default.
+  static const pauseSeconds = 'guided.pauseSeconds';
+
+  /// [pauseSeconds] as saved, or null when it is not a positive number.
+  static double? parseSeconds(String? s) => switch (double.tryParse(s ?? '')) {
+    final v? when v > 0 && v <= 60 => v,
+    _ => null,
+  };
+
   /// The night filter (`i`) and auto-trim (`t`), kept across restarts.
   static const night = 'reader.night';
   static const autoTrim = 'reader.autoTrim';
@@ -78,6 +88,7 @@ class SettingsStore {
   static const backedUp = <String, bool>{
     wholePageSteps: true,
     pauseWhole: true,
+    pauseSeconds: false,
     night: true,
     autoTrim: true,
     fullscreen: true,
