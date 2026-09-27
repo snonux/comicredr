@@ -15,6 +15,8 @@ import '../reader/recent_books.dart';
 import 'book_detail.dart';
 import 'cover_card.dart';
 import 'edit_dialog.dart';
+import 'folder_filter.dart';
+import 'folder_filter_dialog.dart';
 import 'library_items.dart';
 import 'library_panes.dart';
 import 'library_status.dart';
@@ -125,6 +127,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   int _seed = 0;
   final _random = math.Random();
 
+  /// The Folders tab's filter by type, size and date (`F`), kept across
+  /// restarts.
+  FolderFilter _filter = FolderFilter.none;
+
   @override
   void initState() {
     super.initState();
@@ -137,10 +143,48 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           })
           .catchError((Object e) => debugPrint('Could not read the shuffle setting: $e')),
     );
+    unawaited(
+      ref
+          .read(settingsStoreProvider)
+          .loadString(SettingsStore.folderFilter)
+          .then((text) {
+            if (mounted) setState(() => _filter = FolderFilter.decode(text));
+          })
+          .catchError((Object e) => debugPrint('Could not read the folder filter: $e')),
+    );
     _reshuffle();
   }
 
   bool get shuffle => _shuffle;
+
+  FolderFilter get filter => _filter;
+
+  /// Filters the Folders tab, remembered for the next start.
+  void setFilter(FolderFilter f) {
+    if (f == _filter) return;
+    setState(() {
+      _filter = f;
+      _selected = null;
+    });
+    unawaited(
+      ref
+          .read(settingsStoreProvider)
+          .saveString(SettingsStore.folderFilter, f.encode())
+          .catchError((Object e) => debugPrint('Could not save the folder filter: $e')),
+    );
+  }
+
+  /// The filter's dialog, offering the formats the library has.
+  Future<void> _openFilter() async {
+    final books = ref.read(booksProvider).value ?? const <LibraryBook>[];
+    await showFolderFilter(
+      context,
+      filter: _filter,
+      formats: {for (final b in books) b.format}.toList(),
+      onChanged: setFilter,
+    );
+    widget.keysFocus?.requestFocus();
+  }
 
   void _showSettings() => showSettings(
     context,
@@ -151,6 +195,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   /// Takes up the saved shuffle setting again, after an import changed it.
   Future<void> reloadSettings() async {
+    try {
+      final filter = FolderFilter.decode(await ref.read(settingsStoreProvider).loadString(SettingsStore.folderFilter));
+      if (mounted) setState(() => _filter = filter);
+    } catch (e) {
+      debugPrint('Could not read the folder filter: $e');
+    }
     try {
       final on = await ref.read(settingsStoreProvider).loadBool(SettingsStore.shuffle) ?? false;
       if (on == _shuffle || !mounted) return;
@@ -273,6 +323,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         setShuffle(!_shuffle);
       case ReaderIntent.reshuffle when tab == LibraryTab.folders && _shuffle:
         setState(_reshuffle);
+      case ReaderIntent.filterFolders when tab == LibraryTab.folders:
+        unawaited(_openFilter());
       case ReaderIntent.resetBook:
         if (_selectedItem case BookItem(:final book) when !book.remoteOnly) {
           unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
@@ -607,6 +659,57 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// Under the Folders tab's header: the filter's button, and while it is
+  /// on, what it lets through, each part with its own x, and a way to clear
+  /// it all. A tap on a part opens the filter. Its own line, as the header
+  /// has no room left beside a breadcrumb.
+  Widget _filterBar(BuildContext context) {
+    final f = _filter;
+    Widget part(String key, String label, FolderFilter without) => InputChip(
+      key: Key(key),
+      label: Text(label),
+      visualDensity: VisualDensity.compact,
+      onPressed: _openFilter,
+      onDeleted: () => setFilter(without),
+      deleteButtonTooltipMessage: 'Take this off the filter',
+    );
+    return Container(
+      key: const Key('filterBar'),
+      alignment: AlignmentDirectional.centerStart,
+      padding: const EdgeInsets.fromLTRB(8, 0, 12, 4),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          TextButton.icon(
+            key: const Key('filter'),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            icon: Icon(f.isActive ? Icons.filter_alt : Icons.filter_alt_outlined),
+            label: Text(f.isActive ? 'Filtered:' : 'Filter by type, size, date (F)'),
+            onPressed: _openFilter,
+          ),
+          if (f.formats.isNotEmpty)
+            part(
+              'filterBarType',
+              (f.formats.map(formatLabel).toList()..sort()).join(', '),
+              f.copyWith(formats: const {}),
+            ),
+          if (f.size != SizeRange.any) part('filterBarSize', f.size.label, f.copyWith(size: SizeRange.any)),
+          if (f.date != DateRange.any)
+            part('filterBarDate', 'Modified: ${f.date.label.toLowerCase()}', f.copyWith(date: DateRange.any)),
+          if (f.isActive)
+            TextButton(
+              key: const Key('filterBarClear'),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              onPressed: () => setFilter(FolderFilter.none),
+              child: const Text('Clear filter'),
+            ),
+        ],
+      ),
+    );
+  }
+
   /// A tap: selects, and a second tap on the selected cover opens it. On a
   /// phone-sized screen a tap on a book shows its detail page.
   void _tap(LibraryItem item, {required bool wide}) {
@@ -668,13 +771,17 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
               if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.folders:
+        final now = DateTime.now();
+        final filtered = _filter.isActive ? books.where((b) => _filter.accepts(b, now)).toList() : books;
         if (_folder == null) {
           return [
-            for (final f in LibraryFolder.roots(roots, books))
-              if (f.matches(q)) FolderItem(f),
+            for (final f in LibraryFolder.roots(roots, filtered))
+              // A library folder with nothing the filter lets through goes
+              // too; without a filter an empty one stays, to be taken out.
+              if (f.matches(q) && (!_filter.isActive || f.books.isNotEmpty)) FolderItem(f),
           ];
         }
-        final (:folders, books: here) = LibraryFolder.children(_folder!, books);
+        final (:folders, books: here) = LibraryFolder.children(_folder!, filtered);
         return [
           for (final f in folders)
             if (f.matches(q)) FolderItem(f),
@@ -768,6 +875,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 children: [
                   _header(context, books),
                   if (_marked.isNotEmpty || _selecting) _marksBar(context, books),
+                  if (tab == LibraryTab.folders) _filterBar(context),
                   Expanded(
                     child: switch (tab) {
                       LibraryTab.history => HistoryPane(books: books, query: _query.trim(), onRead: read),
@@ -899,28 +1007,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             Text(tab.label, style: theme.textTheme.titleLarge),
             const SizedBox(width: 16),
           ],
-          Expanded(
-            child: TextField(
-              key: const Key('search'),
-              controller: _search,
-              focusNode: _searchFocus,
-              decoration: InputDecoration(
-                isDense: true,
-                prefixIcon: const Icon(Icons.search),
-                hintText: 'Search titles, series, creators (/)',
-                border: const OutlineInputBorder(),
-                suffixIcon: _query.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () => back()),
-              ),
-              onChanged: (q) => setState(() {
-                _query = q;
-                _selected = null;
-              }),
-              onSubmitted: (_) {
-                widget.keysFocus?.requestFocus();
-                if (_items.isNotEmpty) _select(0);
-              },
-            ),
-          ),
+          Expanded(child: _searchField()),
           // On a phone, only on the Reading tab, where the app starts: the
           // Folders tab's header has no room left for it.
           if (ref.watch(recentBooksProvider).firstOrNull case final last?
@@ -994,6 +1081,27 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       child: row,
     );
   }
+
+  Widget _searchField() => TextField(
+    key: const Key('search'),
+    controller: _search,
+    focusNode: _searchFocus,
+    decoration: InputDecoration(
+      isDense: true,
+      prefixIcon: const Icon(Icons.search),
+      hintText: 'Search titles, series, creators (/)',
+      border: const OutlineInputBorder(),
+      suffixIcon: _query.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () => back()),
+    ),
+    onChanged: (q) => setState(() {
+      _query = q;
+      _selected = null;
+    }),
+    onSubmitted: (_) {
+      widget.keysFocus?.requestFocus();
+      if (_items.isNotEmpty) _select(0);
+    },
+  );
 
   /// Where you are on the Folders tab: the library folder, then each
   /// folder down to this one. A tap on one goes there.
@@ -1146,8 +1254,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   Widget _grid(BuildContext context, bool wide) {
     if (_items.isEmpty) {
+      final filtered = tab == LibraryTab.folders && _filter.isActive;
       final text = _query.isNotEmpty
-          ? 'Nothing matches "$_query".'
+          ? 'Nothing matches "$_query"${filtered ? ' with this filter' : ''}.'
+          : filtered
+          ? (_folder == null ? 'No comics match the filter.' : 'No comics in this folder match the filter.')
           : tab == LibraryTab.folders
           ? (_folder == null ? 'No library folders yet. A adds one.' : 'No books in this folder any more.')
           : tab == LibraryTab.reading

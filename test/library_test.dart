@@ -497,6 +497,92 @@ void main() {
       expect(c2.read(readerProvider).book, isNull);
     });
 
+    testWidgets('F filters the Folders tab by type and date, the bar clears it, and it is kept', (tester) async {
+      writeShelf(root);
+      File('${root.path}/Sunday Strip 7.png').writeAsBytesSync([...png, 7]);
+      // Spirit #2 last changed two years ago; the rest just now.
+      File('${root.path}/spirit-a.cbz').setLastModifiedSync(DateTime.now().subtract(const Duration(days: 730)));
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      expect(find.text('5 books'), findsOneWidget);
+      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.enter); // Into Comics.
+      expect(find.byKey(const Key('filterBarClear')), findsNothing);
+
+      // F opens the filter; only the types the library has are offered.
+      await key(tester, LogicalKeyboardKey.keyF, character: 'F');
+      expect(find.byKey(const Key('filterDialog')), findsOneWidget);
+      expect(find.byKey(const Key('filterType-cbz')), findsOneWidget);
+      expect(find.byKey(const Key('filterType-pdf')), findsNothing);
+      await tester.tap(find.byKey(const Key('filterType-image')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('filterDone')));
+      await settle(tester);
+      expect(find.text('Sunday Strip #7'), findsWidgets);
+      expect(find.text('The Spirit #1'), findsNothing);
+      expect(find.text('Pepper Carrot #6'), findsNothing);
+      expect(find.text('Indie'), findsNothing, reason: 'nothing in it passes');
+      expect(
+        find.descendant(of: find.byKey(const Key('filterBarType')), matching: find.text('Single image')),
+        findsOne,
+      );
+      // It combines with the search.
+      await key(tester, LogicalKeyboardKey.slash, character: '/');
+      await tester.enterText(find.byKey(const Key('search')), 'spirit');
+      await settle(tester);
+      expect(find.text('Nothing matches "spirit" with this filter.'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('search')), '');
+      await settle(tester);
+
+      // Its x takes the type off; the bar goes with the last part.
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('filterBarType')),
+          matching: find.byTooltip('Take this off the filter'),
+        ),
+      );
+      await settle(tester);
+      expect(find.byKey(const Key('filterBarClear')), findsNothing);
+      expect(find.text('The Spirit #1'), findsWidgets);
+
+      // By date: only the book changed over a year ago; the header button
+      // opens it too.
+      await tester.tap(find.byKey(const Key('filter')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('filterDate-older')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('filterDone')));
+      await settle(tester);
+      expect(find.text('The Spirit #2'), findsWidgets);
+      expect(find.text('The Spirit #1'), findsNothing);
+      expect(find.text('Sunday Strip #7'), findsNothing);
+      final saved = await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter));
+      expect(saved, contains('older'));
+
+      // A new start keeps it; up at the top the count is what passes.
+      await tester.pumpWidget(const SizedBox());
+      await pumpApp(tester);
+      await settle(tester);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      expect(find.byKey(const Key('filterBarClear')), findsOneWidget);
+      expect(find.text('1 book'), findsOneWidget);
+
+      // Too big for anything here: said so, and Clear filter brings all back.
+      await key(tester, LogicalKeyboardKey.keyF, character: 'F');
+      await tester.tap(find.byKey(const Key('filterSize-over200')));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.escape); // Closes the dialog.
+      expect(find.byKey(const Key('filterDialog')), findsNothing);
+      expect(find.text('No comics match the filter.'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('filterBarClear')));
+      await settle(tester);
+      expect(find.text('5 books'), findsOneWidget);
+      expect(await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)), isNull);
+    });
+
     /// The app's own start: first frame, the start-up scan, the books.
     Future<void> starting(WidgetTester tester) async {
       for (var i = 0; i < 20; i++) {

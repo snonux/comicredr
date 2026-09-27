@@ -137,7 +137,12 @@ library)
   tab Folders; key Right; still folders
   key Return; sleep 1.5; still folders-inside
   key Return; sleep 1.5; key shift+s; sleep 10; park; still shuffle
-  key shift+s; key BackSpace; key BackSpace
+  key shift+s
+  # The filter: PDFs only (the chips are CBZ, Image folder, PDF).
+  key shift+f; sleep 1; key Tab; key Tab; key space; sleep 1.5; park; still filter-dialog
+  key Escape; sleep 1; park; still filter
+  key shift+f; sleep 1; key Tab; key Tab; key space; key Escape
+  key BackSpace; key BackSpace
   ;;
 
 reader)
