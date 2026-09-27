@@ -332,11 +332,13 @@ refreshes right away instead of within six hours.
 - A page guided view shows whole (no panels that pass the gate,
   `ReaderState.onWholePage`) turns the Scaffold background `heldColour`
   (#3A0D16, app.dart) as soon as it shows, until it is left (snonux,
-  2026-09-26). A step onward within `pauseWindow` (5 s) of that moment
+  2026-09-26). A step onward within `ReaderState.pauseWindow` of that
+  moment (`guided.pauseSeconds`, 2 s by default, Settings offers 1, 2, 3,
+  5 and 10; snonux 2026-09-27)
   stays, sets `ReaderState.held` and bumps `cue`, which plays ReaderView's
   zoom pulse (none with reduced motion; the status line says to press
   again, always then, else the first three times); the next step turns,
-  however soon. A step after 5 s turns at once. The moment is
+  however soon. A step after it turns at once. The moment is
   `_wholeSince`, set by a `listenSelf` whenever `onWholePage` turns true
   or the page changes, so a page whose panels arrive late, turning guided
   view on or `W` on start it again. Tests set the notifier's `clock`.
@@ -484,7 +486,14 @@ refreshes right away instead of within six hours.
   every 5 minutes; a comic without a local file is a `LibraryBook` with
   `s3.mark == S3Mark.remote` at the path a download would use (under the
   first library folder), which opens its page with Download instead of
-  the reader. Downloads check the content key. Unreachable: one notice,
+  the reader. Downloads check the content key. An upload (`_upload`)
+  of a comic already in the bucket (`_alreadyThere`: manifest there, the
+  comic or every folder file at the manifest's size) sends nothing but
+  meets the sidecars (`_meetSidecar`: push or pull, newest whole file
+  wins) and keeps the bucket's manifest, so `gu` on a synced comic is a
+  manual sync (`uploadBooks` passes every local book). The upload's
+  share (`S3Status.transfers`) shows on the reader's status line
+  (`StatusLine.s3Progress`). Unreachable: one notice,
   retry from 30 s doubling to 5 min, "S3 is back; N comics caught up".
   Keys `gu`, `gU`, `V` (marks, `_marked` in `LibraryScreenState`, with a
   bar over the grid; Ctrl+click; Select on a phone-wide header). Delete
@@ -569,7 +578,7 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
-tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 5 s turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 2 s (then 5 s, set in the index) turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
@@ -586,6 +595,7 @@ tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder 
 tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
 tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
 tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
+tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```

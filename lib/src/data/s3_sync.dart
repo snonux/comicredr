@@ -368,14 +368,17 @@ class S3Sync {
 
   /// Puts the comics [keys] on S3, in the background (design plan section
   /// 13): the comic, its cover, its sidecar, then its manifest, so a comic
-  /// counts as there only once all of it is. One already there is skipped.
+  /// counts as there only once all of it is. One already in the bucket is
+  /// not sent again: only its sidecar is brought in step, the newest winning.
   Future<int> upload(Iterable<String> keys) async {
     if (await _connect() == null) return 0;
     var n = 0;
     final now = DateTime.now();
     for (final key in keys) {
       final row = await (_db.select(_db.s3Books)..where((t) => t.contentKey.equals(key))).getSingleOrNull();
-      if (row != null && row.pending != S3Pending.remove) continue;
+      // One on its way already. A comic on S3 goes through an upload too:
+      // it finds the comic there and only brings the sidecars in step.
+      if (row?.pending == S3Pending.upload) continue;
       final at = await sidecars.placeOf(key);
       if (at == null) continue;
       final m = await _manifestFor(key, at);
@@ -385,7 +388,8 @@ class S3Sync {
           .insertOnConflictUpdate(
             S3BooksCompanion.insert(
               contentKey: key,
-              manifest: m.encode(),
+              // The bucket's own manifest, when it is known, names who uploaded it.
+              manifest: row == null || row.pending == S3Pending.remove ? m.encode() : row.manifest,
               pending: const Value(S3Pending.upload),
               pendingSince: Value(now.add(Duration(microseconds: n))),
             ),
@@ -459,31 +463,74 @@ class S3Sync {
     void sent(int n) => _progress(key, m.size == 0 ? 1 : (before + n) / m.size);
     _progress(key, 0);
     try {
-      if (m.isFolder) {
-        for (final f in m.files) {
-          final file = File(p.join(at.path, p.joinAll(f.path.split('/'))));
-          await store.put(o.file(f.path), _read(file), size: f.size, onProgress: sent);
-          before += f.size;
+      // Already in the bucket, from this device or another: the same
+      // content key and the same sizes, so the comic itself stays as it is.
+      final there = await _alreadyThere(store, o, m);
+      if (!there) {
+        if (m.isFolder) {
+          for (final f in m.files) {
+            final file = File(p.join(at.path, p.joinAll(f.path.split('/'))));
+            await store.put(o.file(f.path), _read(file), size: f.size, onProgress: sent);
+            before += f.size;
+          }
+        } else {
+          await store.put(o.comic(m.ext!), _read(File(at.path)), size: m.size, onProgress: sent);
         }
+        if (coverDir case final dir?) {
+          final cover = File(coverFile(dir, key));
+          if (cover.existsSync()) await store.put(o.cover, _read(cover), size: cover.lengthSync());
+        }
+      }
+      _progress(key, 1);
+      final sidecarAt = await _meetSidecar(store, o, key, at);
+      if (!there) {
+        final manifest = m.encode();
+        await store.put(o.manifest, Stream.value(Uint8List.fromList(manifest.codeUnits)), size: manifest.length);
+        await _done(row, sidecarAt: sidecarAt, manifest: manifest);
+        _say('Uploaded ${m.title} to S3');
       } else {
-        await store.put(o.comic(m.ext!), _read(File(at.path)), size: m.size, onProgress: sent);
+        // The bucket's manifest stays, so it still names who uploaded it.
+        final kept = Manifest.decode(row.manifest) == null ? m.encode() : row.manifest;
+        await _done(row, sidecarAt: sidecarAt, manifest: kept);
+        _say('${m.title} was on S3 already; its newest sidecar is on both');
       }
-      if (coverDir case final dir?) {
-        final cover = File(coverFile(dir, key));
-        if (cover.existsSync()) await store.put(o.cover, _read(cover), size: cover.lengthSync());
-      }
-      // The sidecar as it is now, so the other device starts from here.
-      await sidecars.flush();
-      // Written here even for a comic never opened, which has none yet.
-      await sidecars.writeBeside(at.path, key, folder: at.folder);
-      final side = await sidecars.sidecarFor(at.path, folder: at.folder);
-      final writtenAt = await _putSidecar(store, o, side);
-      final manifest = m.encode();
-      await store.put(o.manifest, Stream.value(Uint8List.fromList(manifest.codeUnits)), size: manifest.length);
-      await _done(row, sidecarAt: writtenAt, manifest: manifest);
-      _say('Uploaded ${m.title} to S3');
     } finally {
       _progress(key, null);
+    }
+  }
+
+  /// Whether [m]'s comic is in the bucket already: its manifest, and the
+  /// comic file (or every file of a folder book) at the same size.
+  Future<bool> _alreadyThere(RemoteStore store, BookObjects o, Manifest m) async {
+    if (await store.head(o.manifest) == null) return false;
+    if (!m.isFolder) return (await store.head(o.comic(m.ext!)))?.size == m.size;
+    final sizes = {
+      await for (final r in store.list('${o.dir}files/')) r.key.substring('${o.dir}files/'.length): r.size,
+    };
+    return m.files.every((f) => sizes[f.path] == f.size);
+  }
+
+  /// Brings the sidecar of [key] in step with the bucket's for an upload,
+  /// the newest whole file winning, and returns the written_at both now
+  /// have. A comic with no sidecar either side gets one written first.
+  Future<int?> _meetSidecar(RemoteStore store, BookObjects o, String key, ({String path, bool folder}) at) async {
+    // Changes still waiting go into the local file first.
+    await sidecars.flush();
+    var side = await sidecars.sidecarFor(at.path, folder: at.folder);
+    final remote = int.tryParse((await store.head(o.sidecar))?.metadata[writtenAtMeta] ?? '');
+    if (remote == null && sidecarWrittenAt(side) == null) {
+      // A comic never opened here has none yet.
+      await sidecars.writeBeside(at.path, key, folder: at.folder);
+      side = await sidecars.sidecarFor(at.path, folder: at.folder);
+    }
+    switch (compareSidecars(local: sidecarWrittenAt(side), remote: remote)) {
+      case SidecarMove.push:
+        return _putSidecar(store, o, side);
+      case SidecarMove.pull:
+        await _pull(store, o, key, side, remote!);
+        return remote;
+      case SidecarMove.none:
+        return remote;
     }
   }
 

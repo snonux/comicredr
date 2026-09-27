@@ -49,6 +49,7 @@ class SettingsDialog extends ConsumerStatefulWidget {
 class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   bool? _wholePage;
   bool? _pauseWhole;
+  double? _pauseSeconds;
   bool? _cleanUp;
   bool? _sidecars;
   String? _sidecarDir;
@@ -66,6 +67,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final settings = ref.read(settingsStoreProvider);
     final whole = await settings.loadBool(SettingsStore.wholePageSteps);
     final pause = await settings.loadBool(SettingsStore.pauseWhole);
+    final seconds = SettingsStore.parseSeconds(await settings.loadString(SettingsStore.pauseSeconds));
     final cleanUp = await settings.loadBool(SettingsStore.cleanUp);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final sidecarDir = await settings.loadString(SettingsStore.sidecarDir);
@@ -75,6 +77,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     setState(() {
       _wholePage = whole ?? true;
       _pauseWhole = pause ?? true;
+      _pauseSeconds = seconds ?? const ReaderState().pauseSeconds;
       _cleanUp = cleanUp ?? false;
       _sidecars = sidecars ?? true;
       _sidecarDir = sidecarDir;
@@ -235,11 +238,33 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       contentPadding: EdgeInsets.zero,
                       title: const Text('On a page without panels, a quick step stays'),
                       subtitle: const Text(
-                        'The background turns wine red. A step within 5 seconds zooms the page out and back and '
-                        'stays; the next one turns. After 5 seconds a step turns at once. W switches it while reading.',
+                        'The background turns wine red. A step within the time below zooms the page out and back '
+                        'and stays; the next one turns. After it a step turns at once. W switches it while reading.',
                       ),
                       value: _pauseWhole!,
                       onChanged: (v) => _set(SettingsStore.pauseWhole, v),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 12),
+                      child: SegmentedButton<double>(
+                        key: const Key('setting-pauseSeconds'),
+                        showSelectedIcon: _roomForTicks(context),
+                        segments: [
+                          for (final s in pauseSecondsChoices) ButtonSegment(value: s, label: Text('${_seconds(s)} s')),
+                        ],
+                        // A value set by hand in another build shows no segment.
+                        selected: {if (pauseSecondsChoices.contains(_pauseSeconds)) _pauseSeconds!},
+                        emptySelectionAllowed: true,
+                        onSelectionChanged: _pauseWhole!
+                            ? (v) async {
+                                if (v.isEmpty) return;
+                                await ref
+                                    .read(settingsStoreProvider)
+                                    .saveString(SettingsStore.pauseSeconds, _seconds(v.first));
+                                await _load();
+                              }
+                            : null,
+                      ),
                     ),
                     Text('Panel detector', style: theme.textTheme.bodyMedium),
                     Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),
@@ -485,4 +510,7 @@ class _TouchPicker extends ConsumerWidget {
 /// Whether a segmented button has room for the tick on its picked segment.
 /// On a phone the tick squeezed labels until they broke mid-word ("Colou r",
 /// "Stand ard"); the picked segment stays filled without it.
+/// [s] as the settings store and the dialog write it: `2`, `1.5`.
+String _seconds(double s) => s == s.roundToDouble() ? '${s.round()}' : '$s';
+
 bool _roomForTicks(BuildContext context) => MediaQuery.sizeOf(context).width >= 600;

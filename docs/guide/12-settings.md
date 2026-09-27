@@ -16,7 +16,7 @@ brackets.
 | **Pages → Smooth scrolling speed** (`g+` `g-`) | How far an arrow key moves a zoomed page, from **Slowest** to **Fastest**; a held key goes faster too. **Normal** by default. See [how fast](04-reading.md#how-fast). |
 | **Pages → Smooth scrolling smoothness** (`g>` `g<`) | How softly that glide starts and stops, from **Crisp** to **Smoothest**, without changing how far it goes. **Smooth** by default. See [how smooth](04-reading.md#how-smooth). |
 | **Guided view → Show each page whole before and after its panels** (`w`) | See [panel by panel](05-guided-view.md#panel-by-panel). On by default. |
-| **Guided view → On a page without panels, a quick step stays** (`W`) | The background turns wine red; a step within 5 seconds stays and zooms the page out and back, a later one turns. On by default. See [a quick press stays](05-guided-view.md#a-quick-press-stays). |
+| **Guided view → On a page without panels, a quick step stays** (`W`) | The background turns wine red; a step within the time picked below it (**1**, **2**, **3**, **5** or **10 s**; 2 by default) stays and zooms the page out and back, a later one turns. On by default. See [a quick press stays](05-guided-view.md#a-quick-press-stays). |
 | **Guided view → Panel detector** | Which detector finds the panels: the model built into the app, or one you added. |
 | **Sidecars → Save panels, bookmarks and position in a file for each comic** | The [sidecar](11-your-data.md#the-sidecar-beside-each-comic) files. On by default. |
 | **Sidecars → Beside each comic / In one folder** | Where the sidecars go. See [keeping them in one folder](11-your-data.md#keeping-the-sidecars-in-one-folder). |
