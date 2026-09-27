@@ -9,14 +9,29 @@ download. For the phone, see [Installing on Android](install-android.md).
 
 ## Build tools and Flutter
 
-Install the build tools and Flutter once:
+Install everything the build needs and Flutter once. This list was
+checked on a bare Fedora 42, from nothing to the app running:
 
 ```sh
-sudo dnf install git clang cmake ninja-build pkgconf-pkg-config gtk3-devel libsecret-devel
+sudo dnf install git make clang cmake ninja-build pkgconf-pkg-config \
+  gtk3-devel libsecret-devel unzip which
 git clone --depth 1 -b stable https://github.com/flutter/flutter.git ~/flutter
 echo 'export PATH="$HOME/flutter/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc
 flutter doctor        # the "Linux toolchain" line should be green
 ```
+
+What each is for: `git`, `unzip` and `which` are what Flutter itself
+needs; `make`, `clang`, `cmake`, `ninja-build` and `pkgconf-pkg-config`
+build the Linux app; `gtk3-devel` is its window, and `libsecret-devel`
+lets it keep the S3 sync key in the GNOME keyring. `make` checks for the
+last two and names what is missing. Running ComicRedr needs nothing
+more: GTK and libsecret come with every Fedora desktop, and the PDF
+renderer, SQLite and the detector's ONNX Runtime are in the app itself
+(the first build downloads PDFium, so it needs the network).
+
+Optional, for a few extras: `unar` and `zip` to turn CBR files into CBZ
+(see [The CBR files you already have](guide/01-installing.md#the-cbr-files-you-already-have)),
+and `librsvg2-tools` for `make icons`.
 
 ## Build and install
 
