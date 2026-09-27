@@ -88,6 +88,35 @@ Opening a book still starts where you left off.
 
 ![Shuffle: each comic shows a random page](images/shuffle.webp)
 
+#### Filter by type, size and date
+
+Press `F` on the Folders tab, or tap **Filter by type, size, date** under
+the search box, to show only some of your comics:
+
+- **Type**: CBZ, CBT, PDF, EPUB, image folder or single image. Only the
+  types your library has are offered. Pick one or several; none picked
+  means every type.
+- **Size**: under 10 MB, 10 to 50 MB, 50 to 200 MB or over 200 MB. A
+  folder of page images counts all its pages together.
+- **Modified**: the file's own date, as your file manager shows it: the
+  last 24 hours, 7 days, 30 days or 12 months, or over a year ago.
+
+The covers change as you pick, behind the window; `Tab` and `Space` work
+it from the keyboard and `Esc` or **Done** closes it. The three combine,
+and they combine with the search too: PDFs from the last week with
+"love" in the title is `F`, PDF, Last 7 days, then `/` and `love`.
+
+A subfolder with nothing that passes is hidden, and a folder's count is
+of the comics that pass. While a filter is on, the line under the search
+box says what it lets through: tap a part to change it, its x to take it
+off, or **Clear filter** for all of it. **Clear all** in the window does
+the same. The filter stays until you clear
+it, across restarts, and only the Folders tab is filtered.
+
+![The filter over the Golden age folder, PDFs only](images/filter-dialog.webp)
+
+![The Golden age folder filtered to its PDF](images/filter.webp)
+
 ### History
 
 The History tab lists every time you sat down with a comic, grouped by
@@ -151,7 +180,9 @@ are on is marked, and going back the other way unmarks again.
 works on every tab of covers, and it is made for the Folders tab: walk
 into a folder, press `Shift+End`, and every comic in it is marked.
 
-- `Ctrl+A` marks every comic shown; press it again to unmark them all.
+- `Ctrl+A` marks every comic shown, so with a search or a
+  [filter](#filter-by-type-size-and-date) only those that match; press it
+  again to unmark them all.
 - `V` marks or unmarks the selected cover and moves on, so you can pick
   comics that are not next to each other. A plain arrow key moves
   without touching the marks; a new `Shift` run adds to them.

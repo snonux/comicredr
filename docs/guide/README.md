@@ -35,6 +35,7 @@ come back here for a key you forgot.
    - [Moving around](03-library.md#moving-around)
    - [The tabs](03-library.md#the-tabs): [series](03-library.md#series),
      [folders](03-library.md#folders), [shuffle](03-library.md#shuffle),
+     [filter by type, size and date](03-library.md#filter-by-type-size-and-date),
      [history](03-library.md#history)
    - [Search](03-library.md#search)
    - [Favourites](03-library.md#favourites)

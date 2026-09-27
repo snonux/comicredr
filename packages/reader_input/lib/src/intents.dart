@@ -93,6 +93,7 @@ enum ReaderIntent {
     "Shuffle in the library's Folders tab: each comic shows a random page instead of its cover, on and off",
   ),
   reshuffle('Pick other random pages for shuffle in the Folders tab'),
+  filterFolders("Filter the library's Folders tab by type, size and modification date"),
   resetBook(
     'Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one',
   ),

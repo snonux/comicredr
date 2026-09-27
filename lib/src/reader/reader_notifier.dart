@@ -1047,6 +1047,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.rescan:
       case ReaderIntent.toggleShuffle:
       case ReaderIntent.reshuffle:
+      case ReaderIntent.filterFolders:
       case ReaderIntent.resetBook:
       case ReaderIntent.deleteBook:
       case ReaderIntent.uploadToS3:
