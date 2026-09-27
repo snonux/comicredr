@@ -307,6 +307,18 @@ refreshes right away instead of within six hours.
   the book through `BackgroundDocument` and closes it straight after. The
   cover shows until the page is ready. On a phone-wide header the
   reshuffle button is left out; `gs` or `S` twice picks again.
+- The Folders tab's filter (`F`, `ReaderIntent.filterFolders`;
+  `FolderFilter` in `lib/src/library/folder_filter.dart`, its window in
+  `folder_filter_dialog.dart`): a set of `LibraryBook.format`s, a
+  `SizeRange` and a `DateRange`, applied to the books before
+  `LibraryFolder.roots`/`children` build the tab, so folder counts are of
+  what passes and folders with none go. Size and date are the first
+  file's `files.size` and `files.mtime` (a folder book: its pages' total
+  and newest), read in `_booksSql` into `LibraryBook.size`/`modified`; a
+  comic on S3 only uses the upload's. Saved as JSON in
+  `library.folderFilter` (in `SettingsStore.backedUp`, unset when
+  off). It has its own line under the header (`_filterBar`), since the
+  header has no room left beside a breadcrumb on a tablet or phone.
 - The details view (`I`, `lib/src/reader/comic_details.dart`, gathered by
   `readComicReport` in `comic_report.dart`) reads no pixels: each page's
   format, size, bytes and JPEG quality come from `ComicDocument.pageFacts`
@@ -597,6 +609,7 @@ tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/
 tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
 tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
+tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 

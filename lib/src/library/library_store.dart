@@ -33,6 +33,8 @@ class LibraryBook {
     this.collections = const [],
     this.fromFile = const {},
     this.s3,
+    this.size,
+    this.modified,
   });
 
   final String key;
@@ -51,6 +53,12 @@ class LibraryBook {
   /// Where the book is on disk: the first of its files.
   final String path;
   final DateTime addedAt;
+
+  /// That file's size in bytes and when it last changed, as the scan saw
+  /// them; a folder book's are its pages' total and the newest of them. For
+  /// a comic on S3 only, the upload's size and time.
+  final int? size;
+  final DateTime? modified;
 
   /// The saved page, null for a book never opened.
   final int? page;
@@ -463,15 +471,16 @@ class LibraryStore {
   static const _booksSql = '''
 SELECT b.content_key, b.number, b.page_count, b.format, b.added_at, b.issue_title, b.volume, b.year,
        b.writers, b.artists, b.summary, b.series_id, s.name AS series_name,
-       (SELECT r.path || '/' || f.rel_path FROM files f JOIN roots r ON r.id = f.root_id
-         WHERE f.content_key = b.content_key ORDER BY r.id, f.rel_path LIMIT 1) AS path,
+       fp.path, fp.size AS f_size, fp.mtime AS f_mtime,
        pr.page AS p_page, pr.percent AS p_percent, pr.finished AS p_finished, pr.updated_at AS p_updated,
        (SELECT group_concat(c.name, char(31)) FROM collection_books c
          WHERE c.content_key = b.content_key AND c.removed_at IS NULL) AS collections
 FROM books b
 JOIN series s ON s.id = b.series_id
 LEFT JOIN progress pr ON pr.content_key = b.content_key
-WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
+JOIN (SELECT f.content_key, r.path || '/' || f.rel_path AS path, f.size, f.mtime,
+             row_number() OVER (PARTITION BY f.content_key ORDER BY r.id, f.rel_path) AS n
+        FROM files f JOIN roots r ON r.id = f.root_id) fp ON fp.content_key = b.content_key AND fp.n = 1
 ''';
 
   /// Every book in the library, live: a scan adding a book or a page turn
@@ -551,6 +560,8 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       format: m.format,
       path: path,
       addedAt: m.uploadedAt,
+      size: m.size,
+      modified: m.uploadedAt,
       page: pr?.page,
       percent: pr?.percent,
       finished: pr?.finished ?? false,
@@ -624,6 +635,8 @@ WHERE EXISTS (SELECT 1 FROM files f WHERE f.content_key = b.content_key)
       format: r.read<String>('format'),
       path: p.normalize(r.read<String>('path')),
       addedAt: time('added_at') ?? DateTime(2000),
+      size: r.readNullable<int>('f_size'),
+      modified: time('f_mtime'),
       page: r.readNullable<int>('p_page'),
       percent: r.readNullable<double>('p_percent'),
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,

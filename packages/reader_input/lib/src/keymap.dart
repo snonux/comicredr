@@ -124,6 +124,7 @@ class Keymap {
       Binding(['R'], ReaderIntent.rescan),
       Binding(['S'], ReaderIntent.toggleShuffle),
       Binding(['g', 's'], ReaderIntent.reshuffle),
+      Binding(['F'], ReaderIntent.filterFolders),
       Binding(['X'], ReaderIntent.resetBook),
       Binding(['e'], ReaderIntent.editBook),
       Binding(['g', 'd'], ReaderIntent.deleteBook),

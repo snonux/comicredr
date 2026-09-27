@@ -16,6 +16,14 @@ the `?` overlay.
   and `g<`, or a second slider in Settings, pick one of five steps from
   Crisp to Smoothest, apart from the speed.
 
+- **Filter the Folders tab** by type, size and modification date: `F`,
+  or the Filter line under the header. Pick one or more types (only the
+  ones your library has), a size range and a date range; they combine
+  with each other and with the search, and folders with nothing that
+  passes are hidden. The line shows what is filtered, each part with an
+  x, and Clear filter. The filter is kept across restarts and goes into
+  settings files.
+
 - **S3 sync**: uploading a comic that is in the bucket already (the same
   content and size, from either device) no longer sends it again or
   overwrites a newer sidecar there: the newest sidecar wins, pulled or
