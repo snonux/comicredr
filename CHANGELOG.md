@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+- **The time a quick press holds on a page shown whole** in guided view
+  is 2 seconds again (5 since 0.4.0) and can be changed in Settings →
+  Guided view: 1, 2, 3, 5 or 10 seconds. It goes in a settings export.
+
 ## 0.4.0
 
 S3 sync between your devices, tablets, and continue reading.

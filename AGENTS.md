@@ -333,11 +333,13 @@ refreshes right away instead of within six hours.
 - A page guided view shows whole (no panels that pass the gate,
   `ReaderState.onWholePage`) turns the Scaffold background `heldColour`
   (#3A0D16, app.dart) as soon as it shows, until it is left (snonux,
-  2026-09-26). A step onward within `pauseWindow` (5 s) of that moment
+  2026-09-26). A step onward within `ReaderState.pauseWindow` of that
+  moment (`guided.pauseSeconds`, 2 s by default, Settings offers 1, 2, 3,
+  5 and 10; snonux 2026-09-27)
   stays, sets `ReaderState.held` and bumps `cue`, which plays ReaderView's
   zoom pulse (none with reduced motion; the status line says to press
   again, always then, else the first three times); the next step turns,
-  however soon. A step after 5 s turns at once. The moment is
+  however soon. A step after it turns at once. The moment is
   `_wholeSince`, set by a `listenSelf` whenever `onWholePage` turns true
   or the page changes, so a page whose panels arrive late, turning guided
   view on or `W` on start it again. Tests set the notifier's `clock`.
@@ -561,7 +563,7 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
-tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 5 s turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 2 s (then 5 s, set in the index) turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
 tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book

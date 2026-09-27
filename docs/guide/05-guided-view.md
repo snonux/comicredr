@@ -91,10 +91,10 @@ When you are pressing `→` panel after panel, it is easy to skip past a
 splash page without really looking at it. So as soon as guided view
 shows a page whole, the background turns a dark wine red to tell you.
 
-- Press `→` within 5 seconds of arriving and the page stays: it zooms
+- Press `→` within 2 seconds of arriving and the page stays: it zooms
   out a little and back, to say you are still on it. The next `→` turns
   the page, however soon.
-- Press `→` after 5 seconds and the page turns straight away: you have
+- Press `→` after 2 seconds and the page turns straight away: you have
   had time to look.
 
 For example, on a splash page reached with a quick run of `→`, the next
@@ -107,6 +107,9 @@ a few seconds on it and one `→` is enough.
   the key does, on the laptop and on the phone.
 - With reduced motion turned on in your desktop or phone settings, the
   page doesn't zoom; the status line says to press again instead.
+- The 2 seconds can be changed in Settings, under the switch: 1, 2, 3,
+  5 or 10 seconds. With 5, for example, you have five seconds on a
+  splash page before one `→` moves on.
 - `W` turns all of this off: no wine red, and such pages turn at once.
   Settings has the same switch.
 

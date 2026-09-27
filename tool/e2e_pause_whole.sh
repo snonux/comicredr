@@ -2,9 +2,10 @@
 # End-to-end check of the pause on whole pages in guided view, on the Linux
 # build: a page guided view shows whole (no panels that pass the gate) has
 # a wine-red background from the moment it shows until it is left. A step
-# onward within 5 seconds of that stays on the page, zooms it out and back
-# and puts a hint on the status line; the next step turns. A step after
-# 5 seconds turns at once. Mirrored going back, the same from taps, not on
+# onward within 2 seconds of that (Settings; guided.pauseSeconds) stays on
+# the page, zooms it out and back and puts a hint on the status line; the
+# next step turns. A step after that turns at once. Most checks run with
+# the time set to 5 seconds, which the keys below leave room for. Mirrored going back, the same from taps, not on
 # pages with panels, skipped by a count. `W` turns it off, which survives a
 # restart.
 #
@@ -134,8 +135,28 @@ key $prev shift+g;   shot ref_prev
 key $page shift+g;   shot ref_a
 key l;               shot ref_b
 
-# On, the default. Wine red on arrival; a quick Right zooms and holds
-# once, then the next turns.
+# The default, 2 s: a step soon after arriving holds, one after 2 s
+# turns at once.
+key $page shift+g; key v
+xdotool key Right; sleep 0.15
+shot d01_cue;        moving d01_cue ref_a
+sleep "$step"
+shot d02_held;       held d02_held ref_a
+key Right;           shot d03_turned;       whole d03_turned ref_b
+key $page shift+g;   sleep 2.5
+xdotool key Right; sleep 0.15
+shot d04_no_cue;     whole d04_no_cue ref_b
+sleep "$step"
+shot d05_turned;     whole d05_turned ref_b; black d05_turned
+# Out of guided view, then 5 s from here on, as Settings writes it.
+key v
+close_gracefully
+sqlite3 "$out/home/.local/share/org.snonux.comicredr/comicredr.sqlite" \
+  "insert or replace into settings (key, value) values ('guided.pauseSeconds', '\"5\"')"
+start
+
+# 5 s. Wine red on arrival; a quick Right zooms and holds once, then the
+# next turns.
 key $page shift+g; key v
 shot k01_enter;      held k01_enter ref_a
 xdotool key Right; sleep 0.15
@@ -159,6 +180,9 @@ key $page shift+g; key Right; key Right; key Left
 shot k12_from_ahead; held k12_from_ahead ref_a
 key Right;           shot k13_fwd_at_once;  whole k13_fwd_at_once ref_b
 
+# Three seconds on the page is still within 5 s: held.
+key $page shift+g;   sleep 3
+key Right;           shot w00_held_at_3s;   held w00_held_at_3s ref_a
 # Five seconds on the page: one Right turns at once, with no zoom.
 key $page shift+g;   shot w01_arrived;      held w01_arrived ref_a
 sleep 5
