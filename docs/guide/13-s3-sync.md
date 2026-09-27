@@ -30,7 +30,7 @@ Then in ComicRedr, Settings → **S3 sync** → **Set up S3 sync…**:
 | **Address** | Your S3 server, like `https://garage.example.org` or `http://garage.lan:3900`. |
 | **Region** | Garage's is `garage`, the default. |
 | **Bucket** | The bucket's name. |
-| **Folder in the bucket** | Everything ComicRedr writes goes under it, `comicredr/` by default, so the bucket can hold other things too. |
+| **Folder in the bucket** | Everything ComicRedr writes goes under it, `Comics/` by default, so the bucket can hold other things too. |
 | **Access key id** and **Secret key** | The key's two halves. |
 
 ![The S3 sync dialog, filled in for a Garage at home](images/s3-settings.webp)

@@ -115,7 +115,7 @@ void main() {
     expect(await laptop.s3.upload([key]), 1);
     await laptop.s3.drain();
 
-    final o = BookObjects('comicredr/', key);
+    final o = BookObjects('Comics/', key);
     expect(bucket.objects.keys, containsAll([o.manifest, o.comic('cbz'), o.cover, o.sidecar]));
     final m = Manifest.decode(String.fromCharCodes(bucket.objects[o.manifest]!.bytes))!;
     expect((m.folder, m.fileName, m.size), ('Golden Age', 'Weird Comics 4.cbz', File(path).lengthSync()));
@@ -188,10 +188,7 @@ void main() {
     await pumpEventQueue();
     expect(laptop.notices.last, 'S3 is back; 1 comic caught up');
     final side = await laptop.sidecars.sidecarFor(path, folder: false);
-    expect(
-      bucket.objects[BookObjects('comicredr/', key).sidecar]!.metadata[writtenAtMeta],
-      '${sidecarWrittenAt(side)}',
-    );
+    expect(bucket.objects[BookObjects('Comics/', key).sidecar]!.metadata[writtenAtMeta], '${sidecarWrittenAt(side)}');
   });
 
   test('remove from S3 keeps the comic here; a comic removed elsewhere loses its badge', () async {
@@ -220,7 +217,7 @@ void main() {
     final key = await contentKey(path);
     await laptop.s3.upload([key]);
     await laptop.s3.drain();
-    await removeFromShelf(bucket, BookObjects('comicredr/', key));
+    await removeFromShelf(bucket, BookObjects('Comics/', key));
 
     await laptop.readTo(key, 1, 4);
     await laptop.s3.drain();
@@ -239,7 +236,7 @@ void main() {
     final key = await contentKey(dir.path);
     await laptop.s3.upload([key]);
     await laptop.s3.drain();
-    final o = BookObjects('comicredr/', key);
+    final o = BookObjects('Comics/', key);
     expect(bucket.objects.keys, containsAll([o.file('p1.png'), o.file('sub/p3.png')]));
 
     await phone.s3.refreshShelf();

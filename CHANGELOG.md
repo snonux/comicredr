@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+- **S3 sync** keeps comics under `Comics/` in the bucket by default,
+  instead of `comicredr/`. A folder you already saved in Settings → S3
+  sync stays as it is.
+
 - **Building on Linux** now checks for the GTK and libsecret development
   packages first and names the one to install, instead of failing in
   CMake. Builds since 0.4.0 need `libsecret-devel` (Debian:
