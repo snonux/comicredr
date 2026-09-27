@@ -40,6 +40,7 @@ come back here for a key you forgot.
    - [Search](03-library.md#search)
    - [Favourites](03-library.md#favourites)
    - [Collections](03-library.md#collections)
+   - [Several comics at once](03-library.md#several-comics-at-once)
    - [Adding, rescanning and taking out folders](03-library.md#adding-rescanning-and-taking-out-folders)
 4. [Reading a comic](04-reading.md)
    - [Turning pages](04-reading.md#turning-pages)

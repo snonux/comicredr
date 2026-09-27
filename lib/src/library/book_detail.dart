@@ -23,7 +23,15 @@ import 's3_actions.dart';
 
 /// A book's page: cover, what it is, where you are in it, its bookmarks.
 class BookDetail extends ConsumerWidget {
-  const BookDetail({super.key, required this.book, required this.onRead, this.onBack, this.onBeforeDelete});
+  const BookDetail({
+    super.key,
+    required this.book,
+    required this.onRead,
+    this.onBack,
+    this.onBeforeDelete,
+    this.onMark,
+    this.marked = false,
+  });
 
   final LibraryBook book;
   final void Function(LibraryBook, {Place? at}) onRead;
@@ -32,6 +40,11 @@ class BookDetail extends ConsumerWidget {
   /// Called just before the book is deleted from its page, for the library
   /// to move its selection off it.
   final VoidCallback? onBeforeDelete;
+
+  /// Marks the book, or unmarks it, for an action on several: the library's
+  /// details pane, where a touchscreen has no Shift or Ctrl.
+  final VoidCallback? onMark;
+  final bool marked;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -170,7 +183,7 @@ class BookDetail extends ConsumerWidget {
               avatar: const Icon(Icons.add, size: 18),
               label: const Text('Add to a collection'),
               onPressed: () async {
-                final name = await askCollection(context, ref, book);
+                final name = await askCollection(context, ref, [book]);
                 if (name != null) {
                   await _changed(ref, () => ref.read(libraryStoreProvider).addToCollection(book.key, name));
                 }
@@ -244,6 +257,13 @@ class BookDetail extends ConsumerWidget {
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('Delete this comic… (gd)'),
               ),
+              if (onMark != null)
+                OutlinedButton.icon(
+                  key: const Key('markBook'),
+                  onPressed: onMark,
+                  icon: Icon(marked ? Icons.check_box : Icons.check_box_outline_blank),
+                  label: Text(marked ? 'Marked (V)' : 'Mark to act on several (V)'),
+                ),
             ],
           ),
       ],

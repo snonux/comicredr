@@ -837,6 +837,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Nothing else reaches the library or the reader hidden behind the help:
     // Enter would open a book under it, gd ask to delete one.
     if (_showKeymap && c.intent != ReaderIntent.fullscreen) return;
+    // Shift+arrows mark covers in the library; in a comic they move as the
+    // arrows alone do.
+    if (ref.read(readerProvider).book != null) {
+      final plain = switch (c.intent) {
+        ReaderIntent.markLeft => ReaderIntent.scrollLeft,
+        ReaderIntent.markRight => ReaderIntent.scrollRight,
+        ReaderIntent.markUp => ReaderIntent.panUp,
+        ReaderIntent.markDown => ReaderIntent.panDown,
+        ReaderIntent.markToFirst => ReaderIntent.firstPage,
+        ReaderIntent.markToLast => ReaderIntent.lastPage,
+        _ => null,
+      };
+      if (plain != null) c = c.as(plain);
+    }
     if (c.intent == ReaderIntent.scrollFaster || c.intent == ReaderIntent.scrollSlower) {
       unawaited(_changeScrollSpeed(c.intent == ReaderIntent.scrollFaster ? c.times : -c.times));
       return;

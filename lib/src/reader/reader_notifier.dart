@@ -1082,6 +1082,13 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.uploadToS3:
       case ReaderIntent.removeFromS3:
       case ReaderIntent.markBook:
+      case ReaderIntent.markLeft:
+      case ReaderIntent.markRight:
+      case ReaderIntent.markUp:
+      case ReaderIntent.markDown:
+      case ReaderIntent.markToFirst:
+      case ReaderIntent.markToLast:
+      case ReaderIntent.markAll:
       case ReaderIntent.editBook:
       case ReaderIntent.activate:
       case ReaderIntent.up:

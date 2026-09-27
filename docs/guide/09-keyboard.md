@@ -42,7 +42,10 @@ The top of the list also shows ComicRedr's data folder, and which
 | `d` | [Two pages](04-reading.md#two-pages-side-by-side) | |
 | `p` | [Page grid](04-reading.md#see-every-page-at-once) | |
 | `mm` `M` | [Bookmark, bookmark list](06-bookmarks.md) | `M`: the Bookmarks tab |
-| `*` | [Favourite](03-library.md#favourites) | Favourite the selected cover |
+| `*` | [Favourite](03-library.md#favourites) | Favourite the selected cover, or the marked ones |
+| `Shift`+arrows | As the arrows alone | [Mark a run of comics](03-library.md#several-comics-at-once) |
+| `Ctrl+A` | | Mark every comic shown |
+| `gd` `X` | Delete, reset this comic | Delete, reset the selected or the marked comics |
 | `I` | [Details](07-managing-comics.md#details-of-a-comic) | Details of the selected book |
 | `f` | [Fullscreen](04-reading.md#fullscreen) | Fullscreen |
 | `/` | | [Search](03-library.md#search) |

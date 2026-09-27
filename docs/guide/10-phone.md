@@ -40,6 +40,9 @@ These pictures are from the Android 14 emulator.
 - The round play arrow at the top of the library's Reading tab carries
   on with the comic you read last, where you stopped, like `C` on the
   laptop.
+- The **Select** button at the top of the library (the list with ticks)
+  turns taps into marking, to [delete, reset, favourite or sync several
+  comics at once](03-library.md#several-comics-at-once).
 - The back gesture works like `Esc`: out of guided view, then out of the
   book, then up through the library.
 - The phone turns with you: turning it keeps your page, zoom and panel.
