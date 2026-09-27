@@ -46,6 +46,7 @@ class ReaderState {
     this.bookmarks = const [],
     this.jumpedFrom,
     this.region,
+    this.parts,
     this.loading = false,
     this.message,
   });
@@ -145,6 +146,13 @@ class ReaderState {
   /// through the split's parts before moving on; leaving the page, a mode
   /// switch or Esc ends it.
   final Region? region;
+
+  /// The split the reader goes through page by page after `H1`, `B1`,
+  /// `Q1`...: the steps (arrows, `l` `h`, taps) show each page whole, then
+  /// its parts, then turn. Kept while [region] is null on a page shown
+  /// whole; Esc, a mode switch or a jump ends it, and in guided view a page
+  /// with panels does.
+  final PageSplit? parts;
   final bool loading;
 
   /// A short notice for the status line: an error, or why a key did nothing.
@@ -255,6 +263,8 @@ class ReaderState {
     Place? jumpedFrom,
     Region? region,
     bool clearRegion = false,
+    PageSplit? parts,
+    bool clearParts = false,
     bool? loading,
     String? message,
   }) => ReaderState(
@@ -283,7 +293,8 @@ class ReaderState {
     marks: marks ?? this.marks,
     bookmarks: bookmarks ?? this.bookmarks,
     jumpedFrom: jumpedFrom ?? this.jumpedFrom,
-    region: clearRegion ? null : region ?? this.region,
+    region: clearRegion || clearParts ? null : region ?? this.region,
+    parts: clearParts ? null : parts ?? this.parts,
     loading: loading ?? this.loading,
     message: message, // Notices never carry over to the next state.
   );

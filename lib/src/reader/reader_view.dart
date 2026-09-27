@@ -673,7 +673,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   /// key stops at the edge rather than running on through the pages.
   bool _panSideways(double dx, {required bool guided, required bool held}) {
     final s = ref.read(readerProvider);
-    if (guided || s.region != null || _scale <= 1.01) return false;
+    if (guided || s.parts != null || s.region != null || _scale <= 1.01) return false;
     return _pan(Offset(dx, 0), held: held) || held;
   }
 

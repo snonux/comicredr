@@ -135,10 +135,18 @@ of it by key:
 | `B1` `B2` `B3` | The upper, middle and lower third |
 | `Q1` `Q2` `Q3` `Q4` | The quarters: top left, top right, bottom left, bottom right |
 
-Once you are on a part, `→` steps to the next part in reading order and,
-after the last one, on to the whole next page. `Esc` (or the same key
-again) shows the whole page. It works in guided view too, which is handy
-on a page the panel finder couldn't split up.
+Once you are on a part, the usual keys read the comic in that split, page
+by page: `→` (or `l`, Space, a tap on the right) goes to the next part,
+and after the last one the next page shows whole first; `→` again goes to
+its first part. `←` goes back the same way: the page before shows whole,
+then its last part. So `H1` and then `→` over and over reads a comic half
+by half, and you never have to pick the part again.
+
+If you started from guided view (say on a splash page the panel finder
+couldn't split up), a page with panels takes you back to guided view: it
+shows whole, and `→` goes on panel by panel. `Esc` (or the same part key
+again) shows the whole page and goes back to the usual steps; a page key,
+`gg`, a switch into or out of guided view or two-page mode do too.
 
 ![Thirds, then quarters of a page](images/parts.gif)
 

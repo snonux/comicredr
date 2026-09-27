@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # End-to-end check of the part-of-the-page keys on the Linux build: H1 H2
 # (halves), B1-B3 (thirds) and Q1-Q4 (quarters) enlarge that part of a page
-# guided view shows whole, and of any page outside guided view. Steps go
-# through the parts in reading order, then to the whole page (held, wine
-# red, in guided view), then the page turns. The same keys again or Esc
-# show the whole page; Esc does not leave guided view or the book. A tap in
-# the right zone steps like a key.
+# guided view shows whole, and of any page outside guided view. Then the
+# arrows (l h, Space, taps) read on in that split page by page: the parts in
+# reading order, the next page whole, its first part; back the same way.
+# From guided view, the next page (which has panels) shows whole and guided
+# view goes on over its panels. The same keys again or Esc show the whole
+# page; Esc does not leave guided view or the book.
 #
 #   tool/e2e_regions.sh book.cbz [page]   # page: 1-based, default 3
 #
@@ -16,6 +17,7 @@
 #
 # Needs: Xvfb, xdotool, ImageMagick, Python with Pillow, a C compiler and
 # GTK 3 and X11 headers.
+#
 # Output: build/e2e-regions/*.png and build/e2e-regions/contact.png.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -60,9 +62,10 @@ tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep "$step"; }
 part() { key "shift+${1,,}" "$2"; }
 
 failed=0
-# framed shot split n: the shot frames part n of split, of the page in ref_a.
+# framed shot split n [ref]: the shot frames part n of split, of the page in
+# ref (ref_a by default).
 framed() {
-  local got; got=$(python3 tool/region_check.py "$out/ref_a.png" "$out/$1.png")
+  local got; got=$(python3 tool/region_check.py "$out/${4:-ref_a}.png" "$out/$1.png")
   read -r split n score <<<"$got"
   if [[ "$split $n" == "$2 $3" && "${score%.*}" -lt 20 ]]; then echo "ok    $1: $2 $3 framed (off by $score)"
   else echo "FAIL  $1: expected $2 $3 framed, best match $got"; failed=1; fi
@@ -81,6 +84,13 @@ held() {
   if [[ "$bg" == 'srgb(58,13,22)' ]]; then echo "ok    $1: held, wine-red background"
   else echo "FAIL  $1: expected the wine-red background, got $bg"; failed=1; fi
 }
+# notwhole shot ref: the shot does not show the page of ref whole (a panel).
+notwhole() {
+  local got; got=$(python3 tool/region_check.py "$out/$2.png" "$out/$1.png" whole)
+  local score=${got#whole }
+  if [[ "${score%.*}" -ge 15 ]]; then echo "ok    $1: not the whole page (off by $score)"
+  else echo "FAIL  $1: expected a panel, got the whole page of $2 (off by $score)"; failed=1; fi
+}
 black() {
   local bg; bg=$(background "$1")
   if [[ "$bg" == 'srgb(0,0,0)' ]]; then echo "ok    $1: black background"
@@ -92,51 +102,53 @@ key "$page" shift+g; shot ref_a
 key l;               shot ref_b
 key "$page" shift+g
 
-# Outside guided view: halves, then the whole page, then the next page.
-part H 1;  shot u01_upper_half;   framed u01_upper_half halves 1
-key l;     shot u02_lower_half;   framed u02_lower_half halves 2
-key l;     shot u03_whole;        whole u03_whole ref_a
-key l;     shot u04_next_page;    whole u04_next_page ref_b
+# Outside guided view: halves page by page, each page whole first.
+part H 1;   shot u01_upper_half;   framed u01_upper_half halves 1
+key Right;  shot u02_lower_half;   framed u02_lower_half halves 2
+key Right;  shot u03_next_whole;   whole u03_next_whole ref_b
+key Right;  shot u04_next_half_1;  framed u04_next_half_1 halves 1 ref_b
+key Left;   shot u05_back_whole;   whole u05_back_whole ref_a
+key Left;   shot u06_back_half_2;  framed u06_back_half_2 halves 2
+key Escape; shot u07_esc;          whole u07_esc ref_a
+key l;      shot u08_turned;       whole u08_turned ref_b
 key "$page" shift+g
-# Thirds, and Esc back to the whole page, still in the book.
-part B 1;  shot u05_third_1;      framed u05_third_1 thirds 1
-key Right; shot u06_third_2;      framed u06_third_2 thirds 2
-key space; shot u07_third_3;      framed u07_third_3 thirds 3
-key h;     shot u08_back_2;       framed u08_back_2 thirds 2
-key Escape; shot u09_esc;         whole u09_esc ref_a
+# Thirds, with l, Space and h too.
+part B 1;   shot u09_third_1;      framed u09_third_1 thirds 1
+key Right;  shot u10_third_2;      framed u10_third_2 thirds 2
+key space;  shot u11_third_3;      framed u11_third_3 thirds 3
+key h;      shot u12_back_2;       framed u12_back_2 thirds 2
+key Escape; shot u13_esc;          whole u13_esc ref_a
 # Quarters straight to one, then the same key again.
-part Q 3;  shot u10_quarter_3;    framed u10_quarter_3 quarters 3
-key l;     shot u11_quarter_4;    framed u11_quarter_4 quarters 4
-part Q 4;  shot u12_again;        whole u12_again ref_a
+part Q 3;   shot u14_quarter_3;    framed u14_quarter_3 quarters 3
+key l;      shot u15_quarter_4;    framed u15_quarter_4 quarters 4
+part Q 4;   shot u16_again;        whole u16_again ref_a
 
 # Guided view, on the page it shows whole.
 key v; sleep 3
-shot g00_guided;                  whole g00_guided ref_a; held g00_guided
-part H 2;  shot g01_lower_half;   framed g01_lower_half halves 2; black g01_lower_half
-key h;     shot g02_upper_half;   framed g02_upper_half halves 1
-key h;     shot g03_held_back;    whole g03_held_back ref_a; held g03_held_back
-key l;     shot g04_held_forward; whole g04_held_forward ref_b
+shot g00_guided;                   whole g00_guided ref_a; held g00_guided
+part H 2;   shot g01_lower_half;   framed g01_lower_half halves 2; black g01_lower_half
+key Left;   shot g02_upper_half;   framed g02_upper_half halves 1
+key Right;  shot g03_lower_half;   framed g03_lower_half halves 2
+# The next page has panels: whole first, then guided view goes on.
+key Right;  shot g04_next_whole;   whole g04_next_whole ref_b; black g04_next_whole
+key Right;  shot g05_panel;        notwhole g05_panel ref_b
 key "$page" shift+g
-part B 2;  shot g05_third_2;      framed g05_third_2 thirds 2
-key l;     shot g06_third_3;      framed g06_third_3 thirds 3
-key l;     shot g07_held;         whole g07_held ref_a; held g07_held
-key l;     shot g08_turned;       whole g08_turned ref_b; black g08_turned
-key "$page" shift+g
-part Q 1;  shot g09_quarter_1;    framed g09_quarter_1 quarters 1
+part B 2;   shot g06_third_2;      framed g06_third_2 thirds 2
+key l;      shot g07_third_3;      framed g07_third_3 thirds 3
+key Escape; shot g08_esc;          whole g08_esc ref_a; held g08_esc
+part Q 1;   shot g09_quarter_1;    framed g09_quarter_1 quarters 1
 for n in 2 3 4; do
-  key l;   shot "g1${n}_quarter_$n"; framed "g1${n}_quarter_$n" quarters "$n"
+  key Right; shot "g1${n}_quarter_$n"; framed "g1${n}_quarter_$n" quarters "$n"
 done
-key Escape; shot g15_esc;         whole g15_esc ref_a
-key l;     shot g16_held;         held g16_held
-key l;     shot g17_turned;       whole g17_turned ref_b
+key Right;  shot g15_next_whole;   whole g15_next_whole ref_b
+key Right;  shot g16_panel;        notwhole g16_panel ref_b
 # A tap in the right zone steps like a key.
 key "$page" shift+g
-part Q 1;  shot t01_quarter_1;    framed t01_quarter_1 quarters 1
-tap 1200 340; shot t02_tap;       framed t02_tap quarters 2
-tap 80 340;   shot t03_tap_back;  framed t03_tap_back quarters 1
+part Q 1;   shot t01_quarter_1;    framed t01_quarter_1 quarters 1
+tap 1200 340; shot t02_tap;        framed t02_tap quarters 2
+tap 80 340;   shot t03_tap_back;   framed t03_tap_back quarters 1
 # Esc: the whole page first, then out of guided view, still in the book.
 key Escape; key Escape; shot g18_unguided; whole g18_unguided ref_a
-
 close_gracefully
 montage -label '%t' "$out"/*.png -tile 5x -geometry 384x270+4+14 "$out/contact.png"
 grep -i 'detector' "$out/app.log" | sort | uniq -c || true
