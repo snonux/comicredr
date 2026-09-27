@@ -30,7 +30,7 @@ Then in ComicRedr, Settings → **S3 sync** → **Set up S3 sync…**:
 | **Address** | Your S3 server, like `https://garage.example.org` or `http://garage.lan:3900`. |
 | **Region** | Garage's is `garage`, the default. |
 | **Bucket** | The bucket's name. |
-| **Folder in the bucket** | Everything ComicRedr writes goes under it, `comicredr/` by default, so the bucket can hold other things too. |
+| **Folder in the bucket** | Everything ComicRedr writes goes under it, `Comics/` by default, so the bucket can hold other things too. |
 | **Access key id** and **Secret key** | The key's two halves. |
 
 ![The S3 sync dialog, filled in for a Garage at home](images/s3-settings.webp)
@@ -61,6 +61,35 @@ Uploads run in the background: the comic, its cover, its sidecar (your
 place, bookmarks, panels, collections and edits), then a small
 description of it last, so the other device never sees half a comic.
 A folder of page images goes up picture by picture.
+
+You can keep reading while it goes up. In the reader the status line
+shows how far the open comic's upload is, like `S3 ↑ 42%`, and a notice
+says when it is done.
+
+![Reading on while the comic goes up: S3 ↑ 51% on the status line](images/s3-reader-upload.webp)
+
+A comic that is in the bucket already, uploaded from the other device
+or before, is not sent again: the same content (ComicRedr compares the
+comic's own bytes, so the file name does not matter) and the same size
+means it is there. Only the sidecars are brought in step, the newest
+winning: if the bucket's is newer, it replaces the one on this device
+and you get the other device's place; if yours is newer, it goes up.
+The notice then says "… was on S3 already; its newest sidecar is on
+both". A comic in the bucket at a different size, like an upload that
+broke off, is sent again.
+
+So `gu` on a comic that is on S3 is also the way to sync it by hand,
+and its page has a **Sync with S3** button for the same.
+
+### Is it fully synced after an upload?
+
+Yes. Once the notice says it is uploaded, the comic, its cover and its
+sidecar are all in the bucket, and from then on it stays in step by
+itself: each change to your place, a bookmark or an edit is saved on
+the device and goes up about ten seconds later, and at once when you
+close the comic or the app goes to the background. The other device
+fetches the newer sidecar when it opens the comic. See [Carrying on
+where you left off](#carrying-on-where-you-left-off).
 
 ## The cloud on a cover
 
@@ -151,7 +180,7 @@ If the bucket is off, the removal waits and happens when it is back.
 
 | Key | Does |
 |---|---|
-| `gu` | Upload the selected comic, the marked ones, or the open one to S3 |
+| `gu` | Upload the selected comic, the marked ones, or the open one to S3; for one there already, bring its sidecar in step |
 | `gU` | Remove the selected, marked or open comic from S3, after asking |
 | `V` | Mark or unmark the selected cover and move on |
 | Ctrl+click | Mark or unmark a cover |

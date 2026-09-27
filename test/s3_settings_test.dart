@@ -152,7 +152,7 @@ void main() {
       final saved = (await tester.runAsync(() => c.read(s3SettingsProvider).config()))!;
       expect(
         [saved.endpoint.toString(), saved.bucket, saved.prefix, saved.secretKey],
-        ['http://garage.lan:3900', 'comics', 'comicredr/', 'the-secret'],
+        ['http://garage.lan:3900', 'comics', 'Comics/', 'the-secret'],
       );
 
       // Reopened: the secret is not shown, and an empty field keeps it.
