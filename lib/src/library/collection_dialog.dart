@@ -7,24 +7,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'library_store.dart';
 import 'providers.dart';
 
-/// Asks for a collection to put [book] in: one of those there are, or a
-/// new name.
-Future<String?> askCollection(BuildContext context, WidgetRef ref, LibraryBook book) {
+/// Asks for a collection to put [books] in: one of those there are, or a
+/// new name. A collection every one of them is in already is not offered.
+Future<String?> askCollection(BuildContext context, WidgetRef ref, List<LibraryBook> books) {
   final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
-  final names = {for (final b in all) ...b.collections}.difference(book.collections.toSet()).toList()
-    ..sort(naturalCompare);
+  final names = {
+    for (final b in all) ...b.collections,
+  }.where((n) => !books.every((b) => b.collections.contains(n))).toList()..sort(naturalCompare);
   return showDialog<String>(
     context: context,
-    builder: (_) => CollectionDialog(book: book, names: names),
+    builder: (_) =>
+        CollectionDialog(what: books.length == 1 ? books.single.name : '${books.length} comics', names: names),
   );
 }
 
 class CollectionDialog extends StatefulWidget {
-  const CollectionDialog({super.key, required this.book, required this.names});
+  const CollectionDialog({super.key, required this.what, required this.names});
 
-  final LibraryBook book;
+  /// The comic's name, or how many comics.
+  final String what;
 
-  /// Collections the book is not in yet.
+  /// Collections the books are not all in yet.
   final List<String> names;
 
   @override
@@ -46,7 +49,8 @@ class _CollectionDialogState extends State<CollectionDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Add ${widget.book.name} to a collection'),
+    key: const Key('collectionDialog'),
+    title: Text('Add ${widget.what} to a collection'),
     content: SizedBox(
       width: 400,
       child: Column(
@@ -73,7 +77,7 @@ class _CollectionDialogState extends State<CollectionDialog> {
     ),
     actions: [
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-      FilledButton(onPressed: () => _done(_field.text), child: const Text('Add')),
+      FilledButton(key: const Key('collectionAdd'), onPressed: () => _done(_field.text), child: const Text('Add')),
     ],
   );
 }

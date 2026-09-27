@@ -155,6 +155,96 @@ Future<DeleteChoice> askDelete(BuildContext context, DeleteFacts f) async =>
     ) ??
     DeleteChoice.cancel;
 
+/// Asks once before deleting several marked comics (`gd`, Shift+Delete or
+/// Delete in the marks bar): their names, how much they take, and, when
+/// any is on S3, the same three choices as for one. [remoteOnly] counts
+/// marked comics that are only on S3: only "Delete here and from S3" does
+/// anything to them. Cancel has the focus.
+Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts, {int remoteOnly = 0}) async =>
+    await showDialog<DeleteChoice>(
+      context: context,
+      builder: (context) {
+        final theme = Theme.of(context);
+        final onS3 = remoteOnly > 0 || facts.any((f) => f.onS3);
+        final links = facts.where((f) => f.link).length;
+        final bytes = facts.fold<int>(0, (sum, f) => sum + f.bytes);
+        final n = facts.length + remoteOnly;
+        const shown = 8;
+        return AlertDialog(
+          key: const Key('deleteDialog'),
+          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+          title: Text('Delete $n comics?'),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (facts.isNotEmpty)
+                  Text(
+                    '${facts.length} on this device, ${describeBytes(bytes)} together',
+                    key: const Key('deleteManyTotal'),
+                    style: theme.textTheme.titleSmall,
+                  ),
+                const SizedBox(height: 4),
+                for (final f in facts.take(shown))
+                  Text('${f.name}  ·  ${p.basename(f.path)}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (facts.length > shown) Text('and ${facts.length - shown} more', style: theme.textTheme.bodySmall),
+                const SizedBox(height: 16),
+                if (facts.isNotEmpty)
+                  Text(
+                    'They are deleted for good with their sidecars, bookmarks, positions and panels. '
+                    'They do not go to the trash, so they cannot be restored.'
+                    '${links == 0 ? '' : ' Of ${links == 1 ? 'the one that is a link' : 'the $links that are links'}, only the link goes.'}',
+                  ),
+                if (onS3) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    [
+                      if (facts.any((f) => f.onS3))
+                        'Some are on S3 too. Delete only here keeps their copies in the bucket, and they stay in the '
+                            'library to download again.',
+                      if (remoteOnly > 0)
+                        '$remoteOnly ${remoteOnly == 1 ? 'is' : 'are'} only on S3: only Delete here and from S3 '
+                            'takes ${remoteOnly == 1 ? 'it' : 'them'} away.',
+                      'The other device keeps its own copies either way.',
+                    ].join(' '),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              key: const Key('deleteCancel'),
+              autofocus: true,
+              onPressed: () => Navigator.pop(context, DeleteChoice.cancel),
+              child: const Text('Cancel'),
+            ),
+            if (onS3 && facts.isNotEmpty)
+              OutlinedButton.icon(
+                key: const Key('deleteHere'),
+                style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.error),
+                onPressed: () => Navigator.pop(context, DeleteChoice.here),
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Delete only here'),
+              ),
+            FilledButton.icon(
+              key: Key(onS3 ? 'deleteEverywhere' : 'deleteConfirm'),
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.error,
+                foregroundColor: theme.colorScheme.onError,
+              ),
+              onPressed: () => Navigator.pop(context, onS3 ? DeleteChoice.everywhere : DeleteChoice.here),
+              icon: Icon(onS3 ? Icons.cloud_off : Icons.delete_outline),
+              label: Text(onS3 ? 'Delete here and from S3' : 'Delete $n for good'),
+            ),
+          ],
+        );
+      },
+    ) ??
+    DeleteChoice.cancel;
+
 /// Deletes [path] for good, a file or a whole folder. Throws a
 /// [FileSystemException] when it can't.
 Future<void> removePath(String path) async {

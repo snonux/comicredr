@@ -171,6 +171,56 @@ Favourites is simply a collection called *Favourites*. Collections are
 kept in each comic's [sidecar file](11-your-data.md), so they follow the
 comic to your phone.
 
+## Several comics at once
+
+Hold `Shift` and move with the arrow keys to mark a run of comics, the way
+a file manager does: every comic from where you started to the cover you
+are on is marked, and going back the other way unmarks again.
+`Shift+Home` and `Shift+End` mark to the first and the last cover. It
+works on every tab of covers, and it is made for the Folders tab: walk
+into a folder, press `Shift+End`, and every comic in it is marked.
+
+- `Ctrl+A` marks every comic shown, so with a search or a
+  [filter](#filter-by-type-size-and-date) only those that match; press it
+  again to unmark them all.
+- `V` marks or unmarks the selected cover and moves on, so you can pick
+  comics that are not next to each other. A plain arrow key moves
+  without touching the marks; a new `Shift` run adds to them.
+- With the mouse, `Ctrl`+click marks or unmarks one cover and
+  `Shift`+click marks everything from the selected cover to the one you
+  click.
+- On a phone, the **Select** button at the top (the list with ticks)
+  turns taps into marking until you press it again. On a wider screen,
+  **Mark to act on several** in a comic's details beside the covers
+  marks it and does the same, so a touchscreen needs no keyboard.
+
+Folders and series in the way are passed over: marks are for comics.
+Marked covers show a tick, and a bar over the covers says how many are
+marked, with what you can do to all of them at once:
+
+![Three comics marked with Shift and the arrow keys](images/marks.webp)
+
+| Button | Key | Does |
+|---|---|---|
+| **All** | `Ctrl+A` | Mark every comic shown, or unmark them |
+| **Favourite** | `*` | Put them all in your [Favourites](#favourites); **Unfavourite** when they all are |
+| **Collection** | | Put them all in a [collection](#collections), new or one you have |
+| **Reset** | `X` | [Reset](07-managing-comics.md#reset-a-comic) them all: redo panels, or everything |
+| **Delete** | `gd` `Shift+Delete` | [Delete](07-managing-comics.md#delete-a-comic) them all, after asking once |
+| **Upload to S3** | `gu` | [Upload](13-s3-sync.md#uploading-comics) the ones not on S3 yet |
+| **Download** | | Download the ones only on S3 |
+| **Remove from S3** | `gU` | [Take them off S3](13-s3-sync.md), keeping them here |
+| **Clear** | `Esc` | Unmark them all |
+
+The S3 buttons only show once [S3 sync](13-s3-sync.md) is set up.
+Each asks once for the whole lot where it would ask for one comic, and
+the marks go when it is done; if you cancel, they stay.
+
+For example, to clear out a folder of comics you have finished: open it
+on the Folders tab, press `Shift+End`, then `gd`. The dialog lists them,
+with how much space they take together, and **Cancel** is selected, so
+check the list and click **Delete 7 for good**.
+
 ## Adding, rescanning and taking out folders
 
 - `A`, or the folder button at the top, adds another folder.

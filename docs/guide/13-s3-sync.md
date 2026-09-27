@@ -49,13 +49,14 @@ and press `gu`, or press **Upload to S3** on the comic's page; in the
 reader, `gu` uploads the open comic. On a series or a folder, `gu`
 uploads every comic in it.
 
-To upload several at once, mark them first: `V` marks the selected cover
-and moves to the next one, Ctrl+click marks with the mouse, and on a
+To upload several at once, [mark them first](03-library.md#several-comics-at-once):
+`Shift` and the arrow keys mark a run, `Ctrl+A` everything shown, `V` the
+selected cover, Ctrl+click and Shift+click with the mouse, and on a
 phone the **Select** button (the list with ticks) in the header turns
-taps into marking. Marked covers show a tick, and a bar over the grid
-says how many are marked, with **Upload to S3**, **Download**, **Remove
-from S3** and **Clear**. `gu` uploads the marked ones; Esc clears the
-marks.
+taps into marking. Marked covers show a tick, and a bar over the grid says how
+many are marked, with **Upload to S3**, **Download**, **Remove from S3**
+and the other actions on several comics. `gu` uploads the marked ones,
+`gU` takes them off S3; Esc clears the marks.
 
 Uploads run in the background: the comic, its cover, its sidecar (your
 place, bookmarks, panels, collections and edits), then a small
@@ -183,7 +184,8 @@ If the bucket is off, the removal waits and happens when it is back.
 | `gu` | Upload the selected comic, the marked ones, or the open one to S3; for one there already, bring its sidecar in step |
 | `gU` | Remove the selected, marked or open comic from S3, after asking |
 | `V` | Mark or unmark the selected cover and move on |
-| Ctrl+click | Mark or unmark a cover |
+| `Shift`+arrows, `Ctrl+A` | Mark a run of covers, every cover shown |
+| Ctrl+click, Shift+click | Mark or unmark a cover, mark up to a cover |
 | Esc | Clear the marks |
 
 ## The secret key

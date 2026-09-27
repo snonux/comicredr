@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Several comics at once:** in the library, `Shift` and the arrow keys
+  mark a run of comics (`Shift+Home`/`Shift+End` to the first or last),
+  `Ctrl+A` every comic shown, `Shift`+click up to a cover, alongside `V`
+  and `Ctrl`+click. With comics marked, `gd` deletes, `X` resets and `*`
+  favourites all of them, asking once; the bar over the covers adds
+  Collection, Upload to S3, Download and Remove from S3. The phone's
+  Select button is there without S3 too; wider screens have Mark in a
+  comic's details.
+
 - **Parts of a page, page by page:** after `H1`, `B1` or `Q1` the arrow
   keys (and `l` `h`, Space, taps) read the comic in that split: each page
   whole first, then its parts, then the next page. Started from guided

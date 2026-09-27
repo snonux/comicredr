@@ -11,16 +11,22 @@ enum ResetScope {
 }
 
 /// Asks before resetting the comic [title]: `X` in the reader or the
-/// library, or the button in the book's details. Null when cancelled.
-Future<ResetScope?> askReset(BuildContext context, String title) => showDialog<ResetScope>(
+/// library, or the button in the book's details. With a [count] above one,
+/// [title] is what the marked comics are called ("5 comics"). Null when
+/// cancelled.
+Future<ResetScope?> askReset(BuildContext context, String title, {int count = 1}) => showDialog<ResetScope>(
   context: context,
   builder: (context) => AlertDialog(
     key: const Key('resetDialog'),
     title: Text('Reset $title?'),
-    content: const Text(
-      'Redo panels forgets the panels and balloons found in this comic and finds them again.\n\n'
-      'Reset everything also forgets its bookmarks and marks, where you are in it on every device, '
-      'and its reading history, here and in the file beside the comic. Its collections stay.',
+    content: Text(
+      count == 1
+          ? 'Redo panels forgets the panels and balloons found in this comic and finds them again.\n\n'
+                'Reset everything also forgets its bookmarks and marks, where you are in it on every device, '
+                'and its reading history, here and in the file beside the comic. Its collections stay.'
+          : 'Redo panels forgets the panels and balloons found in each of these comics and finds them again.\n\n'
+                'Reset everything also forgets their bookmarks and marks, where you are in each on every device, '
+                'and their reading history, here and in the files beside the comics. Their collections stay.',
     ),
     actions: [
       TextButton(key: const Key('resetCancel'), onPressed: () => Navigator.pop(context), child: const Text('Cancel')),

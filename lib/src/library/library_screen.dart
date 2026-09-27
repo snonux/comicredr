@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:comic_formats/comic_formats.dart' show naturalCompare;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/recent_books.dart';
 import 'book_detail.dart';
+import 'bulk_actions.dart';
 import 'cover_card.dart';
 import 'edit_dialog.dart';
 import 'folder_filter.dart';
@@ -108,9 +110,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   Set<String> _selectedBooks = const {}; // The keys of the books it stands for.
   bool _detail = false; // The narrow layout's full-screen detail page.
 
-  /// Books marked for an action on several (`V`, Ctrl+click, Select on a
-  /// phone), by content key.
+  /// Books marked for an action on several (Shift+arrows, `V`, Ctrl+A,
+  /// Ctrl/Shift+click, Select), by content key.
   final _marked = <String>{};
+
+  /// Where the run of Shift+arrows or Shift+clicks started (an item id),
+  /// and the marks there were before it: the run marks every comic from
+  /// here to the selection, on top of those.
+  String? _anchor;
+  Set<String> _beforeRun = const {};
 
   /// Taps mark rather than open: the Select button on a phone.
   bool _selecting = false;
@@ -264,6 +272,22 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       _select(i == null ? 0 : (i + by).clamp(0, n - 1).toInt());
     }
 
+    // Shift+arrows: the selection moves and every comic between where the
+    // run started and it is marked.
+    void extend(int Function(int from) to) {
+      if (n == 0) return;
+      final from = index();
+      final i = from == null ? 0 : to(from).clamp(0, n - 1).toInt();
+      _startRun(from ?? 0);
+      _markRun(i);
+      _select(i);
+    }
+
+    final marking = _markingIntents.contains(c.intent);
+    if (!marking) _anchor = null;
+    // With comics marked, these act on all of them.
+    final marked = _markedBooks();
+
     switch (c.intent) {
       case ReaderIntent.nextStep:
         move(c.times);
@@ -299,6 +323,22 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         _setTab(LibraryTab.bookmarks);
       case ReaderIntent.showFavourites:
         showFavourites();
+      case ReaderIntent.markLeft:
+        extend((i) => i - c.times);
+      case ReaderIntent.markRight:
+        extend((i) => i + c.times);
+      case ReaderIntent.markUp:
+        extend((i) => i - _cols * c.times);
+      case ReaderIntent.markDown:
+        extend((i) => i + _cols * c.times);
+      case ReaderIntent.markToFirst:
+        extend((_) => 0);
+      case ReaderIntent.markToLast:
+        extend((_) => n - 1);
+      case ReaderIntent.markAll:
+        _markAll();
+      case ReaderIntent.toggleFavourite when marked.isNotEmpty:
+        unawaited(_bulk(() => toggleFavourites(context, ref, marked)));
       case ReaderIntent.toggleFavourite:
         if (_selectedItem case BookItem(:final book)) {
           unawaited(_toggleFavourite(book));
@@ -323,6 +363,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         setShuffle(!_shuffle);
       case ReaderIntent.reshuffle when tab == LibraryTab.folders && _shuffle:
         setState(_reshuffle);
+      case ReaderIntent.resetBook when marked.isNotEmpty:
+        unawaited(_bulk(() => resetBooks(context, ref, marked)));
+      case ReaderIntent.deleteBook when marked.isNotEmpty:
+        unawaited(_bulk(() => _deleteMarked(marked)));
       case ReaderIntent.filterFolders when tab == LibraryTab.folders:
         unawaited(_openFilter());
       case ReaderIntent.resetBook:
@@ -593,7 +637,98 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   void _clearMarks() => setState(() {
     _marked.clear();
     _selecting = false;
+    _anchor = null;
   });
+
+  /// The intents that carry a run of marks on rather than end it.
+  static const _markingIntents = {
+    ReaderIntent.markLeft,
+    ReaderIntent.markRight,
+    ReaderIntent.markUp,
+    ReaderIntent.markDown,
+    ReaderIntent.markToFirst,
+    ReaderIntent.markToLast,
+  };
+
+  /// Starts a run of marks at the item [i], unless one is going on.
+  void _startRun(int i) {
+    if (_anchor != null && _items.any((it) => it.id == _anchor)) return;
+    _anchor = _items[i].id;
+    _beforeRun = {..._marked};
+  }
+
+  /// Marks every comic from the run's start to the item [to], on top of
+  /// the marks from before the run; one the run went past and came back
+  /// from is unmarked again, as in a file manager. Folders and series in
+  /// between are passed over.
+  void _markRun(int to) {
+    final from = _items.indexWhere((it) => it.id == _anchor);
+    if (from < 0) return;
+    final (lo, hi) = from <= to ? (from, to) : (to, from);
+    setState(() {
+      _marked
+        ..clear()
+        ..addAll(_beforeRun);
+      for (final it in _items.sublist(lo, hi + 1)) {
+        if (it is BookItem) _marked.add(it.book.key);
+      }
+    });
+  }
+
+  /// Ctrl+A, or Mark all in the marks bar: every comic shown, or none of
+  /// them when they are all marked already.
+  void _markAll() {
+    final shown = [
+      for (final it in _items)
+        if (it is BookItem) it.book.key,
+    ];
+    setState(() {
+      _anchor = null;
+      if (shown.isNotEmpty && shown.every(_marked.contains)) {
+        _marked.removeAll(shown);
+      } else {
+        _marked.addAll(shown);
+      }
+    });
+  }
+
+  /// The marked books still in the library, in the order of their paths.
+  List<LibraryBook> _markedBooks() {
+    if (_marked.isEmpty) return const [];
+    final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
+    return all.where((b) => _marked.contains(b.key)).toList()..sort((a, b) => naturalCompare(a.path, b.path));
+  }
+
+  /// Runs an action on the marked books; the marks go once it went ahead.
+  Future<void> _bulk(Future<bool> Function() action) async {
+    final done = await action();
+    if (!mounted) return;
+    if (done) _clearMarks();
+    widget.keysFocus?.requestFocus();
+  }
+
+  /// Deletes the marked books; the selection moves to the first cover after
+  /// the last of them that stays.
+  Future<bool> _deleteMarked(List<LibraryBook> books) {
+    final keys = {for (final b in books) b.key};
+    return deleteLibraryBooks(
+      context,
+      ref,
+      books,
+      beforeDelete: () {
+        final last = _items.lastIndexWhere((it) => _books(it).any(keys.contains));
+        final stays = [
+          for (final it in [..._items.skip(last + 1), ..._items.take(last + 1).toList().reversed])
+            if (!_books(it).every(keys.contains) || _books(it).isEmpty) it,
+        ];
+        setState(() {
+          _selected = stays.firstOrNull?.id;
+          _selectedBooks = _books(stays.firstOrNull);
+          _detail = false;
+        });
+      },
+    );
+  }
 
   /// The books an S3 action is for: the marked ones, else the selected
   /// cover's (a series' or folder's books too).
@@ -613,10 +748,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 
   /// The bar over the grid while books are marked: how many, and what to
-  /// do with them.
+  /// do with all of them.
   Widget _marksBar(BuildContext context, List<LibraryBook> books) {
     final theme = Theme.of(context);
-    final marked = books.where((b) => _marked.contains(b.key)).toList();
+    final marked = books.where((b) => _marked.contains(b.key)).toList()..sort((a, b) => naturalCompare(a.path, b.path));
+    final local = marked.where((b) => !b.remoteOnly).toList();
+    final s3 = ref.watch(s3StatusProvider).value?.on ?? false;
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    Widget button(String key, IconData icon, String label, String keys, VoidCallback onPressed) => TextButton.icon(
+      key: Key(key),
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(narrow || keys.isEmpty ? label : '$label ($keys)'),
+    );
     return Material(
       key: const Key('marksBar'),
       color: theme.colorScheme.secondaryContainer,
@@ -624,35 +768,71 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
         child: Wrap(
           crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
+          spacing: 4,
           children: [
             Text(
-              marked.isEmpty ? 'Tap covers to mark them' : '${marked.length} selected',
+              marked.isEmpty
+                  ? (narrow ? 'Tap covers to mark them' : 'Tap covers, or Shift+arrows, to mark them')
+                  : '${marked.length} selected',
               key: const Key('marksCount'),
               style: theme.textTheme.titleSmall,
             ),
-            if (marked.any((b) => b.s3 == null))
-              TextButton.icon(
-                key: const Key('marksUpload'),
-                onPressed: () => _s3Action(() => uploadBooks(context, ref, marked)),
-                icon: const Icon(Icons.cloud_upload),
-                label: const Text('Upload to S3'),
+            const SizedBox(width: 4),
+            button('marksAll', Icons.select_all, 'All', 'Ctrl+A', _markAll),
+            if (local.isNotEmpty) ...[
+              button(
+                'marksFavourite',
+                local.every((b) => b.favourite) ? Icons.star : Icons.star_outline,
+                local.every((b) => b.favourite) ? 'Unfavourite' : 'Favourite',
+                '*',
+                () => _bulk(() => toggleFavourites(context, ref, marked)),
               ),
-            if (marked.any((b) => b.remoteOnly))
-              TextButton.icon(
-                key: const Key('marksDownload'),
-                onPressed: () => _s3Action(() => downloadBooks(context, ref, marked)),
-                icon: const Icon(Icons.cloud_download),
-                label: const Text('Download'),
+              button(
+                'marksCollection',
+                Icons.label_outline,
+                'Collection',
+                '',
+                () => _bulk(() => addBooksToCollection(context, ref, marked)),
               ),
-            if (marked.any((b) => b.s3 != null))
-              TextButton.icon(
-                key: const Key('marksRemove'),
-                onPressed: () => _s3Action(() => removeBooksFromS3(context, ref, marked)),
-                icon: const Icon(Icons.cloud_off),
-                label: const Text('Remove from S3'),
+              button(
+                'marksReset',
+                Icons.restart_alt,
+                'Reset',
+                'X',
+                () => _bulk(() => resetBooks(context, ref, marked)),
               ),
-            TextButton(key: const Key('marksClear'), onPressed: _clearMarks, child: const Text('Clear (Esc)')),
+            ],
+            if (marked.isNotEmpty)
+              button('marksDelete', Icons.delete_outline, 'Delete', 'gd', () => _bulk(() => _deleteMarked(marked))),
+            if (s3 && marked.any((b) => b.s3 == null))
+              button(
+                'marksUpload',
+                Icons.cloud_upload,
+                'Upload to S3',
+                'gu',
+                () => _s3Action(() => uploadBooks(context, ref, marked)),
+              ),
+            if (s3 && marked.any((b) => b.remoteOnly))
+              button(
+                'marksDownload',
+                Icons.cloud_download,
+                'Download',
+                '',
+                () => _s3Action(() => downloadBooks(context, ref, marked)),
+              ),
+            if (s3 && marked.any((b) => b.s3 != null))
+              button(
+                'marksRemove',
+                Icons.cloud_off,
+                'Remove from S3',
+                'gU',
+                () => _s3Action(() => removeBooksFromS3(context, ref, marked)),
+              ),
+            TextButton(
+              key: const Key('marksClear'),
+              onPressed: _clearMarks,
+              child: Text(narrow ? 'Clear' : 'Clear (Esc)'),
+            ),
           ],
         ),
       ),
@@ -714,6 +894,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// phone-sized screen a tap on a book shows its detail page.
   void _tap(LibraryItem item, {required bool wide}) {
     _autoFirst = false;
+    // Shift+click marks every comic from the run's start, or the selected
+    // cover, to this one.
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      final to = _items.indexWhere((it) => it.id == item.id);
+      final from = _items.indexWhere((it) => it.id == (_anchor ?? _selected));
+      if (to >= 0) {
+        _startRun(from < 0 ? to : from);
+        _markRun(to);
+        setState(() => _selected = item.id);
+        return;
+      }
+    }
+    _anchor = null;
     if (item is BookItem && (_selecting || HardwareKeyboard.instance.isControlPressed)) {
       _toggleMark(item.book);
       setState(() => _selected = item.id);
@@ -892,6 +1085,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                   book: book,
                   onRead: read,
                   onBeforeDelete: () => selectNeighbourOf(book.key),
+                  marked: _marked.contains(book.key),
+                  onMark: () => setState(() {
+                    _anchor = null;
+                    _toggleMark(book);
+                    // Taps on covers go on marking, as with Select on a phone.
+                    _selecting = _marked.isNotEmpty;
+                  }),
                 ),
                 SeriesItem(:final series) => SeriesDetail(
                   series: series,
@@ -1058,12 +1258,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Open a comic without adding it (o)',
             onPressed: widget.onOpenFile,
           ),
-          if (narrow && (ref.watch(s3StatusProvider).value?.on ?? false))
+          // Wider screens have Shift and Ctrl, and Mark in the details pane.
+          if (narrow && !_listTab && tab != LibraryTab.bookmarks)
             IconButton(
               key: const Key('select'),
               icon: Icon(_selecting ? Icons.checklist_rtl : Icons.checklist),
               isSelected: _selecting,
-              tooltip: _selecting ? 'Stop marking' : 'Mark comics to upload, download or remove together (V)',
+              tooltip: _selecting
+                  ? 'Stop marking'
+                  : 'Mark comics to delete, reset, favourite or sync together (V, Shift+arrows)',
               onPressed: () => _selecting ? _clearMarks() : setState(() => _selecting = true),
             ),
           IconButton(
