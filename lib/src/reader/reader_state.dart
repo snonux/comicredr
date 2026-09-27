@@ -13,9 +13,8 @@ import 'region.dart';
 /// yet plainly not black.
 const heldColour = Color(0xFF3A0D16);
 
-/// How long after a page shown whole appears a step onward stays on it
-/// ([ReaderState.pauseWhole]); a step after that turns at once.
-const pauseWindow = Duration(seconds: 5);
+/// The choices Settings offers for [ReaderState.pauseSeconds].
+const pauseSecondsChoices = <double>[1, 2, 3, 5, 10];
 
 /// Everything about the open book that page navigation changes. Zoom and pan
 /// are view concerns and live in the reader screen instead.
@@ -30,6 +29,7 @@ class ReaderState {
     this.balloons = false,
     this.wholePageSteps = true,
     this.pauseWhole = true,
+    this.pauseSeconds = 2,
     this.held = false,
     this.cue = 0,
     this.coverAlone = true,
@@ -79,12 +79,19 @@ class ReaderState {
   final bool wholePageSteps;
 
   /// On a page guided view shows whole, the background turns wine red on
-  /// arrival ([onWholePage]), and a step onward within [pauseWindow] of it
+  /// arrival ([onWholePage]), and a step onward within [pauseSeconds] of it
   /// stays on the page and zooms out and back; the next one turns. A step
   /// after that time turns at once. So a page without usable panels is not
   /// skipped by a quick run of presses before it is looked at. A setting,
   /// on by default; `W` toggles it.
   final bool pauseWhole;
+
+  /// How long after a page shown whole appears a step onward stays on it
+  /// ([pauseWhole]); a step after that turns at once. A setting, 2 seconds
+  /// by default.
+  final double pauseSeconds;
+
+  Duration get pauseWindow => Duration(milliseconds: (pauseSeconds * 1000).round());
 
   /// Guided view is holding on this page: the next step leaves it.
   final bool held;
@@ -238,6 +245,7 @@ class ReaderState {
     bool? balloons,
     bool? wholePageSteps,
     bool? pauseWhole,
+    double? pauseSeconds,
     bool? held,
     int? cue,
     bool? coverAlone,
@@ -269,6 +277,7 @@ class ReaderState {
     balloons: balloons ?? this.balloons,
     wholePageSteps: wholePageSteps ?? this.wholePageSteps,
     pauseWhole: pauseWhole ?? this.pauseWhole,
+    pauseSeconds: pauseSeconds ?? this.pauseSeconds,
     held: held ?? this.held,
     cue: cue ?? this.cue,
     coverAlone: coverAlone ?? this.coverAlone,

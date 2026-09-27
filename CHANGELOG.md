@@ -12,6 +12,26 @@ the `?` overlay.
   whole first, then its parts, then the next page. Started from guided
   view, a page with panels goes back to guided view.
 
+- **S3 sync**: uploading a comic that is in the bucket already (the same
+  content and size, from either device) no longer sends it again or
+  overwrites a newer sidecar there: the newest sidecar wins, pulled or
+  pushed. `gu` on a synced comic, or **Sync with S3** on its page, syncs
+  it by hand. In the reader the status line shows the open comic's
+  upload, `S3 ↑ 42%`.
+
+- **S3 sync** keeps comics under `Comics/` in the bucket by default,
+  instead of `comicredr/`. A folder you already saved in Settings → S3
+  sync stays as it is.
+
+- **Building on Linux** now checks for the GTK and libsecret development
+  packages first and names the one to install, instead of failing in
+  CMake. Builds since 0.4.0 need `libsecret-devel` (Debian:
+  `libsecret-1-dev`).
+
+- **The time a quick press holds on a page shown whole** in guided view
+  is 2 seconds again (5 since 0.4.0) and can be changed in Settings →
+  Guided view: 1, 2, 3, 5 or 10 seconds. It goes in a settings export.
+
 ## 0.4.0
 
 S3 sync between your devices, tablets, and continue reading.

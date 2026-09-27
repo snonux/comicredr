@@ -19,6 +19,7 @@ class StatusLine extends StatelessWidget {
     required this.onCommand,
     this.gridOpen = false,
     this.bookmarksOpen = false,
+    this.s3Progress,
   });
 
   /// Whether the status line has a back button: everywhere but Android,
@@ -54,6 +55,9 @@ class StatusLine extends StatelessWidget {
   /// Whether the bookmark list is open.
   final bool bookmarksOpen;
 
+  /// How far the open comic's upload to S3 is, 0 to 1; null when none runs.
+  final double? s3Progress;
+
   /// For the buttons: a phone without a keyboard has no other way into
   /// guided view, balloons or bookmarks.
   final ValueChanged<ReaderCommand> onCommand;
@@ -83,6 +87,7 @@ class StatusLine extends StatelessWidget {
       if (book != null && !state.guided && state.mode == PageMode.spread) 'spread',
       if (book != null && state.region != null) describeRegion(state.region!, rightToLeft: state.rightToLeft),
       if (state.rightToLeft) 'RTL',
+      if (book != null && s3Progress != null) 'S3 ↑ ${(s3Progress! * 100).floor()}%',
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
