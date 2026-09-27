@@ -44,16 +44,16 @@ enum ReaderIntent {
   zoomReset('Reset zoom'),
   zoomToggle('Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view'),
   regionUpperHalf(
-    'Upper half of the page, enlarged; l and h step to the other half, then on; again or Esc for the whole page',
+    'Upper half of the page, enlarged; → and ← then go half by half, each page whole first; again or Esc to stop',
   ),
   regionLowerHalf('Lower half of the page, enlarged'),
   regionUpperThird(
-    'Upper third of the page, enlarged; l and h step through the thirds, then on; again or Esc for the whole page',
+    'Upper third of the page, enlarged; → and ← then go third by third, each page whole first; again or Esc to stop',
   ),
   regionMiddleThird('Middle third of the page, enlarged'),
   regionLowerThird('Lower third of the page, enlarged'),
   regionTopLeft(
-    'Top-left quarter of the page, enlarged; l and h step through the quarters in reading order, then on; again or Esc for the whole page',
+    'Top-left quarter of the page, enlarged; → and ← then go quarter by quarter, each page whole first; again or Esc to stop',
   ),
   regionTopRight('Top-right quarter of the page, enlarged'),
   regionBottomLeft('Bottom-left quarter of the page, enlarged'),

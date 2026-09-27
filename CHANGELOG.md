@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Parts of a page, page by page:** after `H1`, `B1` or `Q1` the arrow
+  keys (and `l` `h`, Space, taps) read the comic in that split: each page
+  whole first, then its parts, then the next page. Started from guided
+  view, a page with panels goes back to guided view.
+
 - **Filter the Folders tab** by type, size and modification date: `F`,
   or the Filter line under the header. Pick one or more types (only the
   ones your library has), a size range and a date range; they combine
