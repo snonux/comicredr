@@ -117,7 +117,10 @@ class SettingsFile {
   /// Whether [value] is what the setting [key] holds.
   static bool _fits(String key, Object? value) => switch (SettingsStore.backedUp[key]) {
     true => value is bool,
-    false => value is String && (key != SettingsStore.gridZoom || double.tryParse(value) != null),
+    false =>
+      value is String &&
+          (key != SettingsStore.gridZoom || double.tryParse(value) != null) &&
+          (key != SettingsStore.pauseSeconds || SettingsStore.parseSeconds(value) != null),
     null => false,
   };
 

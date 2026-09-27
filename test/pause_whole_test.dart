@@ -17,8 +17,8 @@ import 'support/fixtures.dart';
 
 /// The pause on whole pages, on by default: in guided view a page without
 /// usable panels turns the background wine red on arrival, a step off it
-/// within five seconds stays and zooms the page out and back, and the next
-/// one turns. A step after five seconds turns at once.
+/// within two seconds (a setting) stays and zooms the page out and back,
+/// and the next one turns. A step after that turns at once.
 void main() {
   late Directory tmp;
   late AppDatabase db;
@@ -174,24 +174,25 @@ void main() {
     expect(c.read(readerProvider).pauseWhole, isFalse);
   });
 
-  testWidgets('a step after five seconds turns at once; each arrival starts the time again', (tester) async {
+  testWidgets('a step after two seconds turns at once; each arrival starts the time again', (tester) async {
     final c = await openGuided(tester, whole: false);
+    expect(c.read(readerProvider).pauseSeconds, 2, reason: 'two seconds by default');
     expect(background(tester), heldColour);
-    now = now.add(const Duration(seconds: 5));
+    now = now.add(const Duration(seconds: 2));
     await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 180));
     expect(pulseScale(tester), 1, reason: 'no zoom');
     await settle(tester);
-    expect(at(c), (1, true), reason: 'five seconds on, the first step turns');
+    expect(at(c), (1, true), reason: 'two seconds on, the first step turns');
     expect(background(tester), Colors.black);
 
     // Back on the page, the time starts again: a quick step holds.
     await key(tester, LogicalKeyboardKey.home);
     expect(at(c), (0, false));
-    now = now.add(const Duration(milliseconds: 4900));
+    now = now.add(const Duration(milliseconds: 1900));
     await key(tester, LogicalKeyboardKey.keyL);
-    expect(at(c), (0, false), reason: 'within five seconds of arriving');
+    expect(at(c), (0, false), reason: 'within two seconds of arriving');
     now = now.add(const Duration(seconds: 30));
     await key(tester, LogicalKeyboardKey.keyL);
     expect(at(c), (1, true), reason: 'held once, the next step turns');
@@ -205,6 +206,21 @@ void main() {
     expect(background(tester), heldColour);
     await key(tester, LogicalKeyboardKey.keyL);
     expect(at(c), (0, false));
+  });
+
+  testWidgets('the time is a setting', (tester) async {
+    await tester.runAsync(() => SettingsStore(db).saveString(SettingsStore.pauseSeconds, '5'));
+    final c = await openGuided(tester, whole: false);
+    expect(c.read(readerProvider).pauseSeconds, 5);
+    now = now.add(const Duration(milliseconds: 4900));
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(c), (0, false), reason: 'within five seconds: held');
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(c), (1, true));
+    await key(tester, LogicalKeyboardKey.home);
+    now = now.add(const Duration(seconds: 5));
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(c), (1, true), reason: 'five seconds on: turned at once');
   });
 
   testWidgets('with reduced motion there is no zoom, and the hint shows every time', (tester) async {
