@@ -33,6 +33,7 @@ The top of the list also shows ComicRedr's data folder, and which
 | `←` `h` | Back (`←` first moves across a zoomed page) | Previous cover |
 | `↓` `↑` `j` `k` | Move down and up a zoomed page | Cover below and above |
 | `g+` `g-` | [Smooth scrolling](04-reading.md#how-fast) faster and slower | The same |
+| `g>` `g<` | [Smooth scrolling](04-reading.md#how-smooth) smoother and crisper | The same |
 | `Enter` | | Open |
 | `C` | [The comic read before this one](02-getting-started.md#carry-on-where-you-stopped-c) | The comic read last, where you stopped |
 | `Esc` | Out of guided view, then back to the library | Back out of a series, folder or search |

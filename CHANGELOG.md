@@ -9,8 +9,12 @@ the `?` overlay.
 
 - **Smooth scrolling speed:** `g+` and `g-`, or the slider in Settings
   under Pages, pick one of five speeds from Slowest to Fastest: how far
-  an arrow key moves a zoomed page and how quickly it glides there. Kept
-  across restarts and in the settings backup.
+  an arrow key moves a zoomed page. Kept across restarts and in the
+  settings backup.
+- **Smoother scrolling, and its smoothness:** the arrow-key glide now
+  eases in as well as out, a little softer than before by default. `g>`
+  and `g<`, or a second slider in Settings, pick one of five steps from
+  Crisp to Smoothest, apart from the speed.
 
 - **Continue reading (`C`):** opens the comic read last on the page it
   was left at, even after a restart, guided view and panel included; in

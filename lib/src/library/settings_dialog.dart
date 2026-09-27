@@ -359,13 +359,14 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   }
 }
 
-/// Picks how fast the arrow keys glide a zoomed page, five notches from
-/// slowest to fastest.
+/// Picks how fast the arrow keys scroll a zoomed page and how smoothly
+/// they glide, five notches each.
 class _ScrollSpeedPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final speed = ref.watch(scrollSpeedProvider);
+    final smoothness = ref.watch(scrollSmoothnessProvider);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(
@@ -381,8 +382,23 @@ class _ScrollSpeedPicker extends ConsumerWidget {
             onChanged: (v) => ref.read(scrollSpeedProvider.notifier).pick(ScrollSpeed.values[v.round()]),
           ),
           Text(
-            'How far an arrow key moves a zoomed page and how quickly it glides there; a held key goes '
-            'faster too. g+ and g- change it while reading.',
+            'How far an arrow key moves a zoomed page; a held key goes faster too. g+ and g- change it '
+            'while reading.',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          Text('Smooth scrolling smoothness: ${smoothness.label}', style: theme.textTheme.bodyLarge),
+          Slider(
+            key: const Key('setting-scrollSmoothness'),
+            value: smoothness.index.toDouble(),
+            max: ScrollSmoothness.values.length - 1.0,
+            divisions: ScrollSmoothness.values.length - 1,
+            label: smoothness.label,
+            onChanged: (v) => ref.read(scrollSmoothnessProvider.notifier).pick(ScrollSmoothness.values[v.round()]),
+          ),
+          Text(
+            'How softly the page starts and stops: crisp stops almost at once, smoothest eases in and '
+            'out. g> and g< change it while reading.',
             style: theme.textTheme.bodySmall,
           ),
         ],

@@ -131,6 +131,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     WidgetsBinding.instance.addObserver(this);
     // The saved scrolling speed loads now, not on the first key press.
     ref.read(scrollSpeedProvider);
+    ref.read(scrollSmoothnessProvider);
   }
 
   /// The system is short of memory: keep only what is on screen.
@@ -657,9 +658,11 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   }
 
   /// The distance a key glide still has to go, in the frame's coordinates
-  /// (the way the content moves), and the transform it last set: anything
-  /// else moving the page (a drag, a page turn, the camera) ends the glide.
+  /// (the way the content moves), how fast it moves now (pixels a second),
+  /// and the transform it last set: anything else moving the page (a drag,
+  /// a page turn, the camera) ends the glide.
   Offset _glideLeft = Offset.zero;
+  Offset _glideVelocity = Offset.zero;
   Matrix4? _glideSet;
   Duration _glideTime = Duration.zero;
   late final _glide = createTicker(_onGlideTick);
@@ -703,13 +706,15 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
       _moveBy(want);
       return true;
     }
-    // A held key's repeats keep adding steps; the glide stays at most a
-    // step ahead of the page, which sets an even top speed. Presses each go
-    // their whole way.
-    final cap = move.distance;
+    // A held key's repeats keep adding steps; the glide stays only so far
+    // ahead of the page (the spring's lag at that pace) that it moves a step
+    // every heldStepSeconds however smooth it is. Presses each go their
+    // whole way.
+    final cap = move.distance * 2 / (heldStepSeconds * ref.read(scrollSmoothnessProvider).stiffness);
     _glideLeft = held && want.distance > cap ? want * (cap / want.distance) : want;
     if (!_glide.isActive) {
       _glideTime = Duration.zero;
+      _glideVelocity = Offset.zero;
       _glideSet = now;
       _glide.start();
     }
@@ -742,21 +747,34 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
 
   void _onGlideTick(Duration elapsed) {
     if (_transform.value != _glideSet && _glideSet != null) return _stopGlide();
-    final dt = (elapsed - _glideTime).inMicroseconds / 1e6;
+    final dt = math.min((elapsed - _glideTime).inMicroseconds / 1e6, 0.1);
     _glideTime = elapsed;
-    // Eased out: each frame covers the same share of what is left.
-    final share = 1 - math.exp(-dt / ref.read(scrollSpeedProvider).seconds);
-    var step = _glideLeft * share;
-    if ((_glideLeft - step).distance < 0.5) step = _glideLeft;
-    _glideLeft -= step;
-    _moveBy(step);
+    // A critically damped spring pulls the page the rest of the way: it
+    // speeds up gently, slows down gently and never overshoots. Small steps
+    // keep it steady when frames come unevenly.
+    final w = ref.read(scrollSmoothnessProvider).stiffness;
+    var moved = Offset.zero;
+    var left = _glideLeft, v = _glideVelocity;
+    for (var t = 0.0; t < dt; t += 1 / 480) {
+      final h = math.min(1 / 480, dt - t);
+      v += (left * (w * w) - v * (2 * w)) * h;
+      final m = v * h;
+      moved += m;
+      left -= m;
+    }
+    final done = left.distance < 0.5 && v.distance < 30;
+    if (done) moved += left;
+    _glideLeft = done ? Offset.zero : left;
+    _glideVelocity = v;
+    _moveBy(moved);
     _glideSet = _transform.value;
-    if (_glideLeft == Offset.zero) _stopGlide();
+    if (done) _stopGlide();
   }
 
   void _stopGlide() {
     _glide.stop();
     _glideLeft = Offset.zero;
+    _glideVelocity = Offset.zero;
     _glideSet = null;
   }
 

@@ -1014,6 +1014,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.panUp:
       case ReaderIntent.scrollFaster:
       case ReaderIntent.scrollSlower:
+      case ReaderIntent.scrollSmoother:
+      case ReaderIntent.scrollCrisper:
       case ReaderIntent.fitWidth:
       case ReaderIntent.fitHeight:
       case ReaderIntent.fitPage:

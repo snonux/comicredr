@@ -100,8 +100,8 @@ again at the higher size.
 ### Smooth scrolling
 
 On a zoomed page the arrow keys (and `j` `k`) glide rather than jump:
-each press slides the page about a seventh of the screen, easing to a
-stop, and holding a key down keeps it sliding at an even speed until you
+each press slides the page about a seventh of the screen, easing into
+the move and out of it again, and holding a key down keeps it sliding at an even speed until you
 let go. The page stops at its own edge, not in the dark margin beside it.
 
 `←` and `→` move across the page while there is more of it to see that
@@ -121,16 +121,29 @@ turned on in your system settings, each press jumps straight there.
 
 `g+` makes smooth scrolling a notch faster and `g-` a notch slower; the
 status line says which of the five speeds you are on, from **Slowest**
-to **Fastest**. A faster speed moves further with each press and glides
-there sooner, so a held key covers the page quicker too: at **Fastest** a
-press goes about a quarter of the screen, at **Slowest** about a
-twelfth. The speed is kept for every comic and across restarts, and
+to **Fastest**. A faster speed moves further with each press, so a held
+key covers the page quicker too: at **Fastest** a press goes about a
+quarter of the screen, at **Slowest** about a twelfth. The speed is kept for every comic and across restarts, and
 [Settings](12-settings.md) has the same choice as a slider under
 **Pages**.
 
 For example, on a phone-sized window where a press feels too timid,
 press `g+` twice; to read a dense page line by line, `g-` once or
 twice.
+
+#### How smooth
+
+`g>` makes the glide a notch smoother and `g<` a notch crisper, again
+five steps: **Crisp**, **Light**, **Smooth**, **Smoother** and
+**Smoothest**. A smoother glide starts and stops more softly and takes a
+little longer to arrive; a crisper one is there almost at once. It
+doesn't change how far a press goes or how fast a held key scrolls, so
+speed and smoothness can be set apart. **Smooth**, the middle step, is
+the default: a press takes about a third of a second. It is kept like the
+speed, and Settings has it as a second slider under **Pages**.
+
+For example, if the page seems to lag behind your key presses, press
+`g<` once or twice; if the start of each glide feels abrupt, `g>`.
 
 To enlarge just part of a page, see [Parts of a page](#parts-of-a-page).
 

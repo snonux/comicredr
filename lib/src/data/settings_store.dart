@@ -51,6 +51,9 @@ class SettingsStore {
   /// How fast the arrow keys glide a zoomed page (a ScrollSpeed name).
   static const scrollSpeed = 'reader.scrollSpeed';
 
+  /// How softly that glide starts and stops (a ScrollSmoothness name).
+  static const scrollSmoothness = 'reader.scrollSmoothness';
+
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
 
@@ -77,6 +80,7 @@ class SettingsStore {
     shuffle: true,
     touchPreset: false,
     scrollSpeed: false,
+    scrollSmoothness: false,
   };
 
   /// Settings about this device's own storage: where its sidecars go and

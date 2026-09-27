@@ -166,4 +166,49 @@ void main() {
     expect(await step(LogicalKeyboardKey.arrowUp), closeTo(normal * 0.08 / 0.15, 1));
     expect(await SettingsStore(db).loadString(SettingsStore.scrollSpeed), 'slowest');
   });
+
+  testWidgets('g> and g< change how softly a press glides, not how far it goes', (tester) async {
+    final c = await openZoomed(tester);
+    expect(c.read(scrollSmoothnessProvider), ScrollSmoothness.smooth, reason: 'smooth by default');
+
+    // How far a press has gone after 60 ms, and how far in the end.
+    Future<(double, double)> press(LogicalKeyboardKey k) async {
+      final before = shift(tester).dy;
+      await tester.sendKeyEvent(k);
+      await tester.pump();
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 15));
+      }
+      final early = (before - shift(tester).dy).abs();
+      await settle(tester);
+      return (early, (before - shift(tester).dy).abs());
+    }
+
+    Future<void> type(String keys) async {
+      for (final ch in keys.split('')) {
+        final k = switch (ch) {
+          'g' => LogicalKeyboardKey.keyG,
+          '<' => LogicalKeyboardKey.comma,
+          _ => LogicalKeyboardKey.period,
+        };
+        await tester.sendKeyEvent(k, character: ch);
+      }
+      await settle(tester);
+    }
+
+    final (smoothEarly, whole) = await press(LogicalKeyboardKey.arrowDown);
+    await type('g<g<g<');
+    expect(c.read(scrollSmoothnessProvider), ScrollSmoothness.crisp, reason: 'stops at the crispest');
+    expect(c.read(readerProvider).message, contains('crisp'));
+    final (crispEarly, crispWhole) = await press(LogicalKeyboardKey.arrowUp);
+    expect(crispWhole, closeTo(whole, 1), reason: 'the same step');
+    expect(crispEarly, greaterThan(smoothEarly * 1.5), reason: 'crisp gets there sooner');
+    await type('g>g>g>g>g>g>');
+    expect(c.read(scrollSmoothnessProvider), ScrollSmoothness.smoothest);
+    final (smoothestEarly, smoothestWhole) = await press(LogicalKeyboardKey.arrowDown);
+    expect(smoothestWhole, closeTo(whole, 1));
+    expect(smoothestEarly, lessThan(smoothEarly), reason: 'smoothest starts softer still');
+    expect(smoothestEarly, greaterThan(0), reason: 'but it does start');
+    expect(await SettingsStore(db).loadString(SettingsStore.scrollSmoothness), 'smoothest');
+  });
 }

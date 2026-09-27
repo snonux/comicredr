@@ -4,6 +4,7 @@
 # pressed and held, measures how far the page moved in every frame (phase
 # correlation against the frame before the key), and fails when a press
 # jumps, a held key stutters, Left or Right turn the page before its edge,
+# g< g> don't change how softly it glides,
 # or a fresh press at the edge doesn't.
 #
 #   tool/e2e_smooth_scroll.sh
@@ -77,6 +78,8 @@ key() { xdotool key "$@" 2>/dev/null; sleep 1; }
 
 # Records the page area at 60 fps for $2 seconds into $out/$1/ while the
 # command after it runs, then prints each frame's offset from the first.
+# Xvfb draws slowly, so a glide takes longer than on a real screen; the
+# recordings leave room for that.
 record() {
   local name="$1" secs="$2"
   shift 2
@@ -141,7 +144,7 @@ EOF2
 
 echo "== zoomed in, one press of Down glides a step"
 key plus plus plus
-record down 1.2 xdotool key Down
+record down 1.8 xdotool key Down
 if check_glide down 2 80 140; then ok "Down glides a step"; else fail "Down jumped or went the wrong distance"; fi
 
 echo "== zoomed in all the way, Down held glides on"
@@ -159,7 +162,7 @@ sys.exit(0 if v[-1] > 400 and len(seen) >= 10 and min(steps) >= -2 else 1)
 EOF3
 
 echo "== Right pans the zoomed page; held, it stops at the edge"
-record right 1.2 xdotool key Right
+record right 1.8 xdotool key Right
 if check_glide right 1 150 200; then ok "Right glides a step sideways"; else fail "Right jumped or did not pan"; fi
 [[ "$(tail -1 "$out/right.txt" | awk '{print $3}')" == blue ]] && ok "still page 1" || fail "Right turned the page"
 record right_held 6.0 bash -c 'xdotool keydown Right; sleep 5; xdotool keyup Right'
@@ -189,10 +192,10 @@ record narrow 0.3 true
 
 echo "== g+ twice: the fastest speed, longer steps, kept across a restart"
 key equal; key plus plus plus
-record normal_again 1.2 xdotool key Down
+record normal_again 1.8 xdotool key Down
 normal=$(tail -1 "$out/normal_again.txt" | awk '{print ($2 < 0 ? -$2 : $2)}')
 key g plus g plus; sleep 1
-record fastest 1.2 xdotool key Down
+record fastest 1.8 xdotool key Down
 if check_glide fastest 2 "$((normal * 16 / 10))" "$((normal * 2))"; then ok "fastest: a press goes about 1.8 times as far, still gliding"
 else fail "g+ did not lengthen the step (normal $normal px)"; fi
 [[ "$(q "select value from settings where key = 'reader.scrollSpeed'")" == '"fastest"' ]] && ok "saved as fastest" \
@@ -200,15 +203,34 @@ else fail "g+ did not lengthen the step (normal $normal px)"; fi
 stop
 start
 key plus plus plus
-record restarted 1.2 xdotool key Down
+record restarted 1.8 xdotool key Down
 if check_glide restarted 2 "$((normal * 16 / 10))" "$((normal * 2))"; then ok "after a restart, still the fastest"
 else fail "the speed was lost across the restart"; fi
 key g minus g minus g minus g minus g minus; sleep 1
-record slowest 1.5 xdotool key Down
+record slowest 1.8 xdotool key Down
 if check_glide slowest 2 "$((normal * 4 / 10))" "$((normal * 7 / 10))"; then ok "g- to the slowest: a press goes about half as far"
 else fail "g- did not shorten the step"; fi
 
-echo "== Settings shows the speed as a slider"
+echo "== g< and g>: crisper and smoother glides, the same distance"
+key g less g less g less g less; sleep 1
+record crisp 1.8 xdotool key Up
+key g greater g greater g greater g greater g greater g greater g greater g greater; sleep 1
+record smoothest 2.0 xdotool key Down
+python3 - "$out/crisp.txt" "$out/smoothest.txt" <<'EOF3' && ok "smoothest shows more frames on the way than crisp, and goes as far" \
+  || fail "smoothness did not change the glide, or changed its length"
+import sys
+def glide(f):
+    v = [abs(int(l.split()[1])) for l in open(f)]
+    end = v[-1]
+    return end, len({x for x in v if 0.05 * end < x < 0.95 * end})
+(ce, cn), (se, sn) = glide(sys.argv[1]), glide(sys.argv[2])
+print(f'  crisp: {ce} px, {cn} frames on the way; smoothest: {se} px, {sn} frames on the way')
+sys.exit(0 if abs(ce - se) <= 3 and sn > cn and sn >= 4 else 1)
+EOF3
+[[ "$(q "select value from settings where key = 'reader.scrollSmoothness'")" == '"smoothest"' ]] && ok "saved as smoothest" \
+  || fail "the smoothness was not saved"
+
+echo "== Settings shows the speed and the smoothness as sliders"
 key Escape; key Escape; sleep 1
 # The empty library's Settings button (this HOME has no library folder).
 xdotool mousemove 824 413 click 1 2>/dev/null; sleep 2
@@ -219,6 +241,10 @@ xdotool mousemove 640 292 click 1 2>/dev/null; sleep 1
 import -window root -crop 1280x800+0+0 +repage "$out/settings_normal.png"
 [[ "$(q "select value from settings where key = 'reader.scrollSpeed'")" == '"normal"' ]] \
   && ok "the Settings slider set it back to normal" || fail "the Settings slider did not save"
+# The smoothness slider below it, its middle notch: Smooth, the default.
+xdotool mousemove 640 404 click 1 2>/dev/null; sleep 1
+[[ "$(q "select value from settings where key = 'reader.scrollSmoothness'")" == '"smooth"' ]] \
+  && ok "the smoothness slider set it back to smooth" || fail "the smoothness slider did not save"
 xdotool mousemove 5 700 2>/dev/null
 key Escape
 

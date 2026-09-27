@@ -356,19 +356,24 @@ refreshes right away instead of within six hours.
   on a page zoomed in outside guided view and page parts, `←` `→`
   (`ReaderIntent.scrollLeft`/`scrollRight`; app.dart turns them into
   `prevStep`/`nextStep` anywhere else, or when the view can't move that
-  way). A ticker eases the rest of the way out (time constant 70 ms); a
-  press adds a whole step, a held key's auto-repeat
+  way). A ticker pulls the page the rest of the way along a critically
+  damped spring (`_onGlideTick`, 1/480 s substeps; eases in and out, no
+  overshoot); a press adds a whole step, a held key's auto-repeat
   (`ReaderCommand.held`, set by ReaderKeyboard on `KeyRepeatEvent`) keeps
-  the glide at most a step ahead, and at the edge a held `←` `→` is
+  the glide only the spring's lag ahead, so it moves a step every
+  `heldStepSeconds` (70 ms) whatever the smoothness, and at the edge a held `←` `→` is
   swallowed so it doesn't run on through the pages. Key pans stop at the
   shown pages' edges (`_onPages`), not the letterbox a drag can reach, and
   don't move along a side the pages fit. Anything else setting the
   transform (a drag, a page turn, the camera) ends the glide. Reduced
-  motion jumps. Tiles still wait for 150 ms of stillness. The step and
-  time constant come from `ScrollSpeed` (`scroll_speed.dart`, five
-  notches, normal 15% and 70 ms), picked in Settings or with `g+` `g-`
-  (`scrollFaster`/`scrollSlower`, handled in app.dart) and saved as
-  `reader.scrollSpeed`.
+  motion jumps. Tiles still wait for 150 ms of stillness. The step comes
+  from `ScrollSpeed` (`scroll_speed.dart`, five notches, normal 15%),
+  picked in Settings or with `g+` `g-` (`scrollFaster`/`scrollSlower`)
+  and saved as `reader.scrollSpeed`; the spring from `ScrollSmoothness`
+  (same file, time to 95%: crisp 0.15 s to smoothest 0.55 s, smooth 0.3 s
+  by default), picked in Settings or with `g>` `g<`
+  (`scrollSmoother`/`scrollCrisper`) and saved as
+  `reader.scrollSmoothness`. app.dart handles all four keys.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
