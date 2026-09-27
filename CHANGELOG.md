@@ -7,6 +7,14 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Filter the Folders tab** by type, size and modification date: `F`,
+  or the Filter line under the header. Pick one or more types (only the
+  ones your library has), a size range and a date range; they combine
+  with each other and with the search, and folders with nothing that
+  passes are hidden. The line shows what is filtered, each part with an
+  x, and Clear filter. The filter is kept across restarts and goes into
+  settings files.
+
 ## 0.4.0
 
 S3 sync between your devices, tablets, and continue reading.

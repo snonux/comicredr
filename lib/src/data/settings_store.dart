@@ -44,6 +44,10 @@ class SettingsStore {
   /// covers. Off by default.
   static const shuffle = 'library.shuffle';
 
+  /// The Folders tab's filter by type, size and date (`F`), a
+  /// FolderFilter's JSON; unset when nothing is filtered.
+  static const folderFilter = 'library.folderFilter';
+
   /// The default library folder (~/Comics) was taken out of the library,
   /// so starts no longer add it back.
   static const defaultFolderRemoved = 'library.defaultFolderRemoved';
@@ -82,6 +86,7 @@ class SettingsStore {
     sidecarDir: false,
     gridZoom: false,
     shuffle: true,
+    folderFilter: false,
     touchPreset: false,
     s3Endpoint: false,
     s3Region: false,

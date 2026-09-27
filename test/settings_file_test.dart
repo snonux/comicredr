@@ -57,6 +57,7 @@ void main() {
     SettingsStore.sidecarDir: (await dir('Stash')).path,
     SettingsStore.gridZoom: '212.5',
     SettingsStore.shuffle: true,
+    SettingsStore.folderFilter: '{"formats":["pdf"],"size":"any","date":"week"}',
     SettingsStore.touchPreset: 'oneThumb',
     SettingsStore.s3Endpoint: 'http://garage.lan:3900',
     SettingsStore.s3Region: 'home',
@@ -163,7 +164,7 @@ void main() {
     expect(done.books, {'a', 'b'});
     expect(
       importNotice(done),
-      'Imported 16 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
+      'Imported 17 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
       'and 2 history entries.',
     );
 
@@ -329,7 +330,7 @@ void main() {
     expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], ['Comics']);
     expect(done.foldersMissing, [p.join(tmp.path, 'Manga')]);
     expect(done.sidecarDirMissing, here);
-    expect(done.settings, 15);
+    expect(done.settings, 16);
     expect(importNotice(done), contains('1 library folder not on this device: ${p.join(tmp.path, 'Manga')}.'));
     expect(importNotice(done), contains("The sidecar folder $here is not on this device; kept this one's."));
   });
