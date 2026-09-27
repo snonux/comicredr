@@ -244,4 +244,69 @@ void main() {
     expect(got, '${phone.root.path}/Pepper');
     expect(await contentKey(got!), key);
   });
+
+  group('a comic that is on S3 already', () {
+    late String key, laptopPath, phonePath;
+    late BookObjects o;
+
+    // The laptop uploaded it and read to page 3; the phone has its own
+    // copy of the same file, never synced.
+    setUp(() async {
+      laptopPath = writeBook(laptop.root, 'Weird Comics 4.cbz', 8);
+      await laptop.scanner.scan();
+      key = await contentKey(laptopPath);
+      await laptop.readTo(key, 3, 8);
+      await laptop.s3.upload([key]);
+      await laptop.s3.drain();
+      o = BookObjects('Comics/', key);
+      phonePath = File(laptopPath).copySync('${phone.root.path}/Weird Comics 4.cbz').path;
+      await phone.scanner.scan();
+      await phone.s3.refreshShelf();
+    });
+
+    test('is not sent again, and the newer bucket sidecar comes in', () async {
+      final comic = bucket.objects[o.comic('cbz')]!.bytes;
+      final manifest = bucket.objects[o.manifest]!.bytes;
+      expect(await phone.s3.upload([key]), 1);
+      await phone.s3.drain();
+
+      expect(identical(bucket.objects[o.comic('cbz')]!.bytes, comic), isTrue);
+      expect(identical(bucket.objects[o.manifest]!.bytes, manifest), isTrue);
+      // The laptop's sidecar replaced the phone's, and its place came with it.
+      final side = await phone.sidecars.sidecarFor(phonePath, folder: false);
+      expect('${sidecarWrittenAt(side)}', bucket.objects[o.sidecar]!.metadata[writtenAtMeta]);
+      expect((await phone.book(key)).page, 3);
+      expect((await phone.book(key)).s3?.mark, S3Mark.synced);
+      await pumpEventQueue();
+      expect(phone.notices.last, 'Weird Comics #4 was on S3 already; its newest sidecar is on both');
+    });
+
+    test('a newer sidecar here goes up instead', () async {
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      await phone.readTo(key, 6, 8);
+      await phone.s3.drain();
+      await phone.s3.upload([key]);
+      await phone.s3.drain();
+      final side = await phone.sidecars.sidecarFor(phonePath, folder: false);
+      expect(bucket.objects[o.sidecar]!.metadata[writtenAtMeta], '${sidecarWrittenAt(side)}');
+      expect(await laptop.s3.pullOnOpen(key), isTrue);
+      expect((await laptop.sidecars.attach(laptopPath, key, folder: false)).elsewhere?.page, 6);
+    });
+
+    test('a comic of another size in the bucket is sent again', () async {
+      final broken = await truncate(bucket, o.comic('cbz'));
+      await phone.s3.upload([key]);
+      await phone.s3.drain();
+      expect(bucket.objects[o.comic('cbz')]!.bytes.length, File(phonePath).lengthSync());
+      expect(bucket.objects[o.comic('cbz')]!.bytes.length, isNot(broken));
+    });
+  });
+}
+
+/// Cuts the object at [name] short, as an upload that broke off would
+/// leave it; returns its new length.
+Future<int> truncate(MemoryStore bucket, String name) async {
+  final was = bucket.objects[name]!;
+  bucket.objects[name] = (bytes: was.bytes.sublist(0, was.bytes.length ~/ 2), metadata: was.metadata);
+  return bucket.objects[name]!.bytes.length;
 }

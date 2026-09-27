@@ -476,7 +476,14 @@ refreshes right away instead of within six hours.
   every 5 minutes; a comic without a local file is a `LibraryBook` with
   `s3.mark == S3Mark.remote` at the path a download would use (under the
   first library folder), which opens its page with Download instead of
-  the reader. Downloads check the content key. Unreachable: one notice,
+  the reader. Downloads check the content key. An upload (`_upload`)
+  of a comic already in the bucket (`_alreadyThere`: manifest there, the
+  comic or every folder file at the manifest's size) sends nothing but
+  meets the sidecars (`_meetSidecar`: push or pull, newest whole file
+  wins) and keeps the bucket's manifest, so `gu` on a synced comic is a
+  manual sync (`uploadBooks` passes every local book). The upload's
+  share (`S3Status.transfers`) shows on the reader's status line
+  (`StatusLine.s3Progress`). Unreachable: one notice,
   retry from 30 s doubling to 5 min, "S3 is back; N comics caught up".
   Keys `gu`, `gU`, `V` (marks, `_marked` in `LibraryScreenState`, with a
   bar over the grid; Ctrl+click; Select on a phone-wide header). Delete
@@ -578,6 +585,7 @@ tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder 
 tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
 tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
 tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
+tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```

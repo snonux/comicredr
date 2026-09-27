@@ -7,6 +7,13 @@ the `?` overlay.
 
 ## Unreleased
 
+- **S3 sync**: uploading a comic that is in the bucket already (the same
+  content and size, from either device) no longer sends it again or
+  overwrites a newer sidecar there: the newest sidecar wins, pulled or
+  pushed. `gu` on a synced comic, or **Sync with S3** on its page, syncs
+  it by hand. In the reader the status line shows the open comic's
+  upload, `S3 ↑ 42%`.
+
 - **S3 sync** keeps comics under `Comics/` in the bucket by default,
   instead of `comicredr/`. A folder you already saved in Settings → S3
   sync stays as it is.

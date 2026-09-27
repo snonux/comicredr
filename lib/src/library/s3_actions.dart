@@ -18,20 +18,34 @@ bool _setUp(BuildContext context, WidgetRef ref) {
   return false;
 }
 
-/// Uploads [books] that are not on S3 yet, in the background.
+/// Uploads [books] in the background. One already in the bucket (the same
+/// content key and size) is not sent again; its sidecar and the bucket's
+/// are brought in step instead, the newest winning.
 Future<void> uploadBooks(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
   if (!_setUp(context, ref)) return;
   final messenger = ScaffoldMessenger.of(context);
-  final todo = books.where((b) => b.s3 == null).toList();
+  final todo = books.where((b) => !b.remoteOnly).toList();
   if (todo.isEmpty) {
     messenger.showSnackBar(
-      SnackBar(content: Text(books.length == 1 ? '${books.first.name} is on S3 already' : 'These are on S3 already')),
+      SnackBar(content: Text(books.length == 1 ? '${books.first.name} is on S3 only' : 'These are on S3 only')),
     );
     return;
   }
   final n = await ref.read(s3SyncProvider).upload(todo.map((b) => b.key));
+  if (n == 0) {
+    messenger.showSnackBar(const SnackBar(content: Text('On its way to S3 already')));
+    return;
+  }
+  final synced = todo.every((b) => b.s3 != null);
   messenger.showSnackBar(
-    SnackBar(content: Text(n == 1 ? 'Uploading ${todo.first.name} to S3' : 'Uploading $n comics to S3')),
+    SnackBar(
+      content: Text(switch ((n, synced)) {
+        (1, true) => 'Bringing ${todo.first.name} in step with S3',
+        (_, true) => 'Bringing $n comics in step with S3',
+        (1, false) => 'Uploading ${todo.first.name} to S3',
+        _ => 'Uploading $n comics to S3',
+      }),
+    ),
   );
 }
 
