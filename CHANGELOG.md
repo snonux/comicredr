@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Several comics at once:** in the library, `Shift` and the arrow keys
+  mark a run of comics (`Shift+Home`/`Shift+End` to the first or last),
+  `Ctrl+A` every comic shown, `Shift`+click up to a cover, alongside `V`
+  and `Ctrl`+click. With comics marked, `gd` deletes, `X` resets and `*`
+  favourites all of them, asking once; the bar over the covers adds
+  Collection, Upload to S3, Download and Remove from S3. The phone's
+  Select button is there without S3 too; wider screens have Mark in a
+  comic's details.
+
 ## 0.4.0
 
 S3 sync between your devices, tablets, and continue reading.

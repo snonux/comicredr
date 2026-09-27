@@ -479,7 +479,8 @@ refreshes right away instead of within six hours.
   the reader. Downloads check the content key. Unreachable: one notice,
   retry from 30 s doubling to 5 min, "S3 is back; N comics caught up".
   Keys `gu`, `gU`, `V` (marks, `_marked` in `LibraryScreenState`, with a
-  bar over the grid; Ctrl+click; Select on a phone-wide header). Delete
+  bar over the grid; Ctrl+click; Select on a phone-wide header, Mark in
+  the wide details pane). Delete
   of a comic on S3 offers Delete only here / Delete here and from S3
   (`DeleteChoice`). Tests override `secretStoreProvider` and
   `remoteStoreFactoryProvider`; `test/s3_sync_test.dart` runs two
@@ -492,6 +493,19 @@ refreshes right away instead of within six hours.
   Garage at 10.0.2.2). Never commit or post real bucket credentials.
   Android declares INTERNET and clear text (a home Garage is often plain
   http).
+- Marking several comics (snonux, 2026-09-27): `_marked` in
+  `LibraryScreenState` holds content keys, whatever tab or folder they
+  were marked in. Shift+arrows, `S-Home`/`S-End` and Shift+click are runs
+  (`ReaderIntent.markLeft` and friends, `_startRun`/`_markRun`): `_anchor`
+  is the item the run started on and `_beforeRun` the marks before it,
+  so the run is those plus every `BookItem` between anchor and cursor;
+  any other intent or plain click ends the run (keeps the marks).
+  `C-a` is `markAll`. In the reader app.dart turns the mark intents into
+  the plain arrows. With marks, `gd`, `X` and `*` go to
+  `lib/src/library/bulk_actions.dart` (one question for the lot:
+  `askDeleteMany`, `askReset(count:)`); the bar's buttons too, plus
+  Collection (`askCollection` takes a list). S3 buttons show only when S3
+  is on. The marks clear once an action went ahead, not on Cancel.
 - `make install` puts the bundle in `~/.local/lib/comicredr`, a symlink in
   `~/.local/bin` and the launcher and icons in `~/.local/share`; it never
   runs Flutter, so `sudo make install PREFIX=/usr/local` is safe, and
@@ -579,6 +593,7 @@ tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save di
 tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
 tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
+tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), a restart; checks the index with sqlite3; makes its own books
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 

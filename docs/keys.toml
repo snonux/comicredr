@@ -118,7 +118,7 @@ nextBookmark = ["}"]
 prevBookmark = ["{"]
 # Bookmarks and marks in this book: jump, add a note, remove; the Bookmarks tab in the library
 bookmarkList = ["M"]
-# Add this comic to the Favourites collection, or take it out; the selected book in the library
+# Add this comic to the Favourites collection, or take it out; the selected book in the library, or every marked one
 toggleFavourite = ["*"]
 # The Favourites collection in the library
 showFavourites = ["gf"]
@@ -156,16 +156,30 @@ rescan = ["R"]
 toggleShuffle = ["S"]
 # Pick other random pages for shuffle in the Folders tab
 reshuffle = ["gs"]
-# Reset this comic: find its panels again, or forget its bookmarks and position too
+# Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one
 resetBook = ["X"]
-# Delete this comic and its sidecar, after asking; the selected book in the library
+# Delete this comic and its sidecar, after asking; the selected book in the library, or every marked one
 deleteBook = ["gd", "S-Delete"]
 # Upload this comic to your S3 bucket; in the library the selected book, or every marked one
 uploadToS3 = ["gu"]
-# Take this comic off S3, after asking; the copy on this device stays
+# Take this comic off S3, after asking; the copy on this device stays; in the library every marked one
 removeFromS3 = ["gU"]
-# Mark the selected book in the library, or unmark it, for an action on several (upload, remove, download)
+# Mark the selected book in the library, or unmark it, for an action on several (delete, reset, favourite, upload, remove from S3)
 markBook = ["V"]
+# Library: mark from where marking started to the cover on the left (Shift+arrows mark a run of comics)
+markLeft = ["S-Left"]
+# Library: mark from where marking started to the cover on the right
+markRight = ["S-Right"]
+# Library: mark from where marking started to the cover above
+markUp = ["S-Up"]
+# Library: mark from where marking started to the cover below
+markDown = ["S-Down"]
+# Library: mark from where marking started to the first cover
+markToFirst = ["S-Home"]
+# Library: mark from where marking started to the last cover
+markToLast = ["S-End"]
+# Library: mark every comic shown, or unmark them all when they are marked already
+markAll = ["C-a"]
 # Edit the selected book's title, series, issue and creators in the library; on a series, rename it
 editBook = ["e"]
 # Show the keymap

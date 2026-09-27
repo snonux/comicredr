@@ -58,6 +58,10 @@ over. You get two choices:
   are in it (on every device), your edits and its reading history. Its
   collections stay.
 
+With comics [marked in the library](03-library.md#several-comics-at-once),
+`X` (or **Reset** in the bar over the covers) asks once and resets every
+one of them the same way.
+
 ![Resetting a comic](images/reset.webp)
 
 ## Delete a comic
@@ -74,5 +78,13 @@ comic** in its details) deletes it, after asking.
   **Delete the link**); the comic it points to stays where it is.
 - If you were reading it, you are back in the library with the next cover
   selected.
+
+To delete several, [mark them in the library](03-library.md#several-comics-at-once)
+(`Shift` and the arrow keys, `Ctrl+A`, `V`) and press `gd`, or
+**Delete** in the bar over the covers. One dialog lists them all, with
+their size together, and **Cancel** is selected there too. When some are
+on S3 it offers **Delete only here** and **Delete here and from S3** for
+the lot; a marked comic that is only on S3 is only taken away by the
+second.
 
 [Contents](README.md) · Previous: [Bookmarks and marks](06-bookmarks.md) · Next: [Touch](08-touch.md)

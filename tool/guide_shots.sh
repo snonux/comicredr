@@ -8,7 +8,7 @@
 #   python3 spike/fetch_corpus.py --skip-model   # once, for test/corpus/
 #   tool/guide_shots.sh [section...]             # all sections by default
 #
-# Sections: library reader guided guided-more parts keys touch bookmarks
+# Sections: library marks reader guided guided-more parts keys touch bookmarks
 # details dialogs history empty. They run in that order and later ones
 # lean on what earlier ones did (a started book, a bookmark), so run a
 # single section only after a full run. E2E_SKIP_BUILD=1 reuses the build.
@@ -33,7 +33,7 @@ comics="$home/Comics"
 db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
 sections=("$@")
-[[ ${#sections[@]} -gt 0 ]] || sections=(library reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
+[[ ${#sections[@]} -gt 0 ]] || sections=(library marks reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
 mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
@@ -265,6 +265,15 @@ empty)
   still empty
   stop
   start
+  ;;
+
+marks)
+  # Golden age on the Folders tab, three comics marked with Shift+Right:
+  # the bar of actions over the covers.
+  key Escape; key Escape; tab Folders; key Home; key Return; sleep 1.5
+  key Home; key Return; sleep 1.5
+  key shift+Right; key shift+Right; park; still marks
+  key Escape; key Escape; key Escape
   ;;
 
 s3)
