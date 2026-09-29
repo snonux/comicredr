@@ -13,6 +13,8 @@ brackets.
 | Setting | What it does |
 |---|---|
 | **Pages → Clean up old scans** (`c`) | Whitens yellowed paper, darkens faded ink, and enlarges and sharpens pages smaller than the screen. See [clean-up](04-reading.md#old-scans-clean-up-trim-and-the-night-filter). |
+| **Pages → Smooth scrolling speed** (`g+` `g-`) | How far an arrow key moves a zoomed page, from **Slowest** to **Fastest**; a held key goes faster too. **Normal** by default. See [how fast](04-reading.md#how-fast). |
+| **Pages → Smooth scrolling smoothness** (`g>` `g<`) | How softly that glide starts and stops, from **Crisp** to **Smoothest**, without changing how far it goes. **Smooth** by default. See [how smooth](04-reading.md#how-smooth). |
 | **Guided view → Show each page whole before and after its panels** (`w`) | See [panel by panel](05-guided-view.md#panel-by-panel). On by default. |
 | **Guided view → On a page without panels, a quick step stays** (`W`) | The background turns wine red; a step within the time picked below it (**1**, **2**, **3**, **5** or **10 s**; 2 by default) stays and zooms the page out and back, a later one turns. On by default. See [a quick press stays](05-guided-view.md#a-quick-press-stays). |
 | **Guided view → Panel detector** | Which detector finds the panels: the model built into the app, or one you added. |

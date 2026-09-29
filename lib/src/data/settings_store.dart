@@ -62,6 +62,12 @@ class SettingsStore {
   /// so starts no longer add it back.
   static const defaultFolderRemoved = 'library.defaultFolderRemoved';
 
+  /// How fast the arrow keys glide a zoomed page (a ScrollSpeed name).
+  static const scrollSpeed = 'reader.scrollSpeed';
+
+  /// How softly that glide starts and stops (a ScrollSmoothness name).
+  static const scrollSmoothness = 'reader.scrollSmoothness';
+
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
 
@@ -99,6 +105,8 @@ class SettingsStore {
     shuffle: true,
     folderFilter: false,
     touchPreset: false,
+    scrollSpeed: false,
+    scrollSmoothness: false,
     s3Endpoint: false,
     s3Region: false,
     s3Bucket: false,

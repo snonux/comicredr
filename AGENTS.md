@@ -17,9 +17,7 @@ it in step when the architecture or the model changes.
   contents page `docs/guide/README.md`. A changed feature has its text,
   keys and pictures corrected where they are; a removed one is taken out,
   contents line included. Retake the pictures that no longer match with
-  `tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
-tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
-tool/guide_shots.sh [section...]` from the release build (WebP stills,
+  `tool/guide_shots.sh [section...]` from the release build (WebP stills,
   small GIFs); if that can't be done in the container, say so in the PR.
   The guide is `docs/guide/`: a contents page and one chapter a file,
   written for people, starting with installing.
@@ -389,15 +387,24 @@ refreshes right away instead of within six hours.
   on a page zoomed in outside guided view and page parts, `←` `→`
   (`ReaderIntent.scrollLeft`/`scrollRight`; app.dart turns them into
   `prevStep`/`nextStep` anywhere else, or when the view can't move that
-  way). A ticker eases the rest of the way out (time constant 70 ms); a
-  press adds a whole step, a held key's auto-repeat
+  way). A ticker pulls the page the rest of the way along a critically
+  damped spring (`_onGlideTick`, 1/480 s substeps; eases in and out, no
+  overshoot); a press adds a whole step, a held key's auto-repeat
   (`ReaderCommand.held`, set by ReaderKeyboard on `KeyRepeatEvent`) keeps
-  the glide at most a step ahead, and at the edge a held `←` `→` is
+  the glide only the spring's lag ahead, so it moves a step every
+  `heldStepSeconds` (70 ms) whatever the smoothness, and at the edge a held `←` `→` is
   swallowed so it doesn't run on through the pages. Key pans stop at the
   shown pages' edges (`_onPages`), not the letterbox a drag can reach, and
   don't move along a side the pages fit. Anything else setting the
   transform (a drag, a page turn, the camera) ends the glide. Reduced
-  motion jumps. Tiles still wait for 150 ms of stillness.
+  motion jumps. Tiles still wait for 150 ms of stillness. The step comes
+  from `ScrollSpeed` (`scroll_speed.dart`, five notches, normal 15%),
+  picked in Settings or with `g+` `g-` (`scrollFaster`/`scrollSlower`)
+  and saved as `reader.scrollSpeed`; the spring from `ScrollSmoothness`
+  (same file, time to 95%: crisp 0.15 s to smoothest 0.55 s, smooth 0.3 s
+  by default), picked in Settings or with `g>` `g<`
+  (`scrollSmoother`/`scrollCrisper`) and saved as
+  `reader.scrollSmoothness`. app.dart handles all four keys.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -622,6 +629,7 @@ tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/
 tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
 tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
+tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), a restart; checks the index with sqlite3; makes its own books
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```

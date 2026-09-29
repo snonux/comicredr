@@ -36,6 +36,7 @@ import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
 import 'reader/recent_books.dart';
 import 'reader/reset_dialog.dart';
+import 'reader/scroll_speed.dart';
 import 'reader/status_line.dart';
 
 class ComicRedrApp extends StatelessWidget {
@@ -550,10 +551,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Makes everything an import changed show at once: the reader's and
   /// the library's settings, the touch preset, the keymap, the sidecars of
   /// the comics it named, and the library's folders.
+  /// `g+` `g-`: smooth scrolling a notch faster or slower, said in the
+  /// reader's status line or, in the library, a short notice.
+  Future<void> _changeScrollSpeed(int by) async {
+    final speed = ref.read(scrollSpeedProvider).notch(by);
+    await ref.read(scrollSpeedProvider.notifier).pick(speed);
+    _sayScrolling(
+      'Smooth scrolling: ${speed.label.toLowerCase()} (${speed.index + 1} of ${ScrollSpeed.values.length})',
+    );
+  }
+
+  /// `g>` `g<`: the key glide a notch smoother or crisper.
+  Future<void> _changeScrollSmoothness(int by) async {
+    final smoothness = ref.read(scrollSmoothnessProvider).notch(by);
+    await ref.read(scrollSmoothnessProvider.notifier).pick(smoothness);
+    _sayScrolling(
+      'Scrolling smoothness: ${smoothness.label.toLowerCase()} '
+      '(${smoothness.index + 1} of ${ScrollSmoothness.values.length})',
+    );
+  }
+
+  /// Says [text] in the reader's status line or, in the library, a short
+  /// notice.
+  void _sayScrolling(String text) {
+    if (!mounted) return;
+    if (ref.read(readerProvider).book != null) {
+      ref.read(readerProvider.notifier).notice(text);
+    } else {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 2)));
+    }
+  }
+
   Future<void> _takeUpImport(SettingsImport done) async {
     if (done.keysWritten) ref.read(reloadedKeymapProvider.notifier).set(await loadKeymap());
     await ref.read(readerProvider.notifier).reloadSettings();
     await ref.read(touchPresetProvider.notifier).reload();
+    await ref.read(scrollSpeedProvider.notifier).reload();
+    await ref.read(scrollSmoothnessProvider.notifier).reload();
     await _library.currentState?.reloadSettings();
     forgetGridZoom(ref);
     final sync = ref.read(sidecarSyncProvider)..placeChanged();
@@ -814,6 +850,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _ => null,
       };
       if (plain != null) c = c.as(plain);
+    }
+    if (c.intent == ReaderIntent.scrollFaster || c.intent == ReaderIntent.scrollSlower) {
+      unawaited(_changeScrollSpeed(c.intent == ReaderIntent.scrollFaster ? c.times : -c.times));
+      return;
+    }
+    if (c.intent == ReaderIntent.scrollSmoother || c.intent == ReaderIntent.scrollCrisper) {
+      unawaited(_changeScrollSmoothness(c.intent == ReaderIntent.scrollSmoother ? c.times : -c.times));
+      return;
     }
     // Left and Right pan a zoomed page; anywhere else, and at the page's
     // edge, they step as they always did.

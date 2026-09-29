@@ -9,6 +9,7 @@ import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/settings_transfer.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:comicredr/src/reader/scroll_speed.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -60,6 +61,8 @@ void main() {
     SettingsStore.shuffle: true,
     SettingsStore.folderFilter: '{"formats":["pdf"],"size":"any","date":"week"}',
     SettingsStore.touchPreset: 'oneThumb',
+    SettingsStore.scrollSpeed: 'fastest',
+    SettingsStore.scrollSmoothness: 'crisp',
     SettingsStore.s3Endpoint: 'http://garage.lan:3900',
     SettingsStore.s3Region: 'home',
     SettingsStore.s3Bucket: 'comics',
@@ -165,7 +168,7 @@ void main() {
     expect(done.books, {'a', 'b'});
     expect(
       importNotice(done),
-      'Imported 18 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
+      'Imported 20 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
       'and 2 history entries.',
     );
 
@@ -331,7 +334,7 @@ void main() {
     expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], ['Comics']);
     expect(done.foldersMissing, [p.join(tmp.path, 'Manga')]);
     expect(done.sidecarDirMissing, here);
-    expect(done.settings, 17);
+    expect(done.settings, 19);
     expect(importNotice(done), contains('1 library folder not on this device: ${p.join(tmp.path, 'Manga')}.'));
     expect(importNotice(done), contains("The sidecar folder $here is not on this device; kept this one's."));
   });
@@ -452,9 +455,14 @@ void main() {
     await fill();
     expect(container.read(readerProvider).night, isFalse);
     expect(container.read(touchPresetProvider), TouchPreset.standard);
+    expect(container.read(scrollSpeedProvider), ScrollSpeed.normal);
     await import(await exportSettings(from));
     await container.read(readerProvider.notifier).reloadSettings();
     await container.read(touchPresetProvider.notifier).reload();
+    await container.read(scrollSpeedProvider.notifier).reload();
+    expect(container.read(scrollSpeedProvider), ScrollSpeed.fastest);
+    await container.read(scrollSmoothnessProvider.notifier).reload();
+    expect(container.read(scrollSmoothnessProvider), ScrollSmoothness.crisp);
     final s = container.read(readerProvider);
     expect(
       (s.wholePageSteps, s.pauseWhole, s.pauseSeconds, s.night, s.trim, s.cleanUp, s.fullscreen),

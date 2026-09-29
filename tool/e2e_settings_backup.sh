@@ -131,8 +131,10 @@ open_path() {
 }
 # Every table an export carries, as text, in a fixed order.
 dump() {
-  # ~/Comics taken out is this device's own business: never exported.
-  q "select key, value from settings where key not like 'device.%' and key != 'library.defaultFolderRemoved' order by key"
+  # ~/Comics taken out and the recent comics (paths on this device) are
+  # this device's own business: never exported.
+  q "select key, value from settings where key not like 'device.%' and key != 'library.defaultFolderRemoved' \
+    and key != 'reader.recent' order by key"
   echo ---; q "select path from roots order by path"
   echo ---; q "select content_key, page, panel, percent, finished, updated_at, view_json from progress order by 1"
   echo ---; q "select id, content_key, page, panel, mark, note, created_at, deleted_at from bookmarks order by 1"
@@ -171,6 +173,8 @@ key t # auto-trim
 key c # clean-up
 key w # no whole-page steps
 key shift+w # pages shown whole turn at once
+key g plus # smooth scrolling a notch faster
+key g less # and a notch crisper
 key p; key plus plus; key Escape # bigger page thumbnails
 shot 01_reading
 key Escape; sleep 2
@@ -202,7 +206,8 @@ want_changed() { # every setting away from its default
     -a "$(setting reader.cleanUp)" = true -a "$(setting sidecars.write)" = false \
     -a "$(setting sidecars.dir)" = "\"$stash\"" -a -n "$(setting grid.zoom)" \
     -a "$(setting library.shuffle)" = true -a "$(setting library.defaultFolderRemoved)" = true \
-    -a -n "$(setting library.folderFilter)" -a "$(setting touch.preset)" = '"oneThumb"'
+    -a -n "$(setting library.folderFilter)" -a "$(setting touch.preset)" = '"oneThumb"' \
+    -a "$(setting reader.scrollSpeed)" = '"fast"' -a "$(setting reader.scrollSmoothness)" = '"light"'
 }
 check "every setting is changed before the export" want_changed
 check "a position on page 3, turned" test "$(q "select page || ' ' || (view_json like '%\"rotation\":1%') from progress where content_key = '$key_of_test'")" = "2 1"
@@ -232,7 +237,7 @@ check "it says it is ComicRedr's settings, format 1" python3 -c "
 import json, sys
 j = json.load(open(sys.argv[1]))
 assert j['app'] == 'org.snonux.comicredr' and j['kind'] == 'settings' and j['format'] == 1, j
-assert len(j['settings']) == 12 and 'device.id' not in j['settings'], j['settings']
+assert len(j['settings']) == 14 and 'device.id' not in j['settings'], j['settings']
 assert 'library.defaultFolderRemoved' not in j['settings'], j['settings']
 assert j['keysToml'] == open(sys.argv[2]).read()
 " "$backup" "$keys"

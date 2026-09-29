@@ -98,6 +98,10 @@ setMark = "M"
     test('warns when a short key hides a longer one', () {
       final load = keymapFromToml('[keys]\nautoTrim = "g"\n');
       expect(load.warnings, [
+        contains('hides g+'),
+        contains('hides g-'),
+        contains('hides g>'),
+        contains('hides g<'),
         contains('hides gg'),
         contains('hides gr'),
         contains('hides gf'),

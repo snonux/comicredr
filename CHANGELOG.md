@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Smooth scrolling speed:** `g+` and `g-`, or the slider in Settings
+  under Pages, pick one of five speeds from Slowest to Fastest: how far
+  an arrow key moves a zoomed page. Kept across restarts and in the
+  settings backup.
+- **Smoother scrolling, and its smoothness:** the arrow-key glide now
+  eases in as well as out, a little softer than before by default. `g>`
+  and `g<`, or a second slider in Settings, pick one of five steps from
+  Crisp to Smoothest, apart from the speed.
+
 - **Several comics at once:** in the library, `Shift` and the arrow keys
   mark a run of comics (`Shift+Home`/`Shift+End` to the first or last),
   `Ctrl+A` every comic shown, `Shift`+click up to a cover, alongside `V`

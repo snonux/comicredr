@@ -12,6 +12,7 @@ import '../input/touch_providers.dart';
 import '../input/touch_zones.dart';
 import '../providers.dart';
 import '../reader/reader_notifier.dart';
+import '../reader/scroll_speed.dart';
 import '../version.dart';
 import 's3_settings_dialog.dart';
 
@@ -222,6 +223,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                       value: _cleanUp!,
                       onChanged: (v) => _set(SettingsStore.cleanUp, v),
                     ),
+                    _ScrollSpeedPicker(),
                     heading('Guided view'),
                     SwitchListTile(
                       key: const Key('setting-wholePage'),
@@ -404,6 +406,54 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+}
+
+/// Picks how fast the arrow keys scroll a zoomed page and how smoothly
+/// they glide, five notches each.
+class _ScrollSpeedPicker extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final speed = ref.watch(scrollSpeedProvider);
+    final smoothness = ref.watch(scrollSmoothnessProvider);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Smooth scrolling speed: ${speed.label}', style: theme.textTheme.bodyLarge),
+          Slider(
+            key: const Key('setting-scrollSpeed'),
+            value: speed.index.toDouble(),
+            max: ScrollSpeed.values.length - 1.0,
+            divisions: ScrollSpeed.values.length - 1,
+            label: speed.label,
+            onChanged: (v) => ref.read(scrollSpeedProvider.notifier).pick(ScrollSpeed.values[v.round()]),
+          ),
+          Text(
+            'How far an arrow key moves a zoomed page; a held key goes faster too. g+ and g- change it '
+            'while reading.',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          Text('Smooth scrolling smoothness: ${smoothness.label}', style: theme.textTheme.bodyLarge),
+          Slider(
+            key: const Key('setting-scrollSmoothness'),
+            value: smoothness.index.toDouble(),
+            max: ScrollSmoothness.values.length - 1.0,
+            divisions: ScrollSmoothness.values.length - 1,
+            label: smoothness.label,
+            onChanged: (v) => ref.read(scrollSmoothnessProvider.notifier).pick(ScrollSmoothness.values[v.round()]),
+          ),
+          Text(
+            'How softly the page starts and stops: crisp stops almost at once, smoothest eases in and '
+            'out. g> and g< change it while reading.',
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ),
     );
   }
 }
