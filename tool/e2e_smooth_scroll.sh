@@ -87,7 +87,10 @@ record() {
   ffmpeg -loglevel error -f x11grab -framerate 60 -video_size 1280x720 -i "$DISPLAY+0,0" -t "$secs" \
     "$out/$name/%03d.png" &
   local rec=$!
-  sleep 0.4
+  # Only once frames are coming: a cold ffmpeg can take longer to start
+  # than the glide lasts, and then records only where it ended.
+  for _ in $(seq 1 100); do [[ -e "$out/$name/006.png" ]] && break; sleep 0.1; done
+  sleep 0.1
   "$@"
   wait "$rec"
   python3 - "$out/$name" <<'EOF2' >"$out/$name.txt"
@@ -99,16 +102,23 @@ from PIL import Image
 files = sorted(glob.glob(sys.argv[1] + '/*.png'))
 def gray(f):
     return np.asarray(Image.open(f).convert('L'), dtype=np.float32)
+def sad(a, b, dx, dy):
+    return np.abs(a[260:460, 480:800] - b[260 - dy:460 - dy, 480 - dx:800 - dx]).mean()
+def along(a, b, fixed, first):
+    # One axis searched with the other held, then the other: first y (fixed
+    # dx) and then x, or the other way round.
+    if first == 'y':
+        dy = min(range(-120, 121), key=lambda dy: sad(a, b, fixed, dy))
+        dx = min(range(-120, 121), key=lambda dx: sad(a, b, dx, dy))
+    else:
+        dx = min(range(-120, 121), key=lambda dx: sad(a, b, dx, fixed))
+        dy = min(range(-120, 121), key=lambda dy: sad(a, b, dx, dy))
+    return sad(a, b, dx, dy), dx, dy
 def shift(a, b):
-    best = (1e9, 0, 0)
-    for dy in range(-120, 121):
-        d = np.abs(a[260:460, 480:800] - b[260 - dy:460 - dy, 480:800]).mean()
-        best = min(best, (d, 0, dy))
-    dy = best[2]
-    best = (1e9, 0, 0)
-    for dx in range(-120, 121):
-        d = np.abs(a[260:460, 480:800] - b[260 - dy:460 - dy, 480 - dx:800 - dx]).mean()
-        best = min(best, (d, dx, dy))
+    # Both orders, the better match wins: at high zoom the blocks are big
+    # and alike, and a long step along one axis searched the other way
+    # first can lock onto a wrong block.
+    best = min(along(a, b, 0, 'y'), along(a, b, 0, 'x'))
     return best[1], best[2]
 x = y = 0
 prev = gray(files[0])
