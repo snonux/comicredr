@@ -5,6 +5,7 @@ import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/guided.dart';
 import 'package:comicredr/src/reader/layout.dart';
+import 'package:comicredr/src/reader/page_painters.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
 import 'package:comicredr/src/reader/region.dart';
@@ -283,5 +284,68 @@ void main() {
     expect(s.region, isNull);
     await key(tester, LogicalKeyboardKey.arrowLeft);
     expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 2));
+  });
+
+  /// The dimming hole where it is on screen now, or null when nothing is dimmed.
+  Rect? holeOnScreen(WidgetTester tester) {
+    final dim = find.byKey(const Key('guided-dim'));
+    if (dim.evaluate().isEmpty) return null;
+    final hole = (tester.widget<CustomPaint>(dim).painter! as DimPainter).hole;
+    final box = tester.getRect(dim);
+    return Rect.fromLTRB(
+      box.left + hole.left * box.width,
+      box.top + hole.top * box.height,
+      box.left + hole.right * box.width,
+      box.top + hole.bottom * box.height,
+    );
+  }
+
+  /// Whether some of the page on screen lies outside the hole, dimmed.
+  bool dimOnScreen(WidgetTester tester) {
+    final hole = holeOnScreen(tester);
+    if (hole == null) return false;
+    final seen = tester.getRect(find.byType(ReaderView)).intersect(pageOnScreen(tester));
+    return !hole.inflate(1).contains(seen.topLeft) || !hole.inflate(1).contains(seen.bottomRight);
+  }
+
+  testWidgets('a key pan in a part or on a panel lights what it brings on screen', (tester) async {
+    final c = await open(tester);
+    await key(tester, LogicalKeyboardKey.keyV);
+    await part(tester, 'H', 1);
+    expect(dimOnScreen(tester), isTrue, reason: 'the lower half shows dimmed below the part');
+    await key(tester, LogicalKeyboardKey.arrowDown, times: 2);
+    expect(dimOnScreen(tester), isFalse, reason: 'what Down brought on screen is lit');
+    expect(holeOnScreen(tester), isNotNull, reason: 'the page off screen stays dim');
+    // The next step frames the next part, dimmed around it again.
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expectFramed(tester, PageSplit.halves, 1);
+    final hole = holeOnScreen(tester)!;
+    final lower = partOnScreen(tester, PageSplit.halves, 1);
+    expect((hole.topLeft - lower.topLeft).distance + (hole.bottomRight - lower.bottomRight).distance, lessThan(2));
+    expect(dimOnScreen(tester), isTrue);
+    await key(tester, LogicalKeyboardKey.keyK);
+    expect(dimOnScreen(tester), isFalse, reason: 'k too');
+
+    // Guided view on a panel: j lights what it brings in, the next panel dims again.
+    await key(tester, LogicalKeyboardKey.escape);
+    await key(tester, LogicalKeyboardKey.pageDown, times: 2);
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(c.read(readerProvider).panelIndex, 0);
+    expect(dimOnScreen(tester), isTrue);
+    await key(tester, LogicalKeyboardKey.keyJ, times: 2);
+    expect(dimOnScreen(tester), isFalse);
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(c.read(readerProvider).panelIndex, 1);
+    expect(dimOnScreen(tester), isTrue);
+  });
+
+  testWidgets('outside guided view a drag in a part lights what it brings on screen', (tester) async {
+    await open(tester);
+    await part(tester, 'Q', 1);
+    expect(dimOnScreen(tester), isTrue);
+    final view = tester.getRect(find.byType(ReaderView));
+    await tester.dragFrom(view.center, const Offset(-150, -150));
+    await settle(tester);
+    expect(dimOnScreen(tester), isFalse);
   });
 }

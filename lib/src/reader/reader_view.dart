@@ -71,6 +71,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   /// relative to [_focus] (0..1 across it), so it glides with the hole.
   List<Offset>? _holeShape;
 
+  /// Whether a pan by hand widened the hole ([_lightSeen]) since the camera
+  /// last aimed.
+  bool _panned = false;
+
   /// What the camera last aimed at. A change moves the camera; null makes
   /// it cut to its target on the next frame.
   /// The focus is kept as a Rect, compared by value: a balloon's framing is a
@@ -569,6 +573,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         last.viewport == key.viewport &&
         !MediaQuery.disableAnimationsOf(context);
     _cameraKey = key;
+    _panned = false;
     final target = rect == null ? _home() : Matrix4.identity();
     Rect? hole;
     List<Offset>? shape;
@@ -790,6 +795,38 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   void _moveBy(Offset move) {
     final m = Matrix4.translationValues(move.dx, move.dy, 0)..multiply(_transform.value);
     _transform.value = _clamped(m);
+    _lightSeen();
+  }
+
+  /// After a pan by hand (a key or a drag) in guided view or a page part,
+  /// widens the dimming hole to take in everything now on screen, so what
+  /// the reader moved to look at is not left dark. The rest of the page
+  /// stays dim; the next step aims the camera, and the hole with it, at
+  /// its panel or part again.
+  void _lightSeen() {
+    final focus = _focus;
+    if (focus == null || _camera.isAnimating || _content.isEmpty) return;
+    final origin = _origin(ref.read(readerProvider).guided);
+    final t = _transform.value.getTranslation();
+    final scale = _scale;
+    // The screen, as fractions of the shown pages.
+    final seen = Rect.fromLTWH(
+      (-t.x / scale - origin.dx) / _content.width,
+      (-t.y / scale - origin.dy) / _content.height,
+      _viewport.width / scale / _content.width,
+      _viewport.height / scale / _content.height,
+    ).intersect(const Rect.fromLTWH(0, 0, 1, 1));
+    if (seen.width <= 0 || seen.height <= 0) return;
+    final hole = focus.expandToInclude(seen);
+    if (hole == focus) return;
+    final all = hole.left <= 0 && hole.top <= 0 && hole.right >= 1 && hole.bottom >= 1;
+    _panned = true;
+    setState(() {
+      _focus = all ? null : hole;
+      // A traced outline is the panel's; the wider hole is a plain rectangle.
+      _holeShape = null;
+    });
+    _scheduleTiles();
   }
 
   /// Keeps the zoomed content covering the viewport, as dragging does.
@@ -854,7 +891,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     final keep = <int, Tile>{};
     final wanted = <({int page, int fullWidth, PageRegion region})>[];
     for (final p in _pageRects(s)) {
-      if (_cameraKey?.focus case final f? when s.guided) {
+      if ((_panned ? _focus : _cameraKey?.focus) case final f? when s.guided) {
         // The panel, and a sliver around it for its border.
         final panel = Rect.fromLTWH(
           p.rect.left + f.left * p.rect.width,
@@ -1094,6 +1131,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
           // (ReaderTouch); letting it pan too would leave the drag's inertia
           // fighting the camera's glide.
           panEnabled: !s.guided,
+          // A drag lights what it brings on screen, as a key pan does.
+          onInteractionUpdate: (d) {
+            if (d.pointerCount == 1) _lightSeen();
+          },
           maxScale: 8,
           boundaryMargin: s.guided ? const EdgeInsets.all(double.infinity) : EdgeInsets.zero,
           child: SizedBox(
