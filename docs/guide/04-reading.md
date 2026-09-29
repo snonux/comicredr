@@ -116,6 +116,13 @@ screen, they turn the page at once as always. In guided view and on a
 [part of a page](#parts-of-a-page) they keep stepping through the panels
 or parts.
 
+`↓` `↑` (and `j` `k`) move the view in guided view and on a part of a
+page too. Whatever they bring on screen is shown bright, not dimmed, so
+you can look past the edge of a panel or part; the rest of the page
+stays dim. The next `→` or `←` frames the next panel or part as usual,
+with the dimming around it again; in guided view `zz` goes back to the
+one you were on. On a part outside guided view a drag does the same.
+
 Say you zoom in on a dense golden-age page with `+` a few times. Hold
 `→` to read along a row of panels; it stops at the page's right edge.
 `↓` and a held `←` bring you to the start of the next row, and at the

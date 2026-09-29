@@ -10,6 +10,10 @@ the `?` overlay.
 - **Page parts by number:** `11` `12`, `21`-`23` and `31`-`34`, the two
   digits pressed within half a second, work as `H1` `H2`, `B1`-`B3` and
   `Q1`-`Q4`. Digits followed by a key are still a count (`12G`).
+- **Looking past a panel or part:** `↓` `↑` (`j` `k`) in guided view or
+  on a part of a page (`H1`, `B2`, `Q3`...), and a drag on a part, show
+  what they bring on screen bright instead of leaving it dimmed. The next
+  step frames the next panel or part, dimmed around as before.
 - **Smooth scrolling speed:** `g+` and `g-`, or the slider in Settings
   under Pages, pick one of five speeds from Slowest to Fastest: how far
   an arrow key moves a zoomed page. Kept across restarts and in the
