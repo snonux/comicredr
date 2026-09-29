@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Looking past a panel or part:** `↓` `↑` (`j` `k`) in guided view or
+  on a part of a page (`H1`, `B2`, `Q3`...), and a drag on a part, show
+  what they bring on screen bright instead of leaving it dimmed. The next
+  step frames the next panel or part, dimmed around as before.
 - **Smooth scrolling speed:** `g+` and `g-`, or the slider in Settings
   under Pages, pick one of five speeds from Slowest to Fastest: how far
   an arrow key moves a zoomed page. Kept across restarts and in the

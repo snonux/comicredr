@@ -43,6 +43,9 @@ straight from the last panel of one page to the first panel of the next.
 
 Other keys that help in guided view:
 
+- `↓` `↑` (or `j` `k`) look below and above the panel. What comes on
+  screen is shown bright rather than dimmed; the next panel is framed
+  and dimmed around as usual.
 - `zz` or `=` centres the current panel again after you zoomed or moved.
 - `PageDown` and `PageUp` skip to the next or previous page at once.
 - `Tab` also cycles through single page, two pages and guided view.

@@ -405,6 +405,10 @@ refreshes right away instead of within six hours.
   by default), picked in Settings or with `g>` `g<`
   (`scrollSmoother`/`scrollCrisper`) and saved as
   `reader.scrollSmoothness`. app.dart handles all four keys.
+  A key pan or a one-finger drag with guided view's dim up (a panel or a
+  page part) widens the hole to take in the screen (`_lightSeen`,
+  `_panned`), so nothing on screen stays dimmed; the next re-aim of the
+  camera glides the hole back to the panel or part.
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.
@@ -629,6 +633,7 @@ tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/
 tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
 tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
+tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), a restart; checks the index with sqlite3; makes its own books
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
