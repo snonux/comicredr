@@ -9,7 +9,8 @@
 # letter, C-f is Ctrl+f, and named keys (Left Right Up Down PageUp
 # PageDown Home End Space Tab Esc Enter Backspace Delete Insert F1-F12)
 # take S- for Shift. Put spaces between keys when a named key is in
-# a sequence: "g Home".
+# a sequence: "g Home". Two or more digits ("11") work when typed
+# quickly with nothing after them; otherwise digits are a count.
 
 [keys]
 # Next panel in guided view, next page or spread otherwise; next cover in the library
@@ -93,23 +94,23 @@ zoomReset = ["="]
 # Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view
 zoomToggle = ["Z"]
 # Upper half of the page, enlarged; → and ← then go half by half, each page whole first; again or Esc to stop
-regionUpperHalf = ["H1"]
+regionUpperHalf = ["H1", "11"]
 # Lower half of the page, enlarged
-regionLowerHalf = ["H2"]
+regionLowerHalf = ["H2", "12"]
 # Upper third of the page, enlarged; → and ← then go third by third, each page whole first; again or Esc to stop
-regionUpperThird = ["B1"]
+regionUpperThird = ["B1", "21"]
 # Middle third of the page, enlarged
-regionMiddleThird = ["B2"]
+regionMiddleThird = ["B2", "22"]
 # Lower third of the page, enlarged
-regionLowerThird = ["B3"]
+regionLowerThird = ["B3", "23"]
 # Top-left quarter of the page, enlarged; → and ← then go quarter by quarter, each page whole first; again or Esc to stop
-regionTopLeft = ["Q1"]
+regionTopLeft = ["Q1", "31"]
 # Top-right quarter of the page, enlarged
-regionTopRight = ["Q2"]
+regionTopRight = ["Q2", "32"]
 # Bottom-left quarter of the page, enlarged
-regionBottomLeft = ["Q3"]
+regionBottomLeft = ["Q3", "33"]
 # Bottom-right quarter of the page, enlarged
-regionBottomRight = ["Q4"]
+regionBottomRight = ["Q4", "34"]
 # Auto-trim scan margins
 autoTrim = ["t"]
 # Night filter

@@ -7,6 +7,9 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Page parts by number:** `11` `12`, `21`-`23` and `31`-`34`, the two
+  digits pressed within half a second, work as `H1` `H2`, `B1`-`B3` and
+  `Q1`-`Q4`. Digits followed by a key are still a count (`12G`).
 - **Smooth scrolling speed:** `g+` and `g-`, or the slider in Settings
   under Pages, pick one of five speeds from Slowest to Fastest: how far
   an arrow key moves a zoomed page. Kept across restarts and in the

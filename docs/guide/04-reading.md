@@ -157,11 +157,17 @@ To enlarge just part of a page, see [Parts of a page](#parts-of-a-page).
 On a big, busy page you can zoom straight to a half, a third or a quarter
 of it by key:
 
-| Keys | Part of the page |
-|---|---|
-| `H1` `H2` | The upper and lower half |
-| `B1` `B2` `B3` | The upper, middle and lower third |
-| `Q1` `Q2` `Q3` `Q4` | The quarters: top left, top right, bottom left, bottom right |
+| Keys | Or quickly | Part of the page |
+|---|---|---|
+| `H1` `H2` | `11` `12` | The upper and lower half |
+| `B1` `B2` `B3` | `21` `22` `23` | The upper, middle and lower third |
+| `Q1` `Q2` `Q3` `Q4` | `31` `32` `33` `34` | The quarters: top left, top right, bottom left, bottom right |
+
+The digits are quicker to type: the first says the split (1 halves, 2
+thirds, 3 quarters), the second the part. Press the second digit within
+half a second of the first; the part shows a moment later, once no other
+key follows. Digits still make a count, so `12G` goes to page 12 and a
+slow `1`, `2` does nothing on its own.
 
 Once you are on a part, the usual keys read the comic in that split, page
 by page: `→` (or `l`, Space, a tap on the right) goes to the next part,

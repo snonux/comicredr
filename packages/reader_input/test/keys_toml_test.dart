@@ -89,6 +89,17 @@ setMark = "M"
       expect(load.warnings.join('\n'), allOf(contains('nopeAction'), contains('Pagedown'), contains('digit')));
     });
 
+    test('two or more digits are a key typed quickly, one digit is a count', () {
+      final load = keymapFromToml('[keys]\nautoTrim = "44"\nzoomIn = "4"\n');
+      expect(keysFor(load.keymap, ReaderIntent.autoTrim), ['44']);
+      expect(load.warnings.single, contains('digit'));
+      final r = KeySequenceResolver(load.keymap);
+      final t = DateTime(2026);
+      r.feed('4', t);
+      r.feed('4', t.add(const Duration(milliseconds: 100)));
+      expect(r.expire(r.deadline!), const ReaderCommand(ReaderIntent.autoTrim));
+    });
+
     test('a broken file falls back to the defaults and says why', () {
       final load = keymapFromToml('[keys]\nautoTrim = "T\n');
       expect(load.warnings.single, contains('line 2'));

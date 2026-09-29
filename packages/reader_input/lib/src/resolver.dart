@@ -9,15 +9,43 @@ import 'keymap.dart';
 /// complete, or null while a count or prefix is pending. A pending prefix
 /// that sees no further key within [timeout] is dropped; the caller passes
 /// the current time in, so this class needs no timer and tests need no clock.
+///
+/// Digits are a count, except that a binding made only of digits (`11` for
+/// the upper half) fires when its digits come each within [pairWindow] of
+/// the one before and no other key follows within [pairSettle]: the caller
+/// asks [deadline] when to call [expire]. A key that does follow makes the
+/// digits a count as before, so `12G` still goes to page 12.
 class KeySequenceResolver {
-  KeySequenceResolver(this.keymap, {this.timeout = const Duration(milliseconds: 600)});
+  KeySequenceResolver(
+    this.keymap, {
+    this.timeout = const Duration(milliseconds: 600),
+    this.pairWindow = const Duration(milliseconds: 500),
+    this.pairSettle = const Duration(milliseconds: 400),
+  }) : _digitBindings = [
+         for (final b in keymap.bindings)
+           if (isDigitSequence(b.keys)) b,
+       ];
 
   final Keymap keymap;
   final Duration timeout;
+  final Duration pairWindow;
+  final Duration pairSettle;
 
+  final List<Binding> _digitBindings;
   final List<String> _pending = [];
   String _count = '';
   DateTime? _lastKey;
+
+  /// Whether the count typed so far came quickly enough to be a digit binding.
+  bool _quick = false;
+
+  /// The digit binding the count spells, to fire at [deadline] unless another
+  /// key comes first.
+  Binding? _digits;
+  DateTime? _deadline;
+
+  /// When to call [expire], or null when no digit binding is waiting.
+  DateTime? get deadline => _deadline;
 
   /// What has been typed so far and not yet resolved, for a status hint.
   String get pendingDisplay => '$_count${_pending.join()}';
@@ -27,6 +55,17 @@ class KeySequenceResolver {
   void reset() {
     _pending.clear();
     _count = '';
+    _quick = false;
+    _digits = null;
+    _deadline = null;
+  }
+
+  /// Fires the digit binding waiting since the last digit once [deadline]
+  /// has passed with no other key; null when there is none or it is early.
+  ReaderCommand? expire(DateTime now) {
+    final b = _digits, at = _deadline;
+    if (b == null || at == null || now.isBefore(at)) return null;
+    return _emit(ReaderCommand(b.intent));
   }
 
   ReaderCommand? feed(String token, DateTime now) {
@@ -35,6 +74,8 @@ class KeySequenceResolver {
     if (last != null && isPending && now.difference(last) > timeout) {
       reset();
     }
+    _digits = null;
+    _deadline = null;
 
     if (token == 'Esc' && isPending) {
       // Esc cancels a half-typed sequence before it means anything else.
@@ -44,7 +85,12 @@ class KeySequenceResolver {
 
     if (_pending.isEmpty && _isDigit(token) && (token != '0' || _count.isNotEmpty)) {
       // Six digits is more pages than any book has; more would overflow.
+      _quick = _count.isEmpty || (_quick && last != null && now.difference(last) <= pairWindow);
       if (_count.length < 6) _count += token;
+      if (_quick && _count.length > 1) {
+        _digits = _digitBindings.where((b) => b.keys.join() == _count).firstOrNull;
+        if (_digits != null) _deadline = now.add(pairSettle);
+      }
       return null;
     }
 
@@ -79,6 +125,10 @@ class KeySequenceResolver {
     reset();
     return c;
   }
+
+  /// Whether [keys] are two or more digits, not starting with 0: a binding
+  /// typed as quickly as a count, like `11`.
+  static bool isDigitSequence(List<String> keys) => keys.length > 1 && keys.first != '0' && keys.every(_isDigit);
 
   static bool _isDigit(String t) => t.length == 1 && t.codeUnitAt(0) >= 48 && t.codeUnitAt(0) <= 57;
 

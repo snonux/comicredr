@@ -371,6 +371,11 @@ refreshes right away instead of within six hours.
   panels came late), so guided view goes on. Arrows never pan in parts
   (`_panSideways`). Esc, the same key, a jump (`_goTo` clears both) or a
   mode switch end it.
+  The digit pairs `11`-`34` are ordinary bindings too: `KeySequenceResolver`
+  treats a count that spells a digit-only binding, each digit within
+  `pairWindow` (500 ms) of the one before, as that binding once no key
+  follows within `pairSettle` (400 ms); ReaderKeyboard arms a timer for its
+  `deadline` and calls `expire`. A key that follows keeps the digits a count.
 - Turning the comic (`>`, `<`, `gr`; `ReaderState.rotation`, quarter
   turns clockwise): ReaderView puts its whole view in a `RotatedBox`, so
   layout, fit, guided view's camera and dim, zoom tiles and page parts all

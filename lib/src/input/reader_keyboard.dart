@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:reader_input/reader_input.dart';
@@ -37,6 +39,9 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
   late final _own = widget.focusNode == null ? FocusNode(debugLabel: 'ReaderKeyboard') : null;
   FocusNode get _focus => widget.focusNode ?? _own!;
 
+  /// Fires a digit binding (`11`) once no other key followed it.
+  Timer? _digitTimer;
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +51,7 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
   @override
   void dispose() {
     FocusManager.instance.removeListener(_focusChanged);
+    _digitTimer?.cancel();
     _own?.dispose();
     super.dispose();
   }
@@ -64,7 +70,21 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
   @override
   void didUpdateWidget(ReaderKeyboard old) {
     super.didUpdateWidget(old);
-    if (old.keymap != widget.keymap) _resolver = KeySequenceResolver(widget.keymap);
+    if (old.keymap != widget.keymap) {
+      _digitTimer?.cancel();
+      _resolver = KeySequenceResolver(widget.keymap);
+    }
+  }
+
+  void _armDigitTimer(DateTime now) {
+    _digitTimer?.cancel();
+    final at = _resolver.deadline;
+    if (at == null) return;
+    _digitTimer = Timer(at.difference(now), () {
+      final command = _resolver.expire(at);
+      widget.onPendingChanged?.call(_resolver.pendingDisplay);
+      if (command != null) widget.onCommand(command);
+    });
   }
 
   static final _functionKeys = {
@@ -96,7 +116,9 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     final keys = HardwareKeyboard.instance;
     final token = keyToken(event, ctrl: keys.isControlPressed, shift: keys.isShiftPressed);
     if (token == null) return KeyEventResult.ignored;
-    final command = _resolver.feed(token, DateTime.now());
+    final now = DateTime.now();
+    final command = _resolver.feed(token, now);
+    _armDigitTimer(now);
     widget.onPendingChanged?.call(_resolver.pendingDisplay);
     if (command != null) widget.onCommand(event is KeyRepeatEvent ? command.asHeld : command);
     return command != null || _resolver.isPending ? KeyEventResult.handled : KeyEventResult.ignored;

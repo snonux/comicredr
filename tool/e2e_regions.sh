@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # End-to-end check of the part-of-the-page keys on the Linux build: H1 H2
-# (halves), B1-B3 (thirds) and Q1-Q4 (quarters) enlarge that part of a page
+# (halves), B1-B3 (thirds) and Q1-Q4 (quarters), or two quick digits (11,
+# 23, 32), enlarge that part of a page
 # guided view shows whole, and of any page outside guided view. Then the
 # arrows (l h, Space, taps) read on in that split page by page: the parts in
 # reading order, the next page whole, its first part; back the same way.
@@ -60,6 +61,8 @@ touch() { echo "$@" >>"$touches"; sleep 0.016; }
 tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep "$step"; }
 # A part key: part H 1 types H then 1.
 part() { key "shift+${1,,}" "$2"; }
+# digits 2 3: the same part typed as two quick digits (23 for B3).
+digits() { xdotool key --delay 80 "$@" 2>/dev/null; sleep "$step"; }
 
 failed=0
 # framed shot split n [ref]: the shot frames part n of split, of the page in
@@ -98,6 +101,7 @@ black() {
 }
 
 start
+key 1 shift+g;       shot ref_first
 key "$page" shift+g; shot ref_a
 key l;               shot ref_b
 key "$page" shift+g
@@ -122,12 +126,21 @@ key Escape; shot u13_esc;          whole u13_esc ref_a
 part Q 3;   shot u14_quarter_3;    framed u14_quarter_3 quarters 3
 key l;      shot u15_quarter_4;    framed u15_quarter_4 quarters 4
 part Q 4;   shot u16_again;        whole u16_again ref_a
+# Two quick digits are the same keys; before a key they stay a count.
+digits 2 3; shot d01_third_3;      framed d01_third_3 thirds 3
+key Left;   shot d02_third_2;      framed d02_third_2 thirds 2
+digits 3 2; shot d03_quarter_2;    framed d03_quarter_2 quarters 2
+key Escape; shot d04_esc;          whole d04_esc ref_a
+digits 1 1 h; shot d05_count;      whole d05_count ref_first
+key "$page" shift+g
 
 # Guided view, on the page it shows whole.
 key v; sleep 3
 shot g00_guided;                   whole g00_guided ref_a; held g00_guided
 part H 2;   shot g01_lower_half;   framed g01_lower_half halves 2; black g01_lower_half
 key Left;   shot g02_upper_half;   framed g02_upper_half halves 1
+digits 1 2; shot g02d_lower_half; framed g02d_lower_half halves 2
+key Left;   shot g02e_upper_half;  framed g02e_upper_half halves 1
 key Right;  shot g03_lower_half;   framed g03_lower_half halves 2
 # The next page has panels: whole first, then guided view goes on.
 key Right;  shot g04_next_whole;   whole g04_next_whole ref_b; black g04_next_whole

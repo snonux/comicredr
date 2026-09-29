@@ -257,6 +257,43 @@ void main() {
     expect(status(tester), contains('first part of the first page'));
   });
 
+  testWidgets('two quick digits pick a part, and a count still works', (tester) async {
+    final c = await open(tester);
+    Future<void> digits(String keys) async {
+      for (final d in keys.split('')) {
+        await tester.sendKeyEvent(LogicalKeyboardKey(LogicalKeyboardKey.digit0.keyId + int.parse(d)), character: d);
+      }
+    }
+
+    await digits('23');
+    expect(c.read(readerProvider).region, isNull, reason: 'waits to see whether a key follows');
+    await settle(tester);
+    var s = c.read(readerProvider);
+    expect((s.region, s.parts), ((split: PageSplit.thirds, part: 2, page: 0), PageSplit.thirds));
+    expectFramed(tester, PageSplit.thirds, 2);
+
+    await digits('31');
+    await settle(tester);
+    expect(c.read(readerProvider).region, (split: PageSplit.quarters, part: 0, page: 0));
+    expectFramed(tester, PageSplit.quarters, 0);
+    await key(tester, LogicalKeyboardKey.escape);
+    expect(c.read(readerProvider).region, isNull);
+
+    // 4G (a page this book has) is a count, and so is 12 before a key.
+    await digits('4');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'G');
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await settle(tester);
+    s = c.read(readerProvider);
+    expect((s.page, s.region), (3, null));
+    await digits('12');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyH, character: 'h');
+    await settle(tester);
+    s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts), (0, null, null));
+  });
+
   testWidgets('in two-page mode the parts go on across the other page, then the next spread', (tester) async {
     final c = await open(tester);
     await key(tester, LogicalKeyboardKey.keyD);

@@ -1,5 +1,6 @@
 import 'intents.dart';
 import 'keymap.dart';
+import 'resolver.dart';
 import 'touch_map.dart';
 
 /// Named keys a binding may use, as `reader_input` tokens spell them.
@@ -82,7 +83,7 @@ KeymapLoad keymapFromToml(String text, {Keymap? base}) {
       final keys = parseKeySpec(spec);
       if (keys == null) {
         warnings.add('keys.toml: $name: cannot read the key "$spec"');
-      } else if (_isCountDigit(keys.first)) {
+      } else if (_isCountDigit(keys.first) && !KeySequenceResolver.isDigitSequence(keys)) {
         warnings.add('keys.toml: $name: "$spec" starts with a digit, which types a count');
       } else if (intent == ReaderIntent.setMark || intent == ReaderIntent.jumpMark
           ? keys.where((k) => k == letterSlot).length != 1
@@ -179,7 +180,8 @@ String keymapToToml(Keymap keymap) {
     ..writeln('# letter, C-f is Ctrl+f, and named keys (Left Right Up Down PageUp')
     ..writeln('# PageDown Home End Space Tab Esc Enter Backspace Delete Insert F1-F12)')
     ..writeln('# take S- for Shift. Put spaces between keys when a named key is in')
-    ..writeln('# a sequence: "g Home".')
+    ..writeln('# a sequence: "g Home". Two or more digits ("11") work when typed')
+    ..writeln('# quickly with nothing after them; otherwise digits are a count.')
     ..writeln()
     ..writeln('[keys]');
   for (final intent in ReaderIntent.values) {
