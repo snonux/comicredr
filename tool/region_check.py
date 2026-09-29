@@ -5,7 +5,7 @@
     region_check.py ref.png shot.png whole     # prints "whole 4.1"
 
 ref.png shows the page whole; shot.png is the reader after a part key.
-For every part of every split (halves, thirds, quarters) the part is cut
+For every part of every split (halves, thirds, strips, quarters) the part is cut
 out of the page in ref.png, scaled the way guided view's camera frames it
 (centred, 92% of the view on the tighter side) and compared with the
 middle of shot.png. It prints the part that matches best and how far off
@@ -17,7 +17,7 @@ import sys
 from PIL import Image, ImageChops, ImageStat
 
 W, H = 1280, 665  # The reader above the progress bar and status line.
-SPLITS = {"halves": (1, 2), "thirds": (1, 3), "quarters": (2, 2)}
+SPLITS = {"halves": (1, 2), "thirds": (1, 3), "strips": (1, 4), "quarters": (2, 2)}
 
 
 def view(path):

@@ -48,16 +48,22 @@ enum ReaderIntent {
   zoomReset('Reset zoom'),
   zoomToggle('Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view'),
   regionUpperHalf(
-    'Upper half of the page, enlarged; → and ← then go half by half, each page whole first; again or Esc to stop',
+    'Upper half of the page, enlarged; → and ← then go half by half, each page whole before and after; again or Esc to stop',
   ),
   regionLowerHalf('Lower half of the page, enlarged'),
   regionUpperThird(
-    'Upper third of the page, enlarged; → and ← then go third by third, each page whole first; again or Esc to stop',
+    'Upper third of the page, enlarged; → and ← then go third by third, each page whole before and after; again or Esc to stop',
   ),
   regionMiddleThird('Middle third of the page, enlarged'),
   regionLowerThird('Lower third of the page, enlarged'),
+  regionStrip1(
+    'Top strip of four across the page, enlarged; → and ← then go strip by strip, each page whole before and after; again or Esc to stop',
+  ),
+  regionStrip2('Second strip of four from the top, enlarged'),
+  regionStrip3('Third strip of four from the top, enlarged'),
+  regionStrip4('Bottom strip of four, enlarged'),
   regionTopLeft(
-    'Top-left quarter of the page, enlarged; → and ← then go quarter by quarter, each page whole first; again or Esc to stop',
+    'Top-left quarter of the page, enlarged; → and ← then go quarter by quarter, each page whole before and after; again or Esc to stop',
   ),
   regionTopRight('Top-right quarter of the page, enlarged'),
   regionBottomLeft('Bottom-left quarter of the page, enlarged'),

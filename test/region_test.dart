@@ -144,7 +144,13 @@ void main() {
     expect(c.read(readerProvider).region?.part, 1);
     expectFramed(tester, PageSplit.halves, 1);
 
-    // Past the last part: the next page, whole, and still in halves.
+    // Past the last part: this page whole, then the next page, whole, and
+    // still in halves.
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts), (0, null, PageSplit.halves));
+    expect(background(tester), heldColour);
+    expect(pageOnScreen(tester).height, closeTo(tester.getRect(find.byType(ReaderView)).height, 1));
     await key(tester, LogicalKeyboardKey.arrowRight);
     s = c.read(readerProvider);
     expect((s.page, s.region, s.parts, s.held), (1, null, PageSplit.halves, false));
@@ -154,7 +160,11 @@ void main() {
     expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 1));
     expectFramed(tester, PageSplit.halves, 0);
 
-    // Back: the page before, whole, then its last part, then on again.
+    // Back: this page whole, the page before whole, then its last part,
+    // then on again.
+    await key(tester, LogicalKeyboardKey.arrowLeft);
+    s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts), (1, null, PageSplit.halves));
     await key(tester, LogicalKeyboardKey.arrowLeft);
     s = c.read(readerProvider);
     expect((s.page, s.region, s.parts), (0, null, PageSplit.halves));
@@ -163,12 +173,15 @@ void main() {
     expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 0));
     await key(tester, LogicalKeyboardKey.keyL);
     s = c.read(readerProvider);
+    expect((s.page, s.region), (0, null));
+    await key(tester, LogicalKeyboardKey.keyL);
+    s = c.read(readerProvider);
     expect((s.page, s.region), (1, null));
     await key(tester, LogicalKeyboardKey.keyL, times: 2);
     expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 1, page: 1));
 
     // Page 3 has panels: it shows whole, and guided view goes on over them.
-    await key(tester, LogicalKeyboardKey.arrowRight);
+    await key(tester, LogicalKeyboardKey.arrowRight, times: 2);
     s = c.read(readerProvider);
     expect((s.page, s.region, s.parts, s.guided), (2, null, null, true));
     expect(s.panel, pageStart);
@@ -207,9 +220,14 @@ void main() {
     expectFramed(tester, PageSplit.thirds, 1);
     await key(tester, LogicalKeyboardKey.arrowRight, times: 2);
     s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts), (2, null, PageSplit.thirds), reason: 'the panel page whole');
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    s = c.read(readerProvider);
     expect((s.page, s.region, s.parts), (3, null, PageSplit.thirds));
     await key(tester, LogicalKeyboardKey.arrowRight, times: 3);
     expect(c.read(readerProvider).region, (split: PageSplit.thirds, part: 2, page: 3));
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(c.read(readerProvider).region, isNull);
     await key(tester, LogicalKeyboardKey.arrowRight);
     expect(status(tester), contains('last part of the last page'));
   });
@@ -225,12 +243,16 @@ void main() {
     expectFramed(tester, PageSplit.thirds, 2);
     await key(tester, LogicalKeyboardKey.keyL);
     var s = c.read(readerProvider);
+    expect((s.page, s.region, s.parts), (0, null, PageSplit.thirds));
+    expect(pageOnScreen(tester).height, closeTo(tester.getRect(find.byType(ReaderView)).height, 1));
+    await key(tester, LogicalKeyboardKey.keyL);
+    s = c.read(readerProvider);
     expect((s.page, s.region, s.parts, s.held), (1, null, PageSplit.thirds, false));
     expect(pageOnScreen(tester).height, closeTo(tester.getRect(find.byType(ReaderView)).height, 1));
     await key(tester, LogicalKeyboardKey.arrowRight);
     expectFramed(tester, PageSplit.thirds, 0);
     // A panel page is read in thirds too outside guided view.
-    await key(tester, LogicalKeyboardKey.arrowRight, times: 3);
+    await key(tester, LogicalKeyboardKey.arrowRight, times: 4);
     s = c.read(readerProvider);
     expect((s.page, s.region, s.parts), (2, null, PageSplit.thirds));
 
@@ -254,7 +276,9 @@ void main() {
     await key(tester, LogicalKeyboardKey.home);
     await part(tester, 'H', 1);
     await key(tester, LogicalKeyboardKey.arrowLeft);
-    expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 0));
+    expect(c.read(readerProvider).region, isNull, reason: 'the first page whole');
+    await key(tester, LogicalKeyboardKey.arrowLeft);
+    expect(c.read(readerProvider).page, 0);
     expect(status(tester), contains('first part of the first page'));
   });
 
@@ -273,7 +297,11 @@ void main() {
     expect((s.region, s.parts), ((split: PageSplit.thirds, part: 2, page: 0), PageSplit.thirds));
     expectFramed(tester, PageSplit.thirds, 2);
 
-    await digits('31');
+    await digits('32');
+    await settle(tester);
+    expect(c.read(readerProvider).region, (split: PageSplit.strips, part: 1, page: 0));
+    expectFramed(tester, PageSplit.strips, 1);
+    await digits('41');
     await settle(tester);
     expect(c.read(readerProvider).region, (split: PageSplit.quarters, part: 0, page: 0));
     expectFramed(tester, PageSplit.quarters, 0);
@@ -310,11 +338,19 @@ void main() {
     expectFramed(tester, PageSplit.halves, 0, 1);
     await key(tester, LogicalKeyboardKey.arrowRight, times: 2);
     s = c.read(readerProvider);
+    expect(s.unit, [1, 2], reason: 'the spread whole before it turns');
+    expect(s.region, isNull);
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    s = c.read(readerProvider);
     expect(s.unit, [3]);
     expect((s.region, s.parts), (null, PageSplit.halves));
     await key(tester, LogicalKeyboardKey.arrowRight);
     expect(c.read(readerProvider).region, (split: PageSplit.halves, part: 0, page: 3));
     expectFramed(tester, PageSplit.halves, 0);
+    await key(tester, LogicalKeyboardKey.arrowLeft);
+    s = c.read(readerProvider);
+    expect(s.unit, [3]);
+    expect(s.region, isNull);
     await key(tester, LogicalKeyboardKey.arrowLeft);
     s = c.read(readerProvider);
     expect(s.unit, [1, 2]);

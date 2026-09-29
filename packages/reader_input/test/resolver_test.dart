@@ -65,10 +65,14 @@ void main() {
         ('21', ReaderIntent.regionUpperThird),
         ('22', ReaderIntent.regionMiddleThird),
         ('23', ReaderIntent.regionLowerThird),
-        ('31', ReaderIntent.regionTopLeft),
-        ('32', ReaderIntent.regionTopRight),
-        ('33', ReaderIntent.regionBottomLeft),
-        ('34', ReaderIntent.regionBottomRight),
+        ('31', ReaderIntent.regionStrip1),
+        ('32', ReaderIntent.regionStrip2),
+        ('33', ReaderIntent.regionStrip3),
+        ('34', ReaderIntent.regionStrip4),
+        ('41', ReaderIntent.regionTopLeft),
+        ('42', ReaderIntent.regionTopRight),
+        ('43', ReaderIntent.regionBottomLeft),
+        ('44', ReaderIntent.regionBottomRight),
       ]) {
         type(keys);
         expect(settle(), ReaderCommand(intent), reason: keys);
@@ -91,7 +95,7 @@ void main() {
     });
 
     test('other pairs and Esc fire nothing', () {
-      expect(type('13'), isNull);
+      expect(type('15'), isNull);
       expect(r.deadline, isNull);
       expect(settle(), isNull);
       r.reset();
@@ -103,6 +107,7 @@ void main() {
 
     test('the letter keys still work', () {
       expect(type('H1'), const ReaderCommand(ReaderIntent.regionUpperHalf));
+      expect(type('L3'), const ReaderCommand(ReaderIntent.regionStrip3));
       expect(type('Q4'), const ReaderCommand(ReaderIntent.regionBottomRight));
     });
   });

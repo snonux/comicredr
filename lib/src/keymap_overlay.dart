@@ -148,7 +148,7 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                                     key: const Key('keymap-parts'),
                                     padding: const EdgeInsets.only(top: 12, bottom: 4),
                                     child: Text(
-                                      'Part of the page, enlarged: halves, thirds and quarters, '
+                                      'Part of the page, enlarged: halves, thirds, four strips and quarters, '
                                       'numbered top to bottom, left to right; or two quick digits, 11 for H1',
                                       style: theme.textTheme.titleSmall,
                                     ),

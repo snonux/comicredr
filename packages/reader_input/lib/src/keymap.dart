@@ -82,28 +82,38 @@ class Keymap {
       Binding(['-'], ReaderIntent.zoomOut, layer: s),
       Binding(['='], ReaderIntent.zoomReset, layer: s),
       Binding(['Z'], ReaderIntent.zoomToggle),
-      // A fixed part of the page: H for halves, B for thirds (bands), Q for
-      // quarters, then the part's number, top to bottom, left to right.
+      // A fixed part of the page: H for halves, B for thirds (bands), L for
+      // four strips (lines), Q for quarters, then the part's number, top to
+      // bottom, left to right.
       Binding(['H', '1'], ReaderIntent.regionUpperHalf),
       Binding(['H', '2'], ReaderIntent.regionLowerHalf),
       Binding(['B', '1'], ReaderIntent.regionUpperThird),
       Binding(['B', '2'], ReaderIntent.regionMiddleThird),
       Binding(['B', '3'], ReaderIntent.regionLowerThird),
+      Binding(['L', '1'], ReaderIntent.regionStrip1),
+      Binding(['L', '2'], ReaderIntent.regionStrip2),
+      Binding(['L', '3'], ReaderIntent.regionStrip3),
+      Binding(['L', '4'], ReaderIntent.regionStrip4),
       Binding(['Q', '1'], ReaderIntent.regionTopLeft),
       Binding(['Q', '2'], ReaderIntent.regionTopRight),
       Binding(['Q', '3'], ReaderIntent.regionBottomLeft),
       Binding(['Q', '4'], ReaderIntent.regionBottomRight),
       // The same as two quick digits: the split's number (1 halves, 2 thirds,
-      // 3 quarters), then the part's; 12 typed slowly or before a key is a count.
+      // 3 strips, 4 quarters), then the part's; 12 typed slowly or before a
+      // key is a count.
       Binding(['1', '1'], ReaderIntent.regionUpperHalf),
       Binding(['1', '2'], ReaderIntent.regionLowerHalf),
       Binding(['2', '1'], ReaderIntent.regionUpperThird),
       Binding(['2', '2'], ReaderIntent.regionMiddleThird),
       Binding(['2', '3'], ReaderIntent.regionLowerThird),
-      Binding(['3', '1'], ReaderIntent.regionTopLeft),
-      Binding(['3', '2'], ReaderIntent.regionTopRight),
-      Binding(['3', '3'], ReaderIntent.regionBottomLeft),
-      Binding(['3', '4'], ReaderIntent.regionBottomRight),
+      Binding(['3', '1'], ReaderIntent.regionStrip1),
+      Binding(['3', '2'], ReaderIntent.regionStrip2),
+      Binding(['3', '3'], ReaderIntent.regionStrip3),
+      Binding(['3', '4'], ReaderIntent.regionStrip4),
+      Binding(['4', '1'], ReaderIntent.regionTopLeft),
+      Binding(['4', '2'], ReaderIntent.regionTopRight),
+      Binding(['4', '3'], ReaderIntent.regionBottomLeft),
+      Binding(['4', '4'], ReaderIntent.regionBottomRight),
       Binding(['t'], ReaderIntent.autoTrim),
       Binding(['i'], ReaderIntent.nightFilter),
       Binding(['c'], ReaderIntent.cleanUp),

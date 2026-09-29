@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # End-to-end check of the part-of-the-page keys on the Linux build: H1 H2
-# (halves), B1-B3 (thirds) and Q1-Q4 (quarters), or two quick digits (11,
-# 23, 32), enlarge that part of a page
+# (halves), B1-B3 (thirds), L1-L4 (four strips) and Q1-Q4 (quarters), or two
+# quick digits (11, 23, 32, 42), enlarge that part of a page
 # guided view shows whole, and of any page outside guided view. Then the
 # arrows (l h, Space, taps) read on in that split page by page: the parts in
-# reading order, the next page whole, its first part; back the same way.
+# reading order, the page whole, the next page whole, its first part; back
+# the same way.
 # From guided view, the next page (which has panels) shows whole and guided
 # view goes on over its panels. The same keys again or Esc show the whole
 # page; Esc does not leave guided view or the book.
@@ -106,11 +107,13 @@ key "$page" shift+g; shot ref_a
 key l;               shot ref_b
 key "$page" shift+g
 
-# Outside guided view: halves page by page, each page whole first.
+# Outside guided view: halves page by page, each page whole before and after.
 part H 1;   shot u01_upper_half;   framed u01_upper_half halves 1
 key Right;  shot u02_lower_half;   framed u02_lower_half halves 2
+key Right;  shot u02w_this_whole;  whole u02w_this_whole ref_a
 key Right;  shot u03_next_whole;   whole u03_next_whole ref_b
 key Right;  shot u04_next_half_1;  framed u04_next_half_1 halves 1 ref_b
+key Left;   shot u04w_that_whole;  whole u04w_that_whole ref_b
 key Left;   shot u05_back_whole;   whole u05_back_whole ref_a
 key Left;   shot u06_back_half_2;  framed u06_back_half_2 halves 2
 key Escape; shot u07_esc;          whole u07_esc ref_a
@@ -122,6 +125,14 @@ key Right;  shot u10_third_2;      framed u10_third_2 thirds 2
 key space;  shot u11_third_3;      framed u11_third_3 thirds 3
 key h;      shot u12_back_2;       framed u12_back_2 thirds 2
 key Escape; shot u13_esc;          whole u13_esc ref_a
+# Four strips across the page, top to bottom, then the page whole.
+part L 1;   shot u13a_strip_1;     framed u13a_strip_1 strips 1
+for n in 2 3 4; do
+  key Right; shot "u13b_strip_$n"; framed "u13b_strip_$n" strips "$n"
+done
+key Right;  shot u13c_whole;       whole u13c_whole ref_a
+key Left;   shot u13d_strip_4;     framed u13d_strip_4 strips 4
+key Escape
 # Quarters straight to one, then the same key again.
 part Q 3;   shot u14_quarter_3;    framed u14_quarter_3 quarters 3
 key l;      shot u15_quarter_4;    framed u15_quarter_4 quarters 4
@@ -129,7 +140,8 @@ part Q 4;   shot u16_again;        whole u16_again ref_a
 # Two quick digits are the same keys; before a key they stay a count.
 digits 2 3; shot d01_third_3;      framed d01_third_3 thirds 3
 key Left;   shot d02_third_2;      framed d02_third_2 thirds 2
-digits 3 2; shot d03_quarter_2;    framed d03_quarter_2 quarters 2
+digits 3 2; shot d03_strip_2;      framed d03_strip_2 strips 2
+digits 4 2; shot d03_quarter_2;    framed d03_quarter_2 quarters 2
 key Escape; shot d04_esc;          whole d04_esc ref_a
 digits 1 1 h; shot d05_count;      whole d05_count ref_first
 key "$page" shift+g
@@ -142,6 +154,7 @@ key Left;   shot g02_upper_half;   framed g02_upper_half halves 1
 digits 1 2; shot g02d_lower_half; framed g02d_lower_half halves 2
 key Left;   shot g02e_upper_half;  framed g02e_upper_half halves 1
 key Right;  shot g03_lower_half;   framed g03_lower_half halves 2
+key Right;  shot g03w_whole;       whole g03w_whole ref_a; held g03w_whole
 # The next page has panels: whole first, then guided view goes on.
 key Right;  shot g04_next_whole;   whole g04_next_whole ref_b; black g04_next_whole
 key Right;  shot g05_panel;        notwhole g05_panel ref_b
@@ -153,6 +166,7 @@ part Q 1;   shot g09_quarter_1;    framed g09_quarter_1 quarters 1
 for n in 2 3 4; do
   key Right; shot "g1${n}_quarter_$n"; framed "g1${n}_quarter_$n" quarters "$n"
 done
+key Right;  shot g14w_whole;       whole g14w_whole ref_a
 key Right;  shot g15_next_whole;   whole g15_next_whole ref_b
 key Right;  shot g16_panel;        notwhole g16_panel ref_b
 # A tap in the right zone steps like a key.

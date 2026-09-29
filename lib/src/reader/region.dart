@@ -3,10 +3,11 @@ import 'dart:ui';
 import 'package:reader_input/reader_input.dart';
 
 /// How a page is cut into fixed parts to enlarge by hand (`H1`, `B2`,
-/// `Q4`...), for pages guided view shows whole or outside guided view.
+/// `L3`, `Q4`...), for pages guided view shows whole or outside guided view.
 enum PageSplit {
   halves(1, 2, ['upper half', 'lower half']),
   thirds(1, 3, ['upper third', 'middle third', 'lower third']),
+  strips(1, 4, ['top strip', 'second strip', 'third strip', 'bottom strip']),
   quarters(2, 2, ['top-left quarter', 'top-right quarter', 'bottom-left quarter', 'bottom-right quarter']);
 
   const PageSplit(this.columns, this.rows, this.names);
@@ -57,6 +58,10 @@ List<int> partOrder(PageSplit split, {required bool rightToLeft}) => [
   ReaderIntent.regionUpperThird => (split: PageSplit.thirds, part: 0),
   ReaderIntent.regionMiddleThird => (split: PageSplit.thirds, part: 1),
   ReaderIntent.regionLowerThird => (split: PageSplit.thirds, part: 2),
+  ReaderIntent.regionStrip1 => (split: PageSplit.strips, part: 0),
+  ReaderIntent.regionStrip2 => (split: PageSplit.strips, part: 1),
+  ReaderIntent.regionStrip3 => (split: PageSplit.strips, part: 2),
+  ReaderIntent.regionStrip4 => (split: PageSplit.strips, part: 3),
   ReaderIntent.regionTopLeft => (split: PageSplit.quarters, part: 0),
   ReaderIntent.regionTopRight => (split: PageSplit.quarters, part: 1),
   ReaderIntent.regionBottomLeft => (split: PageSplit.quarters, part: 2),

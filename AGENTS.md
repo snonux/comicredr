@@ -358,20 +358,22 @@ refreshes right away instead of within six hours.
   (`3l`) are not held (`_pauseOnWhole` in `reader_notifier.dart`). `W` or
   Settings turns it off (`guided.pauseWhole`); there is no cue choice any
   more (`gw` and `guided.pauseCue` are gone).
-- Parts of a page (`H1` `H2`, `B1`-`B3`, `Q1`-`Q4`, `lib/src/reader/region.dart`):
+- Parts of a page (`H1` `H2`, `B1`-`B3`, `L1`-`L4` strips, `Q1`-`Q4`, `lib/src/reader/region.dart`):
   `ReaderState.region` is the split, the part and the page of the unit it
   is on. ReaderView frames it with guided view's camera and dim, in guided
   view or out of it (`_aimCamera`). A part key also sets
   `ReaderState.parts`, the split every step (`→` `←`, `l` `h`, taps) then
   goes through page by page (`_stepParts`): the parts in reading order,
-  across a spread's other page, then the next page (or spread) whole on
-  its near side (`_turnInParts`, panel `pageStart`), then its first part;
-  back mirrors it (`pageEnd`, then the last part). In guided view a page
+  across a spread's other page, the page (or spread) whole again on its
+  far side (region cleared, panel `pageEnd`; snonux 2026-09-29), then the
+  next page whole on its near side (`_turnInParts`, panel `pageStart`),
+  then its first part; back mirrors it. In guided view a page
   with stops ends the parts (at the turn, or on the next step when its
   panels came late), so guided view goes on. Arrows never pan in parts
   (`_panSideways`). Esc, the same key, a jump (`_goTo` clears both) or a
   mode switch end it.
-  The digit pairs `11`-`34` are ordinary bindings too: `KeySequenceResolver`
+  The digit pairs `11`-`44` (1 halves, 2 thirds, 3 strips, 4 quarters)
+  are ordinary bindings too: `KeySequenceResolver`
   treats a count that spells a digit-only binding, each digit within
   `pairWindow` (500 ms) of the one before, as that binding once no key
   follows within `pairSettle` (400 ms); ReaderKeyboard arms a timer for its
@@ -631,7 +633,7 @@ tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rena
 tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
-tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, Q1-Q4 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
+tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, L1-L4, Q1-Q4 and 11-44 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
 tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
 tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
