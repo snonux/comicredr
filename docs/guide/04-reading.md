@@ -163,11 +163,22 @@ of it by key:
 | `B1` `B2` `B3` | `21` `22` `23` | The upper, middle and lower third |
 | `Q1` `Q2` `Q3` `Q4` | `31` `32` `33` `34` | The quarters: top left, top right, bottom left, bottom right |
 
-The digits are quicker to type: the first says the split (1 halves, 2
-thirds, 3 quarters), the second the part. Press the second digit within
-half a second of the first; the part shows a moment later, once no other
-key follows. Digits still make a count, so `12G` goes to page 12 and a
-slow `1`, `2` does nothing on its own.
+There are two ways to type each part, and both do the same:
+
+- **Letter and number:** `H` for halves, `B` for thirds (bands), `Q` for
+  quarters, then the part's number, counted top to bottom, left to right.
+  `B2` is the middle third, `Q3` the bottom-left quarter. Take as long as
+  you like between the two keys.
+- **Two digits:** the first says the split (1 halves, 2 thirds, 3
+  quarters), the second the part, the same numbering. `22` is the middle
+  third, `33` the bottom-left quarter. Press the second digit within half
+  a second of the first; the part shows a moment later, once no other key
+  follows. Typed slowly, or with a key after them, digits are a
+  [count](09-keyboard.md#sequences-and-counts) as always: `12G` still goes
+  to page 12.
+
+For example, on a tall splash page press `21` (or `B1`) for the top
+third, then `→` twice for the middle and bottom thirds.
 
 Once you are on a part, the usual keys read the comic in that split, page
 by page: `→` (or `l`, Space, a tap on the right) goes to the next part,
