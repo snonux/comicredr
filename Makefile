@@ -14,6 +14,8 @@
 #   make apk              signed release APK for the phone (arm64)
 #                         APK_ABI=android-arm64,android-x64 adds the emulator,
 #                         fetching ONNX Runtime's x86_64 library for it
+#   make apks             signed release APKs, one per ABI (armeabi-v7a, arm64-v8a,
+#                         x86_64), as the release workflow ships them to F-Droid
 #   make install-apk      sideload it over USB with adb
 #   make push-model MODEL=comicredr-panels.onnx   override it on the phone
 #   make push-keys        your keys.toml onto the phone
@@ -91,7 +93,7 @@ TARNAME := comicredr-$(VERSION)-linux-$(ARCH)
 TARBALL := build/$(TARNAME).tar.gz
 
 .PHONY: all build deps run dev test analyze format install uninstall _retire-models model train-model install-model check-model check-libs icons clean help version \
-	keystore apk install-apk push-model push-keys tarball keys
+	keystore apk apks install-apk push-model push-keys tarball keys
 
 all: build
 
@@ -261,6 +263,13 @@ apk: deps check-model $(if $(findstring android-x64,$(APK_ABI)),$(ORT_X64))
 	@test -f $(KEYPROPS) || { echo "No release key: run make keystore once (or restore $(KEYPROPS) and the keystore)."; exit 1; }
 	$(FLUTTER) build apk --release --target-platform $(APK_ABI)
 	@echo "Built $(APK)"
+
+# One APK per ABI for releases. Flutter numbers each abi * 1000 + the build
+# number (1007, 2007, 4007), so F-Droid offers every phone its own.
+apks: deps check-model $(ORT_X64)
+	@test -f $(KEYPROPS) || { echo "No release key: run make keystore once (or restore $(KEYPROPS) and the keystore)."; exit 1; }
+	$(FLUTTER) build apk --release --split-per-abi --target-platform android-arm,android-arm64,android-x64
+	@ls build/app/outputs/flutter-apk/app-*-release.apk
 
 $(ORT_X64):
 	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \

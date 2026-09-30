@@ -42,13 +42,17 @@ android {
         // Makefile). Plugins ship native libraries for others too
         // (armeabi-v7a), which made a 32-bit phone install an APK with no
         // Flutter engine for it, and cost 10 MB.
-        (project.findProperty("target-platform") as String?)?.let { platforms ->
-            val abis = mapOf("android-arm" to "armeabi-v7a", "android-arm64" to "arm64-v8a", "android-x64" to "x86_64")
-            ndk {
-                abiFilters.clear()
-                abiFilters += platforms.split(",").mapNotNull { abis[it.trim()] }
+        // With --split-per-abi Flutter sets splits.abi itself, and the
+        // Android plugin refuses ndk abiFilters next to it.
+        (project.findProperty("target-platform") as String?)
+            ?.takeUnless { project.hasProperty("split-per-abi") }
+            ?.let { platforms ->
+                val abis = mapOf("android-arm" to "armeabi-v7a", "android-arm64" to "arm64-v8a", "android-x64" to "x86_64")
+                ndk {
+                    abiFilters.clear()
+                    abiFilters += platforms.split(",").mapNotNull { abis[it.trim()] }
+                }
             }
-        }
     }
 
     signingConfigs {

@@ -10,6 +10,10 @@ the `?` overlay.
 Mark several comics at once, filter the Folders tab, read parts of a
 page in turn, and set how smooth scrolling feels.
 
+- **Android releases come as one APK per ABI** (armeabi-v7a, arm64-v8a,
+  x86_64), `make apks`, so 32-bit phones and x86_64 devices get the app
+  from F-Droid too and each phone downloads only its own libraries.
+
 - **Looking past a panel or part:** `↓` `↑` (`j` `k`) in guided view or
   on a part of a page (`H1`, `B2`, `Q3`...), and a drag on a part, show
   what they bring on screen bright instead of leaving it dimmed. The next
