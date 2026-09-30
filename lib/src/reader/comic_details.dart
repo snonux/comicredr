@@ -389,7 +389,7 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
         'Analysed',
         '$n of ${d.pageCount} pages'
             '${d.stale > 0 ? '; ${d.stale} more by an older detector, analysed again when shown' : ''}'
-            '${n < d.pageCount ? '. The rest are found as you read, or by the library pass.' : ''}',
+            '${n < d.pageCount ? '. The rest are found as you read.' : ''}',
         key: const Key('detailsAnalysed'),
       ),
       if (n > 0) ...[

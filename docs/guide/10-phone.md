@@ -23,7 +23,7 @@ These pictures are from the Android 14 emulator.
    settings page. Allow it, then come back. (Android 10 and older ask
    in a dialog instead.)
 4. `Comics` is now in the library. The folder button adds any other
-   folder.
+   folder: type its path, for example `/storage/emulated/0/Manga`.
 
 | | | |
 |---|---|---|
@@ -34,8 +34,9 @@ These pictures are from the Android 14 emulator.
 
 - The library's tabs are at the bottom, and tapping a cover opens a page
   with its details and a **Read** button. A long press does the same.
-- The reader's status line has buttons for guided view, balloons, the
-  page grid, bookmarks and fullscreen; see [Touch](08-touch.md) for the
+- The reader's status line puts the page number and the title on a line
+  of their own above its buttons: guided view, balloons (in guided view),
+  the page grid, bookmarks and fullscreen; see [Touch](08-touch.md) for the
   gestures.
 - The round play arrow at the top of the library's Reading tab carries
   on with the comic you read last, where you stopped, like `C` on the
@@ -54,21 +55,21 @@ These pictures are from the Android 14 emulator.
 
 A tablet is laid out like the laptop rather than like a big phone. The
 library's tabs run down the left side, and held sideways (or on any
-screen more than 1000 points wide) a tap on a cover shows its details
-beside the covers instead of on a page of their own.
+screen wide enough) a tap on a cover shows its details beside the covers
+instead of on a page of their own.
 
 ![The library on a 10-inch tablet held sideways](images/android-tablet-library.webp)
 
-- The reader's status line keeps the book's title and adds the details
-  button and one for [two pages side by side](04-reading.md#two-pages-side-by-side).
+- The reader's status line fits on one line and adds the details button
+  and, outside guided view, one for [two pages side by side](04-reading.md#two-pages-side-by-side).
   Held sideways, two pages fill a 10-inch screen about as well as one
   page fills it upright.
 - Turning the tablet, or putting ComicRedr in split screen next to
   another app, keeps the page, the zoom and the panel. The narrower
   ComicRedr's half of the screen gets, the more it looks like the phone:
-  below 600 points wide the tabs move to the bottom.
-- ComicRedr keeps more decoded pages in memory on a tablet, sized to its
-  screen, so turning pages stays quick at the higher resolution.
+  once it is about as narrow as a phone, the tabs move to the bottom.
+- ComicRedr keeps more pages ready on a tablet, so turning pages stays
+  quick on the bigger screen.
 
 ![Two pages side by side on a tablet held sideways, in fullscreen](images/android-tablet-spread.webp)
 
@@ -91,7 +92,9 @@ the comic and asks whether to go there:
 > This comic was last read on phone, up to page 24, panel 3. Go there?
 
 Your own keys and a detector model of your own can go onto the phone
-too: `make push-keys` and `make push-model MODEL=file.onnx` from the
-laptop.
+too: from a computer over USB, copy `keys.toml` to
+`Android/data/org.snonux.comicredr/files/` and a model to `Android/data/org.snonux.comicredr/files/models/`. If you build
+ComicRedr yourself, `make push-keys` and `make push-model MODEL=file.onnx`
+do that from the laptop.
 
 [Contents](README.md) · Previous: [The keyboard](09-keyboard.md) · Next: [Your data](11-your-data.md)

@@ -1,6 +1,6 @@
 # Installing ComicRedr on Android
 
-ComicRedr is a sideloaded app: it is not in Google Play. There are two
+ComicRedr is not in Google Play; you install it yourself. There are two
 ways to get it onto a phone or tablet; both are the same app, which lays
 itself out for the screen it is on.
 
@@ -56,15 +56,12 @@ make install-apk    # install it, keeping the app's data
 
 The APK carries the same built-in panel detector. It is built for arm64
 only; an older tablet with a 32-bit ARM processor, or an x86_64 one, is
-not supported (`make apk APK_ABI=android-arm64,android-x64` adds x86_64,
-for the emulator; see AGENTS.md).
+not supported.
 
 > **Back up `~/.config/comicredr/release.jks` and `android/key.properties`.**
 > Android only installs an update over the old app, keeping your library
 > and positions, when it is signed with the same key. On a new laptop,
 > restore both files instead of running `make keystore` again.
-> Built with the project's own release key, an APK and the F-Droid one
-> update each other.
 
 What to do on the device the first time is in
 [On a phone or tablet](guide/10-phone.md#first-start) in the guide.

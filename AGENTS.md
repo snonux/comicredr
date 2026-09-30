@@ -519,7 +519,7 @@ refreshes right away instead of within six hours.
   retry from 30 s doubling to 5 min, "S3 is back; N comics caught up".
   Keys `gu`, `gU`, `V` (marks, `_marked` in `LibraryScreenState`, with a
   bar over the grid; Ctrl+click; Select on a phone-wide header, Mark in
-  the wide details pane). Delete
+  the details pane or page). Delete
   of a comic on S3 offers Delete only here / Delete here and from S3
   (`DeleteChoice`). Tests override `secretStoreProvider` and
   `remoteStoreFactoryProvider`; `test/s3_sync_test.dart` runs two

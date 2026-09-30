@@ -13,8 +13,9 @@ Press `mm` (or the bookmark button on the status line) to bookmark the
 page you are on. In [guided view](05-guided-view.md) the bookmark
 remembers the panel too, so it takes you back to exactly that panel.
 
-A bookmarked page shows a ribbon in its top right corner, and a small
-amber notch on the progress bar marks where each bookmark is. Press `mm`
+A bookmarked page shows a ribbon at the top right of the screen (tap it
+for the list of bookmarks), and a small amber notch on the progress bar
+marks where each bookmark is. Press `mm`
 again on a bookmarked page to take the bookmark off.
 
 ![A bookmarked page: the ribbon at the top right](images/bookmark-ribbon.webp)
@@ -27,7 +28,8 @@ again on a bookmarked page to take the bookmark off.
 
 In the list, the arrow keys pick a bookmark and `Enter` jumps to it.
 `e` adds a short note ("the chase starts", "Sam should see this"),
-and `x` removes the bookmark. A click or tap on a row jumps there too.
+and `x` (or `mm`, or `Delete`) removes the bookmark. `gg` and `G` go to
+the first and last one. A click or tap on a row jumps there too.
 
 ![The list of a book's bookmarks, one with a note](images/bookmark-list.webp)
 

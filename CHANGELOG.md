@@ -14,6 +14,13 @@ page in turn, and set how smooth scrolling feels.
   x86_64), `make apks`, so 32-bit phones and x86_64 devices get the app
   from F-Droid too and each phone downloads only its own libraries.
 
+- **Usage guide in step with the app:** every chapter checked against
+  the code and put right where it had drifted, a new section on reading
+  manga right to left, and plainer wording throughout.
+- **Marking fixes:** Cancel on a single marked comic's delete or reset,
+  or on Remove from S3, now keeps the marks. A comic's details shown as
+  a page of their own (a narrow window, a tablet held upright) have
+  **Mark to act on several** too.
 - **Looking past a panel or part:** `↓` `↑` (`j` `k`) in guided view or
   on a part of a page (`H1`, `B2`, `Q3`...), and a drag on a part, show
   what they bring on screen bright instead of leaving it dimmed. The next

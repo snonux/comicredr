@@ -55,7 +55,7 @@ flowchart TB
 | `packages/comic_analysis` | Everything about what is on a page: the `Panel` type, classic computer-vision panel detection, the model's input and output format, reading order, the confidence gate, frame outlines, margin trimming and scan clean-up. |
 | `packages/reader_input` | Every action the reader can take is a named `ReaderIntent`. The default keymap, the vi-style resolver (counts like `5l`, sequences like `gg`) and the touch map all produce intents. |
 | `packages/comic_sync` | S3 sync (design plan section 13): `RemoteStore`, the one interface the app uses for a bucket, `S3Store` over the `minio` package (SigV4, path-style, multipart, streamed downloads, a 3 s connect timeout so a switched-off server fails fast), `MemoryStore` for tests, `checkConnection`, and the shelf: `BookObjects` (the bucket layout), `Manifest`, `listShelf`, `compareSidecars` (newest `written_at` wins). |
-| `lib/src/library` | The library screen: scanning folders, covers, series, collections, search, settings, the background detection pass. |
+| `lib/src/library` | The library screen: scanning folders, covers, series, collections, search, settings, delete and actions on several comics, the folder filter, shuffle, S3 actions. |
 | `lib/src/reader` | The reader: `ReaderNotifier` holds the reading state, `ReaderView` draws it, `PageCache` decodes pages, `PanelDetector` and `ModelDetector` find panels. |
 | `lib/src/data` | The app's index database (Drift/SQLite) and the per-comic `.crdb` sidecar files that carry panels, bookmarks and positions with the comic. |
 | `lib/src/input` | Turns Flutter key and pointer events into key tokens and gestures, and loads `keys.toml`. |
@@ -349,7 +349,7 @@ one, and `COMICREDR_MODEL=none` forces classic CV.
 flowchart LR
   subgraph disk["Beside the comic (or in one sidecar folder)"]
     comic[/"book.cbz"/]
-    crdb[("book.cbz.crdb<br/>SQLite: metadata edits, panels,<br/>balloons, bookmarks, collections,<br/>per-device positions")]
+    crdb[(".book.cbz.crdb<br/>SQLite: metadata edits, panels,<br/>balloons, bookmarks, collections,<br/>per-device positions")]
   end
   subgraph appdata["App data folder"]
     idx[("comicredr.sqlite<br/>index (Drift)")]
@@ -408,7 +408,7 @@ sequenceDiagram
   Note over L: offers the phone's place
 ```
 
-- **App data** goes in `~/Comics/.comicredr/` on a fresh Fedora install
+- **App data** goes in `~/Comics/.comicredr/` on a fresh Linux install
   that has a `~/Comics` folder, otherwise the usual XDG folders; Android
   keeps its private app folders. The `?` help shows which.
 
@@ -418,7 +418,7 @@ sequenceDiagram
 flowchart TB
   dart["Same Dart code: library, reader,<br/>formats, detection, input"]
   dart --> linux["Linux (GTK runner)<br/>linux/runner: fullscreen channel<br/>model opened in place in the bundle<br/>make install puts it in ~/.local"]
-  dart --> android["Android (sideloaded APK)<br/>All files access for real paths<br/>model copied out of the APK once<br/>immersive fullscreen, rescans on resume"]
+  dart --> android["Android (APK from F-Droid or built yourself)<br/>All files access for real paths<br/>model copied out of the APK once<br/>immersive fullscreen, rescans on resume"]
 ```
 
 Almost everything is shared. The platform-specific parts are small: the
