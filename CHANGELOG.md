@@ -5,7 +5,10 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
-## Unreleased
+## 0.5.0
+
+Mark several comics at once, filter the Folders tab, read parts of a
+page in turn, and set how smooth scrolling feels.
 
 - **Looking past a panel or part:** `↓` `↑` (`j` `k`) in guided view or
   on a part of a page (`H1`, `B2`, `Q3`...), and a drag on a part, show
