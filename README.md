@@ -9,7 +9,8 @@ panel by panel. It should work on any Linux distribution, but has only
 been tested on Fedora. Its **guided view** glides from one panel to the next, and
 from one speech balloon to the next, like Comixology did. It reads the
 comics you already have, runs entirely on your own machine, and needs no
-account, cloud or network.
+account or cloud service; if you want, it syncs through an S3 server of
+your own.
 
 **[Read the guide](docs/guide/README.md)**: installing, then every
 feature with screenshots and short animations, as a small book with a
@@ -31,7 +32,8 @@ table of contents.
 - A **library** of your comics folders: covers, series, folders, search,
   collections, favourites, bookmarks with notes and a reading history.
 - **Picks up where you left off**, on the same page, panel and zoom, and
-  carries that and your bookmarks to the phone or tablet with the file.
+  carries that and your bookmarks to the phone or tablet with the file,
+  or through your own S3 server (Garage, for example).
 - **Keyboard first**, with a vi layer for those who want it, full touch
   support, and every key and tap zone can be changed.
 - Free software under the Apache License 2.0.
@@ -69,8 +71,8 @@ Potion Contest*, by David Revoy, licensed
    searches them.
 
 **Carry on with [the guide](docs/guide/README.md)**: the library,
-reading, guided view, bookmarks, touch, the phone, your data and
-settings, one chapter each.
+reading, guided view, bookmarks, managing comics, touch, the keyboard,
+the phone, your data, settings and S3 sync, one chapter each.
 
 ## More
 

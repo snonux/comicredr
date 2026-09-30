@@ -10,9 +10,7 @@ any Linux distribution, but it has only been tested on Fedora.
 
 ![Guided view stepping from panel to panel](images/guided.gif)
 
-GitHub shows the animations paused when your system asks for reduced
-motion (or its own setting, Accessibility → Autoplay animated images, is
-off): click one to play it.
+If an animation doesn't move, click it to play it.
 
 In the app, `?` lists every key and searches them, so you never have to
 come back here for a key you forgot.
@@ -47,6 +45,7 @@ come back here for a key you forgot.
    - [Jump around with the progress bar](04-reading.md#jump-around-with-the-progress-bar)
    - [See every page at once](04-reading.md#see-every-page-at-once)
    - [Two pages side by side](04-reading.md#two-pages-side-by-side)
+   - [Manga: right to left](04-reading.md#manga-right-to-left)
    - [Zoom](04-reading.md#zoom)
      - [Smooth scrolling](04-reading.md#smooth-scrolling)
        - [How fast](04-reading.md#how-fast)
@@ -96,6 +95,7 @@ come back here for a key you forgot.
 13. [Syncing through S3](13-s3-sync.md)
     - [Setting it up](13-s3-sync.md#setting-it-up)
     - [Uploading comics](13-s3-sync.md#uploading-comics)
+      and [is it fully synced?](13-s3-sync.md#is-it-fully-synced-after-an-upload)
     - [The cloud on a cover](13-s3-sync.md#the-cloud-on-a-cover)
     - [On the other device](13-s3-sync.md#on-the-other-device)
     - [Carrying on where you left off](13-s3-sync.md#carrying-on-where-you-left-off)

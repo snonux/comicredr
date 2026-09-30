@@ -33,14 +33,14 @@ Put your comics in a folder called `Comics` in your home folder
 (`~/Comics`). The first time ComicRedr starts it finds that folder, adds
 it to the library and shows every comic in it as a cover.
 
-Keep them somewhere else? Press `A` (or click **Add your comics folder**)
-and pick the folder. You can add as many folders as you like.
+Keep them somewhere else? Press `A` (or click the folder button at the top
+of the library) and pick the folder. You can add as many folders as you like.
 
 ![The library on the first start: every comic in ~/Comics as a cover](images/library.webp)
 
 If ComicRedr finds no comics folder at all, it opens on a short welcome
-page with buttons to add a folder, open a single comic or open a folder
-of pages:
+page with buttons to add a folder, open a single comic, open a folder
+of pages or go to Settings:
 
 ![The welcome page of an empty library](images/empty.webp)
 
@@ -50,7 +50,8 @@ where they are; [On a phone or tablet](10-phone.md#first-start) walks through it
 ## Open a comic
 
 In the library, pick a cover with the arrow keys or the mouse and press
-`Enter` (or click it twice). The comic opens where you left off, or on
+`Enter` (or click it twice; in a narrow window one click shows its
+details, with a **Read** button). The comic opens where you left off, or on
 page 1 the first time.
 
 - `→` or `Space` turns the page, `←` goes back.
@@ -58,7 +59,8 @@ page 1 the first time.
 
 You can also open a single comic without adding it to the library:
 
-- `o` in the app opens a file picker.
+- `o` in the app, or the open button at the top of the library, opens a
+  file picker.
 - `comicredr book.cbz` from a terminal.
 - **Open With → ComicRedr** on a comic in the Files app.
 - Drag a comic onto the window.

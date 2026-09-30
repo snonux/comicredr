@@ -739,9 +739,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     return all.where((b) => keys.contains(b.key)).toList();
   }
 
-  Future<void> _s3Action(Future<void> Function() action) async {
-    await action();
-    if (mounted) {
+  /// Runs an S3 action on the marks; they clear unless it was cancelled.
+  Future<void> _s3Action(Future<Object?> Function() action) async {
+    final done = await action();
+    if (mounted && done != false) {
       _clearMarks();
       widget.keysFocus?.requestFocus();
     }
@@ -1056,6 +1057,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 onRead: read,
                 onBack: back,
                 onBeforeDelete: () => selectNeighbourOf(selectedItem.book.key),
+                marked: _marked.contains(selectedItem.book.key),
+                // Back to the covers, where taps go on marking.
+                onMark: () => setState(() {
+                  _anchor = null;
+                  _toggleMark(selectedItem.book);
+                  _selecting = _marked.isNotEmpty;
+                  _detail = false;
+                }),
               )
             : _detail && !wide && selectedItem is FolderItem
             ? FolderDetail(
@@ -1258,7 +1267,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Open a comic without adding it (o)',
             onPressed: widget.onOpenFile,
           ),
-          // Wider screens have Shift and Ctrl, and Mark in the details pane.
+          // Wider screens have Shift and Ctrl, and Mark in the details pane or page.
           if (narrow && !_listTab && tab != LibraryTab.bookmarks)
             IconButton(
               key: const Key('select'),

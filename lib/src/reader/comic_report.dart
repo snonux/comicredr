@@ -242,7 +242,7 @@ class DetectionSummary {
   final List<PageDetection> pages;
 
   /// Pages only an older detector has looked at; they are analysed again
-  /// when shown, or by the library pass.
+  /// when shown.
   final int stale;
 
   int get frames => pages.fold(0, (s, d) => s + d.frames);

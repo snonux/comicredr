@@ -44,8 +44,7 @@ Future<bool> deleteLibraryBooks(
   void Function()? beforeDelete,
 }) async {
   if (books.length == 1 && !books.single.remoteOnly) {
-    await deleteLibraryBook(context, ref, books.single, beforeDelete: beforeDelete);
-    return true;
+    return deleteLibraryBook(context, ref, books.single, beforeDelete: beforeDelete);
   }
   final messenger = ScaffoldMessenger.of(context);
   // Read up front: the widget [ref] belongs to may be gone after the dialog.
@@ -110,8 +109,7 @@ Future<bool> resetBooks(BuildContext context, WidgetRef ref, List<LibraryBook> b
   final todo = books.where((b) => !b.remoteOnly).toList();
   if (todo.isEmpty) return false;
   if (todo.length == 1) {
-    await resetBook(context, ref, todo.single);
-    return true;
+    return resetBook(context, ref, todo.single);
   }
   final messenger = ScaffoldMessenger.of(context);
   final sidecars = ref.read(sidecarSyncProvider);

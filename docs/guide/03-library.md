@@ -13,15 +13,23 @@ It is where the app opens, and `Esc` from a comic brings you back to it.
   and `PageDown` move a screenful, `Home` and `End` go to the first and
   last cover.
 - `Enter` opens the selected book, series or folder. With the mouse, one
-  click selects a cover and a second click opens it.
+  click opens a series or folder; on a book it selects the cover, and a
+  second click opens it.
+- In a narrower window (a phone, a tablet held upright, a small laptop
+  window) there is no room for details beside the covers, so one click or
+  tap on a book shows its details on a page of their own, with a **Read**
+  button.
 - `Tab` and `Shift+Tab` go to the next and previous tab.
 - `Esc` backs out one step: out of a series, a folder or a search.
 
 On a wide window the selected book's details sit beside the covers: its
-cover, how far you are, a **Read** (or **Continue reading**) button, a
-star for [Favourites](#favourites), **Edit**, its
-[collections](#collections), its [bookmarks](06-bookmarks.md) and the
-file's path.
+cover, how far you are, a **Read** (or **Continue reading**, or **Read
+again**) button, a star for [Favourites](#favourites), **Edit**, its
+[collections](#collections), its [bookmarks](06-bookmarks.md), the
+file's path, and buttons to [see its details, reset it or delete
+it](07-managing-comics.md) and to [mark it](#several-comics-at-once).
+A selected series shows a button to read its next book, and on the
+Series tab **Rename**.
 
 On the phone the tabs sit along the bottom, and a tap on a cover opens a
 page with the same details:
@@ -35,13 +43,16 @@ Small marks on the covers tell you where you are:
 
 - a **thin bar** along the bottom: you are part way through it;
 - a **green check**: you have read it to the end;
-- an **amber star**: it is one of your favourites.
+- an **amber star**: it is one of your favourites;
+- a **number** on a series or folder: how many comics are in it;
+- a **tick**: it is [marked](#several-comics-at-once);
+- a **cloud**: it is [on S3](13-s3-sync.md#the-cloud-on-a-cover).
 
 ## The tabs
 
 | Tab | What it shows |
 |---|---|
-| **Reading** | The books you have started, unfinished ones first, most recent first. ComicRedr opens on this tab once you have started a book. |
+| **Reading** | The books you have started, unfinished ones first, most recent first. ComicRedr opens on this tab while a book is part way read, otherwise on Series. |
 | **Series** | One cover per series. A series with more than one book opens to show its books. |
 | **Books** | Every book, series by series, in issue order. |
 | **Collections** | Your own groups of books, including [Favourites](#favourites). |
@@ -81,10 +92,13 @@ subfolders and comics, as they are on disk.
 
 #### Shuffle
 
-Press `S` on the Folders tab and each comic shows a random page from
-inside it instead of its cover. It is a nice way to rediscover what you
-have. `gs` picks other pages, and `S` again brings the covers back.
-Opening a book still starts where you left off.
+Press `S` on the Folders tab (or its shuffle button at the top) and each
+comic shows a random page from inside it instead of its cover. It is a
+nice way to rediscover what you have. `gs` (or the dice button beside
+it) picks other pages, and `S` again brings the covers back. On a phone,
+where there is no room for the dice, press shuffle twice. Opening a book
+still starts where you left off, and shuffle stays on until you turn it
+off, across restarts.
 
 ![Shuffle: each comic shows a random page](images/shuffle.webp)
 
@@ -101,8 +115,9 @@ the search box, to show only some of your comics:
 - **Modified**: the file's own date, as your file manager shows it: the
   last 24 hours, 7 days, 30 days or 12 months, or over a year ago.
 
-The covers change as you pick, behind the window; `Tab` and `Space` work
-it from the keyboard and `Esc` or **Done** closes it. The three combine,
+The covers behind the window update as you pick. From the keyboard,
+`Tab` moves between the choices and `Space` picks one; `Esc` or **Done**
+closes the window. The three combine,
 and they combine with the search too: PDFs from the last week with
 "love" in the title is `F`, PDF, Last 7 days, then `/` and `love`.
 
@@ -123,7 +138,7 @@ The History tab lists every time you sat down with a comic, grouped by
 day: when you started, how long you read and how many pages you saw.
 Coming back to the same book within two minutes counts as the same
 sitting, and a quick glance (one page for a few seconds) is not
-listed. Click a row to open the book there.
+listed. Click a row to open the book where you left off.
 
 ![The History tab](images/history.webp)
 
@@ -135,8 +150,8 @@ bookmarks and collections stay.
 Press `/` (or click the search box) and type. The covers narrow down as
 you type. Every word has to match somewhere in the title, series, issue,
 year, writers, artists or file name, ignoring case, so `top 1959`
-finds *All Top Comics 6*. A series or folder stays when any book in it
-matches. On the Bookmarks tab the search looks in your notes too.
+finds *All Top Comics 6*. A series or folder stays when its name or any
+book in it matches. On the Bookmarks tab the search looks in your notes too.
 
 `Enter` jumps to the first match; `Esc` clears the search.
 
@@ -148,7 +163,8 @@ Press `*` on a cover (or in a comic you are reading) to add it to your
 Favourites; press it again to take it out. The star in a book's details
 does the same.
 
-`gf`, or the star at the top of the library, shows your Favourites. There
+`gf`, or the star at the top of the library, shows your Favourites (from
+inside a comic, `gf` closes it first). There
 `x` takes the selected comic out again, with an **Undo** in case it was a
 slip.
 
@@ -160,16 +176,18 @@ A collection is a named group of books you make yourself: *To read
 next*, *Lent to Sam*, *Space stories*. A book can be in any number of
 them.
 
-- In a book's details, click **Add to a collection**, type a new name or
-  pick one you already have, and click **Add**.
+- In a book's details, click **Add to a collection**, then type a new
+  name and click **Add** (or press `Enter`), or click one you already
+  have.
 - The **x** on a collection's chip in the book's details takes the book
   out.
 - The Collections tab shows each collection as a cover; open one to see
   its books.
 
 Favourites is simply a collection called *Favourites*. Collections are
-kept in each comic's [sidecar file](11-your-data.md), so they follow the
-comic to your phone.
+kept in each comic's [sidecar file](11-your-data.md) (a small hidden file
+beside the comic that also holds your place and bookmarks), so they
+follow the comic to your phone.
 
 ## Several comics at once
 
@@ -189,12 +207,12 @@ into a folder, press `Shift+End`, and every comic in it is marked.
 - With the mouse, `Ctrl`+click marks or unmarks one cover and
   `Shift`+click marks everything from the selected cover to the one you
   click.
-- On a phone, the **Select** button at the top (the list with ticks)
-  turns taps into marking until you press it again. On a wider screen,
-  **Mark to act on several** in a comic's details beside the covers
-  marks it and does the same, so a touchscreen needs no keyboard.
+- On a phone, the button with a ticked list at the top turns taps into
+  marking until you press it again. On any screen, **Mark to act on
+  several** in a comic's details marks it and does the same, so a
+  touchscreen needs no keyboard.
 
-Folders and series in the way are passed over: marks are for comics.
+Only comics get marked; folders and series in between are skipped.
 Marked covers show a tick, and a bar over the covers says how many are
 marked, with what you can do to all of them at once:
 
@@ -213,8 +231,8 @@ marked, with what you can do to all of them at once:
 | **Clear** | `Esc` | Unmark them all |
 
 The S3 buttons only show once [S3 sync](13-s3-sync.md) is set up.
-Each asks once for the whole lot where it would ask for one comic, and
-the marks go when it is done; if you cancel, they stay.
+Each action asks once for the whole lot, not once per comic.
+The marks go once it is done; if you cancel, they stay.
 
 For example, to clear out a folder of comics you have finished: open it
 on the Folders tab, press `Shift+End`, then `gd`. The dialog lists them,
@@ -224,18 +242,23 @@ check the list and click **Delete 7 for good**.
 ## Adding, rescanning and taking out folders
 
 - `A`, or the folder button at the top, adds another folder.
-- `R` rescans the library folders. You rarely need it: ComicRedr notices
-  new, changed and deleted comics by itself.
+- `R`, or the rescan button at the top of the Folders tab, rescans the
+  library folders. You rarely need it: ComicRedr notices new, changed and
+  deleted comics by itself.
 - To take a folder out of the library, select it at the top of the
-  Folders tab and click **Take out of the library (the files stay)** in
-  its details. Your comics are not touched.
+  Folders tab (on a phone, hold your finger on it) and click **Take out
+  of the library (the files stay)** in its details. Your comics are not
+  touched.
 - Comics kept elsewhere, on a NAS or another disk, can be linked in: a
-  symlink to a comic or to a folder of comics inside a library folder is
-  listed like the real thing.
+  link (a symlink, made in your file manager or with `ln -s`) to a comic
+  or to a folder of comics inside a library folder is listed like the
+  real thing.
 
 The first scan reads each comic once, about a third of a second a book.
 After that, starting the app only checks what changed. The line at the
-bottom shows the scan's progress. Panels are only looked for in the
+bottom shows the scan's progress. When a file can't be read (a broken
+download, a text-only ebook), it says how many; click that to see each
+file and why. Panels are only looked for in the
 comic you have open, never across the whole library (see
 [how panels are found](05-guided-view.md#how-panels-are-found)).
 

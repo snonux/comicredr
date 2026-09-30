@@ -7,21 +7,23 @@ a thin status line along the bottom.
 
 ![A page, with the status line and the progress bar at the bottom](images/page.webp)
 
-On the phone the status line keeps just the page number and the buttons;
-on a tablet it has room for the book's title too.
-Here the page has a bookmark: the ribbon at the top, and amber notches on
-the progress bar for each bookmark in the book.
+On the phone the page number and the book's title get a line of their
+own above the buttons. Here the page has a bookmark: the ribbon at the
+top right, and amber notches on the progress bar for each bookmark in
+the book.
 
 <img src="images/android-reader.webp" width="260" alt="A page on an Android phone, with a bookmark ribbon">
 
 The status line shows the book, the page you are on, and what mode you
-are in. Its buttons on the right switch [guided view](05-guided-view.md),
-open the [page grid](#see-every-page-at-once), the
-[details](07-managing-comics.md#details-of-a-comic), set a
+are in. Its buttons on the right switch [guided view](05-guided-view.md)
+(and, in guided view, [balloons](05-guided-view.md#balloon-by-balloon)),
+open the [page grid](#see-every-page-at-once), set a
 [bookmark](06-bookmarks.md), list the bookmarks, and go
 [fullscreen](#fullscreen). Where the screen is wide enough (the laptop, a
-tablet) one more button shows
-[two pages side by side](#two-pages-side-by-side). Hover over a button to see its key. The
+tablet) there are two more: the comic's
+[details](07-managing-comics.md#details-of-a-comic), and, outside guided
+view, [two pages side by side](#two-pages-side-by-side). Hover over a
+button to see its key. The
 arrow on the left does what `Esc` does: out of guided view, then back to
 the library (on the phone, the back gesture does that).
 
@@ -31,8 +33,8 @@ the library (on the phone, the back gesture does that).
 |---|---|
 | `→` `Space` `l` | Next page (next panel in guided view) |
 | `←` `Shift+Space` `h` | Previous page |
-| `PageDown` `PageUp` | Next or previous page, even in guided view |
-| `Home` `End` | First or last page |
+| `PageDown` `PageUp` (or `Ctrl+f` `Ctrl+b`) | Next or previous page, even in guided view |
+| `Home` `End` (or `gg` `G`) | First or last page |
 | `12G` | Page 12: type the number, then `G` |
 | `]` `[` | Next or previous book in the series (or in the same folder) |
 | `Esc` | Back to the library |
@@ -58,8 +60,8 @@ were before the jump.
 
 Press `p` (or the grid button) for a grid of every page. Pick one with
 the arrow keys and `Enter`, or click it. `+` and `-` (or `Ctrl` and the
-mouse wheel, or a pinch on a touchpad) make the pages bigger or smaller,
-and the grid remembers the size. `Esc` or `p` closes it.
+mouse wheel, or a pinch on a touchpad or touchscreen) make the pages
+bigger or smaller, `=` puts the size back, and the grid remembers it. `Esc` or `p` closes it.
 
 ![The page grid](images/pages.webp)
 
@@ -81,33 +83,49 @@ enough, which on a tablet held sideways makes the most of the screen.
   shifts the pairing by one page.
 - A scanned double-page spread (a page wider than it is tall) is shown
   alone, and the pairing carries on correctly after it.
-- `r` switches the reading direction to right to left and back. This is
-  remembered for each book.
 
-`Tab` cycles through single pages, two-page spreads and guided view.
+`Tab` cycles through single pages, two-page spreads and guided view;
+`Shift+Tab` goes the other way.
+
+## Manga: right to left
+
+`r` switches a comic to reading right to left, and back. The status line
+then says **RTL**, and everything follows the direction: of two pages
+side by side the earlier is on the right, guided view reads panels and
+balloons from the right.
+
+The keys and taps follow the page: in a manga the next page is on the
+left, so `←`, `h`, a tap on the left edge and a swipe to the right go on,
+and `→`, `l` and the right edge go back. `Space` and `Shift+Space` swap
+too, so in a manga `Shift+Space` goes on. `PageDown` and `PageUp` always
+mean next and previous page.
+
+The direction is remembered for each comic, and a comic whose file marks
+it as right-to-left manga (in its `ComicInfo.xml`, or an EPUB's reading
+direction) opens that way by itself.
 
 ## Zoom
 
 | Key | What it does |
 |---|---|
 | `+` `-` | Zoom in and out |
-| `=` | Back to the whole page |
+| `=` | Undo the zoom: back to the fit you picked (the whole page, unless you chose `zw` or `zh`) |
 | `Z` | Zoom in on the middle of the screen, or back out |
-| `zw` `zh` `zz` | Fit the width, the height, or the whole page |
+| `zw` `zh` `zz` | Fit the width, the height, or the whole page; remembered for the comic, and a new comic starts with the fit you last used |
 | `j` `k` (or `↓` `↑`) | Move down and up a zoomed page |
 | `←` `→` | Move left and right across a zoomed page, then turn the page from its edge |
 
 With the mouse, drag a zoomed page to move around. On a touchscreen,
 pinch to zoom, drag to move, and double-tap the middle to zoom in on that
-spot. A zoomed page stays sharp: ComicRedr decodes the part you look at
-again at the higher size.
+spot. A zoomed page stays sharp: ComicRedr redraws the part you look at
+in full detail.
 
 ### Smooth scrolling
 
 On a zoomed page the arrow keys (and `j` `k`) glide rather than jump:
 each press slides the page about a seventh of the screen, easing into
-the move and out of it again, and holding a key down keeps it sliding at an even speed until you
-let go. The page stops at its own edge, not in the dark margin beside it.
+the move and out of it again. Holding a key down keeps it sliding at an
+even speed until you let go. The page stops at its own edge, not in the dark margin beside it.
 
 `←` and `→` move across the page while there is more of it to see that
 way. At the edge, a held key stays there; press it again to turn the
@@ -121,7 +139,8 @@ page too. Whatever they bring on screen is shown bright, not dimmed, so
 you can look past the edge of a panel or part; the rest of the page
 stays dim. The next `→` or `←` frames the next panel or part as usual,
 with the dimming around it again; in guided view `zz` goes back to the
-one you were on. On a part outside guided view a drag does the same.
+one you were on. Outside guided view, dragging a part of a page with the
+mouse or a finger lights what you bring on screen in the same way.
 
 Say you zoom in on a dense golden-age page with `+` a few times. Hold
 `→` to read along a row of panels; it stops at the page's right edge.
@@ -135,7 +154,8 @@ turned on in your system settings, each press jumps straight there.
 status line says which of the five speeds you are on, from **Slowest**
 to **Fastest**. A faster speed moves further with each press, so a held
 key covers the page quicker too: at **Fastest** a press goes about a
-quarter of the screen, at **Slowest** about a twelfth. The speed is kept for every comic and across restarts, and
+quarter of the screen, at **Slowest** about a twelfth. The speed is kept
+for every comic and across restarts, and
 [Settings](12-settings.md) has the same choice as a slider under
 **Pages**.
 
@@ -203,8 +223,7 @@ The arrow keys still move the way they point on the screen.
 
 **Clean-up** (`c`) is for old, yellowed scans. It whitens the paper,
 darkens faded ink, and enlarges and sharpens pages that have fewer pixels
-than your screen. The comic file itself is never changed. Settings can
-turn it on for every comic.
+than your screen. The comic file itself is never changed.
 
 ![A 1947 scan before and after clean-up](images/cleanup.webp)
 
@@ -213,6 +232,10 @@ page itself fills the screen.
 
 The **night filter** (`i`) dims the page and warms its colours, for
 reading in the dark without the white paper glaring at you.
+
+Clean-up, trim and the night filter each stay on for every comic, even
+after a restart, until you press the key again. Settings → **Pages** has
+the clean-up switch too.
 
 ![The night filter](images/night.webp)
 

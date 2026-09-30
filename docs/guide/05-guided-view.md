@@ -9,9 +9,8 @@ but dimmed, so you never lose your place.
 
 ![Guided view: the page whole, then panel by panel](images/guided.gif)
 
-This chapter has six short animations. GitHub shows them paused when
-your system asks for reduced motion (or when its own setting,
-Accessibility → Autoplay animated images, is off): click one to play it.
+This chapter has six short animations. If one doesn't move, click it to
+play it.
 
 ## Panel by panel
 
@@ -68,8 +67,9 @@ wonderful on small screens and dense golden-age pages. `b` again goes back
 to whole panels. Pressed outside guided view, `b` turns guided view on
 with balloons.
 
-Narration boxes (captions) are not balloons, so balloon mode doesn't stop
-on them; they are read as part of the panel.
+Narration boxes (captions) are not balloons, and balloon mode is meant to
+skip them and read them as part of the panel; it mostly does, but now and
+then it stops on one.
 
 ![Balloon mode steps through the speech balloons](images/balloons.gif)
 
@@ -84,7 +84,8 @@ Not every page can be guided. A splash page, a cover, an advert or a page
 of text has no panels to step through, and on some old scans the panel
 finder isn't sure enough. Rather than move the camera somewhere wrong,
 ComicRedr then shows the page whole and says why on the status line, for
-example `guided: whole page (1 panel(s): nothing to guide through)`.
+example `guided: whole page (1 panel(s): nothing to guide through)`,
+which means only one panel was found.
 
 ![A splash page shown whole in guided view](images/held-whole.webp)
 
@@ -92,7 +93,9 @@ example `guided: whole page (1 panel(s): nothing to guide through)`.
 
 When you are pressing `→` panel after panel, it is easy to skip past a
 splash page without really looking at it. So as soon as guided view
-shows a page whole, the background turns a dark wine red to tell you.
+has to show a page whole because it has no panels it trusts enough to
+step through, the
+background turns a dark wine red to tell you.
 
 - Press `→` within 2 seconds of arriving and the page stays: it zooms
   out a little and back, to say you are still on it. The next `→` turns
@@ -118,13 +121,15 @@ a few seconds on it and one `→` is enough.
 
 ## How panels are found
 
-ComicRedr finds panels and balloons with a small detector model that is
-built into the app and runs on your own computer's processor, about a
-fifth of a second a page. Nothing leaves your machine.
+ComicRedr finds panels and balloons with a small detector (a trained
+model, a kind of image recogniser) that is built into the app and runs
+on your own computer or phone, about a fifth of a second a page on a
+laptop. Nothing leaves your machine.
 
 - Panels are found in the background for the comic you have open, with
-  guided view on or off: first the page you are on and the next two,
-  then the rest of the comic ahead of you at low priority. So guided view
+  guided view on or off: first the page you are on, the two after it and
+  the one before, then the rest of the comic ahead of you, a little at a
+  time. So guided view
   is usually ready before you get there. Other comics are left alone
   until you open them, and closing a comic stops the work.
 - The results are saved in the comic's [sidecar file](11-your-data.md),

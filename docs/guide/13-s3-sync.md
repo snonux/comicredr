@@ -52,9 +52,10 @@ uploads every comic in it.
 To upload several at once, [mark them first](03-library.md#several-comics-at-once):
 `Shift` and the arrow keys mark a run, `Ctrl+A` everything shown, `V` the
 selected cover, Ctrl+click and Shift+click with the mouse, and on a
-phone the **Select** button (the list with ticks) in the header turns
-taps into marking. Marked covers show a tick, and a bar over the grid says how
-many are marked, with **Upload to S3**, **Download**, **Remove from S3**
+phone the button with a ticked list in the header turns taps into
+marking (on any screen, **Mark to act on several** in a comic's
+details does the same). Marked covers show a tick, and a bar over the
+grid says how many are marked, with **Upload to S3**, **Download**, **Remove from S3**
 and the other actions on several comics. `gu` uploads the marked ones,
 `gU` takes them off S3; Esc clears the marks.
 
@@ -70,10 +71,9 @@ says when it is done.
 ![Reading on while the comic goes up: S3 ↑ 51% on the status line](images/s3-reader-upload.webp)
 
 A comic that is in the bucket already, uploaded from the other device
-or before, is not sent again: the same content (ComicRedr compares the
-comic's own bytes, so the file name does not matter) and the same size
-means it is there. Only the sidecars are brought in step, the newest
-winning: if the bucket's is newer, it replaces the one on this device
+or before, is not sent again, even under another file name (ComicRedr
+recognises a comic by what is in it). Only the sidecars are brought in
+step, and the newer one wins: if the bucket's is newer, it replaces the one on this device
 and you get the other device's place; if yours is newer, it goes up.
 The notice then says "… was on S3 already; its newest sidecar is on
 both". A comic in the bucket at a different size, like an upload that
@@ -118,8 +118,8 @@ five minutes.
 
 Open such a comic (a tap on a phone, Enter on the laptop) and its page
 has a **Download** button with the size. The comic goes into the same
-folder under your first library folder (`~/Comics` on Linux,
-`Comics` on the phone's storage), with its sidecar, so it opens with its
+folder under your first library folder (for example `~/Comics`), with
+its sidecar, so it opens with its
 panels found and at the place you left it on the other device. Marked
 comics are downloaded together with **Download** in the bar.
 
@@ -193,8 +193,9 @@ If the bucket is off, the removal waits and happens when it is back.
 The secret key is kept in the system keyring: GNOME Keyring (or
 another Secret Service) on Linux, the Android Keystore on the phone.
 When no keyring answers, as in a bare window manager session, it goes
-in `~/.config/comicredr/s3-secret` instead, a file only you can read;
-the note under the field says which one is in use. It is never shown
+in `~/.config/comicredr/s3-secret` instead, a file only you can read.
+After **Save**, a notice says which one is in use, and the note under
+the field says so from then on. It is never shown
 again, never in the app's database or a sidecar, and never in an
 [exported settings file](11-your-data.md#back-up-and-restore-your-settings).
 To change it, type the new one; leave the field empty to keep it.
