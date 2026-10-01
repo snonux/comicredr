@@ -14,22 +14,25 @@ own gestures are the same on all of them.
 | Tap the left edge | Back |
 | Tap the middle | Fullscreen on and off (and with it the status line) |
 | Swipe left or right | Next or back |
-| Double-tap the middle | Zoom in on that spot, or back out |
+| Double-tap the middle column | Zoom in on that spot, or back out (in guided view, on a panel: centre it again) |
 | Pinch | Zoom |
 | Drag | Move around a zoomed page |
 | Hold a finger on the middle | [The time](04-reading.md#what-time-is-it) |
 | Drag along the progress bar | Preview pages, and let go to jump |
 | Pinch the page grid | Bigger or smaller pages; drag to scroll, tap one to go there |
 
-The buttons on the status line do the rest: guided view, balloons, the
-page grid, bookmarks and fullscreen. On Android, the back gesture works
+The buttons on the status line do the rest: guided view, balloons (in
+guided view), the page grid, a bookmark here, the list of bookmarks and
+fullscreen; on a wider screen also the comic's details and two pages side
+by side. On Android, the back gesture works
 like `Esc`: it leaves guided view, then the book. On Linux the status
 line starts with a back arrow that does the same. In fullscreen, tap the
 middle first to bring the status line back.
 
-In the library, tap a cover to pick it and tap it again to open it (on
-the phone, and on a tablet held upright, the first tap shows its details
-on a page of their own, with a **Read** button). A
+In the library, on a wide screen, tap a cover to pick it and tap it
+again to open it. On a narrower one (a phone, a tablet held upright, a
+small window) the first tap shows its details on a page of their own,
+with a **Read** button. A
 long press shows a cover's details, and a finger scrolls the covers.
 
 ## The tap zones
@@ -73,7 +76,11 @@ longPress = [
 ]
 ```
 
-Your lines go on top of the layout picked in Settings. Pinch zoom and
+Each action is called by its name in [docs/keys.toml](../keys.toml)
+(`nextStep`, `bookmark`, `fullscreen`, …), and `""` does nothing. A line
+replaces that whole gesture, which is why the example keeps the time in
+the middle. The gestures you don't list keep what the layout picked in
+Settings gives them. Pinch zoom and
 dragging a zoomed page always work and can't be changed.
 
 [Contents](README.md) · Previous: [Managing your comics](07-managing-comics.md) · Next: [The keyboard](09-keyboard.md)

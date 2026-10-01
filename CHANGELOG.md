@@ -5,8 +5,9 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
-## Unreleased
+## 0.5.0
 
+<<<<<<< HEAD
 - **Four strips:** `L1`-`L4` enlarge four full-width strips of a page,
   top to bottom, and `→` `←` go on strip by strip like the other parts.
 - **Page parts by number:** `11` `12`, `21`-`23`, `31`-`34` (strips) and
@@ -16,6 +17,22 @@ the `?` overlay.
 - **The whole page before it turns:** reading in parts, the step after
   the last part shows the page whole before the next page comes; back
   from the first part the same.
+=======
+Mark several comics at once, filter the Folders tab, read parts of a
+page in turn, and set how smooth scrolling feels.
+
+- **Android releases come as one APK per ABI** (armeabi-v7a, arm64-v8a,
+  x86_64), `make apks`, so 32-bit phones and x86_64 devices get the app
+  from F-Droid too and each phone downloads only its own libraries.
+
+- **Usage guide in step with the app:** every chapter checked against
+  the code and put right where it had drifted, a new section on reading
+  manga right to left, and plainer wording throughout.
+- **Marking fixes:** Cancel on a single marked comic's delete or reset,
+  or on Remove from S3, now keeps the marks. A comic's details shown as
+  a page of their own (a narrow window, a tablet held upright) have
+  **Mark to act on several** too.
+>>>>>>> origin/main
 - **Looking past a panel or part:** `↓` `↑` (`j` `k`) in guided view or
   on a part of a page (`H1`, `B2`, `Q3`...), and a drag on a part, show
   what they bring on screen bright instead of leaving it dimmed. The next

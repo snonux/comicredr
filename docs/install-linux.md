@@ -62,12 +62,14 @@ builds `build/comicredr-VERSION-linux-x64.tar.gz`; unpack it there and run
 ## Another detector model
 
 To try another model without rebuilding, `make install-model
-MODEL=file.onnx` (or `make push-model` for the phone) puts it beside the
-app, where it wins over the built-in one until the next `make install`
-(or `make install-apk`) moves it aside to `comicredr-panels.onnx.old`.
-`make install KEEP_MODEL=1` keeps it. A build made with `make NO_MODEL=1`
-has no model and finds panels with classic computer vision, without
-balloons.
+MODEL=file.onnx` (or `make push-model` for the phone) puts it in the
+app's own folder ([The app's own folder](guide/11-your-data.md#the-apps-own-folder)
+says where), where it wins over the built-in one. The next `make install`
+(or `make install-apk`) moves it aside to `comicredr-panels.onnx.old`, so
+the app goes back to the model it was built with; `make install
+KEEP_MODEL=1` keeps yours. A build made with `make NO_MODEL=1` has no
+model and finds panels with classic computer vision: no balloons, and
+less accurate.
 
 Where the built-in model comes from, and how to train it again, is in
 [Training the detector](training.md).

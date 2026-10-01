@@ -37,8 +37,8 @@ void main() {
     tmp.deleteSync(recursive: true);
   });
 
-  Future<ProviderContainer> pumpApp(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1280, 800);
+  Future<ProviderContainer> pumpApp(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -76,8 +76,8 @@ void main() {
 
   /// The Folders tab, inside the library folder, with its first comic
   /// selected.
-  Future<ProviderContainer> inFolder(WidgetTester tester) async {
-    final c = await pumpApp(tester);
+  Future<ProviderContainer> inFolder(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
+    final c = await pumpApp(tester, size: size);
     await tester.runAsync(() async {
       await c.read(libraryStoreProvider).addRoot(root.path);
       await c.read(scannerProvider).scan();
@@ -154,6 +154,39 @@ void main() {
     await tester.tap(find.text('B').first);
     await settle(tester);
     expect(find.byKey(const Key('marksBar')), findsNothing);
+  });
+
+  testWidgets('Mark on the details page of a narrower window goes back to marking covers', (tester) async {
+    // Below 1000 wide a tap on a cover opens its details as a page, with
+    // no pane beside the covers and no Select button above 600.
+    await inFolder(tester, size: const Size(800, 900));
+    await tester.tap(find.text('B').first);
+    await settle(tester);
+    await tester.drag(find.byKey(const Key('detail')), const Offset(0, -1000));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('markBook')));
+    await settle(tester);
+    expect(count(), '1 selected');
+    await tester.tap(find.text('A').first);
+    await settle(tester);
+    expect(count(), '2 selected');
+  });
+
+  testWidgets('Cancel keeps a single mark, for delete and reset alike', (tester) async {
+    await inFolder(tester);
+    await key(tester, LogicalKeyboardKey.keyV, character: 'V');
+    expect(count(), '1 selected');
+    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyD, character: 'd');
+    expect(find.byKey(const Key('deleteDialog')), findsOneWidget);
+    await key(tester, LogicalKeyboardKey.escape);
+    expect(find.byKey(const Key('deleteDialog')), findsNothing);
+    expect(files.map((f) => File(f).existsSync()), everyElement(isTrue));
+    expect(count(), '1 selected');
+    await key(tester, LogicalKeyboardKey.keyX, character: 'X');
+    expect(find.textContaining('Reset'), findsWidgets);
+    await key(tester, LogicalKeyboardKey.escape);
+    expect(count(), '1 selected');
   });
 
   testWidgets('gd deletes every marked comic after one question', (tester) async {

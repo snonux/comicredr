@@ -70,13 +70,14 @@ Future<void> downloadBooks(BuildContext context, WidgetRef ref, List<LibraryBook
 }
 
 /// Takes [books] off S3 after asking; nothing on this device changes.
-Future<void> removeBooksFromS3(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
+/// False when nothing was taken off: none on S3, or cancelled.
+Future<bool> removeBooksFromS3(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
   final todo = books.where((b) => b.s3 != null).toList();
   if (todo.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(books.length == 1 ? '${books.first.name} is not on S3' : 'None of these is on S3')),
     );
-    return;
+    return false;
   }
   final what = todo.length == 1 ? todo.first.name : '${todo.length} comics';
   final local = todo.where((b) => !b.remoteOnly).length;
@@ -113,8 +114,9 @@ Future<void> removeBooksFromS3(BuildContext context, WidgetRef ref, List<Library
       ],
     ),
   );
-  if (ok != true) return;
+  if (ok != true) return false;
   unawaited(ref.read(s3SyncProvider).removeFromS3(todo.map((b) => b.key)));
+  return true;
 }
 
 /// "On S3 since 26 Sep, uploaded from ThinkPad", for the details.

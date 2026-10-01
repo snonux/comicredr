@@ -1,0 +1,7 @@
+* Mark several comics (Shift+arrows, Ctrl+A, Select) and delete, reset, favourite or sync them all at once.
+* Filter the Folders tab by type, size and date.
+* Parts of a page (H1, B1, Q1) read page by page.
+* Smooth scrolling: pick its speed and smoothness in Settings.
+* Guided view lights what a pan brings on screen.
+* S3 sync skips comics already in the bucket; new default folder Comics/.
+* Also in this update: S3 sync, tablet layouts, Continue reading and settings backup.

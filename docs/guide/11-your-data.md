@@ -3,8 +3,10 @@
 [Contents](README.md) · Previous: [On a phone or tablet](10-phone.md) · Next: [Settings](12-settings.md)
 
 ComicRedr keeps everything on your own machine, in two places: a small
-file beside each comic, and one folder for the app itself. Nothing is
-sent anywhere, and there is no account.
+file beside each comic, and one folder for the app itself. There is no
+account, and nothing is sent anywhere, unless you set up
+[S3 sync](13-s3-sync.md), which sends only the comics you upload, and
+their sidecars, to a server of your own.
 
 ## The sidecar beside each comic
 
@@ -50,14 +52,16 @@ page thumbnails, your `keys.toml` and a detector model of your own are
 kept in one folder. `?` shows which:
 
 - `~/Comics/.comicredr/` when you have a `~/Comics` folder. Nothing of
-  ComicRedr's is then written outside `~/Comics`, so backing up that one
-  folder backs up everything.
+  ComicRedr's is then written outside `~/Comics` (except an S3 secret key,
+  which stays in your keyring or `~/.config/comicredr/`), so backing up
+  that one folder backs up everything.
 - Otherwise `~/.local/share/org.snonux.comicredr/`, with covers in
   `~/.cache/org.snonux.comicredr/` and `keys.toml` in
   `~/.config/comicredr/`. An install that already keeps its data there
   goes on doing so.
-- On the phone, the app's private storage, with `keys.toml` and an added
-  model in `Android/data/org.snonux.comicredr/files/`.
+- On the phone, the app's private storage, with `keys.toml` in
+  `Android/data/org.snonux.comicredr/files/` and an added model in
+  `Android/data/org.snonux.comicredr/files/models/`.
 
 Deleting that folder starts ComicRedr afresh. Add your comic folders
 again and one scan brings back everything the sidecars hold: positions,
@@ -90,11 +94,11 @@ All files access and import.
 
 - On the laptop, a save dialog asks where the file goes. On the phone,
   pick a folder; the file is made there, never over another one.
-- Your settings become the file's, except where this device keeps its
-  sidecars and whether it writes them: those change only when the file
-  sets them, so a file from the laptop never moves the phone's sidecars.
-  Positions, bookmarks, collections,
-  edits and history are merged with what is already there, the same way
+- Your settings are replaced by the ones in the file. Three things are
+  left alone unless the file sets them: where this device keeps its
+  sidecars, whether it writes them, and the S3 settings. So a file from
+  the laptop never moves the phone's sidecars.
+- Positions, bookmarks, collections, edits and history are merged with what is already there, the same way
   two sidecars are: the later position wins, and a bookmark you took off
   stays off. Importing twice is the same as importing once.
 - Comics are recognised by their content, so positions and bookmarks
@@ -104,12 +108,13 @@ All files access and import.
   folders; it never takes one out, and taking `~/Comics` out of the
   library stays each device's own choice.
 - A `keys.toml` already there is kept as `keys.toml.bak` when the file's
-  is different. Should it fail to be written, the notice says so; the
-  rest is imported all together or not at all.
+  is different. If the new one can't be written, the notice says so, and
+  everything else is still imported.
 - Not in the file: the comics, their covers, thumbnails and panels (a
-  scan and the sidecars bring those back; panels would make the file
-  megabytes), a detector model you added (copy that file yourself), and
-  the device's name for the sidecars, which stays each device's own.
+  scan and the sidecars bring those back), a detector model you added
+  (copy that file yourself), the S3 secret key, the list `C` carries on
+  from, and the device's name for the sidecars, which stays each
+  device's own.
 - A file from another app, or from a newer ComicRedr, is refused with a
   message saying why; settings a newer version added are skipped.
 

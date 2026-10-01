@@ -348,12 +348,12 @@ Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook bo
 
 /// Asks, then resets [book] from the library: `X` on its cover, or the
 /// button in its details. Its panels are found again by the reader when it
-/// is opened.
-Future<void> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) async {
+/// is opened. False when it was cancelled.
+Future<bool> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) async {
   final messenger = ScaffoldMessenger.of(context);
   final sidecars = ref.read(sidecarSyncProvider);
   final scope = await askReset(context, book.name);
-  if (scope == null) return;
+  if (scope == null) return false;
   try {
     final ok = await sidecars.reset(book.key, everything: scope == ResetScope.everything);
     messenger.showSnackBar(
@@ -370,12 +370,13 @@ Future<void> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) as
   } catch (e) {
     messenger.showSnackBar(SnackBar(content: Text('Could not reset ${book.name}: $e')));
   }
+  return true;
 }
 
 /// Asks, then deletes [book] from the library: `gd` or Shift+Delete on
 /// its cover, or the button in its details. [beforeDelete] runs once it
-/// is confirmed, to move the selection off it.
-Future<void> deleteLibraryBook(
+/// is confirmed, to move the selection off it. False when it was cancelled.
+Future<bool> deleteLibraryBook(
   BuildContext context,
   WidgetRef ref,
   LibraryBook book, {
@@ -389,9 +390,9 @@ Future<void> deleteLibraryBook(
   final s3 = ref.read(s3SyncProvider);
   final onS3 = book.s3 != null;
   final facts = await deleteFacts(book.name, book.path, folder: folder, pages: book.pageCount);
-  if (!context.mounted) return;
+  if (!context.mounted) return false;
   final choice = await askDelete(context, facts.withS3(onS3));
-  if (choice == DeleteChoice.cancel) return;
+  if (choice == DeleteChoice.cancel) return false;
   // The reader may have it open behind a dialog opened from the library.
   if (container.read(readerProvider).book?.key == book.key) await container.read(readerProvider.notifier).close();
   beforeDelete?.call();
@@ -413,4 +414,5 @@ Future<void> deleteLibraryBook(
     // The file went first, so this is the index or a sidecar afterwards.
     messenger.showSnackBar(SnackBar(content: Text('Deleted ${book.name}, but the library could not be updated: $e')));
   }
+  return true;
 }

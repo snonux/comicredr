@@ -82,9 +82,10 @@ Every key can be changed in a small text file, `keys.toml`. It goes in
 data folder), otherwise in `~/.config/comicredr/`. On the phone it is
 `Android/data/org.snonux.comicredr/files/keys.toml`.
 
-The easiest start is `make keys` in the ComicRedr checkout, which copies
-the full list of actions ([docs/keys.toml](../keys.toml)) to the right
-place. Keep only the lines you change. For example, to turn pages with
+The easiest start is to download [docs/keys.toml](../keys.toml), the
+full list of actions with their keys, and save it as `keys.toml` in that
+folder (if you built ComicRedr yourself, `make keys` does this for you).
+Keep only the lines you change. For example, to turn pages with
 `Ctrl+n` and `Ctrl+p` as well as the usual keys, and to take the `D` key
 away from shifting the spread:
 
@@ -96,16 +97,25 @@ shiftSpread = []
 ```
 
 - An action you list gets exactly the keys you give it; `[]` leaves it
-  with none. Actions you leave out keep their usual keys.
-- `Left` and `Right` belong to `scrollLeft` and `scrollRight`, which move
-  across a zoomed page and otherwise step like `h` and `l`. Give them to
-  `prevStep` and `nextStep` instead if you want them to always turn.
+  with none. Actions you leave out keep their usual keys, except a key
+  you gave to another action: it moves there.
+- `Left` and `Right` belong to `scrollLeft` and `scrollRight`: on a
+  zoomed page they move across it, otherwise they turn like `h` and `l`.
+  To make them always turn, even on a zoomed page:
+
+  ```toml
+  nextStep = ["l", "Space", "Right"]
+  prevStep = ["h", "S-Space", "Left"]
+  ```
+
 - `C-f` is `Ctrl+f`, `S-Space` is `Shift+Space`, and named keys are
   written `Left`, `PageDown`, `Home`, `Esc`, `F11` and so on.
-- `gg` is two keys in a row. Put spaces between keys when one of them is
-  named: `"g Home"`.
-- Two or more digits are a key when typed quickly: `regionUpperHalf =
-  ["H1", "11"]`. A single digit can't be a key, since it starts a count.
+- `gg` is two keys in a row. When a sequence includes a named key, put
+  spaces between the keys: `"g Home"` is `g`, then `Home`.
+- A key can't start with a digit from 1 to 9 (those type a count), except
+  two or more digits typed quickly: `regionUpperHalf = ["H1", "11"]`. A
+  key that is the start of a longer one hides it (`g` alone would hide
+  `gg`); ComicRedr warns about that.
 - The `[touch]` section sets [gestures](08-touch.md#your-own-gestures).
 
 Restart ComicRedr to load your changes. If a line is wrong, ComicRedr
