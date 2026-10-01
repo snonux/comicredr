@@ -18,7 +18,7 @@ enum ReaderIntent {
   halfPageDown('A screen down in the page grid (continuous scroll is not built yet)'),
   halfPageUp('A screen up in the page grid (continuous scroll is not built yet)'),
   firstPage('First page; first cover in the library'),
-  lastPage('Last page, or page N with a count; last cover in the library'),
+  lastPage('Last page, or page N with a number after it (G12); last cover in the library'),
   pageGrid('Page thumbnails: pick a page to jump to'),
   showDetails(
     "Details of this comic: file, pages and scan quality, metadata, reading, panels and balloons found; the selected book's in the library",

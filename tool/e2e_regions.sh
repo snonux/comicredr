@@ -137,13 +137,17 @@ key Escape
 part Q 3;   shot u14_quarter_3;    framed u14_quarter_3 quarters 3
 key l;      shot u15_quarter_4;    framed u15_quarter_4 quarters 4
 part Q 4;   shot u16_again;        whole u16_again ref_a
-# Two quick digits are the same keys; before a key they stay a count.
+# Two quick digits are the same keys, at once.
 digits 2 3; shot d01_third_3;      framed d01_third_3 thirds 3
 key Left;   shot d02_third_2;      framed d02_third_2 thirds 2
 digits 3 2; shot d03_strip_2;      framed d03_strip_2 strips 2
 digits 4 2; shot d03_quarter_2;    framed d03_quarter_2 quarters 2
 key Escape; shot d04_esc;          whole d04_esc ref_a
-digits 1 1 h; shot d05_count;      whole d05_count ref_first
+digits 1 1; shot d05_upper_half;   framed d05_upper_half halves 1
+key Escape
+# A page number goes after G: G1 then Enter, and G3 ended by a pause.
+key shift+g 1 Return; shot d06_page_1; whole d06_page_1 ref_first
+key shift+g $page; sleep 0.6; shot d07_page; whole d07_page ref_a
 key "$page" shift+g
 
 # Guided view, on the page it shows whole.

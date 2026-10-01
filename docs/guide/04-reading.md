@@ -35,7 +35,7 @@ the library (on the phone, the back gesture does that).
 | `←` `Shift+Space` `h` | Previous page |
 | `PageDown` `PageUp` (or `Ctrl+f` `Ctrl+b`) | Next or previous page, even in guided view |
 | `Home` `End` (or `gg` `G`) | First or last page |
-| `12G` | Page 12: type the number, then `G` |
+| `G12` | Page 12: `G`, then the number (Enter or a short pause ends it) |
 | `]` `[` | Next or previous book in the series (or in the same folder) |
 | `Esc` | Back to the library |
 
@@ -201,10 +201,9 @@ There are two ways to type each part, and both do the same:
 - **Two digits:** the first says the split (1 halves, 2 thirds, 3
   strips, 4 quarters), the second the part, the same numbering. `22` is
   the middle third, `34` the bottom strip, `43` the bottom-left quarter. Press the second digit within half
-  a second of the first; the part shows a moment later, once no other key
-  follows. Typed slowly, or with a key after them, digits are a
-  [count](09-keyboard.md#sequences-and-counts) as always: `12G` still goes
-  to page 12.
+  a second of the first and the part shows at once. Typed slowly, digits
+  are a [count](09-keyboard.md#sequences-and-counts) as before; a page
+  number goes after `G` (`G12`).
 
 For example, on a tall splash page press `21` (or `B1`) for the top
 third, then `→` twice for the middle and bottom thirds. A page of four

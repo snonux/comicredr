@@ -56,7 +56,7 @@ for entry in "${books[@]}"; do
   xdotool mousemove 640 400
   key() { xdotool key "$@" 2>/dev/null; sleep 1; }
   shot() { import -window root "$out/${name}_$1.png"; }
-  key $(echo "$page" | sed 's/./& /g') shift+g
+  key shift+g $(echo "$page" | sed 's/./& /g') Return
   sleep 2
   shot 00_page
   key v

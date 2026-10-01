@@ -61,19 +61,24 @@ Some keys are two keys in a row: `gg` (first page), `mm` (bookmark),
 `zw` (fit width), `gt` (tap zones). Type them one after the other; the
 status line shows the first key while it waits for the second.
 
-A number before a key repeats it or picks a page:
+A page number goes after `G`:
 
-- `12G` goes to page 12, `G` alone to the last page.
+- `G12` goes to page 12. The number ends with Enter, any other key, or
+  half a second's pause; the status line shows `G12` while you type.
+- `G` alone goes to the last page, after that half second (`End` at
+  once).
+- In the library, `G5` goes to the fifth cover.
+
+A number before another key repeats it:
+
 - `3l` goes three steps on.
 - `2>` turns the comic upside down.
-- In the library, `5G` goes to the fifth cover.
 
-Two digits typed quickly, with nothing after them, are a key of their
-own: `11` to `44` pick a [part of the page](04-reading.md#parts-of-a-page),
-the same as `H1`, `B1`, `L1` and `Q1` to `Q4`. The second digit has to come within half a
-second of the first, and the part shows a moment later, once ComicRedr
-sees no other key follow. So `12` alone enlarges the lower half, while
-`12G` is still page 12, and so is `1`, a pause, then `2G`.
+Two digits typed quickly are a key of their own: `11` to `44` pick a
+[part of the page](04-reading.md#parts-of-a-page), the same as `H1`,
+`B1`, `L1` and `Q1` to `Q4`, the moment the second digit comes within half
+a second of the first. So `12` enlarges the lower half at once; typed
+slowly, `1` then `2l` is still twelve steps on.
 
 ## Your own keys
 

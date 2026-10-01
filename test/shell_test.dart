@@ -82,15 +82,27 @@ void main() {
     await key(tester, LogicalKeyboardKey.keyG);
     expect(c.read(readerProvider).page, 0);
 
-    // 4G jumps to page 4, '' jumps back.
-    await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
+    // G4 jumps to page 4 (Enter ends the number), '' jumps back.
     await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'G');
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit4, character: '4');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await settle(tester);
     expect(c.read(readerProvider).page, 3);
     // The test harness has no key code for ', so dispatch what '' resolves to
     // (the resolver's own tests cover the key sequence).
     await tester.runAsync(() => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.jumpBack)));
     expect(c.read(readerProvider).page, 0);
+    // A pause ends the number too, and G alone is the last page.
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'G');
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit5, character: '5');
+    await tester.pump(const Duration(milliseconds: 600));
+    await settle(tester);
+    expect(c.read(readerProvider).page, 4);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'G');
+    await tester.pump(const Duration(milliseconds: 600));
+    await settle(tester);
+    expect(c.read(readerProvider).page, 5);
+    await key(tester, LogicalKeyboardKey.home);
 
     // Spread mode keeps the cover alone, then pairs.
     await key(tester, LogicalKeyboardKey.keyD);
