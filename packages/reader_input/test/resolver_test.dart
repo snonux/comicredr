@@ -32,7 +32,7 @@ void main() {
 
   test('counts prefix a command', () {
     expect(type('5l'), const ReaderCommand(ReaderIntent.nextStep, count: 5));
-    expect(type('42G'), const ReaderCommand(ReaderIntent.lastPage, count: 42));
+    expect(type('9G'), const ReaderCommand(ReaderIntent.lastPage, count: 9));
     expect(press('3'), isNull);
     expect(press('C-f'), const ReaderCommand(ReaderIntent.nextPage, count: 3));
   });
@@ -52,15 +52,9 @@ void main() {
       return r.expire(t);
     }
 
-    test('fire a page part once nothing follows', () {
-      expect(type('11'), isNull);
-      expect(r.pendingDisplay, '11');
-      expect(r.deadline, t.add(const Duration(milliseconds: 400)));
-      expect(settle(399), isNull);
-      expect(settle(1), const ReaderCommand(ReaderIntent.regionUpperHalf));
-      expect(r.isPending, isFalse);
-      expect(r.deadline, isNull);
+    test('fire a page part at once', () {
       for (final (keys, intent) in [
+        ('11', ReaderIntent.regionUpperHalf),
         ('12', ReaderIntent.regionLowerHalf),
         ('21', ReaderIntent.regionUpperThird),
         ('22', ReaderIntent.regionMiddleThird),
@@ -74,17 +68,50 @@ void main() {
         ('43', ReaderIntent.regionBottomLeft),
         ('44', ReaderIntent.regionBottomRight),
       ]) {
-        type(keys);
-        expect(settle(), ReaderCommand(intent), reason: keys);
+        expect(type(keys), ReaderCommand(intent), reason: keys);
+        expect(r.isPending, isFalse);
+        expect(r.deadline, isNull);
       }
     });
 
-    test('stay a count when a key follows', () {
-      expect(type('12G'), const ReaderCommand(ReaderIntent.lastPage, count: 12));
-      expect(r.expire(t.add(const Duration(seconds: 1))), isNull);
-      expect(type('31l'), const ReaderCommand(ReaderIntent.nextStep, count: 31));
-      expect(type('112G'), const ReaderCommand(ReaderIntent.lastPage, count: 112));
-      expect(settle(), isNull);
+    test('G takes a page number after it', () {
+      expect(press('G'), isNull);
+      expect(r.deadline, t.add(const Duration(milliseconds: 500)));
+      expect(type('12'), isNull);
+      expect(r.pendingDisplay, 'G12');
+      expect(press('Enter'), const ReaderCommand(ReaderIntent.lastPage, count: 12));
+      // Ended by a pause.
+      expect(type('G7'), isNull);
+      expect(settle(499), isNull);
+      expect(settle(1), const ReaderCommand(ReaderIntent.lastPage, count: 7));
+      // G alone is the last page, after the pause.
+      expect(press('G'), isNull);
+      expect(settle(500), const ReaderCommand(ReaderIntent.lastPage));
+      // Ended by another key, which counts as typed.
+      expect(type('G3'), isNull);
+      expect(press('l'), const ReaderCommand(ReaderIntent.lastPage, count: 3));
+      expect(r.takeQueued(), const ReaderCommand(ReaderIntent.nextStep));
+      expect(r.takeQueued(), isNull);
+      // Esc cancels it; End does not wait.
+      expect(type('G4'), isNull);
+      expect(press('Esc'), isNull);
+      expect(r.isPending, isFalse);
+      expect(press('End'), const ReaderCommand(ReaderIntent.lastPage));
+      // A key after the pause the timer missed: the number, then the key.
+      expect(type('G5'), isNull);
+      expect(press('l', afterMs: 800), const ReaderCommand(ReaderIntent.lastPage, count: 5));
+      expect(r.takeQueued(), const ReaderCommand(ReaderIntent.nextStep));
+    });
+
+    test('typed quickly before a key are the part, then the key', () {
+      expect(type('12'), const ReaderCommand(ReaderIntent.regionLowerHalf));
+      expect(press('l'), const ReaderCommand(ReaderIntent.nextStep));
+    });
+
+    test('other counts are untouched', () {
+      expect(type('5l'), const ReaderCommand(ReaderIntent.nextStep, count: 5));
+      expect(type('15G'), const ReaderCommand(ReaderIntent.lastPage, count: 15));
+      expect(type('60G'), const ReaderCommand(ReaderIntent.lastPage, count: 60));
     });
 
     test('typed slowly are a count', () {
@@ -94,12 +121,18 @@ void main() {
       expect(press('G'), const ReaderCommand(ReaderIntent.lastPage, count: 11));
     });
 
-    test('other pairs and Esc fire nothing', () {
-      expect(type('15'), isNull);
-      expect(r.deadline, isNull);
-      expect(settle(), isNull);
-      r.reset();
-      expect(type('34'), isNull);
+    test('a longer digit binding waits for its last digit', () {
+      final keymap = Keymap([
+        ...Keymap.defaults().bindings,
+        const Binding(['1', '1', '1'], ReaderIntent.autoTrim),
+      ]);
+      r = KeySequenceResolver(keymap);
+      expect(type('11'), isNull);
+      expect(r.deadline, t.add(const Duration(milliseconds: 400)));
+      expect(settle(399), isNull);
+      expect(settle(1), const ReaderCommand(ReaderIntent.regionUpperHalf));
+      expect(type('111'), const ReaderCommand(ReaderIntent.autoTrim));
+      expect(type('11'), isNull);
       expect(press('Esc'), isNull);
       expect(settle(), isNull);
       expect(r.isPending, isFalse);

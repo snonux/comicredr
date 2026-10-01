@@ -291,7 +291,7 @@ void main() {
     }
 
     await digits('23');
-    expect(c.read(readerProvider).region, isNull, reason: 'waits to see whether a key follows');
+    expect(c.read(readerProvider).region?.part, 2, reason: 'at once, nothing to wait for');
     await settle(tester);
     var s = c.read(readerProvider);
     expect((s.region, s.parts), ((split: PageSplit.thirds, part: 2, page: 0), PageSplit.thirds));
@@ -308,15 +308,16 @@ void main() {
     await key(tester, LogicalKeyboardKey.escape);
     expect(c.read(readerProvider).region, isNull);
 
-    // 4G (a page this book has) is a count, and so is 12 before a key.
-    await digits('4');
+    // G4 goes to page 4 and leaves the parts; 3h is still a count.
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'G');
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await digits('4');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await settle(tester);
     s = c.read(readerProvider);
     expect((s.page, s.region), (3, null));
-    await digits('12');
+    await digits('3');
     await tester.sendKeyEvent(LogicalKeyboardKey.keyH, character: 'h');
     await settle(tester);
     s = c.read(readerProvider);

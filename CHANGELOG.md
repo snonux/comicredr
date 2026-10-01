@@ -5,19 +5,23 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
-## 0.5.0
+## Unreleased
 
-<<<<<<< HEAD
+- **`11`-`44` zoom at once, and page numbers go after `G`:** `G12` goes to
+  page 12 (Enter or a short pause ends the number; `G` alone is still the
+  last page, `End` at once), so the part keys need no wait. `12G` is no
+  longer a page jump. Counts before other keys (`3l`, `2>`) stay.
 - **Four strips:** `L1`-`L4` enlarge four full-width strips of a page,
   top to bottom, and `→` `←` go on strip by strip like the other parts.
 - **Page parts by number:** `11` `12`, `21`-`23`, `31`-`34` (strips) and
   `41`-`44` (quarters), the two digits pressed within half a second, work
-  as `H1` `H2`, `B1`-`B3`, `L1`-`L4` and `Q1`-`Q4`. Digits followed by a
-  key are still a count (`12G`).
+  as `H1` `H2`, `B1`-`B3`, `L1`-`L4` and `Q1`-`Q4`. They zoom at once.
 - **The whole page before it turns:** reading in parts, the step after
   the last part shows the page whole before the next page comes; back
   from the first part the same.
-=======
+
+## 0.5.0
+
 Mark several comics at once, filter the Folders tab, read parts of a
 page in turn, and set how smooth scrolling feels.
 
@@ -32,7 +36,6 @@ page in turn, and set how smooth scrolling feels.
   or on Remove from S3, now keeps the marks. A comic's details shown as
   a page of their own (a narrow window, a tablet held upright) have
   **Mark to act on several** too.
->>>>>>> origin/main
 - **Looking past a panel or part:** `↓` `↑` (`j` `k`) in guided view or
   on a part of a page (`H1`, `B2`, `Q3`...), and a drag on a part, show
   what they bring on screen bright instead of leaving it dimmed. The next

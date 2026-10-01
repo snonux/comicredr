@@ -10,7 +10,8 @@
 # PageDown Home End Space Tab Esc Enter Backspace Delete Insert F1-F12)
 # take S- for Shift. Put spaces between keys when a named key is in
 # a sequence: "g Home". Two or more digits ("11") work when typed
-# quickly with nothing after them; otherwise digits are a count.
+# quickly; otherwise digits are a count. A one-letter lastPage key
+# takes a page number after it (G12).
 
 [keys]
 # Next panel in guided view, next page or spread otherwise; next cover in the library
@@ -43,7 +44,7 @@ halfPageDown = ["C-d"]
 halfPageUp = ["C-u"]
 # First page; first cover in the library
 firstPage = ["gg", "Home"]
-# Last page, or page N with a count; last cover in the library
+# Last page, or page N with a number after it (G12); last cover in the library
 lastPage = ["G", "End"]
 # Page thumbnails: pick a page to jump to
 pageGrid = ["p"]

@@ -115,7 +115,9 @@ void main() {
     expect(at(c), (0, 'S'), reason: 'nothing before the first page');
 
     // A page shown whole anyway is one step, not two; a count crosses it.
+    // Typed slowly, since 11 quickly is the upper half.
     await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 520)));
     await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
     await key(tester, LogicalKeyboardKey.keyL);
     expect(at(c), (1, 'E'));

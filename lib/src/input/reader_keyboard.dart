@@ -39,7 +39,8 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
   late final _own = widget.focusNode == null ? FocusNode(debugLabel: 'ReaderKeyboard') : null;
   FocusNode get _focus => widget.focusNode ?? _own!;
 
-  /// Fires a digit binding (`11`) once no other key followed it.
+  /// Fires a digit binding (`111` over `11`) or a page number after `G` once
+  /// no other key followed it.
   Timer? _digitTimer;
 
   @override
@@ -82,6 +83,7 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     if (at == null) return;
     _digitTimer = Timer(at.difference(now), () {
       final command = _resolver.expire(at);
+      _armDigitTimer(at);
       widget.onPendingChanged?.call(_resolver.pendingDisplay);
       if (command != null) widget.onCommand(command);
     });
@@ -121,6 +123,10 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     _armDigitTimer(now);
     widget.onPendingChanged?.call(_resolver.pendingDisplay);
     if (command != null) widget.onCommand(event is KeyRepeatEvent ? command.asHeld : command);
+    // The key that ended a number after G (G12 then l) counts as typed too.
+    if (_resolver.takeQueued() case final queued?) {
+      widget.onCommand(event is KeyRepeatEvent ? queued.asHeld : queued);
+    }
     return command != null || _resolver.isPending ? KeyEventResult.handled : KeyEventResult.ignored;
   }
 

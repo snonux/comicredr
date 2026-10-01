@@ -63,8 +63,8 @@ shot 01_reader
 key p; sleep 3
 shot 02_grid
 check "the grid made thumbnails of the pages it shows" test "$(thumbs)" -gt 4
-# 12G in the grid selects page 12, Enter jumps there.
-key 1 2 shift+g; sleep 1
+# G12 (Enter ends the number) in the grid selects page 12, Enter jumps there.
+key shift+g 1 2 Return; sleep 1
 shot 03_grid_page12_selected
 key Return; sleep 2
 shot 04_page12

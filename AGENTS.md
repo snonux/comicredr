@@ -375,9 +375,14 @@ refreshes right away instead of within six hours.
   The digit pairs `11`-`44` (1 halves, 2 thirds, 3 strips, 4 quarters)
   are ordinary bindings too: `KeySequenceResolver`
   treats a count that spells a digit-only binding, each digit within
-  `pairWindow` (500 ms) of the one before, as that binding once no key
-  follows within `pairSettle` (400 ms); ReaderKeyboard arms a timer for its
-  `deadline` and calls `expire`. A key that follows keeps the digits a count.
+  `pairWindow` (500 ms) of the one before, as that binding at once (only a
+  longer digit binding waits `pairSettle`). Page jumps moved behind the
+  key (snonux, 2026-10-01, Helix style): a one-character key of an intent
+  in `KeySequenceResolver.takesNumber` (`G`) collects digits after it,
+  ended by Enter, a `pairWindow` pause or any other key (handed back by
+  `takeQueued`, which ReaderKeyboard dispatches after it). ReaderKeyboard
+  arms a timer for the resolver's `deadline` and calls `expire`. A count
+  before a key (`3l`) still works when it is not one of the pairs.
 - Turning the comic (`>`, `<`, `gr`; `ReaderState.rotation`, quarter
   turns clockwise): ReaderView puts its whole view in a `RotatedBox`, so
   layout, fit, guided view's camera and dim, zoom tiles and page parts all

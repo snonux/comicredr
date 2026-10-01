@@ -96,8 +96,7 @@ setMark = "M"
       final r = KeySequenceResolver(load.keymap);
       final t = DateTime(2026);
       r.feed('4', t);
-      r.feed('4', t.add(const Duration(milliseconds: 100)));
-      expect(r.expire(r.deadline!), const ReaderCommand(ReaderIntent.autoTrim));
+      expect(r.feed('4', t.add(const Duration(milliseconds: 100))), const ReaderCommand(ReaderIntent.autoTrim));
     });
 
     test('a broken file falls back to the defaults and says why', () {
