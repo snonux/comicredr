@@ -626,9 +626,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// A step while the reader goes through a page in parts
   /// ([ReaderState.parts]). Each page shows whole first, then its parts in
-  /// reading order (onto the other page of a spread), and past the last
-  /// part the next page (or spread) shows whole. Going back mirrors it: the
-  /// previous page shows whole, then its last part. In guided view a page
+  /// reading order (onto the other page of a spread), then whole again
+  /// before the next page (or spread) shows whole. Going back mirrors it:
+  /// from the first part the page shows whole, then the previous page
+  /// whole, then its last part. In guided view a page
   /// with panels leaves the parts and guided view goes on over its panels.
   void _stepParts(int steps) {
     for (var k = 0; k < steps.abs(); k++) {
@@ -642,16 +643,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
       final unit = state.unit;
       final r = state.region;
       if (r == null) {
-        // The whole page. Its panels may have come since it turned.
-        if (state.guided && state.stopsOn(state.page).isNotEmpty) {
-          state = state.copyWith(clearParts: true);
-          _stepGuided(steps.sign * (steps.abs() - k));
-          return;
-        }
-        // Arrived going on, it is on its near side: on into its parts, back
-        // to the page before. Arrived going back, the other way round.
+        // The whole page. Arrived going on, it is on its near side: on into
+        // its parts, back to the page before. Arrived going back, or shown
+        // whole after its last part, the other way round.
         final nearSide = state.panel < lastPanel;
         if (forward == nearSide) {
+          // Its panels may have come since it turned: guided view goes on.
+          if (state.guided && state.stopsOn(state.page).isNotEmpty) {
+            state = state.copyWith(clearParts: true);
+            _stepGuided(steps.sign * (steps.abs() - k));
+            return;
+          }
           state = state.copyWith(
             region: (split: split, part: forward ? order.first : order.last, page: forward ? unit.first : unit.last),
           );
@@ -669,7 +671,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
         at += forward ? 1 : -1;
         i = forward ? 0 : order.length - 1;
       } else {
-        if (!_turnInParts(split, forward: forward)) return;
+        // Past the last part (or before the first): the page (or spread)
+        // whole on that side, so the next step turns.
+        state = state.copyWith(clearRegion: true, panel: forward ? pageEnd : pageStart, balloon: -1);
         continue;
       }
       state = state.copyWith(region: (split: split, part: order[i], page: unit[at]));
@@ -1102,6 +1106,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.regionUpperThird:
       case ReaderIntent.regionMiddleThird:
       case ReaderIntent.regionLowerThird:
+      case ReaderIntent.regionStrip1:
+      case ReaderIntent.regionStrip2:
+      case ReaderIntent.regionStrip3:
+      case ReaderIntent.regionStrip4:
       case ReaderIntent.regionTopLeft:
       case ReaderIntent.regionTopRight:
       case ReaderIntent.regionBottomLeft:

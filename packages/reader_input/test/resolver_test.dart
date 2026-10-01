@@ -46,6 +46,72 @@ void main() {
     expect(r.isPending, isFalse);
   });
 
+  group('two quick digits', () {
+    ReaderCommand? settle([int ms = 400]) {
+      t = t.add(Duration(milliseconds: ms));
+      return r.expire(t);
+    }
+
+    test('fire a page part once nothing follows', () {
+      expect(type('11'), isNull);
+      expect(r.pendingDisplay, '11');
+      expect(r.deadline, t.add(const Duration(milliseconds: 400)));
+      expect(settle(399), isNull);
+      expect(settle(1), const ReaderCommand(ReaderIntent.regionUpperHalf));
+      expect(r.isPending, isFalse);
+      expect(r.deadline, isNull);
+      for (final (keys, intent) in [
+        ('12', ReaderIntent.regionLowerHalf),
+        ('21', ReaderIntent.regionUpperThird),
+        ('22', ReaderIntent.regionMiddleThird),
+        ('23', ReaderIntent.regionLowerThird),
+        ('31', ReaderIntent.regionStrip1),
+        ('32', ReaderIntent.regionStrip2),
+        ('33', ReaderIntent.regionStrip3),
+        ('34', ReaderIntent.regionStrip4),
+        ('41', ReaderIntent.regionTopLeft),
+        ('42', ReaderIntent.regionTopRight),
+        ('43', ReaderIntent.regionBottomLeft),
+        ('44', ReaderIntent.regionBottomRight),
+      ]) {
+        type(keys);
+        expect(settle(), ReaderCommand(intent), reason: keys);
+      }
+    });
+
+    test('stay a count when a key follows', () {
+      expect(type('12G'), const ReaderCommand(ReaderIntent.lastPage, count: 12));
+      expect(r.expire(t.add(const Duration(seconds: 1))), isNull);
+      expect(type('31l'), const ReaderCommand(ReaderIntent.nextStep, count: 31));
+      expect(type('112G'), const ReaderCommand(ReaderIntent.lastPage, count: 112));
+      expect(settle(), isNull);
+    });
+
+    test('typed slowly are a count', () {
+      expect(press('1'), isNull);
+      expect(press('1', afterMs: 501), isNull);
+      expect(r.deadline, isNull);
+      expect(press('G'), const ReaderCommand(ReaderIntent.lastPage, count: 11));
+    });
+
+    test('other pairs and Esc fire nothing', () {
+      expect(type('15'), isNull);
+      expect(r.deadline, isNull);
+      expect(settle(), isNull);
+      r.reset();
+      expect(type('34'), isNull);
+      expect(press('Esc'), isNull);
+      expect(settle(), isNull);
+      expect(r.isPending, isFalse);
+    });
+
+    test('the letter keys still work', () {
+      expect(type('H1'), const ReaderCommand(ReaderIntent.regionUpperHalf));
+      expect(type('L3'), const ReaderCommand(ReaderIntent.regionStrip3));
+      expect(type('Q4'), const ReaderCommand(ReaderIntent.regionBottomRight));
+    });
+  });
+
   test('two-key sequences', () {
     expect(press('g'), isNull);
     expect(r.pendingDisplay, 'g');

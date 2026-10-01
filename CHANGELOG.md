@@ -7,6 +7,17 @@ the `?` overlay.
 
 ## 0.5.0
 
+<<<<<<< HEAD
+- **Four strips:** `L1`-`L4` enlarge four full-width strips of a page,
+  top to bottom, and `→` `←` go on strip by strip like the other parts.
+- **Page parts by number:** `11` `12`, `21`-`23`, `31`-`34` (strips) and
+  `41`-`44` (quarters), the two digits pressed within half a second, work
+  as `H1` `H2`, `B1`-`B3`, `L1`-`L4` and `Q1`-`Q4`. Digits followed by a
+  key are still a count (`12G`).
+- **The whole page before it turns:** reading in parts, the step after
+  the last part shows the page whole before the next page comes; back
+  from the first part the same.
+=======
 Mark several comics at once, filter the Folders tab, read parts of a
 page in turn, and set how smooth scrolling feels.
 
@@ -21,6 +32,7 @@ page in turn, and set how smooth scrolling feels.
   or on Remove from S3, now keeps the marks. A comic's details shown as
   a page of their own (a narrow window, a tablet held upright) have
   **Mark to act on several** too.
+>>>>>>> origin/main
 - **Looking past a panel or part:** `↓` `↑` (`j` `k`) in guided view or
   on a part of a page (`H1`, `B2`, `Q3`...), and a drag on a part, show
   what they bring on screen bright instead of leaving it dimmed. The next

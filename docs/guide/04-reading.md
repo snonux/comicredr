@@ -181,20 +181,43 @@ To enlarge just part of a page, see [Parts of a page](#parts-of-a-page).
 
 ## Parts of a page
 
-On a big, busy page you can zoom straight to a half, a third or a quarter
-of it by key:
+On a big, busy page you can zoom straight to a half, a third, a strip or
+a quarter of it by key:
 
-| Keys | Part of the page |
-|---|---|
-| `H1` `H2` | The upper and lower half |
-| `B1` `B2` `B3` | The upper, middle and lower third |
-| `Q1` `Q2` `Q3` `Q4` | The quarters: top left, top right, bottom left, bottom right |
+| Keys | Or quickly | Part of the page |
+|---|---|---|
+| `H1` `H2` | `11` `12` | The upper and lower half |
+| `B1` `B2` `B3` | `21` `22` `23` | The upper, middle and lower third |
+| `L1` `L2` `L3` `L4` | `31` `32` `33` `34` | Four strips across the page, top to bottom |
+| `Q1` `Q2` `Q3` `Q4` | `41` `42` `43` `44` | The quarters: top left, top right, bottom left, bottom right |
+
+There are two ways to type each part, and both do the same:
+
+- **Letter and number:** `H` for halves, `B` for thirds (bands), `L` for
+  four strips (lines), `Q` for quarters, then the part's number, counted
+  top to bottom, left to right. `B2` is the middle third, `L4` the bottom
+  strip, `Q3` the bottom-left quarter. Take as long as
+  you like between the two keys.
+- **Two digits:** the first says the split (1 halves, 2 thirds, 3
+  strips, 4 quarters), the second the part, the same numbering. `22` is
+  the middle third, `34` the bottom strip, `43` the bottom-left quarter. Press the second digit within half
+  a second of the first; the part shows a moment later, once no other key
+  follows. Typed slowly, or with a key after them, digits are a
+  [count](09-keyboard.md#sequences-and-counts) as always: `12G` still goes
+  to page 12.
+
+For example, on a tall splash page press `21` (or `B1`) for the top
+third, then `→` twice for the middle and bottom thirds. A page of four
+wide rows of panels reads well in strips: `31` (or `L1`) and `→`.
+Strips are always full width, one under the other; quarters split the
+page into four boxes, two above two.
 
 Once you are on a part, the usual keys read the comic in that split, page
-by page: `→` (or `l`, Space, a tap on the right) goes to the next part,
-and after the last one the next page shows whole first; `→` again goes to
-its first part. `←` goes back the same way: the page before shows whole,
-then its last part. So `H1` and then `→` over and over reads a comic half
+by page: `→` (or `l`, Space, a tap on the right) goes to the next part.
+After the last part the page shows whole once more, so you see it all
+before it goes; then the next page shows whole, and `→` again goes to its
+first part. `←` goes back the same way: from the first part the page
+shows whole, then the page before whole, then its last part. So `H1` and then `→` over and over reads a comic half
 by half, and you never have to pick the part again.
 
 If you started from guided view (say on a splash page the panel finder

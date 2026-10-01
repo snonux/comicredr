@@ -41,6 +41,7 @@ The top of the list also shows ComicRedr's data folder, and which
 | `b` | [Balloon by balloon](05-guided-view.md#balloon-by-balloon) | |
 | `d` | [Two pages](04-reading.md#two-pages-side-by-side) | |
 | `p` | [Page grid](04-reading.md#see-every-page-at-once) | |
+| `H1`-`Q4`, or `11`-`44` | [A part of the page](04-reading.md#parts-of-a-page), enlarged | |
 | `mm` `M` | [Bookmark, bookmark list](06-bookmarks.md) | `M`: the Bookmarks tab |
 | `*` | [Favourite](03-library.md#favourites) | Favourite the selected cover, or the marked ones |
 | `Shift`+arrows | As the arrows alone | [Mark a run of comics](03-library.md#several-comics-at-once) |
@@ -66,6 +67,13 @@ A number before a key repeats it or picks a page:
 - `3l` goes three steps on.
 - `2>` turns the comic upside down.
 - In the library, `5G` goes to the fifth cover.
+
+Two digits typed quickly, with nothing after them, are a key of their
+own: `11` to `44` pick a [part of the page](04-reading.md#parts-of-a-page),
+the same as `H1`, `B1`, `L1` and `Q1` to `Q4`. The second digit has to come within half a
+second of the first, and the part shows a moment later, once ComicRedr
+sees no other key follow. So `12` alone enlarges the lower half, while
+`12G` is still page 12, and so is `1`, a pause, then `2G`.
 
 ## Your own keys
 
@@ -104,8 +112,9 @@ shiftSpread = []
   written `Left`, `PageDown`, `Home`, `Esc`, `F11` and so on.
 - `gg` is two keys in a row. When a sequence includes a named key, put
   spaces between the keys: `"g Home"` is `g`, then `Home`.
-- A key can't start with a digit from 1 to 9 (those type a count). A key
-  that is the start of a longer one hides it (`g` alone would hide
+- A key can't start with a digit from 1 to 9 (those type a count), except
+  two or more digits typed quickly: `regionUpperHalf = ["H1", "11"]`. A
+  key that is the start of a longer one hides it (`g` alone would hide
   `gg`); ComicRedr warns about that.
 - The `[touch]` section sets [gestures](08-touch.md#your-own-gestures).
 
