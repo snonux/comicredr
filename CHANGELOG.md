@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.6.0
+
+Move comics to other folders, jump to a page with `G12`, and zoom into
+parts of a page with two digits.
+
 - **Move comics to another folder:** `gm`, or Move in the bar over marked
   comics, moves them (or the selected one) to a folder picked from a list
   of the library's folders, typed into to find one; New folder (`Ctrl+N`)
