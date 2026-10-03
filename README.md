@@ -9,8 +9,8 @@ panel by panel. It should work on any Linux distribution, but has only
 been tested on Fedora. Its **guided view** glides from one panel to the next, and
 from one speech balloon to the next, like Comixology did. It reads the
 comics you already have, runs entirely on your own machine, and needs no
-account or cloud service; if you want, it syncs through an S3 server of
-your own.
+account or cloud service; if you want, it syncs through an S3 bucket of your own.
+E.g. I personally use a self-hosted Garage and not a AWS S3 bucket for this.
 
 **[Read the guide](docs/guide/README.md)**: installing, then every
 feature with screenshots and short animations, as a small book with a
