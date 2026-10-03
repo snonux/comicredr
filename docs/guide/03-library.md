@@ -179,6 +179,9 @@ them.
 - In a book's details, click **Add to a collection**, then type a new
   name and click **Add** (or press `Enter`), or click one you already
   have.
+- `gc` on a selected cover does the same without opening its details,
+  and with [comics marked](#several-comics-at-once) it puts all of them
+  in.
 - The **x** on a collection's chip in the book's details takes the book
   out.
 - The Collections tab shows each collection as a cover; open one to see
@@ -222,7 +225,8 @@ marked, with what you can do to all of them at once:
 |---|---|---|
 | **All** | `Ctrl+A` | Mark every comic shown, or unmark them |
 | **Favourite** | `*` | Put them all in your [Favourites](#favourites); **Unfavourite** when they all are |
-| **Collection** | | Put them all in a [collection](#collections), new or one you have |
+| **Move** | `gm` | [Move them to another folder](#move-comics-to-another-folder) |
+| **Collection** | `gc` | Put them all in a [collection](#collections), new or one you have |
 | **Reset** | `X` | [Reset](07-managing-comics.md#reset-a-comic) them all: redo panels, or everything |
 | **Delete** | `gd` `Shift+Delete` | [Delete](07-managing-comics.md#delete-a-comic) them all, after asking once |
 | **Upload to S3** | `gu` | [Upload](13-s3-sync.md#uploading-comics) the ones not on S3 yet |
@@ -238,6 +242,36 @@ For example, to clear out a folder of comics you have finished: open it
 on the Folders tab, press `Shift+End`, then `gd`. The dialog lists them,
 with how much space they take together, and **Cancel** is selected, so
 check the list and click **Delete 7 for good**.
+
+`gm` and `gc` also work with nothing marked: they act on the selected
+cover.
+
+### Move comics to another folder
+
+`gm`, or **Move** in the bar, moves the marked comics (or the selected
+one) to another folder of your library. A list of every folder in the
+library opens, empty ones too, with the folder you are in picked:
+
+- Type part of a folder's name to shorten the list, `↑` `↓` to pick
+  one, and `Enter` moves them there. Words can come in any order:
+  `marvel 80` finds *Comics/Marvel/1980s*. You can also click a folder,
+  then **Move to …**.
+- **New folder** (`Ctrl+N`) makes a folder inside the picked one, asks
+  for its name, and moves the comics into it.
+- `Esc` or **Cancel** moves nothing, and the comics stay marked.
+
+![Moving three comics: the folder list, narrowed by typing](images/move.webp)
+
+Each comic takes its sidecar with it, so your place, bookmarks, panels,
+collections and S3 sync stay as they were. A comic that is a folder of
+pages moves as one folder. If a comic of the same name is in the folder
+already, ComicRedr asks once for all of them, with **Cancel** selected:
+**Skip those** leaves them where they are and moves the rest,
+**Replace** deletes the ones in the folder for good and moves yours in.
+
+For example, to file the comics you have read: walk into the folder on
+the Folders tab, mark them with `Shift` and the arrows, press `gm`, type
+`read`, and press `Enter`.
 
 ## Adding, rescanning and taking out folders
 

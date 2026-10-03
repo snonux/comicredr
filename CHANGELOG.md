@@ -7,6 +7,17 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.6.0
+
+Move comics to other folders, jump to a page with `G12`, and zoom into
+parts of a page with two digits.
+
+- **Move comics to another folder:** `gm`, or Move in the bar over marked
+  comics, moves them (or the selected one) to a folder picked from a list
+  of the library's folders, typed into to find one; New folder (`Ctrl+N`)
+  makes one. Sidecars go along, so place, bookmarks and panels stay. A
+  name already taken there asks first: skip or replace.
+- **`gc`** puts the selected or marked comics in a collection.
 - **`11`-`44` zoom at once, and page numbers go after `G`:** `G12` goes to
   page 12 (Enter or a short pause ends the number; `G` alone is still the
   last page, `End` at once), so the part keys need no wait. `12G` is no
