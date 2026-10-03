@@ -282,7 +282,7 @@ marks)
   key Home; key Return; sleep 1.5
   key shift+Right; key shift+Right; park; still marks
   # gm: the folder picker, narrowed by typing.
-  key g; key m; sleep 1; typ "golden"; park; still move
+  key g m; sleep 1; typ "silver"; park; still move
   key Escape; key Escape; key Escape; key Escape
   ;;
 
