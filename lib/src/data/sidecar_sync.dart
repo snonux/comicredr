@@ -424,6 +424,32 @@ class SidecarSync {
     });
   }
 
+  /// The book [contentKey] was moved on disk from [from] to [to]: its
+  /// sidecars follow it, the one beside it and, with a sidecar folder, the
+  /// one there (laid out like the library, so it moves too). A folder
+  /// book's own sidecar went with the folder. Call [flush] before moving
+  /// the comic, so nothing is written for it meanwhile. Returns how many
+  /// sidecars moved.
+  Future<int> moved(String from, String to, String contentKey, {required bool folder}) async {
+    final dir = await _storeDir();
+    final roots = await _roots();
+    final moves = [
+      (from: sidecarPath(from, folder: folder), to: sidecarPath(to, folder: folder)),
+      if (dir != null)
+        (
+          from: storedSidecarPath(from, folder: folder, dir: dir, roots: roots),
+          to: storedSidecarPath(to, folder: folder, dir: dir, roots: roots),
+        ),
+    ];
+    final me = await device();
+    return _serial(() async {
+      if (_where[contentKey] case final w? when p.equals(w.path, from)) {
+        _where[contentKey] = (path: to, folder: folder);
+      }
+      return _moveOnWorker(moves, me.id);
+    });
+  }
+
   /// Forgets what the app knows about [contentKey], so the book starts from
   /// scratch: its detected panels and balloons, which are found again, and
   /// with [everything] also its bookmarks and marks, this and every other

@@ -6,7 +6,11 @@
 # comic in the folder a favourite; X with two marked resets both (their
 # positions go, the favourites stay); gd with three marked asks once,
 # Enter cancels, then Tab and Enter delete the three for good and leave
-# the rest; a restart keeps it so.
+# the rest; a restart keeps it so. Then gm moves D and E into the empty
+# folder Read, picked by typing in the folder list, sidecars along and the
+# index following; gc puts F in a new collection; a name taken in Read
+# asks first (Enter cancels, Skip leaves F); Ctrl+N makes a folder and
+# moves F into it; a restart keeps it so.
 #
 #   tool/e2e_multi_select.sh
 #
@@ -18,7 +22,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=build/e2e-multi-select
-rm -rf "$out" && mkdir -p "$out/Comics/Shelf" "$out/home" "$out/pages"
+rm -rf "$out" && mkdir -p "$out/Comics/Shelf" "$out/Comics/Read" "$out/home" "$out/pages"
 comics="$PWD/$out/Comics"
 shelf="$comics/Shelf"
 home="$PWD/$out/home"
@@ -138,6 +142,71 @@ stop
 start
 shot 11_after_restart
 check "after a restart three books" test "$(q 'select count(*) from files')" = 3
+check "and three favourites" test "$(favourites)" = 3
+stop
+
+# gm with D and E marked: the folder list, "read" typed, Enter.
+start
+to_shelf
+key Home; key shift+Right
+key g m; sleep 2
+xdotool type --delay 80 read; sleep 1
+shot 12_move_picker
+key Return; sleep 4
+shot 13_after_move
+for n in D E; do
+  check "Book $n moved to Read" test -f "$comics/Read/Book $n.cbz" -a ! -e "$shelf/Book $n.cbz"
+  check "its sidecar went along" test -f "$comics/Read/.Book $n.cbz.crdb" -a ! -e "$shelf/.Book $n.cbz.crdb"
+  check "the index has Book $n in Read" test "$(q "select rel_path from files where content_key = '${k[$n]}'")" = "Read/Book $n.cbz"
+done
+check "D and E are still favourites" test "$(favourites)" = 3
+check "the index holds three books" test "$(q 'select count(*) from files')" = 3
+
+# gc on F, the one left in Shelf: a new collection.
+key Home
+key g c; sleep 2
+xdotool type --delay 80 Summer; sleep 0.5; key Return; sleep 3
+check "gc put F in Summer" test "$(q "select content_key from collection_books where name = 'Summer' and removed_at is null")" = "${k[F]}"
+
+# A Book F.cbz of its own in Read: moving F there asks; Enter is Cancel.
+python3 - "$out/pages" "$comics/Read" <<'EOF2'
+import sys, zipfile, pathlib
+pages, to = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+with zipfile.ZipFile(to / 'Book F.cbz', 'w') as z:
+    for f in sorted(pages.glob('*.png')):
+        z.write(f, 'page' + f.name[1:])
+    z.writestr('note.txt', 'another F')
+EOF2
+sleep 4
+other_f=$(md5sum <"$comics/Read/Book F.cbz")
+key Home
+key g m; sleep 2; xdotool type --delay 80 read; sleep 1; key Return; sleep 2
+shot 14_name_taken
+key Return; sleep 2
+check "Enter keeps F in Shelf" test -f "$shelf/Book F.cbz"
+check "and the other F in Read" test "$(md5sum <"$comics/Read/Book F.cbz")" = "$other_f"
+# Again, Tab to Skip it.
+key g m; sleep 2; xdotool type --delay 80 read; sleep 1; key Return; sleep 2
+key Tab; key Return; sleep 3
+check "Skip leaves F in Shelf" test -f "$shelf/Book F.cbz"
+check "and the other F as it was" test "$(md5sum <"$comics/Read/Book F.cbz")" = "$other_f"
+
+# Ctrl+N in the picker: a new folder in Shelf, F moved into it.
+key Home
+key g m; sleep 2
+key ctrl+n; sleep 1.5
+xdotool type --delay 80 Later; sleep 0.5
+shot 15_new_folder
+key Return; sleep 4
+check "F moved into the new folder Shelf/Later" test -f "$shelf/Later/Book F.cbz" -a ! -e "$shelf/Book F.cbz"
+check "the index has F there" test "$(q "select rel_path from files where content_key = '${k[F]}'")" = "Shelf/Later/Book F.cbz"
+check "F is still in Summer" test "$(q "select count(*) from collection_books where name = 'Summer' and removed_at is null")" = 1
+stop
+
+start
+check "after a restart D in Read" test "$(q "select rel_path from files where content_key = '${k[D]}'")" = "Read/Book D.cbz"
+check "and F in Shelf/Later" test "$(q "select rel_path from files where content_key = '${k[F]}'")" = "Shelf/Later/Book F.cbz"
+check "and four books" test "$(q 'select count(*) from files')" = 4
 check "and three favourites" test "$(favourites)" = 3
 stop
 

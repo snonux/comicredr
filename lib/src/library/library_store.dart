@@ -413,6 +413,45 @@ class LibraryStore {
     return true;
   });
 
+  /// The book at [from] was moved on disk to [to]: its file row follows it,
+  /// so everything kept by content key (position, panels, bookmarks,
+  /// collections) stays with it without a rescan. When [to] is in no
+  /// library folder the row is dropped and a scan finds the book wherever
+  /// it is. Returns whether the row was moved.
+  Future<bool> moveFile(String from, String to) => db.transaction(() async {
+    final roots = await this.roots();
+    LibraryRoot? rootOf(String path) {
+      LibraryRoot? best;
+      for (final r in roots) {
+        if (!(p.equals(r.path, path) || p.isWithin(r.path, path))) continue;
+        if (best == null || r.path.length > best.path.length) best = r;
+      }
+      return best;
+    }
+
+    final src = rootOf(from);
+    if (src == null) return false;
+    final rel = p.equals(src.path, from) ? '' : p.relative(from, from: src.path);
+    final dst = rootOf(to);
+    if (dst == null) {
+      await forgetFiles(src.id, [rel]);
+      return false;
+    }
+    final newRel = p.equals(dst.path, to) ? '' : p.relative(to, from: dst.path);
+    final there = await (db.select(
+      db.files,
+    )..where((f) => f.rootId.equals(src.id) & f.relPath.equals(rel))).getSingleOrNull();
+    // A scan saw the move first and has the book at its new place already.
+    if (there == null) return false;
+    // Whatever the index still had at the new place was replaced on disk.
+    await forgetFiles(dst.id, [newRel]);
+    final n = await (db.update(db.files)..where((f) => f.rootId.equals(src.id) & f.relPath.equals(rel))).write(
+      FilesCompanion(rootId: Value(dst.id), relPath: Value(newRel)),
+    );
+    await removeOrphans();
+    return n > 0;
+  });
+
   /// Books no file points at any more.
   Future<void> removeOrphans() =>
       db.customStatement('DELETE FROM books WHERE content_key NOT IN (SELECT content_key FROM files)');

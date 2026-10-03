@@ -23,6 +23,7 @@ import 'library_items.dart';
 import 'library_panes.dart';
 import 'library_status.dart';
 import 'library_store.dart';
+import 'move_books.dart';
 import 'providers.dart';
 import 's3_actions.dart';
 import 'settings_dialog.dart';
@@ -392,6 +393,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           _toggleMark(book);
           move(1);
         }
+      case ReaderIntent.moveBooks:
+        final books = _markedOrSelected(marked);
+        if (books.isNotEmpty) unawaited(_bulk(() => _moveBooks(books)));
+      case ReaderIntent.addToCollection:
+        final books = _markedOrSelected(marked);
+        if (books.isNotEmpty) unawaited(_bulk(() => addBooksToCollection(context, ref, books)));
       case ReaderIntent.uploadToS3:
         final books = _actOn();
         if (books.isNotEmpty) unawaited(_s3Action(() => uploadBooks(context, ref, books)));
@@ -730,6 +737,41 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
+  /// The books a move or a collection is for: the [marked] ones, else the
+  /// selected comic's.
+  List<LibraryBook> _markedOrSelected(List<LibraryBook> marked) => marked.isNotEmpty
+      ? marked
+      : switch (_selectedItem) {
+          BookItem(:final book) when !book.remoteOnly => [book],
+          _ => const [],
+        };
+
+  /// Moves [books] to a folder picked in a list, the shown folder first;
+  /// the selection stays on the cover after the last of them, as a delete
+  /// leaves it.
+  Future<bool> _moveBooks(List<LibraryBook> books) {
+    final keys = {for (final b in books) b.key};
+    return moveLibraryBooks(
+      context,
+      ref,
+      books,
+      current: tab == LibraryTab.folders ? _folder : null,
+      beforeMove: () {
+        if (tab != LibraryTab.folders) return;
+        final last = _items.lastIndexWhere((it) => _books(it).any(keys.contains));
+        final stays = [
+          for (final it in [..._items.skip(last + 1), ..._items.take(last + 1).toList().reversed])
+            if (!_books(it).every(keys.contains) || _books(it).isEmpty) it,
+        ];
+        setState(() {
+          _selected = stays.firstOrNull?.id;
+          _selectedBooks = _books(stays.firstOrNull);
+          _detail = false;
+        });
+      },
+    );
+  }
+
   /// The books an S3 action is for: the marked ones, else the selected
   /// cover's (a series' or folder's books too).
   List<LibraryBook> _actOn() {
@@ -788,11 +830,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
                 '*',
                 () => _bulk(() => toggleFavourites(context, ref, marked)),
               ),
+              button('marksMove', Icons.drive_file_move_outline, 'Move', 'gm', () => _bulk(() => _moveBooks(local))),
               button(
                 'marksCollection',
                 Icons.label_outline,
                 'Collection',
-                '',
+                'gc',
                 () => _bulk(() => addBooksToCollection(context, ref, marked)),
               ),
               button(
