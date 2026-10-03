@@ -557,6 +557,19 @@ refreshes right away instead of within six hours.
   `askDeleteMany`, `askReset(count:)`); the bar's buttons too, plus
   Collection (`askCollection` takes a list). S3 buttons show only when S3
   is on. The marks clear once an action went ahead, not on Cancel.
+  `gm` (`moveBooks`, the bar's Move) and `gc` (`addToCollection`) act on
+  the marks, else the selected comic (`_markedOrSelected`). Move
+  (`lib/src/library/move_books.dart`, snonux 2026-10-03): `moveTargets`
+  lists every folder under the roots on disk on a short isolate (empty
+  ones too; dot folders and folder books left out, links followed once),
+  `MoveDialog` filters them by typed words (`matchesTarget`), Ctrl+N makes
+  one in the picked folder and moves there. Taken names ask once
+  (`askMoveClash`, Cancel focused; Replace deletes the one there through
+  `deleteComic`). `moveComic`: `SidecarSync.flush`, `movePath` (rename,
+  copy and delete across disks; a link is moved as a link, made
+  absolute), `SidecarSync.moved` (beside and sidecar-folder copies),
+  `LibraryStore.moveFile` (the `files` row follows unless a scan saw it
+  first), so nothing keyed by content key changes.
 - `make install` puts the bundle in `~/.local/lib/comicredr`, a symlink in
   `~/.local/bin` and the launcher and icons in `~/.local/share`; it never
   runs Flutter, so `sudo make install PREFIX=/usr/local` is safe, and
@@ -647,7 +660,7 @@ tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slo
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
-tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), a restart; checks the index with sqlite3; makes its own books
+tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 

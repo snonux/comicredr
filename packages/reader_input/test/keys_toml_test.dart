@@ -119,6 +119,8 @@ setMark = "M"
         contains('hides gd'),
         contains('hides gu'),
         contains('hides gU'),
+        contains('hides gm'),
+        contains('hides gc'),
         contains('hides gt'),
       ]);
     });

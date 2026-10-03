@@ -152,6 +152,8 @@ class Keymap {
       Binding(['S-Delete'], ReaderIntent.deleteBook, layer: s),
       Binding(['g', 'u'], ReaderIntent.uploadToS3),
       Binding(['g', 'U'], ReaderIntent.removeFromS3),
+      Binding(['g', 'm'], ReaderIntent.moveBooks),
+      Binding(['g', 'c'], ReaderIntent.addToCollection),
       Binding(['V'], ReaderIntent.markBook),
       Binding(['S-Left'], ReaderIntent.markLeft, layer: s),
       Binding(['S-Right'], ReaderIntent.markRight, layer: s),

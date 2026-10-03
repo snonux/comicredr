@@ -240,6 +240,126 @@ void main() {
     final favourites = [for (final k in keys) await tester.runAsync(() => store.isFavourite(k!))];
     expect(favourites, [false, false, true, true, false]);
   });
+
+  /// Types [text] into the move picker's search field.
+  Future<void> typeKeys(WidgetTester tester, String text) async {
+    await tester.enterText(find.byKey(const Key('moveFilter')), text);
+    await settle(tester);
+  }
+
+  /// Enter in the text field that has the focus.
+  Future<void> submit(WidgetTester tester) async {
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await settle(tester);
+  }
+
+  Future<void> waitFor(WidgetTester tester, bool Function() done) async {
+    for (var i = 0; i < 30 && !done(); i++) {
+      await settle(tester);
+    }
+  }
+
+  List<String> bookPaths(ProviderContainer c) => [for (final b in c.read(booksProvider).value!) b.path]..sort();
+
+  testWidgets('gm moves the marked comics to a folder typed into the picker, sidecars and all', (tester) async {
+    final done = Directory('${root.path}/Read/Done')..createSync(recursive: true);
+    final c = await inFolder(tester);
+    final keyA = (await tester.runAsync(() => contentKey(files[0])))!;
+    await tester.runAsync(() => MarkStore(db).addBookmark(keyA, 1, null));
+    // A sidecar beside A, as the app leaves one.
+    File('${root.path}/.A.cbz.crdb').writeAsStringSync('sidecar');
+    expect(File('${root.path}/.A.cbz.crdb').existsSync(), isTrue);
+    await shifted(tester, LogicalKeyboardKey.arrowRight); // A and B.
+    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyM, character: 'm');
+    expect(find.byKey(const Key('moveDialog')), findsOneWidget);
+    // The empty folder is offered, and typing narrows the list to it.
+    expect(find.byKey(const Key('moveTarget-Comics/Read/Done')), findsOneWidget);
+    await typeKeys(tester, 'done');
+    expect(find.byKey(const Key('moveTarget-Comics')), findsNothing);
+    await submit(tester);
+    await waitFor(tester, () => File('${done.path}/B.cbz').existsSync());
+    expect([for (final f in files) File(f).existsSync()], [false, false, true, true, true]);
+    expect(File('${done.path}/A.cbz').existsSync(), isTrue);
+    // The sidecar went along, and the library has them at their new place
+    // with what it knew about them.
+    expect(File('${root.path}/.A.cbz.crdb').existsSync(), isFalse);
+    expect(File('${done.path}/.A.cbz.crdb').existsSync(), isTrue);
+    await waitFor(tester, () => bookPaths(c).contains('${done.path}/B.cbz'));
+    expect(bookPaths(c), containsAll(['${done.path}/A.cbz', '${done.path}/B.cbz']));
+    expect(bookPaths(c), isNot(contains(files[0])));
+    expect((await tester.runAsync(() => c.read(libraryStoreProvider).watchBookmarks(keyA).first))!, hasLength(1));
+    expect(find.byKey(const Key('marksBar')), findsNothing);
+    expect(find.textContaining('2 comics moved to Done'), findsOneWidget);
+  });
+
+  testWidgets('a new folder from the picker, and a name taken there asks first', (tester) async {
+    final other = Directory('${root.path}/Other')..createSync();
+    final clash = writeBook(other, 'D.cbz', 9);
+    await inFolder(tester);
+    // No marks: gm moves the selected comic. Ctrl+N makes a folder in the
+    // picked one, the folder shown, and moves there.
+    // The folder Other comes first.
+    for (var i = 0; i < 3; i++) {
+      await key(tester, LogicalKeyboardKey.keyL); // A, B, C.
+    }
+    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyM, character: 'm');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await settle(tester);
+    expect(find.text('New folder in Comics'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('newFolderName')), 'Later');
+    await submit(tester);
+    await waitFor(tester, () => File('${root.path}/Later/C.cbz').existsSync());
+    expect(File(files[2]).existsSync(), isFalse);
+    expect(File('${root.path}/Later/C.cbz').existsSync(), isTrue);
+
+    // D to Other, where a D.cbz is already: Cancel has the focus.
+    await key(tester, LogicalKeyboardKey.end); // E.
+    await key(tester, LogicalKeyboardKey.keyH); // D.
+    await key(tester, LogicalKeyboardKey.keyV, character: 'V');
+    await tester.tap(find.byKey(const Key('marksMove')));
+    await settle(tester);
+    await typeKeys(tester, 'other');
+    await submit(tester);
+    expect(find.byKey(const Key('moveClashDialog')), findsOneWidget);
+    await key(tester, LogicalKeyboardKey.enter);
+    expect(find.byKey(const Key('moveClashDialog')), findsNothing);
+    expect(File(files[3]).existsSync(), isTrue);
+    expect(File(clash).lengthSync(), isNot(File(files[3]).lengthSync()));
+    expect(count(), '1 selected');
+
+    // Replace: the one there goes, D takes its place.
+    final size = File(files[3]).lengthSync();
+    await tester.tap(find.byKey(const Key('marksMove')));
+    await settle(tester);
+    await typeKeys(tester, 'other');
+    await submit(tester);
+    await tester.tap(find.byKey(const Key('moveClashReplace')));
+    await waitFor(tester, () => !File(files[3]).existsSync());
+    expect(File(files[3]).existsSync(), isFalse);
+    expect(File(clash).lengthSync(), size);
+  });
+
+  testWidgets('gc puts the marked comics in a collection', (tester) async {
+    final c = await inFolder(tester);
+    await shifted(tester, LogicalKeyboardKey.arrowRight); // A and B.
+    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyC, character: 'c');
+    expect(find.byKey(const Key('collectionDialog')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('collectionName')), 'Summer');
+    await submit(tester);
+    List<bool> inIt() => [
+      for (final b in c.read(booksProvider).value!.toList()..sort((a, b) => a.path.compareTo(b.path)))
+        b.collections.contains('Summer'),
+    ];
+    await waitFor(tester, () => inIt().first);
+    expect(inIt(), [true, true, false, false, false]);
+    await waitFor(tester, () => find.byKey(const Key('marksBar')).evaluate().isEmpty);
+    expect(find.byKey(const Key('marksBar')), findsNothing);
+  });
 }
 
 String textOf(Finder f) => (f.evaluate().single.widget as Text).data!;

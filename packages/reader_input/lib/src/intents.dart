@@ -112,8 +112,12 @@ enum ReaderIntent {
     'Upload this comic to your S3 bucket, or sync its sidecar if it is there; in the library the selected book, or every marked one',
   ),
   removeFromS3('Take this comic off S3, after asking; the copy on this device stays; in the library every marked one'),
+  moveBooks(
+    'Library: move the selected comic, or every marked one, to another folder, picked from a list you can type into',
+  ),
+  addToCollection('Library: put the selected comic, or every marked one, in a collection, new or one you have'),
   markBook(
-    'Mark the selected book in the library, or unmark it, for an action on several (delete, reset, favourite, upload, remove from S3)',
+    'Mark the selected book in the library, or unmark it, for an action on several (move, delete, reset, favourite, collection, upload, remove from S3)',
   ),
   markLeft('Library: mark from where marking started to the cover on the left (Shift+arrows mark a run of comics)'),
   markRight('Library: mark from where marking started to the cover on the right'),
