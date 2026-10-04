@@ -1,0 +1,2 @@
+* Shuffle (S) works on every tab of covers: Reading, Series, Books and Collections too, not only Folders.
+* A series shows a random page of a random comic in it.
