@@ -21,6 +21,14 @@ int shufflePage(String bookKey, int pageCount, int seed) {
   return 1 + math.Random(Object.hash(bookKey, seed)).nextInt(pageCount - 1);
 }
 
+/// A folder's tile in shuffle: one of the comics under it, picked by
+/// [seed] as [shufflePage] picks pages. Null when none can be opened here.
+LibraryBook? shuffleBook(String folder, List<LibraryBook> books, int seed) {
+  final local = books.where((b) => !b.remoteOnly).toList();
+  if (local.isEmpty) return null;
+  return local[math.Random(Object.hash(folder, seed)).nextInt(local.length)];
+}
+
 /// Makes the pages shuffle shows, as the page grid's thumbnails
 /// (`<cache>/covers/pages/<content key>/<page>.jpg`, 256 px wide), so a page
 /// the grid made is reused and the other way round.

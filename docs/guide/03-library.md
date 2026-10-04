@@ -97,8 +97,9 @@ subfolders and comics, as they are on disk.
 #### Shuffle
 
 Press `S` on the Folders tab (or its shuffle button at the top) and each
-comic shows a random page from inside it instead of its cover. It is a
-nice way to rediscover what you have. `gs` (or the dice button beside
+comic shows a random page from inside it instead of its cover, and each
+folder a random page of a random comic somewhere in it. It is a nice way
+to rediscover what you have. `gs` (or the dice button beside
 it) picks other pages, and `S` again brings the covers back. On a phone,
 where there is no room for the dice, press shuffle twice. Opening a book
 still starts where you left off, and shuffle stays on until you turn it

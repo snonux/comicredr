@@ -9,6 +9,8 @@ the `?` overlay.
 
 - The Folders tab shows a comic in every folder that holds a copy of it,
   not only in the first one (`Unread/xman` before `xman`).
+- Shuffle (`S` on the Folders tab) shuffles folder tiles too: a random
+  page of a random comic in the folder.
 
 ## 0.6.1
 

@@ -49,6 +49,7 @@ class CoverCard extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     this.shufflePage,
+    this.shuffleBook,
     this.marked = false,
   });
 
@@ -59,6 +60,10 @@ class CoverCard extends StatelessWidget {
 
   /// In shuffle, the page the tile shows instead of the cover.
   final int? shufflePage;
+
+  /// The comic [shufflePage] is from, when it is not the tile's own: for a
+  /// folder, one of the comics in it.
+  final LibraryBook? shuffleBook;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
@@ -103,11 +108,11 @@ class CoverCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    if ((shufflePage, book) case (final page?, final book?) when !book.remoteOnly)
+                    if ((shufflePage, shuffleBook ?? book) case (final page?, final from?) when !from.remoteOnly)
                       ShuffledPage(
-                        book: book,
+                        book: from,
                         page: page,
-                        cover: CoverImage(bookKey: book.key),
+                        cover: CoverImage(bookKey: book?.key),
                       )
                     else if (onlyBook?.remoteOnly ?? false)
                       Opacity(opacity: 0.45, child: CoverImage(bookKey: book?.key))

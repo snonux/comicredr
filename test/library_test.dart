@@ -471,14 +471,18 @@ void main() {
       );
       expect(shuffled(), findsNothing);
 
-      // S turns it on: every book tile makes a page other than its cover.
+      // S turns it on: every book tile makes a page other than its cover,
+      // and a folder's tile a page of a comic in it.
       await key(tester, LogicalKeyboardKey.keyS, character: 'S');
-      for (var i = 0; i < 50 && shuffled().evaluate().length < 3; i++) {
+      for (var i = 0; i < 50 && shuffled().evaluate().length < 4; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
         await tester.pump();
       }
       final keys = {for (final e in shuffled().evaluate()) (e.widget.key! as ValueKey<String>).value};
-      expect(keys, hasLength(3), reason: 'Pepper Carrot and both Spirit books; Indie is a folder');
+      expect(keys, hasLength(4), reason: 'Pepper Carrot, both Spirit books, and Indie with Barefoot Bride');
+      final barefoot = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!
+          .firstWhere((b) => b.name == 'Barefoot Bride');
+      expect(keys.where((k) => k.startsWith('shuffled-${barefoot.key}-')), hasLength(1), reason: 'the Indie folder');
       final pages = Directory('$covers/pages')
           .listSync(recursive: true)
           .whereType<File>()
@@ -519,11 +523,11 @@ void main() {
       await settle(tester);
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter);
-      for (var i = 0; i < 50 && shuffled().evaluate().length < 3; i++) {
+      for (var i = 0; i < 50 && shuffled().evaluate().length < 4; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
         await tester.pump();
       }
-      expect(shuffled(), findsNWidgets(3));
+      expect(shuffled(), findsNWidgets(4));
       await key(tester, LogicalKeyboardKey.keyS, character: 'S');
       expect(shuffled(), findsNothing);
       expect(find.byKey(const Key('reshuffle')), findsNothing);

@@ -1566,10 +1566,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           itemCount: _items.length,
           itemBuilder: (context, i) {
             final item = _items[i];
+            // A folder shuffles too: a random page of a random comic in it.
+            final from = !shuffle
+                ? null
+                : switch (item) {
+                    BookItem(:final book) => book,
+                    FolderItem(:final folder) => shuffleBook(folder.path, folder.books, _seed),
+                    _ => null,
+                  };
             return CoverCard(
               item: item,
               marked: item is BookItem && _marked.contains(item.book.key),
-              shufflePage: shuffle && item is BookItem ? shufflePage(item.book.key, item.book.pageCount, _seed) : null,
+              shufflePage: from == null ? null : shufflePage(from.key, from.pageCount, _seed),
+              shuffleBook: item is FolderItem ? from : null,
               selected: item.id == _selected,
               onTap: () => _tap(item, wide: wide),
               onLongPress: () => setState(() {
