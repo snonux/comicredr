@@ -62,7 +62,7 @@ class CoverCard extends StatelessWidget {
   final int? shufflePage;
 
   /// The comic [shufflePage] is from, when it is not the tile's own: for a
-  /// folder, one of the comics in it.
+  /// folder or a series, one of the comics in it.
   final LibraryBook? shuffleBook;
   final bool selected;
   final VoidCallback onTap;

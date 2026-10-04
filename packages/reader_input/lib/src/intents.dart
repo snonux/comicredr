@@ -100,9 +100,9 @@ enum ReaderIntent {
   addRoot('Add a folder to the library (~/Comics is in it by default, if it exists)'),
   rescan('Rescan the library folders'),
   toggleShuffle(
-    "Shuffle in the library's Folders tab: each comic shows a random page instead of its cover, on and off",
+    "Shuffle in the library's tabs of covers: each comic, series and folder shows a random page instead of its cover, on and off",
   ),
-  reshuffle('Pick other random pages for shuffle in the Folders tab'),
+  reshuffle('Pick other random pages for shuffle in the library'),
   filterFolders("Filter the library's Folders tab by type, size and modification date"),
   resetBook(
     'Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one',

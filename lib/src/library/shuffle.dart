@@ -11,7 +11,7 @@ import '../reader/thumbnails.dart';
 import 'library_store.dart';
 import 'providers.dart';
 
-/// Shuffle on the Folders tab (`S`): each book's tile shows a random page
+/// Shuffle on the tabs of covers (`S`): each book's tile shows a random page
 /// of it instead of its cover. [seed] picks the pages; a new one (`gs`,
 /// turning shuffle on, walking into a folder) picks others, and the same
 /// seed keeps them while the grid scrolls.
@@ -21,12 +21,13 @@ int shufflePage(String bookKey, int pageCount, int seed) {
   return 1 + math.Random(Object.hash(bookKey, seed)).nextInt(pageCount - 1);
 }
 
-/// A folder's tile in shuffle: one of the comics under it, picked by
-/// [seed] as [shufflePage] picks pages. Null when none can be opened here.
-LibraryBook? shuffleBook(String folder, List<LibraryBook> books, int seed) {
+/// A folder's or series' tile in shuffle (its item id [group]): one of its
+/// comics, picked by [seed] as [shufflePage] picks pages. Null when none can
+/// be opened here.
+LibraryBook? shuffleBook(String group, List<LibraryBook> books, int seed) {
   final local = books.where((b) => !b.remoteOnly).toList();
   if (local.isEmpty) return null;
-  return local[math.Random(Object.hash(folder, seed)).nextInt(local.length)];
+  return local[math.Random(Object.hash(group, seed)).nextInt(local.length)];
 }
 
 /// Makes the pages shuffle shows, as the page grid's thumbnails

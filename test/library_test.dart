@@ -534,6 +534,40 @@ void main() {
       expect(c2.read(readerProvider).book, isNull);
     });
 
+    testWidgets('S shuffles the Series and Books tabs too, a series with a page of one of its comics', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      Finder shuffled() => find.byWidgetPredicate(
+        (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('shuffled-'),
+      );
+      Future<void> waitFor(int n) async {
+        for (var i = 0; i < 50 && shuffled().evaluate().length < n; i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+          await tester.pump();
+        }
+      }
+
+      await tester.tap(find.text('Series').first);
+      await settle(tester);
+      expect(shuffled(), findsNothing);
+      await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+      await waitFor(3);
+      final books = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!;
+      final spirit = {for (final b in books.where((b) => b.series == 'The Spirit')) b.key};
+      final keys = {for (final e in shuffled().evaluate()) (e.widget.key! as ValueKey<String>).value};
+      expect(keys, hasLength(3), reason: 'The Spirit, Barefoot Bride and Pepper Carrot');
+      expect(keys.where((k) => spirit.any((s) => k.startsWith('shuffled-$s-'))), hasLength(1), reason: 'the series');
+      expect(find.byKey(const Key('shuffle')), findsOneWidget);
+
+      await tester.tap(find.text('Books').first);
+      await settle(tester);
+      await waitFor(4);
+      expect(shuffled(), findsNWidgets(4), reason: 'every book, shuffle stays on across tabs');
+      await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+      expect(shuffled(), findsNothing);
+    });
+
     testWidgets('F filters the Folders tab by type and date, the bar clears it, and it is kept', (tester) async {
       writeShelf(root);
       File('${root.path}/Sunday Strip 7.png').writeAsBytesSync([...png, 7]);

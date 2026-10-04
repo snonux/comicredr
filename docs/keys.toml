@@ -170,9 +170,9 @@ activate = ["Enter"]
 addRoot = ["A"]
 # Rescan the library folders
 rescan = ["R"]
-# Shuffle in the library's Folders tab: each comic shows a random page instead of its cover, on and off
+# Shuffle in the library's tabs of covers: each comic, series and folder shows a random page instead of its cover, on and off
 toggleShuffle = ["S"]
-# Pick other random pages for shuffle in the Folders tab
+# Pick other random pages for shuffle in the library
 reshuffle = ["gs"]
 # Filter the library's Folders tab by type, size and modification date
 filterFolders = ["F"]

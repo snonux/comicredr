@@ -130,7 +130,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   double _viewport = 600;
   List<LibraryItem> _items = const [];
 
-  /// Shuffle on the Folders tab (`S`): random pages instead of covers,
+  /// Shuffle on the tabs of covers (`S`): random pages instead of covers,
   /// picked by [_seed].
   bool _shuffle = false;
   int _seed = 0;
@@ -360,9 +360,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         return back();
       case ReaderIntent.up:
         _folderUp();
-      case ReaderIntent.toggleShuffle when tab == LibraryTab.folders:
+      case ReaderIntent.toggleShuffle when _coverTab:
         setShuffle(!_shuffle);
-      case ReaderIntent.reshuffle when tab == LibraryTab.folders && _shuffle:
+      case ReaderIntent.reshuffle when _coverTab && _shuffle:
         setState(_reshuffle);
       case ReaderIntent.resetBook when marked.isNotEmpty:
         unawaited(_bulk(() => resetBooks(context, ref, marked)));
@@ -986,6 +986,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// Tabs that are lists of their own rather than cover grids.
   bool get _listTab => tab == LibraryTab.history;
 
+  /// A tab of covers, where shuffle shows: all but History and Bookmarks.
+  bool get _coverTab => tab != LibraryTab.history && tab != LibraryTab.bookmarks;
+
   List<LibraryItem> _itemsFor(List<LibraryBook> books, List<RootInfo> roots, List<BookmarkInfo> bookmarks) {
     final q = _query.trim();
     switch (tab) {
@@ -1296,7 +1299,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Add a folder to the library (A)',
             onPressed: widget.onAddRoot,
           ),
-          if (tab == LibraryTab.folders) ...[
+          if (_coverTab) ...[
             IconButton(
               key: const Key('shuffle'),
               icon: Icon(_shuffle ? Icons.shuffle_on_outlined : Icons.shuffle),
@@ -1552,7 +1555,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         final extent = itemW * 1.5 + 48;
         _rowExtent = extent + gap;
         _viewport = box.maxHeight;
-        final shuffle = _shuffle && tab == LibraryTab.folders;
+        final shuffle = _shuffle && _coverTab;
         return GridView.builder(
           key: const Key('grid'),
           controller: _scroll,
@@ -1566,19 +1569,20 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           itemCount: _items.length,
           itemBuilder: (context, i) {
             final item = _items[i];
-            // A folder shuffles too: a random page of a random comic in it.
+            // A folder or series shuffles too: a random page of a random comic in it.
             final from = !shuffle
                 ? null
                 : switch (item) {
                     BookItem(:final book) => book,
-                    FolderItem(:final folder) => shuffleBook(folder.path, folder.books, _seed),
+                    FolderItem(:final folder) => shuffleBook(item.id, folder.books, _seed),
+                    SeriesItem(:final series) => shuffleBook(item.id, series.books, _seed),
                     _ => null,
                   };
             return CoverCard(
               item: item,
               marked: item is BookItem && _marked.contains(item.book.key),
               shufflePage: from == null ? null : shufflePage(from.key, from.pageCount, _seed),
-              shuffleBook: item is FolderItem ? from : null,
+              shuffleBook: item is BookItem ? null : from,
               selected: item.id == _selected,
               onTap: () => _tap(item, wide: wide),
               onLongPress: () => setState(() {

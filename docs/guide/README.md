@@ -32,10 +32,11 @@ come back here for a key you forgot.
 3. [The library](03-library.md)
    - [Moving around](03-library.md#moving-around)
    - [The tabs](03-library.md#the-tabs): [series](03-library.md#series),
-     [folders](03-library.md#folders), [shuffle](03-library.md#shuffle),
+     [folders](03-library.md#folders),
      [filter by type, size and date](03-library.md#filter-by-type-size-and-date),
      [history](03-library.md#history)
    - [Search](03-library.md#search)
+   - [Shuffle](03-library.md#shuffle)
    - [Favourites](03-library.md#favourites)
    - [Collections](03-library.md#collections)
    - [Several comics at once](03-library.md#several-comics-at-once)

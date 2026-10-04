@@ -94,19 +94,6 @@ subfolders and comics, as they are on disk.
 
 ![Inside a folder: its comics](images/folders-inside.webp)
 
-#### Shuffle
-
-Press `S` on the Folders tab (or its shuffle button at the top) and each
-comic shows a random page from inside it instead of its cover, and each
-folder a random page of a random comic somewhere in it. It is a nice way
-to rediscover what you have. `gs` (or the dice button beside
-it) picks other pages, and `S` again brings the covers back. On a phone,
-where there is no room for the dice, press shuffle twice. Opening a book
-still starts where you left off, and shuffle stays on until you turn it
-off, across restarts.
-
-![Shuffle: each comic shows a random page](images/shuffle.webp)
-
 #### Filter by type, size and date
 
 Press `F` on the Folders tab, or tap **Filter by type, size, date** under
@@ -161,6 +148,19 @@ book in it matches. On the Bookmarks tab the search looks in your notes too.
 `Enter` jumps to the first match; `Esc` clears the search.
 
 ![Searching the library](images/search.gif)
+
+## Shuffle
+
+Press `S` on any tab of covers (or the shuffle button at the top) and
+each comic shows a random page from inside it instead of its cover, and
+each series or folder a random page of a random comic in it. It is a
+nice way to rediscover what you have. `gs` (or the dice button beside
+it) picks other pages, and `S` again brings the covers back. On a phone,
+where there is no room for the dice, press shuffle twice. Opening a book
+still starts where you left off, and shuffle stays on until you turn it
+off, across restarts and on every tab.
+
+![Shuffle: each comic shows a random page](images/shuffle.webp)
 
 ## Favourites
 

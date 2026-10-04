@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+- Shuffle (`S`) works on every tab of covers, not only Folders: Reading,
+  Series, Books and Collections too, a series showing a random page of a
+  random comic in it.
+
 ## 0.6.2
 
 - The Folders tab shows a comic in every folder that holds a copy of it,
