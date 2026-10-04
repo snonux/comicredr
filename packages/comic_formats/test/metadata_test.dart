@@ -140,7 +140,14 @@ void main() {
       Process.runSync('chmod', ['000', locked.path]);
       addTearDown(() => Process.runSync('chmod', ['755', locked.path]));
       // Root can read anything; the check means nothing then.
-      if (locked.listSync().isNotEmpty) return;
+      try {
+        if (locked.listSync().isNotEmpty) {
+          markTestSkipped('This user can read folders with no permissions.');
+          return;
+        }
+      } on PathAccessException {
+        // Expected for non-root; check the document's error below.
+      }
       expect(() => FolderDocument.open(tmp.path), throwsFormatException);
     });
   });
