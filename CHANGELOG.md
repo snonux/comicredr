@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.6.1
+
 - Android 7–10 explains the Storage permission dialog and offers **Allow
   access**; Android 11+ keeps **Open settings** for All files access.
 

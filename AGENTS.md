@@ -63,16 +63,20 @@ it in step when the architecture or the model changes.
 ## Releases
 
 A release is a `vX.Y.Z` tag on a commit whose `pubspec.yaml` says
-`version: X.Y.Z+N`, with `N` one more than the last release:
+`version: X.Y.Z+N`, with `N` incremented from the current build and higher
+than the last published release:
 
 1. Bump `version:` in `pubspec.yaml` and move the `Unreleased` notes in
    `CHANGELOG.md` under the new version.
 2. Write `fastlane/metadata/android/en-US/changelogs/N.txt`, a few lines
-   (at most 500 characters) that F-Droid shows as *What's new*.
-3. Commit, `git tag vX.Y.Z`, `git push && git push --tags`.
+   (at most 500 characters), and copy it to `1000+N.txt`, `2000+N.txt`
+   and `4000+N.txt`. Flutter's split APKs use these ABI version codes,
+   which F-Droid reads for *What's new*.
+3. Commit, `git tag vX.Y.Z`, `git push && git push origin vX.Y.Z`.
 
-The tag starts `.github/workflows/release.yml`, which builds the arm64 APK with
-the release key and attaches it to the GitHub release of the tag. The
+The tag starts `.github/workflows/release.yml`, which builds the armeabi-v7a,
+arm64-v8a and x86_64 APKs with the release key and attaches them to the
+GitHub release of the tag. The
 [F-Droid repository](https://github.com/snonux/fdroid) picks it up with the
 store listing in `fastlane/` at that tag. The workflow needs these
 repository secrets, taken from `android/key.properties`:

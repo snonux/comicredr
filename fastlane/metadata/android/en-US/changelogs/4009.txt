@@ -1,0 +1,6 @@
+* Android 7-10: Allow access opens the Storage dialog; Android 11+ uses All files access in Settings.
+* Move marked comics to another folder (gm, or Move): pick it from a list you type into, or make a new one.
+* gc puts the selected or marked comics in a collection.
+* G12 goes to page 12; G alone to the last page.
+* Parts of a page by two digits: 11-12 halves, 21-23 thirds, 31-34 strips, 41-44 quarters.
+* The page shown whole before it turns when reading in parts.
