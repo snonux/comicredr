@@ -7,6 +7,9 @@ the `?` overlay.
 
 ## Unreleased
 
+- The Folders tab shows a comic in every folder that holds a copy of it,
+  not only in the first one (`Unread/xman` before `xman`).
+
 ## 0.6.1
 
 - Android 7–10 explains the Storage permission dialog and offers **Allow

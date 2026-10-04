@@ -35,6 +35,7 @@ class LibraryBook {
     this.s3,
     this.size,
     this.modified,
+    this.copies = const [],
   });
 
   final String key;
@@ -59,6 +60,44 @@ class LibraryBook {
   /// a comic on S3 only, the upload's size and time.
   final int? size;
   final DateTime? modified;
+
+  /// The book's other files: the same comic, byte for byte, found at more
+  /// places than [path], each with when it last changed. They share the
+  /// book's place, bookmarks and the rest, but each is in its own folder.
+  final List<({String path, DateTime? modified})> copies;
+
+  /// The book once for each of its files, itself first: what the Folders
+  /// tab shows, so a comic is in every folder that holds a copy of it.
+  Iterable<LibraryBook> get everyFile sync* {
+    yield this;
+    for (final c in copies) {
+      yield LibraryBook(
+        key: key,
+        series: series,
+        seriesId: seriesId,
+        pageCount: pageCount,
+        format: format,
+        path: c.path,
+        addedAt: addedAt,
+        number: number,
+        volume: volume,
+        year: year,
+        issueTitle: issueTitle,
+        writers: writers,
+        artists: artists,
+        summary: summary,
+        page: page,
+        percent: percent,
+        finished: finished,
+        readAt: readAt,
+        collections: collections,
+        fromFile: fromFile,
+        s3: s3,
+        size: size,
+        modified: c.modified,
+      );
+    }
+  }
 
   /// The saved page, null for a book never opened.
   final int? page;
@@ -522,6 +561,14 @@ JOIN (SELECT f.content_key, r.path || '/' || f.rel_path AS path, f.size, f.mtime
         FROM files f JOIN roots r ON r.id = f.root_id) fp ON fp.content_key = b.content_key AND fp.n = 1
 ''';
 
+  /// Every file of the books found at more than one place.
+  static const _copiesSql = '''
+SELECT f.content_key, r.path || '/' || f.rel_path AS path, f.mtime
+FROM files f JOIN roots r ON r.id = f.root_id
+WHERE f.content_key IN (SELECT content_key FROM files GROUP BY content_key HAVING COUNT(*) > 1)
+ORDER BY r.id, f.rel_path
+''';
+
   /// Every book in the library, live: a scan adding a book or a page turn
   /// saving progress updates whoever watches.
   Stream<List<LibraryBook>> watchBooks() => _live({
@@ -558,7 +605,18 @@ JOIN (SELECT f.content_key, r.path || '/' || f.rel_path AS path, f.size, f.mtime
       )..where((t) => t.pending.isNull() | t.pending.equals('remove').not())).get())
         r.contentKey: r,
     };
-    final local = [for (final r in rows) _book(r, edits[r.read<String>('content_key')] ?? const {}, ids, shelf)];
+    final files = <String, List<({String path, DateTime? modified})>>{};
+    for (final r in await db.customSelect(_copiesSql).get()) {
+      final mtime = r.readNullable<int>('mtime');
+      files.putIfAbsent(r.read<String>('content_key'), () => []).add((
+        path: p.normalize(r.read<String>('path')),
+        modified: mtime == null ? null : DateTime.fromMillisecondsSinceEpoch(mtime * 1000),
+      ));
+    }
+    final local = [
+      for (final r in rows)
+        _book(r, edits[r.read<String>('content_key')] ?? const {}, ids, shelf, files[r.read<String>('content_key')]),
+    ];
     return [
       ...local,
       ...await _remoteOnly(shelf, {for (final b in local) b.key}),
@@ -632,6 +690,7 @@ JOIN (SELECT f.content_key, r.path || '/' || f.rel_path AS path, f.size, f.mtime
     Map<MetaField, String?> edits,
     Map<String, int> seriesIds, [
     Map<String, S3Book> shelf = const {},
+    List<({String path, DateTime? modified})>? files,
   ]) {
     List<String> list(String col) => r.readNullable<String>(col)?.split(', ') ?? const [];
     DateTime? time(String col) {
@@ -658,6 +717,7 @@ JOIN (SELECT f.content_key, r.path || '/' || f.rel_path AS path, f.size, f.mtime
     // A series cannot be blank: clearing it shows the file's again.
     final series = get(MetaField.series) ?? file[MetaField.series]!;
     final collections = r.readNullable<String>('collections')?.split('\x1f') ?? const <String>[];
+    final path = p.normalize(r.read<String>('path'));
     return LibraryBook(
       key: r.read<String>('content_key'),
       series: series,
@@ -672,10 +732,11 @@ JOIN (SELECT f.content_key, r.path || '/' || f.rel_path AS path, f.size, f.mtime
       fromFile: {for (final f in edits.keys) f: file[f]},
       pageCount: r.read<int>('page_count'),
       format: r.read<String>('format'),
-      path: p.normalize(r.read<String>('path')),
+      path: path,
       addedAt: time('added_at') ?? DateTime(2000),
       size: r.readNullable<int>('f_size'),
       modified: time('f_mtime'),
+      copies: [...?files?.where((f) => f.path != path)],
       page: r.readNullable<int>('p_page'),
       percent: r.readNullable<double>('p_percent'),
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,

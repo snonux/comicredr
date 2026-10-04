@@ -425,6 +425,39 @@ void main() {
       expect(find.text('No books in this folder any more.'), findsNothing);
     });
 
+    testWidgets('a comic with copies in two folders shows in both, and opens the copy you are on', (tester) async {
+      final xman = Directory('${root.path}/xman')..createSync();
+      final unread = Directory('${root.path}/Unread/xman')..createSync(recursive: true);
+      final copy = writeBook(xman, 'Nancy.cbz', 3);
+      File(copy).copySync('${unread.path}/Nancy.cbz');
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      final books = await tester.runAsync(() => c.read(libraryStoreProvider).books());
+      expect(books, hasLength(1), reason: 'one comic, two files');
+      expect(books!.single.copies.map((f) => f.path), [p.normalize(copy)]);
+
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      expect(find.text('2 books'), findsWidgets, reason: 'a file in each folder');
+      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.enter); // Into Comics.
+      // "Unread" sorts first and held the only cover; xman has its own now.
+      await tester.tap(find.text('xman').first);
+      await settle(tester);
+      expect(find.text('Nancy'), findsWidgets);
+      await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
+      expect(c.read(readerProvider).book?.path, p.normalize(copy));
+      await key(tester, LogicalKeyboardKey.escape);
+
+      await tester.tap(find.descendant(of: find.byKey(const Key('breadcrumb')), matching: find.text('Comics')));
+      await settle(tester);
+      await tester.tap(find.text('Unread').first);
+      await settle(tester);
+      await tester.tap(find.text('xman').first);
+      await settle(tester);
+      expect(find.text('Nancy'), findsWidgets);
+    });
+
     testWidgets('shuffle shows a random page of each book in a folder, remembered across starts', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester);

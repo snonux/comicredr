@@ -87,6 +87,10 @@ subfolders and comics, as they are on disk.
 - Choosing the Folders tab again takes you back to the top.
 - Add, move or delete comics in your file manager and the tab follows
   along while it is open.
+- The same comic in two folders (say `xman/Nancy.cbr` and a copy in
+  `Unread/xman/`) shows in both. It is one comic to the library, so your
+  place and bookmarks are shared, and the other tabs show it once; open,
+  move or delete it from a folder and that folder's copy is the one used.
 
 ![Inside a folder: its comics](images/folders-inside.webp)
 

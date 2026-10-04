@@ -703,7 +703,16 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   List<LibraryBook> _markedBooks() {
     if (_marked.isEmpty) return const [];
     final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
-    return all.where((b) => _marked.contains(b.key)).toList()..sort((a, b) => naturalCompare(a.path, b.path));
+    // A comic with copies is the copy shown, so a move or a delete in a
+    // folder acts on the file in that folder.
+    final shown = {
+      for (final it in _items.reversed)
+        if (it is BookItem && _marked.contains(it.book.key)) it.book.key: it.book,
+    };
+    return [
+      for (final b in all)
+        if (_marked.contains(b.key)) shown[b.key] ?? b,
+    ]..sort((a, b) => naturalCompare(a.path, b.path));
   }
 
   /// Runs an action on the marked books; the marks go once it went ahead.
@@ -792,9 +801,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   /// The bar over the grid while books are marked: how many, and what to
   /// do with all of them.
-  Widget _marksBar(BuildContext context, List<LibraryBook> books) {
+  Widget _marksBar(BuildContext context) {
     final theme = Theme.of(context);
-    final marked = books.where((b) => _marked.contains(b.key)).toList()..sort((a, b) => naturalCompare(a.path, b.path));
+    final marked = _markedBooks();
     final local = marked.where((b) => !b.remoteOnly).toList();
     final s3 = ref.watch(s3StatusProvider).value?.on ?? false;
     final narrow = MediaQuery.sizeOf(context).width < 600;
@@ -1009,7 +1018,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         ];
       case LibraryTab.folders:
         final now = DateTime.now();
-        final filtered = _filter.isActive ? books.where((b) => _filter.accepts(b, now)).toList() : books;
+        // A comic with copies in several folders is in each of them.
+        final files = [for (final b in books) ...b.everyFile];
+        final filtered = _filter.isActive ? files.where((b) => _filter.accepts(b, now)).toList() : files;
         if (_folder == null) {
           return [
             for (final f in LibraryFolder.roots(roots, filtered))
@@ -1063,7 +1074,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     // Not while the books are still loading or a scan may be adding them: a
     // folder opened at start has none yet.
     final settled = ref.watch(booksProvider).hasValue && !(ref.watch(scanStatusProvider).value?.running ?? true);
-    while (settled && _folder != null && _folder != _folderRoot && !books.any((b) => p.isWithin(_folder!, b.path))) {
+    while (settled &&
+        _folder != null &&
+        _folder != _folderRoot &&
+        !books.expand((b) => b.everyFile).any((b) => p.isWithin(_folder!, b.path))) {
       _folder = p.dirname(_folder!);
       _selected = null;
       _detail = false;
@@ -1119,7 +1133,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
             : Column(
                 children: [
                   _header(context, books),
-                  if (_marked.isNotEmpty || _selecting) _marksBar(context, books),
+                  if (_marked.isNotEmpty || _selecting) _marksBar(context),
                   if (tab == LibraryTab.folders) _filterBar(context),
                   Expanded(
                     child: switch (tab) {

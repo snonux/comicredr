@@ -9,7 +9,8 @@ class BookItem extends LibraryItem {
   BookItem(this.book);
   final LibraryBook book;
   @override
-  String get id => 'b:${book.key}';
+  // With its path: on the Folders tab two copies of a comic can sit side by side.
+  String get id => 'b:${book.key}:${book.path}';
 }
 
 class SeriesItem extends LibraryItem {
