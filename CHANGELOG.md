@@ -7,6 +7,9 @@ the `?` overlay.
 
 ## Unreleased
 
+- Android 7–10 explains the Storage permission dialog and offers **Allow
+  access**; Android 11+ keeps **Open settings** for All files access.
+
 ## 0.6.0
 
 Move comics to other folders, jump to a page with `G12`, and zoom into

@@ -456,8 +456,13 @@ refreshes right away instead of within six hours.
   with the real path (`pathOf`), not file_selector's copy in the cache.
   The reader sits in a SafeArea: Android 15 and a return from fullscreen
   draw the app edge to edge. Below 600 dp the status line puts its text
-  above the buttons. The APK was tested on an Android 14 emulator only; a
-  real phone, pinch zoom and real speed and memory are untested.
+  above the buttons. Layout was tested on an Android 14 emulator; a real
+  phone, pinch zoom and real speed and memory are untested. The
+  shared-storage permission flow and file operations are also checked on
+  Android 9/10/14 emulators; see `docs/android-storage-acceptance.md`.
+  `usesAllFilesAccess` on the native storage channel tells the explanation
+  (`lib/src/android_storage.dart`) whether to offer the runtime dialog or
+  Settings; private app data does not use this gate.
 - Tablets and split screen get no code of their own: every layout
   follows the window's width, the same on Linux. Library: bottom tabs
   below 600 dp, the rail from 600, the tab's name in the header from 840
@@ -661,6 +666,7 @@ tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps w
 tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
+python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
 ```
 

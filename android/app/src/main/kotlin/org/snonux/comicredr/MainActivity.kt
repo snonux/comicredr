@@ -17,7 +17,8 @@ import java.io.File
 
 /// All-files access (MANAGE_EXTERNAL_STORAGE), so the library reads real
 /// paths such as /storage/emulated/0/Comics (design plan section 8). It is
-/// granted once, on a system settings page rather than in a dialog.
+/// granted on a system settings page on Android 11+, or with the runtime
+/// Storage permission dialog on Android 7–10.
 class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Android sets no HOME and its default TMPDIR (/data/local/tmp) is
@@ -36,6 +37,7 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "hasAllFilesAccess" -> result.success(hasAccess())
+                    "usesAllFilesAccess" -> result.success(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
                     "requestAllFilesAccess" -> {
                         if (!hasAccess() && Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
                             // A dialog, not a settings page; the library

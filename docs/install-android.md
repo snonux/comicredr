@@ -8,9 +8,8 @@ itself out for the screen it is on.
 
 The easiest way is snonux's own F-Droid repository,
 [snonux/fdroid](https://github.com/snonux/fdroid). It serves the signed
-APK of each tagged ComicRedr release, for arm64 phones and tablets
-(almost every one sold since 2017), and F-Droid then keeps the app
-updated.
+APKs of each tagged ComicRedr release, for 32-bit ARM, arm64 and x86_64;
+F-Droid chooses the one for your device and keeps the app updated.
 
 1. Install the [F-Droid](https://f-droid.org) app on the phone or tablet.
 2. Add the repository: open
@@ -54,9 +53,9 @@ make apk            # build the APK
 make install-apk    # install it, keeping the app's data
 ```
 
-The APK carries the same built-in panel detector. It is built for arm64
-only; an older tablet with a 32-bit ARM processor, or an x86_64 one, is
-not supported.
+The APK carries the same built-in panel detector. `make apk` builds for
+arm64 by default. To include 32-bit ARM and x86_64 as well, use
+`make apk APK_ABI=android-arm,android-arm64,android-x64`.
 
 > **Back up `~/.config/comicredr/release.jks` and `android/key.properties`.**
 > Android only installs an update over the old app, keeping your library
@@ -65,6 +64,10 @@ not supported.
 
 What to do on the device the first time is in
 [On a phone or tablet](guide/10-phone.md#first-start) in the guide.
+Android 7–10 asks for **Storage** permission in a dialog; Android 11 and
+newer uses **All files access** in Settings. That access lets ComicRedr
+read your existing comics and write sidecars beside them. The app's
+private index and settings work without it.
 
 The F-Droid APKs are signed with the project's release key. Android only
 updates an app with an APK signed by the same key, so an APK you build

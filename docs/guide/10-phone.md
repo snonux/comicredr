@@ -19,16 +19,31 @@ These pictures are from the Android 14 emulator.
 1. Copy some comics into the phone's `Comics` folder (over USB, or
    however you like).
 2. Start ComicRedr and tap the folder button.
-3. Android asks you to allow **All files access** for ComicRedr on a
-   settings page. Allow it, then come back. (Android 10 and older ask
-   in a dialog instead.)
+3. On **Android 11 and newer**, tap **Open settings**, enable **All files
+   access** for ComicRedr, then come back. On **Android 7–10**, tap
+   **Allow access**, then **Allow** in Android's Storage permission dialog.
 4. `Comics` is now in the library. The folder button adds any other
    folder: type its path, for example `/storage/emulated/0/Manga`.
+
+If you decline, your comics stay where they are. Tap the folder button
+again to retry. If Android 7–10 no longer shows the permission dialog,
+open **Settings → Apps → ComicRedr → Permissions** and allow **Storage**,
+then return to ComicRedr. You can also add `/storage/emulated/0/Download`
+or `/storage/emulated/0/Documents`; ComicRedr reads the original files
+and writes their hidden sidecars beside them. Its private library index
+and settings need no shared-storage permission.
 
 | | | |
 |---|---|---|
 | <img src="images/android-empty.webp" width="240" alt="The first start on an Android phone"> | <img src="images/android-allow-dialog.webp" width="240" alt="ComicRedr asks for access to your comics"> | <img src="images/android-all-files.webp" width="240" alt="Android's All files access page"> |
 | The first start | ComicRedr explains what it needs | Android's settings page: turn the switch on |
+
+Android 7–10 uses a permission dialog instead (Android 10 shown here):
+
+| | |
+|---|---|
+| <img src="images/android-storage-explanation.webp" width="240" alt="ComicRedr offers Allow access on Android 10"> | <img src="images/android-storage-permission.webp" width="240" alt="Android 10 asks to allow ComicRedr access to files"> |
+| Tap Allow access | Tap Allow in Android's dialog |
 
 ## What is different on the phone
 

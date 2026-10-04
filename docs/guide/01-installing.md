@@ -19,7 +19,7 @@ the F-Droid app and install ComicRedr from there. Without F-Droid, build
 the APK on your laptop and install it over USB.
 [Installing on Android](../install-android.md) has both ways.
 
-What to do on the phone or tablet the first time is in
+Granting storage access and what to do on the phone or tablet the first time are in
 [On a phone or tablet](10-phone.md#first-start).
 
 ## The panel detector

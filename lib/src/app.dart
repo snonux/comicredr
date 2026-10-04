@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
+import 'android_storage.dart';
 import 'data/settings_file.dart';
 import 'input/keys_file.dart';
 import 'input/reader_keyboard.dart';
@@ -130,7 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       onPause: () => ref.read(readerProvider.notifier).flush(),
       // Android has no change notifications for the library folders, so it
       // rescans when the app comes back (design plan section 4).
-      // All files access may have been granted meanwhile, which lets the
+      // Storage access may have been granted meanwhile, which lets the
       // default Comics folder in.
       onResume: () {
         ref.read(readerProvider.notifier).resumeSitting();
@@ -352,36 +353,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _rescan();
   });
 
-  /// Android: All-files access first, explained in a sentence, then the
+  /// Android: storage access first, explained in a sentence, then the
   /// folder as a real path.
   Future<String?> _askAndroidFolder() async {
     if (!await _hasAndroidAccess()) return null;
     return _askPath('Add a folder to the library', 'Add');
   }
 
-  /// Whether All-files access is on; when it is not, says why it is needed
-  /// and offers the settings page.
   Future<bool> _hasAndroidAccess() async {
-    final granted = await _storage.invokeMethod<bool>('hasAllFilesAccess').catchError((_) => true) ?? true;
-    if (!mounted) return false;
-    if (!granted) {
-      final go = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Allow access to your comics'),
-          content: const Text(
-            'ComicRedr reads comics where they are in the device\'s storage. Android asks for that once, '
-            'as "All files access", on a settings page. Turn it on there, then come back and try again.',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Not now')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Open settings')),
-          ],
-        ),
-      );
-      if (go == true) await _storage.invokeMethod<void>('requestAllFilesAccess');
+    try {
+      return await hasAndroidStorageAccess(context, _storage);
+    } on PlatformException catch (e) {
+      if (mounted) ref.read(readerProvider.notifier).notice('Could not request storage access: ${e.message}');
+      return false;
     }
-    return granted;
   }
 
   /// A folder typed as a path: Android has no folder picker that gives one.

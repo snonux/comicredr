@@ -418,7 +418,7 @@ sequenceDiagram
 flowchart TB
   dart["Same Dart code: library, reader,<br/>formats, detection, input"]
   dart --> linux["Linux (GTK runner)<br/>linux/runner: fullscreen channel<br/>model opened in place in the bundle<br/>make install puts it in ~/.local"]
-  dart --> android["Android (APK from F-Droid or built yourself)<br/>All files access for real paths<br/>model copied out of the APK once<br/>immersive fullscreen, rescans on resume"]
+  dart --> android["Android (APK from F-Droid or built yourself)<br/>Storage permission on 7–10, All files access on 11+<br/>model copied out of the APK once<br/>immersive fullscreen, rescans on resume"]
 ```
 
 Almost everything is shared. The platform-specific parts are small: the
