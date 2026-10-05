@@ -1,0 +1,1 @@
+* Page-part digits now match how many parts you think in: 21/22 halves, 31–33 thirds, 41–44 strips, 51–54 quarters (was 11–44). 11 shows the whole page in the current split; 00 leaves it. Letter keys H1–Q4 are unchanged.
