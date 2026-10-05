@@ -1,0 +1,1 @@
+* Moving a comic to another folder (gm) keeps your place and takes its sidecar along, so progress, bookmarks and panels stay with it.

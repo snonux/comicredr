@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.6.4
+
+- Moving a comic to another folder (`gm`) keeps your place and takes its
+  sidecar along, so progress, bookmarks and panels stay with it.
+
 ## 0.6.3
 
 - Shuffle (`S`) works on every tab of covers, not only Folders: Reading,
