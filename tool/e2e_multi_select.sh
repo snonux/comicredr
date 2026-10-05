@@ -8,9 +8,10 @@
 # Enter cancels, then Tab and Enter delete the three for good and leave
 # the rest; a restart keeps it so. Then gm moves D and E into the empty
 # folder Read, picked by typing in the folder list, sidecars along and the
-# index following; gc puts F in a new collection; a name taken in Read
-# asks first (Enter cancels, Skip leaves F); Ctrl+N makes a folder and
-# moves F into it; a restart keeps it so.
+# index following (D's reading place kept in the index and its sidecar);
+# gc puts F in a new collection; a name taken in Read asks first (Enter
+# cancels, Skip leaves F); Ctrl+N makes a folder and moves F into it; a
+# restart keeps it so.
 #
 #   tool/e2e_multi_select.sh
 #
@@ -145,9 +146,12 @@ check "after a restart three books" test "$(q 'select count(*) from files')" = 3
 check "and three favourites" test "$(favourites)" = 3
 stop
 
-# gm with D and E marked: the folder list, "read" typed, Enter.
+# gm with D and E marked: the folder list, "read" typed, Enter. D is
+# opened first so it has a place (page 3) the move must keep.
 start
 to_shelf
+key Home; key Return; sleep 3; key l; key l; sleep 2; key Escape; sleep 2
+check "D has a position before the move" test "$(q "select page from progress where content_key = '${k[D]}'")" = 2
 key Home; key shift+Right
 key g m; sleep 2
 xdotool type --delay 80 read; sleep 1
@@ -159,6 +163,8 @@ for n in D E; do
   check "its sidecar went along" test -f "$comics/Read/.Book $n.cbz.crdb" -a ! -e "$shelf/.Book $n.cbz.crdb"
   check "the index has Book $n in Read" test "$(q "select rel_path from files where content_key = '${k[$n]}'")" = "Read/Book $n.cbz"
 done
+check "D's position is still page 3" test "$(q "select page from progress where content_key = '${k[D]}'")" = 2
+check "and its sidecar still has it" test "$(sqlite3 -batch -noheader "$comics/Read/.Book D.cbz.crdb" "select page || ' ' || panel from progress order by updated_at desc limit 1")" = "2 -1"
 check "D and E are still favourites" test "$(favourites)" = 3
 check "the index holds three books" test "$(q 'select count(*) from files')" = 3
 

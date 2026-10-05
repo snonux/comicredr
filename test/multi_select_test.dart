@@ -4,8 +4,11 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/panel_store.dart';
+import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/data/sidecar.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/providers.dart';
+import 'package:comicredr/src/reader/reader_providers.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -265,10 +268,34 @@ void main() {
     final done = Directory('${root.path}/Read/Done')..createSync(recursive: true);
     final c = await inFolder(tester);
     final keyA = (await tester.runAsync(() => contentKey(files[0])))!;
-    await tester.runAsync(() => MarkStore(db).addBookmark(keyA, 1, null));
-    // A sidecar beside A, as the app leaves one.
-    File('${root.path}/.A.cbz.crdb').writeAsStringSync('sidecar');
-    expect(File('${root.path}/.A.cbz.crdb').existsSync(), isTrue);
+    // Index progress is real. The beside .crdb is planted here (SidecarSync.write
+    // hangs under the test clock); move_books_test and e2e_multi_select cover
+    // a SidecarSync-written sidecar surviving the move.
+    await tester.runAsync(() async {
+      c.read(progressStoreProvider).save(keyA, const ReadingPosition(page: 2, panel: 1, guided: true), 4);
+      await MarkStore(db).addBookmark(keyA, 2, 1);
+    });
+    writeSidecar(
+      sidecarPath(files[0], folder: false),
+      SidecarData(
+        contentKey: keyA,
+        bookmarks: [Bookmark(id: 'b1', contentKey: keyA, page: 2, panel: 1, createdAt: DateTime.utc(2026, 1, 1))],
+        progress: [
+          SidecarProgress(
+            device: 'planted',
+            deviceName: 'planted',
+            page: 2,
+            panel: 1,
+            percent: 0.5,
+            finished: false,
+            updatedAt: DateTime.utc(2026, 1, 1),
+            viewJson: '{"guided":true}',
+          ),
+        ],
+      ),
+      device: 'planted',
+    );
+    expect(File(sidecarPath(files[0], folder: false)).existsSync(), isTrue);
     await shifted(tester, LogicalKeyboardKey.arrowRight); // A and B.
     await key(tester, LogicalKeyboardKey.keyG, character: 'g');
     await key(tester, LogicalKeyboardKey.keyM, character: 'm');
@@ -281,13 +308,26 @@ void main() {
     await waitFor(tester, () => File('${done.path}/B.cbz').existsSync());
     expect([for (final f in files) File(f).existsSync()], [false, false, true, true, true]);
     expect(File('${done.path}/A.cbz').existsSync(), isTrue);
-    // The sidecar went along, and the library has them at their new place
-    // with what it knew about them.
-    expect(File('${root.path}/.A.cbz.crdb').existsSync(), isFalse);
-    expect(File('${done.path}/.A.cbz.crdb').existsSync(), isTrue);
+    // The planted sidecar was relocated whole, and the index kept its place.
+    expect(File(sidecarPath(files[0], folder: false)).existsSync(), isFalse);
+    final movedSide = sidecarPath('${done.path}/A.cbz', folder: false);
+    expect(File(movedSide).existsSync(), isTrue);
+    final side = readSidecar(movedSide)!;
+    expect(side.contentKey, keyA);
+    expect(side.progress, hasLength(1));
+    expect((side.progress.single.page, side.progress.single.panel, side.progress.single.device), (2, 1, 'planted'));
+    expect(side.progress.single.viewJson, '{"guided":true}');
+    expect(side.bookmarks.where((b) => b.deletedAt == null).single.page, 2);
     await waitFor(tester, () => bookPaths(c).contains('${done.path}/B.cbz'));
     expect(bookPaths(c), containsAll(['${done.path}/A.cbz', '${done.path}/B.cbz']));
     expect(bookPaths(c), isNot(contains(files[0])));
+    expect(
+      (await tester.runAsync(() async {
+        final at = await c.read(progressStoreProvider).load(keyA);
+        return (at?.page, at?.panel, at?.guided);
+      }))!,
+      (2, 1, true),
+    );
     expect((await tester.runAsync(() => c.read(libraryStoreProvider).watchBookmarks(keyA).first))!, hasLength(1));
     expect(find.byKey(const Key('marksBar')), findsNothing);
     expect(find.textContaining('2 comics moved to Done'), findsOneWidget);
