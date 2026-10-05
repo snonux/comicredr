@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # End-to-end check of the part-of-the-page keys on the Linux build: H1 H2
 # (halves), B1-B3 (thirds), L1-L4 (four strips) and Q1-Q4 (quarters), or two
-# quick digits (11, 23, 32, 42), enlarge that part of a page
+# quick digits (21, 33, 42, 52), enlarge that part of a page
 # guided view shows whole, and of any page outside guided view. Then the
 # arrows (l h, Space, taps) read on in that split page by page: the parts in
 # reading order, the page whole, the next page whole, its first part; back
 # the same way.
 # From guided view, the next page (which has panels) shows whole and guided
-# view goes on over its panels. The same keys again or Esc show the whole
-# page; Esc does not leave guided view or the book.
+# view goes on over its panels. The same keys again, 11, Esc or 00 show the
+# whole page; Esc / 00 leave the split; Esc does not leave guided view or the
+# book.
 #
 #   tool/e2e_regions.sh book.cbz [page]   # page: 1-based, default 3
 #
@@ -62,7 +63,7 @@ touch() { echo "$@" >>"$touches"; sleep 0.016; }
 tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep "$step"; }
 # A part key: part H 1 types H then 1.
 part() { key "shift+${1,,}" "$2"; }
-# digits 2 3: the same part typed as two quick digits (23 for B3).
+# digits 3 3: the same part typed as two quick digits (33 for B3).
 digits() { xdotool key --delay 80 "$@" 2>/dev/null; sleep "$step"; }
 
 failed=0
@@ -137,17 +138,19 @@ key Escape
 part Q 3;   shot u14_quarter_3;    framed u14_quarter_3 quarters 3
 key l;      shot u15_quarter_4;    framed u15_quarter_4 quarters 4
 part Q 4;   shot u16_again;        whole u16_again ref_a
-# Two quick digits are the same keys, at once.
-digits 2 3; shot d01_third_3;      framed d01_third_3 thirds 3
+# Two quick digits are the same keys, at once. 11 shows the whole page in the
+# split; 00 leaves it.
+digits 3 3; shot d01_third_3;      framed d01_third_3 thirds 3
 key Left;   shot d02_third_2;      framed d02_third_2 thirds 2
-digits 3 2; shot d03_strip_2;      framed d03_strip_2 strips 2
-digits 4 2; shot d03_quarter_2;    framed d03_quarter_2 quarters 2
-key Escape; shot d04_esc;          whole d04_esc ref_a
-digits 1 1; shot d05_upper_half;   framed d05_upper_half halves 1
+digits 4 2; shot d03_strip_2;      framed d03_strip_2 strips 2
+digits 5 2; shot d03_quarter_2;    framed d03_quarter_2 quarters 2
+digits 1 1; shot d04_whole;        whole d04_whole ref_a
+digits 0 0; shot d05_leave;        whole d05_leave ref_a
+digits 2 1; shot d06_upper_half;   framed d06_upper_half halves 1
 key Escape
 # A page number goes after G: G1 then Enter, and G3 ended by a pause.
-key shift+g 1 Return; shot d06_page_1; whole d06_page_1 ref_first
-key shift+g $page; sleep 0.6; shot d07_page; whole d07_page ref_a
+key shift+g 1 Return; shot d07_page_1; whole d07_page_1 ref_first
+key shift+g $page; sleep 0.6; shot d08_page; whole d08_page ref_a
 key "$page" shift+g
 
 # Guided view, on the page it shows whole.
@@ -155,7 +158,7 @@ key v; sleep 3
 shot g00_guided;                   whole g00_guided ref_a; held g00_guided
 part H 2;   shot g01_lower_half;   framed g01_lower_half halves 2; black g01_lower_half
 key Left;   shot g02_upper_half;   framed g02_upper_half halves 1
-digits 1 2; shot g02d_lower_half; framed g02d_lower_half halves 2
+digits 2 2; shot g02d_lower_half; framed g02d_lower_half halves 2
 key Left;   shot g02e_upper_half;  framed g02e_upper_half halves 1
 key Right;  shot g03_lower_half;   framed g03_lower_half halves 2
 key Right;  shot g03w_whole;       whole g03w_whole ref_a; held g03w_whole

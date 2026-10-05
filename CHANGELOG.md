@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Page-part digits match how many parts you think in:** `21`/`22`
+  halves, `31`-`33` thirds, `41`-`44` strips, `51`-`54` quarters (was
+  `11`-`44`). `11` shows the whole page in the current split; `00` leaves
+  the split. Letter keys `H1`-`Q4` are unchanged.
+
 ## 0.6.4
 
 - Moving a comic to another folder (`gm`) keeps your place and takes its

@@ -618,8 +618,34 @@ class ReaderNotifier extends Notifier<ReaderState> {
       held: false,
       message:
           '${_capitalised(describeRegion(region, rightToLeft: state.rightToLeft))}'
-          '  ·  → and ← step through the ${split.name} page by page, Esc shows the whole page',
+          '  ·  → and ← step through the ${split.name} page by page, Esc or 00 shows the whole page',
     );
+  }
+
+  /// `11`: the page whole. Keeps stepping through the current split when
+  /// there is one (`parts`); Esc / `00` leave the split entirely.
+  void _regionWhole() {
+    if (state.region == null && state.parts == null) {
+      _notice('Already the whole page');
+      return;
+    }
+    if (state.region == null) {
+      state = state.copyWith(message: 'Whole page, in ${state.parts!.name}');
+      return;
+    }
+    state = state.copyWith(
+      clearRegion: true,
+      message: state.parts == null ? 'Whole page' : 'Whole page, in ${state.parts!.name}',
+    );
+  }
+
+  /// `00`: leave parts of the page and go back to guided view or plain paging.
+  void _regionPrevious() {
+    if (state.parts == null && state.region == null) {
+      _notice('Not in a part of the page');
+      return;
+    }
+    state = state.copyWith(clearParts: true, message: 'Whole page');
   }
 
   static String _capitalised(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
@@ -913,6 +939,16 @@ class ReaderNotifier extends Notifier<ReaderState> {
       _saveProgress(state.book!);
       return;
     }
+    if (c.intent == ReaderIntent.regionWhole) {
+      _regionWhole();
+      _saveProgress(state.book!);
+      return;
+    }
+    if (c.intent == ReaderIntent.regionPrevious) {
+      _regionPrevious();
+      _saveProgress(state.book!);
+      return;
+    }
     switch (c.intent) {
       // Left and Right reach here when the view had no zoomed page to pan.
       case ReaderIntent.nextStep:
@@ -1103,6 +1139,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.bookmarkList:
       case ReaderIntent.remove:
       case ReaderIntent.showFavourites:
+      case ReaderIntent.regionWhole:
+      case ReaderIntent.regionPrevious:
       case ReaderIntent.regionUpperHalf:
       case ReaderIntent.regionLowerHalf:
       case ReaderIntent.regionUpperThird:

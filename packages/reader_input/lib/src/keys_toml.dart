@@ -180,9 +180,10 @@ String keymapToToml(Keymap keymap) {
     ..writeln('# letter, C-f is Ctrl+f, and named keys (Left Right Up Down PageUp')
     ..writeln('# PageDown Home End Space Tab Esc Enter Backspace Delete Insert F1-F12)')
     ..writeln('# take S- for Shift. Put spaces between keys when a named key is in')
-    ..writeln('# a sequence: "g Home". Two or more digits ("11") work when typed')
+    ..writeln('# a sequence: "g Home". Two or more digits ("21") work when typed')
     ..writeln('# quickly; otherwise digits are a count. A one-letter lastPage key')
-    ..writeln('# takes a page number after it (G12).')
+    ..writeln('# takes a page number after it (G12). 11 is the whole page; 00 leaves')
+    ..writeln('# a part-of-page split.')
     ..writeln()
     ..writeln('[keys]');
   for (final intent in ReaderIntent.values) {

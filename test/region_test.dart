@@ -207,8 +207,10 @@ void main() {
     // The ? help has a section for them.
     await tester.sendKeyEvent(LogicalKeyboardKey.slash, character: '?');
     await settle(tester);
-    await tester.scrollUntilVisible(find.byKey(const ValueKey('keymap-regionUpperThird')), 200);
+    await tester.scrollUntilVisible(find.byKey(const Key('keymap-parts')), 200);
     expect(find.byKey(const Key('keymap-parts')), findsOneWidget);
+    expect(find.textContaining('11 whole page'), findsOneWidget);
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('keymap-regionUpperThird')), 200);
     expect(find.textContaining('Upper third of the page'), findsOneWidget);
     await key(tester, LogicalKeyboardKey.escape);
 
@@ -290,23 +292,29 @@ void main() {
       }
     }
 
-    await digits('23');
+    await digits('33');
     expect(c.read(readerProvider).region?.part, 2, reason: 'at once, nothing to wait for');
     await settle(tester);
     var s = c.read(readerProvider);
     expect((s.region, s.parts), ((split: PageSplit.thirds, part: 2, page: 0), PageSplit.thirds));
     expectFramed(tester, PageSplit.thirds, 2);
 
-    await digits('32');
+    await digits('42');
     await settle(tester);
     expect(c.read(readerProvider).region, (split: PageSplit.strips, part: 1, page: 0));
     expectFramed(tester, PageSplit.strips, 1);
-    await digits('41');
+    await digits('51');
     await settle(tester);
     expect(c.read(readerProvider).region, (split: PageSplit.quarters, part: 0, page: 0));
     expectFramed(tester, PageSplit.quarters, 0);
-    await key(tester, LogicalKeyboardKey.escape);
+    await digits('11');
+    await settle(tester);
+    s = c.read(readerProvider);
+    expect((s.region, s.parts), (null, PageSplit.quarters), reason: '11 shows the whole page, still in quarters');
+    await digits('00');
+    await settle(tester);
     expect(c.read(readerProvider).region, isNull);
+    expect(c.read(readerProvider).parts, isNull, reason: '00 leaves the split');
 
     // G4 goes to page 4 and leaves the parts; 3h is still a count.
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);

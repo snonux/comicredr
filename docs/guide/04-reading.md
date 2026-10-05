@@ -182,14 +182,18 @@ To enlarge just part of a page, see [Parts of a page](#parts-of-a-page).
 ## Parts of a page
 
 On a big, busy page you can zoom straight to a half, a third, a strip or
-a quarter of it by key:
+a quarter of it by key. The digit keys match how many parts you are
+thinking in: `2…` for halves, `3…` for thirds, `4…` for four strips,
+`5…` for quarters; `11` is the page as a whole again, and `00` leaves.
 
 | Keys | Or quickly | Part of the page |
 |---|---|---|
-| `H1` `H2` | `11` `12` | The upper and lower half |
-| `B1` `B2` `B3` | `21` `22` `23` | The upper, middle and lower third |
-| `L1` `L2` `L3` `L4` | `31` `32` `33` `34` | Four strips across the page, top to bottom |
-| `Q1` `Q2` `Q3` `Q4` | `41` `42` `43` `44` | The quarters: top left, top right, bottom left, bottom right |
+| | `11` | The whole page (leave the enlarged part; still in that split) |
+| | `00` | Leave the split and go back to the usual steps |
+| `H1` `H2` | `21` `22` | The upper and lower half |
+| `B1` `B2` `B3` | `31` `32` `33` | The upper, middle and lower third |
+| `L1` `L2` `L3` `L4` | `41` `42` `43` `44` | Four strips across the page, top to bottom |
+| `Q1` `Q2` `Q3` `Q4` | `51` `52` `53` `54` | The quarters: top left, top right, bottom left, bottom right |
 
 There are two ways to type each part, and both do the same:
 
@@ -198,16 +202,17 @@ There are two ways to type each part, and both do the same:
   top to bottom, left to right. `B2` is the middle third, `L4` the bottom
   strip, `Q3` the bottom-left quarter. Take as long as
   you like between the two keys.
-- **Two digits:** the first says the split (1 halves, 2 thirds, 3
-  strips, 4 quarters), the second the part, the same numbering. `22` is
-  the middle third, `34` the bottom strip, `43` the bottom-left quarter. Press the second digit within half
+- **Two digits:** the first says how many parts you are thinking in (1 the
+  whole page, 2 halves, 3 thirds, 4 strips, 5 quarters), the second the
+  part, the same numbering. `32` is the middle third, `44` the bottom strip,
+  `53` the bottom-left quarter. Press the second digit within half
   a second of the first and the part shows at once. Typed slowly, digits
   are a [count](09-keyboard.md#sequences-and-counts) as before; a page
-  number goes after `G` (`G12`).
+  number goes after `G` (`G12`). `00` leaves the split.
 
-For example, on a tall splash page press `21` (or `B1`) for the top
+For example, on a tall splash page press `31` (or `B1`) for the top
 third, then `→` twice for the middle and bottom thirds. A page of four
-wide rows of panels reads well in strips: `31` (or `L1`) and `→`.
+wide rows of panels reads well in strips: `41` (or `L1`) and `→`.
 Strips are always full width, one under the other; quarters split the
 page into four boxes, two above two.
 
@@ -221,8 +226,9 @@ by half, and you never have to pick the part again.
 
 If you started from guided view (say on a splash page the panel finder
 couldn't split up), a page with panels takes you back to guided view: it
-shows whole, and `→` goes on panel by panel. `Esc` (or the same part key
-again) shows the whole page and goes back to the usual steps; a page key,
+shows whole, and `→` goes on panel by panel. `11` shows the whole page
+while staying in the split; `00` or `Esc` (or the same part key again)
+shows the whole page and goes back to the usual steps; a page key,
 `gg`, a switch into or out of guided view or two-page mode do too.
 
 ![Thirds, then quarters of a page](images/parts.gif)

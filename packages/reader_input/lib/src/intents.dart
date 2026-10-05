@@ -47,6 +47,8 @@ enum ReaderIntent {
   zoomOut('Zoom out'),
   zoomReset('Reset zoom'),
   zoomToggle('Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view'),
+  regionWhole('Whole page: leave the enlarged part, still stepping through the split; Esc or 00 leave the split too'),
+  regionPrevious('Leave parts of the page and go back to the usual steps (guided view or plain paging)'),
   regionUpperHalf(
     'Upper half of the page, enlarged; → and ← then go half by half, each page whole before and after; again or Esc to stop',
   ),

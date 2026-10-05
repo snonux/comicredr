@@ -41,9 +41,17 @@ void main() {
     expect(type('99999999999999999999G'), const ReaderCommand(ReaderIntent.lastPage, count: 999999));
   });
 
-  test('a leading zero is not a count', () {
+  test('a leading zero starts 00, not a count', () {
     expect(press('0'), isNull);
-    expect(r.isPending, isFalse);
+    expect(r.isPending, isTrue);
+    expect(r.pendingDisplay, '0');
+    expect(press('0'), const ReaderCommand(ReaderIntent.regionPrevious));
+    // A lone 0 times out on the next key, like any other prefix.
+    expect(press('0'), isNull);
+    expect(press('3', afterMs: 700), isNull);
+    expect(r.isPending, isTrue);
+    expect(r.pendingDisplay, '3');
+    expect(press('l'), const ReaderCommand(ReaderIntent.nextStep, count: 3));
   });
 
   group('two quick digits', () {
@@ -54,24 +62,30 @@ void main() {
 
     test('fire a page part at once', () {
       for (final (keys, intent) in [
-        ('11', ReaderIntent.regionUpperHalf),
-        ('12', ReaderIntent.regionLowerHalf),
-        ('21', ReaderIntent.regionUpperThird),
-        ('22', ReaderIntent.regionMiddleThird),
-        ('23', ReaderIntent.regionLowerThird),
-        ('31', ReaderIntent.regionStrip1),
-        ('32', ReaderIntent.regionStrip2),
-        ('33', ReaderIntent.regionStrip3),
-        ('34', ReaderIntent.regionStrip4),
-        ('41', ReaderIntent.regionTopLeft),
-        ('42', ReaderIntent.regionTopRight),
-        ('43', ReaderIntent.regionBottomLeft),
-        ('44', ReaderIntent.regionBottomRight),
+        ('11', ReaderIntent.regionWhole),
+        ('21', ReaderIntent.regionUpperHalf),
+        ('22', ReaderIntent.regionLowerHalf),
+        ('31', ReaderIntent.regionUpperThird),
+        ('32', ReaderIntent.regionMiddleThird),
+        ('33', ReaderIntent.regionLowerThird),
+        ('41', ReaderIntent.regionStrip1),
+        ('42', ReaderIntent.regionStrip2),
+        ('43', ReaderIntent.regionStrip3),
+        ('44', ReaderIntent.regionStrip4),
+        ('51', ReaderIntent.regionTopLeft),
+        ('52', ReaderIntent.regionTopRight),
+        ('53', ReaderIntent.regionBottomLeft),
+        ('54', ReaderIntent.regionBottomRight),
       ]) {
         expect(type(keys), ReaderCommand(intent), reason: keys);
         expect(r.isPending, isFalse);
         expect(r.deadline, isNull);
       }
+    });
+
+    test('00 leaves the split', () {
+      expect(type('00'), const ReaderCommand(ReaderIntent.regionPrevious));
+      expect(r.isPending, isFalse);
     });
 
     test('G takes a page number after it', () {
@@ -104,7 +118,7 @@ void main() {
     });
 
     test('typed quickly before a key are the part, then the key', () {
-      expect(type('12'), const ReaderCommand(ReaderIntent.regionLowerHalf));
+      expect(type('22'), const ReaderCommand(ReaderIntent.regionLowerHalf));
       expect(press('l'), const ReaderCommand(ReaderIntent.nextStep));
     });
 
@@ -130,7 +144,7 @@ void main() {
       expect(type('11'), isNull);
       expect(r.deadline, t.add(const Duration(milliseconds: 400)));
       expect(settle(399), isNull);
-      expect(settle(1), const ReaderCommand(ReaderIntent.regionUpperHalf));
+      expect(settle(1), const ReaderCommand(ReaderIntent.regionWhole));
       expect(type('111'), const ReaderCommand(ReaderIntent.autoTrim));
       expect(type('11'), isNull);
       expect(press('Esc'), isNull);

@@ -9,9 +9,10 @@
 # letter, C-f is Ctrl+f, and named keys (Left Right Up Down PageUp
 # PageDown Home End Space Tab Esc Enter Backspace Delete Insert F1-F12)
 # take S- for Shift. Put spaces between keys when a named key is in
-# a sequence: "g Home". Two or more digits ("11") work when typed
+# a sequence: "g Home". Two or more digits ("21") work when typed
 # quickly; otherwise digits are a count. A one-letter lastPage key
-# takes a page number after it (G12).
+# takes a page number after it (G12). 11 is the whole page; 00 leaves
+# a part-of-page split.
 
 [keys]
 # Next panel in guided view, next page or spread otherwise; next cover in the library
@@ -94,32 +95,36 @@ zoomOut = ["-"]
 zoomReset = ["="]
 # Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view
 zoomToggle = ["Z"]
+# Whole page: leave the enlarged part, still stepping through the split; Esc or 00 leave the split too
+regionWhole = ["11"]
+# Leave parts of the page and go back to the usual steps (guided view or plain paging)
+regionPrevious = ["00"]
 # Upper half of the page, enlarged; → and ← then go half by half, each page whole before and after; again or Esc to stop
-regionUpperHalf = ["H1", "11"]
+regionUpperHalf = ["H1", "21"]
 # Lower half of the page, enlarged
-regionLowerHalf = ["H2", "12"]
+regionLowerHalf = ["H2", "22"]
 # Upper third of the page, enlarged; → and ← then go third by third, each page whole before and after; again or Esc to stop
-regionUpperThird = ["B1", "21"]
+regionUpperThird = ["B1", "31"]
 # Middle third of the page, enlarged
-regionMiddleThird = ["B2", "22"]
+regionMiddleThird = ["B2", "32"]
 # Lower third of the page, enlarged
-regionLowerThird = ["B3", "23"]
+regionLowerThird = ["B3", "33"]
 # Top strip of four across the page, enlarged; → and ← then go strip by strip, each page whole before and after; again or Esc to stop
-regionStrip1 = ["L1", "31"]
+regionStrip1 = ["L1", "41"]
 # Second strip of four from the top, enlarged
-regionStrip2 = ["L2", "32"]
+regionStrip2 = ["L2", "42"]
 # Third strip of four from the top, enlarged
-regionStrip3 = ["L3", "33"]
+regionStrip3 = ["L3", "43"]
 # Bottom strip of four, enlarged
-regionStrip4 = ["L4", "34"]
+regionStrip4 = ["L4", "44"]
 # Top-left quarter of the page, enlarged; → and ← then go quarter by quarter, each page whole before and after; again or Esc to stop
-regionTopLeft = ["Q1", "41"]
+regionTopLeft = ["Q1", "51"]
 # Top-right quarter of the page, enlarged
-regionTopRight = ["Q2", "42"]
+regionTopRight = ["Q2", "52"]
 # Bottom-left quarter of the page, enlarged
-regionBottomLeft = ["Q3", "43"]
+regionBottomLeft = ["Q3", "53"]
 # Bottom-right quarter of the page, enlarged
-regionBottomRight = ["Q4", "44"]
+regionBottomRight = ["Q4", "54"]
 # Auto-trim scan margins
 autoTrim = ["t"]
 # Night filter

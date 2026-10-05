@@ -11,10 +11,11 @@ import 'keymap.dart';
 /// that sees no further key within [timeout] is dropped; the caller passes
 /// the current time in, so this class needs no timer and tests need no clock.
 ///
-/// Digits are a count, except that a binding made only of digits (`11` for
+/// Digits are a count, except that a binding made only of digits (`21` for
 /// the upper half) fires as soon as its digits come each within
 /// [pairWindow] of the one before. When a longer digit binding starts with
-/// the same digits, it waits [pairSettle] for one more.
+/// the same digits, it waits [pairSettle] for one more. A leading zero is
+/// not a count (`00` is a two-key sequence).
 ///
 /// A one-character key of an intent in [takesNumber] (`G`, not `End`) waits [pairWindow] for digits
 /// after it: `G12` is page 12. The number ends with Enter, any other key
@@ -200,7 +201,7 @@ class KeySequenceResolver {
   }
 
   /// Whether [keys] are two or more digits, not starting with 0: a binding
-  /// typed as quickly as a count, like `11`.
+  /// typed as quickly as a count, like `21`. (`00` is an ordinary sequence.)
   static bool isDigitSequence(List<String> keys) => keys.length > 1 && keys.first != '0' && keys.every(_isDigit);
 
   static bool _isDigit(String t) => t.length == 1 && t.codeUnitAt(0) >= 48 && t.codeUnitAt(0) <= 57;

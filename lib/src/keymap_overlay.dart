@@ -143,13 +143,13 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                             padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
                             children: [
                               for (final e in found.entries) ...[
-                                if (e.intent == ReaderIntent.regionUpperHalf && _query.text.isEmpty)
+                                if (e.intent == ReaderIntent.regionWhole && _query.text.isEmpty)
                                   Padding(
                                     key: const Key('keymap-parts'),
                                     padding: const EdgeInsets.only(top: 12, bottom: 4),
                                     child: Text(
-                                      'Part of the page, enlarged: halves, thirds, four strips and quarters, '
-                                      'numbered top to bottom, left to right; or two quick digits, 11 for H1',
+                                      'Part of the page: 11 whole page, 00 leave; letter keys H1 B1 L1 Q1, '
+                                      'or two quick digits (21 halves … 54 quarters), numbered top to bottom, left to right',
                                       style: theme.textTheme.titleSmall,
                                     ),
                                   ),

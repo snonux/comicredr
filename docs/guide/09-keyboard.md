@@ -41,7 +41,8 @@ The top of the list also shows ComicRedr's data folder, and which
 | `b` | [Balloon by balloon](05-guided-view.md#balloon-by-balloon) | |
 | `d` | [Two pages](04-reading.md#two-pages-side-by-side) | |
 | `p` | [Page grid](04-reading.md#see-every-page-at-once) | |
-| `H1`-`Q4`, or `11`-`44` | [A part of the page](04-reading.md#parts-of-a-page), enlarged | |
+| `H1`-`Q4`, or `21`-`54` | [A part of the page](04-reading.md#parts-of-a-page), enlarged | `11` whole, `00` leave |
+| `11` `00` | Whole page in the split; leave the split | |
 | `mm` `M` | [Bookmark, bookmark list](06-bookmarks.md) | `M`: the Bookmarks tab |
 | `*` | [Favourite](03-library.md#favourites) | Favourite the selected cover, or the marked ones |
 | `Shift`+arrows | As the arrows alone | [Mark a run of comics](03-library.md#several-comics-at-once) |
@@ -74,11 +75,17 @@ A number before another key repeats it:
 - `3l` goes three steps on.
 - `2>` turns the comic upside down.
 
-Two digits typed quickly are a key of their own: `11` to `44` pick a
-[part of the page](04-reading.md#parts-of-a-page), the same as `H1`,
-`B1`, `L1` and `Q1` to `Q4`, the moment the second digit comes within half
-a second of the first. So `12` enlarges the lower half at once; typed
-slowly, `1` then `2l` is still twelve steps on.
+Two digits typed quickly are a key of their own. The first digit is how
+many parts you are thinking in:
+
+- `11` shows the [whole page](04-reading.md#parts-of-a-page) (still in
+  that split); `00` leaves the split.
+- `21` `22` are the halves, `31`-`33` the thirds, `41`-`44` four strips,
+  `51`-`54` the quarters — the same as `H1`, `B1`, `L1` and `Q1` to `Q4`.
+
+The part shows the moment the second digit comes within half a second of
+the first. So `22` enlarges the lower half at once; typed slowly, `2`
+then `2l` is still twenty-two steps on.
 
 ## Your own keys
 
@@ -118,7 +125,7 @@ shiftSpread = []
 - `gg` is two keys in a row. When a sequence includes a named key, put
   spaces between the keys: `"g Home"` is `g`, then `Home`.
 - A key can't start with a digit from 1 to 9 (those type a count), except
-  two or more digits typed quickly: `regionUpperHalf = ["H1", "11"]`. A
+  two or more digits typed quickly: `regionUpperHalf = ["H1", "21"]`. A
   key that is the start of a longer one hides it (`g` alone would hide
   `gg`); ComicRedr warns about that.
 - The `[touch]` section sets [gestures](08-touch.md#your-own-gestures).

@@ -85,7 +85,9 @@ of text has no panels to step through, and on some old scans the panel
 finder isn't sure enough. Rather than move the camera somewhere wrong,
 ComicRedr then shows the page whole and says why on the status line, for
 example `guided: whole page (1 panel(s): nothing to guide through)`,
-which means only one panel was found.
+which means only one panel was found. On a page like that you can still
+[enlarge a part by hand](04-reading.md#parts-of-a-page) (`21` for the
+upper half, `31` for the top third, and so on).
 
 ![A splash page shown whole in guided view](images/held-whole.webp)
 

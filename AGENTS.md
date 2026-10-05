@@ -374,10 +374,12 @@ refreshes right away instead of within six hours.
   then its first part; back mirrors it. In guided view a page
   with stops ends the parts (at the turn, or on the next step when its
   panels came late), so guided view goes on. Arrows never pan in parts
-  (`_panSideways`). Esc, the same key, a jump (`_goTo` clears both) or a
-  mode switch end it.
-  The digit pairs `11`-`44` (1 halves, 2 thirds, 3 strips, 4 quarters)
-  are ordinary bindings too: `KeySequenceResolver`
+  (`_panSideways`). Esc, `00`, the same key, a jump (`_goTo` clears both) or a
+  mode switch end it; `11` clears the region and keeps `parts` (whole page
+  in the split).
+  The digit pairs (first digit = how many parts: `11` whole, `21`/`22`
+  halves, `31`-`33` thirds, `41`-`44` strips, `51`-`54` quarters; `00`
+  leaves) are ordinary bindings too: `KeySequenceResolver`
   treats a count that spells a digit-only binding, each digit within
   `pairWindow` (500 ms) of the one before, as that binding at once (only a
   longer digit binding waits `pairSettle`). Page jumps moved behind the
@@ -660,7 +662,7 @@ tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rena
 tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
-tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, L1-L4, Q1-Q4 and 11-44 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
+tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, L1-L4, Q1-Q4 and 11/00/21-54 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; reptisaurus-v2-005 page 3
 tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
 tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
 tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
