@@ -156,7 +156,10 @@ void main() {
     testWidgets('the History tab lists what was read, newest first', (tester) async {
       final store = (await tester.runAsync(shelf))!;
       final books = (await tester.runAsync(store.books))!;
-      final t = DateTime.now().subtract(const Duration(hours: 1));
+      // Both sittings today whatever the time: an hour ago is yesterday for
+      // the first hour after midnight, and the test then found no "Today".
+      final now = DateTime.now();
+      final t = DateTime(now.year, now.month, now.day);
       await tester.runAsync(() async {
         await ReadLogStore(db).record(named(books, 'Preacher #1').key, t, t.add(const Duration(minutes: 7)), 2);
         await ReadLogStore(db).record(

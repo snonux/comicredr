@@ -8,38 +8,83 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'library_store.dart';
 import 'providers.dart';
 
-/// Asks for a collection to put [books] in: one of those there are, or a
-/// new name. A collection every one of them is in already is not offered.
-Future<String?> askCollection(BuildContext context, WidgetRef ref, List<LibraryBook> books) {
-  final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
-  final names = {for (final b in all) ...b.collections}.where((n) => !books.every((b) => b.collections.contains(n)));
-  return showCollectionDialog(
-    context,
-    what: books.length == 1 ? books.single.name : '${books.length} comics',
-    names: names,
-  );
+/// The one collection question of the app, so that the keyboard can find it
+/// from wherever it was asked ([askCollection]).
+final collectionAskerProvider = Provider<CollectionAsker>((ref) => CollectionAsker());
+
+/// Asks for a collection to put the comics [keys] (content keys) in: one of
+/// those there are, or a new name; null when the question was left. [what]
+/// names them in the dialog's title, a comic's name or how many comics.
+///
+/// Every `gc` and every Collection button asks through here, in the library
+/// (a cover, the marked comics, the details pane or page) as in the reader
+/// (the open comic, t563), so they offer the same names and all take a name
+/// typed before the dialog shows. The dialog's route is pushed in this very
+/// call, nothing awaited first, so call it before the caller's first await.
+///
+/// Offered is every collection there is ([LibraryStore.collectionNames]),
+/// less the ones every one of [keys] is in already. That is read from the
+/// rows, not the library's list of books, since neither an open comic nor
+/// the comics in a collection need be in a library folder.
+Future<String?> askCollection(
+  BuildContext context,
+  WidgetRef ref, {
+  required String what,
+  required Iterable<String> keys,
+}) {
+  final store = ref.read(libraryStoreProvider);
+  final wanted = keys.toSet();
+  return ref.read(collectionAskerProvider).ask(context, what: what, later: () => _offered(store, wanted));
 }
 
-/// The collection question itself, for [what] (a comic's name, or how many
-/// comics), offering [names] in name order. The library asks through
-/// [askCollection]; the reader (`gc` on the open comic) through a
-/// [CollectionQuestion], which also takes the keys typed before the dialog
-/// has the focus.
-Future<String?> showCollectionDialog(BuildContext context, {required String what, required Iterable<String> names}) =>
-    showDialog<String>(
-      context: context,
-      builder: (_) => CollectionDialog(what: what, names: names.toList()..sort(naturalCompare)),
-    );
+/// The name [askCollection] gives [books] in the dialog's title.
+String collectionWhat(List<LibraryBook> books) => books.length == 1 ? books.single.name : '${books.length} comics';
 
-/// The collection question as the reader asks it (`gc` on the open comic,
-/// t563). The dialog's route is pushed at once, with nothing awaited
-/// first: the names to offer are a query, an open comic need not be in the
-/// library's list of books, so they come as [later] and the dialog fills
-/// its chips in when they are there.
+Future<List<String>> _offered(LibraryStore store, Set<String> keys) async {
+  final inAll = await store.collectionsOfAll(keys);
+  return [
+    for (final name in await store.collectionNames())
+      if (!inAll.contains(name)) name,
+  ];
+}
+
+/// Asks the collection question, one at a time, and knows the one that is
+/// up: ReaderKeyboard hands it the keys typed before the dialog's field has
+/// the focus ([typed], through `HomeScreen._typeAhead`).
+class CollectionAsker {
+  /// The question asked last. Whether it is still open is the question's
+  /// own to say ([CollectionQuestion.open]), nothing is kept here about it.
+  CollectionQuestion? _last;
+
+  CollectionQuestion? get _open => (_last?.open ?? false) ? _last : null;
+
+  /// Shows the question for [what] and answers with the name picked or
+  /// typed, null when it was left. [later] reads the names to offer, once
+  /// the dialog is on its way. While a question is up a second one is not
+  /// asked (a button activated by key in the gap) and answers null.
+  Future<String?> ask(BuildContext context, {required String what, required Future<List<String>> Function() later}) {
+    if (_open != null) return Future.value();
+    return (_last = CollectionQuestion(context, what: what, later: later())).answer;
+  }
+
+  /// A key pressed on the app's keyboard: true when a question is open, so
+  /// the key was typed into it and is no command.
+  bool typed(KeyEvent event) {
+    final question = _open;
+    if (question == null) return false;
+    question.typed(event);
+    return true;
+  }
+}
+
+/// One asking of the collection question ([CollectionAsker.ask]). The
+/// dialog's route is pushed at once, with nothing awaited first: the names
+/// to offer are a query, so they come as [later] and the dialog fills its
+/// chips in when they are there.
 ///
 /// Even so the dialog's field only has the focus a frame or more after
 /// the key press, and the first dialog of a run takes its time to build.
-/// Until then keys still arrive at the reader's keyboard, which hands them
+/// Until then keys still arrive at the app's keyboard, which hands them
 /// to [typed] for as long as the question is [open]: none of them is a
 /// command, and what was typed is in the field when the dialog shows.
 class CollectionQuestion {
@@ -51,9 +96,9 @@ class CollectionQuestion {
     _route = DialogRoute<String>(
       context: context,
       themes: InheritedTheme.capture(from: context, to: navigator.context),
-      builder: (_) => CollectionDialog(what: what, names: const [], later: later, field: _field),
+      builder: (_) => CollectionDialog(what: what, later: later, field: _field),
     );
-    answer = navigator.push(_route).whenComplete(() => _open = false);
+    answer = navigator.push(_route);
     // The field is the dialog's until its route is gone, closing animation
     // included.
     unawaited(_route.completed.whenComplete(_field.dispose));
@@ -61,22 +106,34 @@ class CollectionQuestion {
 
   final _field = TextEditingController();
   late final DialogRoute<String> _route;
-  bool _open = true;
 
   /// The name picked or typed; null when the dialog was left.
   late final Future<String?> answer;
 
   /// Not answered yet: keys and touches are the dialog's, not commands.
-  bool get open => _open;
+  /// The route is the only one who knows: it is active from the push until
+  /// it is popped, however that came about (Enter, a chip, a button, Esc, a
+  /// click beside the dialog, [typed]), and [answer] completes in that pop.
+  bool get open => _route.isActive;
 
-  /// A key pressed on the reader's keyboard while the question is [open],
-  /// so before the field had the focus: a character goes on the end of the
-  /// name, Backspace takes one off, Enter answers with the name (as in the
-  /// field, an empty one is no answer) and Esc leaves. Any other key (an
-  /// arrow, Tab, a function key) is dropped: it must not turn the page
-  /// behind the dialog, and there is no cursor to move yet.
+  /// A key pressed on the app's keyboard while the question is [open], so
+  /// before the field had the focus: a character goes on the end of the
+  /// name (a capital with Shift, a space, a held key's repeats, as the
+  /// field would take them), Backspace takes one off, Enter answers with
+  /// the name (as in the field, an empty one is no answer) and Esc leaves.
+  ///
+  /// Dropped, since they must not act on what is behind the dialog and
+  /// there is no cursor or selection yet: an arrow, Tab, Delete and the
+  /// function keys (some platforms send Tab and Delete as the control
+  /// characters U+0009 and U+007F, which are no part of a name), and a key
+  /// with Ctrl, Alt or Meta held (Ctrl+V does not paste here).
+  ///
+  /// Also lost, and not to be had here: an accent typed with a dead key or
+  /// the Compose key. The input method only puts those together for a text
+  /// field that has the focus; until then the dead key comes alone, with
+  /// no character, and the letter after it plain, so `´` `e` gives `e`.
   void typed(KeyEvent event) {
-    if (!_open || event is KeyUpEvent) return;
+    if (!open || event is KeyUpEvent) return;
     final name = _field.text;
     switch (event.logicalKey) {
       case LogicalKeyboardKey.escape:
@@ -89,7 +146,6 @@ class CollectionQuestion {
         final keys = HardwareKeyboard.instance;
         final ch = event.character;
         if (ch == null || keys.isControlPressed || keys.isAltPressed || keys.isMetaPressed) return;
-        // Control characters (Tab, Delete) come as characters on some platforms.
         if (ch.runes.any((r) => r < 0x20 || r == 0x7f)) return;
         _set(name + ch);
     }
@@ -100,41 +156,36 @@ class CollectionQuestion {
     selection: TextSelection.collapsed(offset: name.length),
   );
 
-  /// Answers before the dialog was ever built; from here on keys are
-  /// commands again.
+  /// Answers before the dialog was ever built: popping the route ends
+  /// [open], so from here on keys are commands again.
   void _close(String? name) {
-    _open = false;
     if (_route.isCurrent) _route.navigator?.pop(name);
   }
 }
 
 class CollectionDialog extends StatefulWidget {
-  const CollectionDialog({super.key, required this.what, required this.names, this.later, this.field});
+  const CollectionDialog({super.key, required this.what, required this.later, required this.field});
 
   /// The comic's name, or how many comics.
   final String what;
 
-  /// Collections the books are not all in yet.
-  final List<String> names;
+  /// Collections the comics are not all in yet, still being read when the
+  /// dialog shows: its chips, in name order, once they are there. When
+  /// reading them fails the dialog says so where the chips would be, and a
+  /// typed name still works.
+  final Future<List<String>> later;
 
-  /// More of them, still being read when the dialog shows: they take the
-  /// place of [names] once there. When reading them fails the dialog says
-  /// so where the chips would be, and a typed name still works.
-  final Future<List<String>>? later;
-
-  /// The name field's text, when the caller keeps it (a [CollectionQuestion]
-  /// puts the keys typed before the dialog was up in it); else the dialog
-  /// has its own.
-  final TextEditingController? field;
+  /// The name field's text, kept by the [CollectionQuestion], which puts
+  /// the keys typed before the dialog was up in it and disposes of it.
+  final TextEditingController field;
 
   @override
   State<CollectionDialog> createState() => _CollectionDialogState();
 }
 
 class _CollectionDialogState extends State<CollectionDialog> {
-  late final _own = widget.field == null ? TextEditingController() : null;
-  TextEditingController get _field => widget.field ?? _own!;
-  late List<String> _names = widget.names;
+  TextEditingController get _field => widget.field;
+  List<String> _names = const [];
 
   /// Why the collections there are could not be read, to say so.
   Object? _failed;
@@ -146,20 +197,12 @@ class _CollectionDialogState extends State<CollectionDialog> {
   }
 
   Future<void> _load() async {
-    final later = widget.later;
-    if (later == null) return;
     try {
-      final names = [...await later]..sort(naturalCompare);
+      final names = [...await widget.later]..sort(naturalCompare);
       if (mounted) setState(() => _names = names);
     } catch (e) {
       if (mounted) setState(() => _failed = e);
     }
-  }
-
-  @override
-  void dispose() {
-    _own?.dispose();
-    super.dispose();
   }
 
   void _done(String name) {

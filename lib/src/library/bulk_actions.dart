@@ -195,7 +195,9 @@ Future<bool> addBooksToCollection(BuildContext context, WidgetRef ref, List<Libr
   if (todo.isEmpty) return false;
   final messenger = ScaffoldMessenger.of(context);
   final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
-  final name = await askCollection(context, ref, todo);
+  // Nothing is awaited before this: the dialog goes up in the key press's
+  // own call, so a name typed straight after gc is the dialog's.
+  final name = await askCollection(context, ref, what: collectionWhat(todo), keys: todo.map((b) => b.key));
   if (name == null) return false;
   try {
     for (final b in todo) {

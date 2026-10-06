@@ -20,6 +20,8 @@ import 'support/fixtures.dart';
 
 /// `gc` and `*` on the open comic: in the reader, over the page grid (`p`)
 /// and over the bookmark list (`M`), by real keys, checked in the index.
+/// And `gc` in the library, which asks through the same question: the same
+/// names offered, the same typing ahead.
 void main() {
   late Directory tmp;
   late Directory root;
@@ -78,8 +80,8 @@ void main() {
     for (final ch in keys.split('')) {
       final k = switch (ch) {
         '*' => LogicalKeyboardKey.asterisk,
-        'M' => LogicalKeyboardKey.keyM,
-        _ when RegExp('[a-z]').hasMatch(ch) => LogicalKeyboardKey(ch.codeUnitAt(0)),
+        ' ' => LogicalKeyboardKey.space,
+        _ when RegExp('[a-zA-Z]').hasMatch(ch) => LogicalKeyboardKey(ch.toLowerCase().codeUnitAt(0)),
         _ => throw ArgumentError(ch),
       };
       await tester.sendKeyEvent(k, character: ch, physicalKey: ch == '*' ? PhysicalKeyboardKey.digit8 : null);
@@ -348,6 +350,55 @@ void main() {
     await stop(tester);
   });
 
+  testWidgets(
+    'before the dialog is up only what a name is made of goes in: no Ctrl, Alt or Meta key, no Tab or Delete',
+    (tester) async {
+      final (c, _, books) = await open(tester, 'Daredevil #181');
+      final key = named(books, 'Daredevil #181').key;
+
+      // All of it with no frame in between, so the field has no focus yet
+      // and every key comes through the reader's keyboard.
+      await press(tester, 'gc');
+      // A key with Ctrl, Alt or Meta held is no letter of the name (and as a
+      // command Ctrl+A would mark, in the library).
+      for (final (modifier, letter) in [
+        (LogicalKeyboardKey.controlLeft, 'a'),
+        (LogicalKeyboardKey.altLeft, 'b'),
+        (LogicalKeyboardKey.metaLeft, 'c'),
+      ]) {
+        await tester.sendKeyDownEvent(modifier);
+        await press(tester, letter);
+        await tester.sendKeyUpEvent(modifier);
+      }
+      // Tab and Delete, which come with a control character on some platforms.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab, character: '\t');
+      await tester.sendKeyEvent(LogicalKeyboardKey.delete, character: '\x7f');
+      // Shift and a letter is a capital; Shift alone is nothing.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyX, character: 'X');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await press(tester, ' ');
+      // A key held down repeats, as it does in the field.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyM, character: 'm');
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyM, character: 'm');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyM);
+      await press(tester, ' ');
+      expect(find.byKey(const Key('collectionDialog')), findsNothing);
+      await tester.pump();
+      await settle(tester);
+
+      expect(find.byKey(const Key('collectionDialog')), findsOneWidget);
+      expect(typedName(tester), 'X mm ');
+      // None of them was a command either: no page turned, no bookmark list (M).
+      expect(c.read(readerProvider).page, 0);
+      expect(find.byKey(const Key('bookmarkList')), findsNothing);
+      await tester.tap(find.byKey(const Key('collectionAdd')));
+      await settle(tester);
+      expect(await rowsOf(tester, key), ['X mm']);
+      await stop(tester);
+    },
+  );
+
   testWidgets('the comic swapped or closed while the dialog is up: nothing is added, keys go on', (tester) async {
     final (c, _, books) = await open(tester, 'Daredevil #181');
     final daredevil = named(books, 'Daredevil #181').key;
@@ -360,6 +411,8 @@ void main() {
     await answer(tester, 'Wrong comic');
     expect(await rowsOf(tester, daredevil), isEmpty);
     expect(await rowsOf(tester, swamp.key), isEmpty);
+    // Said, on the status line of the comic now open, not passed over.
+    expect(c.read(readerProvider).message, 'Daredevil #181 is no longer open: not added to Wrong comic');
     // Keys are with the comic now open.
     await type(tester, 'l');
     expect(c.read(readerProvider).page, 1);
@@ -370,6 +423,8 @@ void main() {
     expect(c.read(readerProvider).book, isNull);
     await answer(tester, 'No comic');
     expect((await tester.runAsync(() => db.select(db.collectionBooks).get()))!, isEmpty);
+    // Said in the library, where the reader's status line is gone.
+    expect(find.widgetWithText(SnackBar, 'Swamp Thing #21 is no longer open: not added to No comic'), findsOneWidget);
     await stop(tester);
   });
 
@@ -419,6 +474,135 @@ void main() {
     await tester.pump();
     await settle(tester);
     expect(await rowsOf(tester, key), ['Typed anyway', 'z']);
+    await stop(tester);
+  });
+
+  /// The library up over the shelf with no comic open: the Folders tab,
+  /// inside the library folder, a comic's cover selected.
+  Future<(LibraryStore, List<LibraryBook>)> library(WidgetTester tester) async {
+    final store = (await tester.runAsync(shelf))!;
+    final books = (await tester.runAsync(store.books))!;
+    await pumpApp(tester);
+    await settle(tester);
+    await tester.tap(find.text('Folders'));
+    await settle(tester);
+    await type(tester, 'l');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await settle(tester);
+    expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+    return (store, books);
+  }
+
+  /// The comic the collection dialog now up is about, by its title.
+  LibraryBook asked(WidgetTester tester, List<LibraryBook> books) =>
+      books.singleWhere((b) => find.text('Add ${b.name} to a collection').evaluate().isNotEmpty);
+
+  testWidgets('gc on a cover in the library: a name typed straight after it is the name, never library commands', (
+    tester,
+  ) async {
+    final (_, books) = await library(tester);
+
+    // No frame between the keys. As commands gd would ask to delete the
+    // comic, X to reset it, and l would move the selection.
+    await press(tester, 'gcgd X l');
+    expect(find.byKey(const Key('collectionDialog')), findsNothing);
+    await tester.pump();
+    await settle(tester);
+    // The one dialog up is the collection question, with all of it typed.
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(find.byKey(const Key('collectionDialog')), findsOneWidget);
+    expect(typedName(tester), 'gd X l');
+    final book = asked(tester, books);
+
+    await tester.tap(find.byKey(const Key('collectionAdd')));
+    await settle(tester);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(await rowsOf(tester, book.key), ['gd X l']);
+    expect(find.widgetWithText(SnackBar, '1 comic added to gd X l'), findsOneWidget);
+    for (final b in books) {
+      expect(File(b.path).existsSync(), isTrue, reason: '${b.name} deleted');
+    }
+
+    // Answered by Enter before the dialog was ever built, the key after it
+    // is a command again: gc on the same cover, so the selection never moved.
+    await press(tester, 'gcz');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await settle(tester);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(await rowsOf(tester, book.key), ['gd X l', 'z']);
+    await stop(tester);
+  });
+
+  testWidgets('the library offers a collection only a comic outside the library is in, not one the cover is in', (
+    tester,
+  ) async {
+    final (store, books) = await library(tester);
+    // No file in any library folder has this content key.
+    await tester.runAsync(() => store.addToCollection('a-comic-from-elsewhere', 'Loose ones'));
+    // The library's own list reads again after the write: let it finish.
+    await settle(tester);
+    expect((await tester.runAsync(store.books))!.expand((b) => b.collections), isEmpty);
+
+    await type(tester, 'gc');
+    final book = asked(tester, books);
+    expect(find.widgetWithText(ActionChip, 'Loose ones'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ActionChip, 'Loose ones'));
+    await settle(tester);
+    expect(await rowsOf(tester, book.key), ['Loose ones']);
+
+    // Now it is in it, so it is not offered again; the button in the
+    // details pane asks the same question as gc.
+    await tester.tap(find.byKey(const Key('addToCollection')));
+    await tester.pump();
+    await settle(tester);
+    expect(asked(tester, books).key, book.key);
+    expect(find.widgetWithText(ActionChip, 'Loose ones'), findsNothing);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(find.byKey(const Key('collectionDialog')), findsNothing);
+    expect(await rowsOf(tester, book.key), ['Loose ones']);
+    await stop(tester);
+  });
+
+  testWidgets('gc on marked comics: typed ahead too, offered what not all of them are in, marks cleared on an answer', (
+    tester,
+  ) async {
+    final (store, books) = await library(tester);
+    final [first, second] = books;
+    await tester.runAsync(() async {
+      await store.addToCollection(first.key, 'Both');
+      await store.addToCollection(second.key, 'Both');
+      await store.addToCollection(first.key, 'Only one');
+    });
+    await settle(tester);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await settle(tester);
+    expect(find.text('2 selected'), findsOneWidget);
+
+    // Left with Esc before the dialog is up: nothing written, marks kept.
+    await press(tester, 'gcx');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    await settle(tester);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('2 selected'), findsOneWidget);
+    expect(await rowsOf(tester, second.key), ['Both']);
+
+    await press(tester, 'gcxl');
+    await tester.pump();
+    await settle(tester);
+    expect(find.text('Add 2 comics to a collection'), findsOneWidget);
+    expect(typedName(tester), 'xl');
+    expect(find.widgetWithText(ActionChip, 'Only one'), findsOneWidget);
+    expect(find.widgetWithText(ActionChip, 'Both'), findsNothing);
+    await tester.tap(find.byKey(const Key('collectionAdd')));
+    await settle(tester);
+    expect(await rowsOf(tester, first.key), ['Both', 'Only one', 'xl']);
+    expect(await rowsOf(tester, second.key), ['Both', 'xl']);
+    expect(find.text('2 selected'), findsNothing);
     await stop(tester);
   });
 

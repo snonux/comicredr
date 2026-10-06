@@ -183,7 +183,7 @@ class BookDetail extends ConsumerWidget {
               avatar: const Icon(Icons.add, size: 18),
               label: const Text('Add to a collection'),
               onPressed: () async {
-                final name = await askCollection(context, ref, [book]);
+                final name = await askCollection(context, ref, what: collectionWhat([book]), keys: [book.key]);
                 if (name != null) {
                   await _changed(ref, () => ref.read(libraryStoreProvider).addToCollection(book.key, name));
                 }

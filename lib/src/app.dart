@@ -112,12 +112,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// The details view (`I`) is open.
   bool _showDetails = false;
 
-  /// The collection question of `gc` over the reader, from the key press
-  /// until it is answered: the keys of that time are its own, not commands
-  /// ([_typeAhead]). Touches need nothing: the Navigator absorbs pointers
-  /// from the push until the dialog's barrier is built.
-  CollectionQuestion? _question;
-
   /// In fullscreen: the mouse moved lately, so the pointer shows; the
   /// status line and progress bar show for a moment, or while the mouse is
   /// along the bottom edge.
@@ -555,16 +549,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _changeScrollSpeed(int by) async {
     final speed = ref.read(scrollSpeedProvider).notch(by);
     await ref.read(scrollSpeedProvider.notifier).pick(speed);
-    _sayScrolling(
-      'Smooth scrolling: ${speed.label.toLowerCase()} (${speed.index + 1} of ${ScrollSpeed.values.length})',
-    );
+    _say('Smooth scrolling: ${speed.label.toLowerCase()} (${speed.index + 1} of ${ScrollSpeed.values.length})');
   }
 
   /// `g>` `g<`: the key glide a notch smoother or crisper.
   Future<void> _changeScrollSmoothness(int by) async {
     final smoothness = ref.read(scrollSmoothnessProvider).notch(by);
     await ref.read(scrollSmoothnessProvider.notifier).pick(smoothness);
-    _sayScrolling(
+    _say(
       'Scrolling smoothness: ${smoothness.label.toLowerCase()} '
       '(${smoothness.index + 1} of ${ScrollSmoothness.values.length})',
     );
@@ -572,7 +564,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// Says [text] in the reader's status line or, in the library, a short
   /// notice.
-  void _sayScrolling(String text) {
+  void _say(String text) {
     if (!mounted) return;
     if (ref.read(readerProvider).book != null) {
       ref.read(readerProvider.notifier).notice(text);
@@ -650,53 +642,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// `gc` in the reader, the page grid or the bookmark list: asks for a
-  /// collection for the open comic with the library's dialog, then puts it
-  /// there. The dialog goes up in this very call, before anything is
-  /// awaited, so no key typed after `gc` is taken for a command: its field
-  /// gets what is typed until it has the focus ([_typeAhead]), and the
-  /// names it offers are read while it shows ([_offered]). Nothing hands
-  /// the focus back afterwards: `gc` only ever comes from [_keys], and the
-  /// dialog's route gives the focus back to where it was when it goes,
-  /// however it was left (the tests leave it by key, button, chip and a
-  /// click beside it).
+  /// collection for the open comic the way the library does ([askCollection]),
+  /// then puts it there. The dialog goes up in this very call, before
+  /// anything is awaited, so no key typed after `gc` is taken for a
+  /// command: its field gets what is typed until it has the focus
+  /// ([_typeAhead]). Nothing hands the focus back afterwards: `gc` only
+  /// ever comes from [_keys], and the dialog's route gives the focus back
+  /// to where it was when it goes, however it was left (the tests leave it
+  /// by key, button, chip and a click beside it).
   Future<void> _collect(OpenBook book) async {
-    if (_question != null) return;
     final reader = ref.read(readerProvider.notifier);
     // Named as its cover is in the library, when it is there.
     final inLibrary = ref.read(booksProvider).value?.where((b) => b.key == book.key).firstOrNull;
-    final question = CollectionQuestion(context, what: inLibrary?.name ?? book.title, later: _offered(book.key));
-    _question = question;
-    final name = await question.answer;
-    // Keys are commands again, also while the row is being written.
-    _question = null;
-    if (!mounted) return;
-    // Closed or swapped for another comic while the dialog was up: leave it.
-    if (name == null || !identical(ref.read(readerProvider).book, book)) return;
+    final what = inLibrary?.name ?? book.title;
+    final name = await askCollection(context, ref, what: what, keys: [book.key]);
+    if (!mounted || name == null) return;
+    // Closed or swapped for another comic while the dialog was up: the
+    // name was for that one, so nothing is written, and that is said
+    // rather than left to look as if it had worked.
+    if (!identical(ref.read(readerProvider).book, book)) {
+      _say('$what is no longer open: not added to $name');
+      return;
+    }
     await reader.addToCollection(name);
   }
 
-  /// The collections `gc` offers for the comic [key]: every one there is,
-  /// less the ones it is in already. Both are read from the rows, not the
-  /// library's list of books, since neither the open comic nor the comics
-  /// in a collection need be in a library folder. A failure is the
-  /// dialog's to say (`CollectionDialog.later`).
-  Future<List<String>> _offered(String key) async {
-    final store = ref.read(libraryStoreProvider);
-    final mine = (await store.collectionsOf(key)).toSet();
-    return [
-      for (final name in await store.collectionNames())
-        if (!mine.contains(name)) name,
-    ];
-  }
-
-  /// A key pressed while `gc`'s question is up but its field has not got
-  /// the focus yet: typed into the question, never a command.
-  bool _typeAhead(KeyEvent event) {
-    final question = _question;
-    if (question == null || !question.open) return false;
-    question.typed(event);
-    return true;
-  }
+  /// A key pressed while a collection question (`gc`, or a Collection
+  /// button, in the reader or the library) is up but its field has not got
+  /// the focus yet: typed into the question, never a command. Touches need
+  /// nothing of the kind: the Navigator absorbs pointers from the push
+  /// until the dialog's barrier is built.
+  bool _typeAhead(KeyEvent event) => ref.read(collectionAskerProvider).typed(event);
 
   /// `gu` or `gU` in the reader: the open comic onto S3 or off it.
   Future<void> _s3OpenBook(OpenBook open, {required bool upload}) async {

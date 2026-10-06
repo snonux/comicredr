@@ -833,6 +833,22 @@ ORDER BY r.id, f.rel_path
     return [for (final r in rows) r.name]..sort(naturalCompare);
   }
 
+  /// The collections every one of the books [contentKeys] is in, so the
+  /// ones there is nothing to add to. All live rows are read and counted
+  /// here: there are few, and thousands of marked comics would not fit a
+  /// query's `IN`.
+  Future<Set<String>> collectionsOfAll(Set<String> contentKeys) async {
+    final rows = await (db.select(db.collectionBooks)..where((c) => c.removedAt.isNull())).get();
+    final held = <String, int>{};
+    for (final r in rows) {
+      if (contentKeys.contains(r.contentKey)) held[r.name] = (held[r.name] ?? 0) + 1;
+    }
+    return {
+      for (final e in held.entries)
+        if (e.value == contentKeys.length) e.key,
+    };
+  }
+
   /// Every collection with a book in it, in name order: also one that only
   /// holds comics from outside the library folders, which [books] and so
   /// the library's Collections tab never see.

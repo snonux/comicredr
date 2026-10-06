@@ -12,9 +12,13 @@ the `?` overlay.
   have) without going back to the library, also for a comic opened from
   outside the library folders. `gc` and `*` work with the page grid (`p`)
   or the bookmark list (`M`) up too, which used to swallow them. The name
-  can be typed straight after `gc`, before the question shows: every
-  letter lands in it and none turns a page. Every collection is offered,
-  also one that only holds comics from outside the library folders.
+  can be typed straight after `gc`, before the question shows, in a comic
+  and now on a cover in the library too: every letter lands in it and
+  none turns a page or runs as a command (a name starting `gd` used to
+  ask to delete the comic). Every collection is offered, in the library
+  as in a comic, also one that only holds comics from outside the library
+  folders. A name answered after the comic was closed or swapped for
+  another adds nothing and says so.
 - **Back to the first page, in the guide:** `Home` and `gg` have a
   section of their own in Reading a comic: where they land in guided
   view, `''` to come back, the page grid and the bookmark list.

@@ -7,13 +7,17 @@
 # every letter and turns no page. Over the page grid (p): * adds it to the
 # Favourites and * again takes it out, gc adds it to a second collection,
 # and l Enter still picks a page, so the keys went back to the grid. Over
-# the bookmark list (M): gc with a collection it is in already adds no
-# row, * adds the favourite. The other comic is never touched. After a
-# restart the app knows all that: * takes the favourite out, gc with a
-# collection it is in adds no row. Then a comic outside the library
+# the bookmark list (M): gc with a collection it is in already leaves its
+# row as it was (added_at and removed_at compared, seconds later: the row's
+# key is name and comic, so a count could never tell), * adds the
+# favourite. The other comic is never touched. After a restart the app
+# knows all that: * takes the favourite out, gc with a collection it is in
+# leaves that row as it was too. Then a comic outside the library
 # folders, opened by its path: gc puts it in a collection, in the index
 # and its sidecar, and that collection is offered to a library comic (Tab
-# and Space on its chip). Checks the index and the sidecars with sqlite3,
+# and Space on its chip). Last, in the library: gc on a cover with a name
+# beginning gd X typed straight after it adds that name and deletes or
+# resets nothing. Checks the index and the sidecars with sqlite3,
 # the dialog by comparing screenshots, and keeps the screenshots.
 #
 #   tool/e2e_open_comic_collections.sh
@@ -72,6 +76,10 @@ outside() { # the collections of comics the library has no file for
        where removed_at is null and content_key not in (select content_key from files) order by name)"
 }
 rows() { sql "select count(*) from collection_books"; }
+row() { # row book.cbz name: when it was put in that collection and taken out, as stored
+  sql "select c.added_at || '|' || coalesce(c.removed_at, 'in') from collection_books c
+       join files f on f.content_key = c.content_key where f.rel_path = '$1' and c.name = '$2'"
+}
 page() { # page book.cbz: the page the index has it on, from 0
   sql "select p.page from progress p join files f on f.content_key = p.content_key where f.rel_path = '$1'"
 }
@@ -186,16 +194,22 @@ sleep 1.5
 shot 07_grid_picked_page
 check "l Enter in the grid after gc goes to page 2" "$(page 'Alpha 1.cbz')" 1
 
-# 3. Over the bookmark list: a collection it is in already adds no row;
-# * makes it a favourite.
+# 3. Over the bookmark list: a collection it is in already is left as it
+# is; * makes it a favourite. The table's key is (name, comic) and adding
+# is an upsert, so the number of rows says nothing: the row itself must
+# be untouched. added_at is whole seconds, and the wait makes sure a row
+# written again would carry a later one.
 key M
-count=$(rows)
+was=$(row 'Alpha 1.cbz' 'Grid picks')
+check "Grid picks has a row for Alpha" "${was#*|}" in
+sleep 2
 gc
 shot 07b_list_gc_dialog
 say "Grid picks"
 key Return
+check "Enter closes the dialog" "$(wait_gone)" gone
 shot 08_list_already
-check "gc with a collection it is in adds no row" "$(rows)" "$count"
+check "gc with a collection it is in leaves its row as it was" "$(row 'Alpha 1.cbz' 'Grid picks')" "$was"
 key asterisk
 shot 09_list_star
 check "* over the bookmark list" "$(collections 'Alpha 1.cbz')" "Favourites, Grid picks, To read next"
@@ -208,7 +222,8 @@ check "Alpha's sidecar" "$(sidecar Comics 'Alpha 1.cbz')" "Favourites, Grid pick
 
 # 4. After a restart the index says the same, and the app goes by it: C
 # opens Alpha again, * takes the favourite it finds out rather than adding
-# one, and gc with a collection it is in adds no row.
+# one, and gc with a collection it is in leaves that row as it was (the
+# row compared, not counted, as above).
 start
 click 640 450
 check "after a restart" "$(collections 'Alpha 1.cbz')" "Favourites, Grid picks, To read next"
@@ -217,12 +232,16 @@ sleep 2
 key asterisk
 shot 10_restart_star
 check "* after the restart takes the favourite out" "$(collections 'Alpha 1.cbz')" "Grid picks, To read next"
-count=$(rows)
+was=$(row 'Alpha 1.cbz' 'To read next')
+check "To read next has a row for Alpha" "${was#*|}" in
+sleep 2
 gc
 shot 11_restart_gc_dialog
 say "To read next"
 key Return
-check "gc after the restart with a collection it is in adds no row" "$(rows)" "$count"
+check "Enter closes the dialog" "$(wait_gone)" gone
+check "gc after the restart with a collection it is in leaves its row as it was" \
+  "$(row 'Alpha 1.cbz' 'To read next')" "$was"
 stop
 
 # 5. A comic outside the library folders, opened by its path: gc works
@@ -248,6 +267,33 @@ shot 13_offered_outside
 key Tab
 key space
 check "the chip of the collection from outside puts Bravo in it" "$(collections 'Bravo 1.cbz')" "Aaa outside"
+stop
+
+# 6. In the library, gc on a cover asks through the same question: a name
+# typed straight after it, no pause, is the name. As library commands gd
+# would ask to delete the comic and X to reset it (and its collections
+# with it).
+start
+click 640 450
+key l
+gc_now
+xdotool type --delay 25 "gd Xtra" 2>/dev/null
+check "the dialog shows" "$(wait_dialog)" up
+shot 14_library_typed_ahead
+key Return
+check "Enter closes the dialog" "$(wait_gone)" gone
+shot 15_library_added
+# Which of the two covers comes first on the Reading tab depends on what
+# was saved of the last sitting, so either may be the one: exactly one of
+# them is in the new collection, and both keep what they were in (a reset
+# would have taken that away).
+check "gc and the name with no pause on a cover puts that one comic in it" \
+  "$(sql "select count(*) from collection_books c join files f on f.content_key = c.content_key
+          where c.name = 'gd Xtra' and c.removed_at is null")" 1
+others() { collections "$1" | sed 's/\(, \)\?gd Xtra//'; }
+check "Alpha keeps its collections" "$(others 'Alpha 1.cbz')" "Grid picks, To read next"
+check "Bravo keeps its collection" "$(others 'Bravo 1.cbz')" "Aaa outside"
+check "nothing was deleted" "$(ls "$home/Comics" | tr '\n' ' ')" "Alpha 1.cbz Bravo 1.cbz "
 stop
 
 rm -f "$out/now.png" "$before"

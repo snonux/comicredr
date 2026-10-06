@@ -193,12 +193,23 @@ them.
 - `gc` in a comic you are reading asks the same question about that
   comic, so there is no need to go back to the library: halfway through
   an issue, press `gc`, type `To read next` and press `Enter`, and the
-  line at the bottom says *Added to To read next*. There is no need to
-  wait for the question to show before typing the name. `Tab` reaches the
+  line at the bottom says *Added to To read next*. `Tab` reaches the
   collections you already have, `Esc` leaves the comic where it was. It
   works the same with the [page grid](04-reading.md#see-every-page-at-once)
   (`p`) or the bookmark list (`M`) up, which stay open, and for a comic
   opened with `o` that is in none of your library folders.
+- Wherever you ask, on a cover or in a comic, there is no need to wait
+  for the question to show before typing the name: `gc`, `Lent to Sam`,
+  `Enter` in one go works, and none of those letters does anything else.
+  Only an accent made of two key presses (a dead key such as `´` then
+  `e`) needs the question on screen first; typed sooner it comes out
+  plain.
+- Every collection you have is offered, also one that so far only holds
+  comics from outside your library folders, except those the comic (or
+  every marked comic) is in already.
+- If you close the comic, or open another, while the question is up, the
+  name is not given to the wrong comic: nothing is added, and a line says
+  so.
 - The **x** on a collection's chip in the book's details takes the book
   out.
 - The Collections tab shows each collection as a cover; open one to see
