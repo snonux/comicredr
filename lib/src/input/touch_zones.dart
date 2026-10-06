@@ -30,6 +30,8 @@ String touchLabel(ReaderIntent intent, {bool rightToLeft = false}) {
       return 'Time';
     case ReaderIntent.back:
       return 'Library';
+    case ReaderIntent.pickPart:
+      return 'Page parts';
     default:
       // The description up to its first clause, which names the action.
       final d = intent.description.split(RegExp('[,;]')).first;

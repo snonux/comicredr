@@ -114,6 +114,7 @@ setMark = "M"
         contains('hides g<'),
         contains('hides gg'),
         contains('hides gr'),
+        contains('hides gp'),
         contains('hides gf'),
         contains('hides gs'),
         contains('hides gd'),

@@ -86,9 +86,11 @@ class TouchMap {
     // edges turn pages at once rather than waiting to see if a second tap
     // follows.
     const doubleTap = [null, zoom, null, null, zoom, null, null, zoom, null];
-    const swipes = {
+    const others = {
       TouchGesture.swipeLeft: [next],
       TouchGesture.swipeRight: [back],
+      // The page parts the digit keys pick (21, 33, 54...), picked by touch.
+      TouchGesture.twoFingerTap: [ReaderIntent.pickPart],
     };
     return TouchMap({
       TouchGesture.tap: switch (preset) {
@@ -98,7 +100,7 @@ class TouchMap {
       },
       TouchGesture.doubleTap: doubleTap,
       TouchGesture.longPress: longPress,
-      ...swipes,
+      ...others,
     });
   }
 

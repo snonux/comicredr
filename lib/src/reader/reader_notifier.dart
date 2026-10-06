@@ -1154,6 +1154,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.regionTopRight:
       case ReaderIntent.regionBottomLeft:
       case ReaderIntent.regionBottomRight:
+      case ReaderIntent.pickPart:
         break; // Handled by the screen, or only mean something in the library.
     }
     // A part of the page belongs to the view it was picked in.

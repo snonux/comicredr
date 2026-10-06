@@ -42,6 +42,7 @@ The top of the list also shows ComicRedr's data folder, and which
 | `d` | [Two pages](04-reading.md#two-pages-side-by-side) | |
 | `p` | [Page grid](04-reading.md#see-every-page-at-once) | |
 | `H1`-`Q4`, or `21`-`54` | [A part of the page](04-reading.md#parts-of-a-page), enlarged | `11` whole, `00` leave |
+| `gp` | [Pick a part of the page](04-reading.md#by-touch) on a small copy of it, by click or touch | |
 | `11` `00` | Whole page in the split; leave the split | |
 | `mm` `M` | [Bookmark, bookmark list](06-bookmarks.md) | `M`: the Bookmarks tab |
 | `*` | [Favourite](03-library.md#favourites) | Favourite the selected cover, or the marked ones |

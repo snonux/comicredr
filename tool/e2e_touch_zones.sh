@@ -116,13 +116,11 @@ if (( d > 100000 )); then echo "ok   gt draws the zones over the page ($d pixels
 # next book opened shows its zones, and the left edge now goes on.
 key Escape; sleep 1
 click 1251 28; shot 04_settings
-# The Touch heading is below the fold: scroll the dialog down to it.
-xdotool mousemove 640 450 click 5 click 5 click 5 click 5 click 5 click 5 click 5 click 5 click 5 click 5; sleep 1
-shot 05_settings_touch
-# Where the Touch presets are: the segmented button just above the preview
-# grid, found by their outlines so a Settings section added above them does
-# not move the click.
-read -r lx ly < <(python3 - "$out/05_settings_touch.png" 1 <<'PY'
+# The Touch heading is below the fold: scroll the dialog down a notch at a
+# time until the presets show. Where they are: the segmented button just
+# above the preview grid, found by their outlines so a Settings section
+# added above them does not move the click.
+cat >"$out/find_presets.py" <<'PY'
 import sys
 from PIL import Image
 im = Image.open(sys.argv[1]).convert("RGB")
@@ -147,7 +145,13 @@ left, right = bottom[1] - 12, bottom[2] + 12  # The rounded ends start 12 px in.
 i = int(sys.argv[2])
 print((left * (5 - 2 * i) + right * (2 * i + 1)) // 6, (top[0] + bottom[0]) // 2)
 PY
-)
+lx=
+for _ in $(seq 1 25); do
+  xdotool mousemove 640 450 click 5; sleep 0.4
+  shot 05_settings_touch
+  if read -r lx ly < <(python3 "$out/find_presets.py" "$out/05_settings_touch.png" 1 2>/dev/null); then break; fi
+done
+[[ -n "$lx" ]] || { echo "FAIL the Touch presets never showed in Settings"; failed=1; }
 click "$lx" "$ly"; shot 06_settings_left_handed
 expect "$(q "select value from settings where key = 'touch.preset'")" '"leftHanded"' "Settings saved the preset"
 click 868 656

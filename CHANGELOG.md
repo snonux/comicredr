@@ -10,6 +10,10 @@ the `?` overlay.
 - **Back to the first page, in the guide:** `Home` and `gg` have a
   section of their own in Reading a comic: where they land in guided
   view, `''` to come back, the page grid and the bookmark list.
+- **Parts of a page by touch:** a two-finger tap opens a small copy of the
+  page cut into halves, thirds, strips or quarters; tap a part to enlarge
+  it, then tap the edges to go part by part, as the arrow keys do. `gp`
+  and a status-line button (on wider screens) open it too.
 
 ## 0.6.5
 

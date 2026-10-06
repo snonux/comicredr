@@ -19,6 +19,7 @@ class StatusLine extends StatelessWidget {
     required this.onCommand,
     this.gridOpen = false,
     this.bookmarksOpen = false,
+    this.partsOpen = false,
     this.s3Progress,
   });
 
@@ -54,6 +55,9 @@ class StatusLine extends StatelessWidget {
 
   /// Whether the bookmark list is open.
   final bool bookmarksOpen;
+
+  /// Whether the page parts picker is open.
+  final bool partsOpen;
 
   /// How far the open comic's upload to S3 is, 0 to 1; null when none runs.
   final double? s3Progress;
@@ -156,6 +160,15 @@ class StatusLine extends StatelessWidget {
                 on: state.mode == PageMode.spread,
               ),
             _button('pagesButton', Icons.grid_view, 'Pages (p)', ReaderIntent.pageGrid, on: gridOpen),
+            // A phone has a two-finger tap for it and no room here.
+            if (!narrow)
+              _button(
+                'partsButton',
+                Icons.crop_free,
+                'Enlarge a part of the page (gp)',
+                ReaderIntent.pickPart,
+                on: partsOpen || state.parts != null,
+              ),
             // A phone has no room for it here; the page grid has one.
             if (!narrow) _button('detailsButton', Icons.info_outline, 'Details (I)', ReaderIntent.showDetails),
             if (state.bookmarksHere.isNotEmpty)
