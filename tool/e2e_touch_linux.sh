@@ -139,7 +139,7 @@ expect "$(page)" 2 "the long press turned no page"
 swipe 100 666 900 666;     expect "$(page)" 9 "drag along the progress bar jumps"
 
 # 4. The page grid from its status-line button: pinch, scroll, tap a page.
-tap 1088 693; shot 11_grid
+tap 1048 693; shot 11_grid
 cols=$(q "select value from settings where key = 'grid.zoom'")
 pinch 640 400 60 300; shot 12_grid_pinched
 bigger=$(q "select value from settings where key = 'grid.zoom'")
@@ -151,7 +151,7 @@ tap 500 160;               expect "$(page)" 4 "tap a page in the grid opens it"
 
 # 5. Guided view from its button, stepped by taps and swipes; the back
 # button leaves guided view, then the comic.
-tap 1000 693; sleep 3; shot 15_guided
+tap 968 693; sleep 3; shot 15_guided
 expect "$(guided)" 1 "the guided view button"
 tap 1200 340; shot 16_guided_panel
 expect "$(panel)" 0 "tap the right edge in guided view: the first panel"

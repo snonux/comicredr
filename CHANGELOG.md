@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Parts of a page by touch:** a two-finger tap opens a small copy of the
+  page cut into halves, thirds, strips or quarters; tap a part to enlarge
+  it, then tap the edges to go part by part, as the arrow keys do. `gp`
+  and a status-line button (on wider screens) open it too.
+
 ## 0.6.5
 
 - **Page-part digits match how many parts you think in:** `21`/`22`

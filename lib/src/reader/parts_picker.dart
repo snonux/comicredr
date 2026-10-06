@@ -133,7 +133,7 @@ class _PartsPickerState extends ConsumerState<PartsPicker> {
           onTap: widget.onClose,
           behavior: HitTestBehavior.opaque,
           child: ColoredBox(
-            color: Colors.black54,
+            color: Colors.black.withValues(alpha: 0.7),
             child: SafeArea(
               child: Center(
                 child: GestureDetector(
@@ -150,10 +150,7 @@ class _PartsPickerState extends ConsumerState<PartsPicker> {
                             fit: BoxFit.scaleDown,
                             child: SegmentedButton<PageSplit>(
                               showSelectedIcon: false,
-                              style: SegmentedButton.styleFrom(
-                                visualDensity: VisualDensity.compact,
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                              ),
+                              style: SegmentedButton.styleFrom(visualDensity: VisualDensity.compact),
                               segments: [
                                 for (final split in PageSplit.values)
                                   ButtonSegment(

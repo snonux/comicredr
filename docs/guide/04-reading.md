@@ -247,6 +247,8 @@ to pick another part; a tap beside the picker, or the back gesture,
 closes it. On a wider screen the status line has a button for the picker
 as well, and `gp` opens it from the keyboard.
 
+![The parts picker, on the lower half of a page](images/parts-picker.webp)
+
 ![Thirds, then quarters of a page](images/parts.gif)
 
 ![The upper half of a page, enlarged with H1](images/part-half.webp)

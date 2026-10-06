@@ -211,6 +211,7 @@ parts)
   page 4
   rec parts 14; key B 1; sleep 1.5; key l; sleep 1.5; key l; sleep 1.5; key Q 1; sleep 1.5; key l; sleep 1.5; key Escape; sleep 1.5; gif parts
   key H 1; sleep 1.5; still part-half; key Escape
+  key g p; key 2 2; key g p; sleep 1.5; still parts-picker; key Escape; key Escape
   ;;
 
 keys)
