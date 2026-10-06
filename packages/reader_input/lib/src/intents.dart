@@ -70,6 +70,7 @@ enum ReaderIntent {
   regionTopRight('Top-right quarter of the page, enlarged'),
   regionBottomLeft('Bottom-left quarter of the page, enlarged'),
   regionBottomRight('Bottom-right quarter of the page, enlarged'),
+  pickPart('Page parts: pick a half, third, strip or quarter of the page to enlarge, by touch or click'),
   autoTrim('Auto-trim scan margins'),
   nightFilter('Night filter'),
   cleanUp('Clean up old scans: paper, contrast, sharpness'),

@@ -125,6 +125,8 @@ regionTopRight = ["Q2", "52"]
 regionBottomLeft = ["Q3", "53"]
 # Bottom-right quarter of the page, enlarged
 regionBottomRight = ["Q4", "54"]
+# Page parts: pick a half, third, strip or quarter of the page to enlarge, by touch or click
+pickPart = ["gp"]
 # Auto-trim scan margins
 autoTrim = ["t"]
 # Night filter
@@ -254,4 +256,4 @@ showTime = ["T"]
 #
 # swipeDown = ""
 #
-# twoFingerTap = ""
+# twoFingerTap = "pickPart"

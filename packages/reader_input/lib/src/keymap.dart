@@ -112,6 +112,7 @@ class Keymap {
       Binding(['5', '2'], ReaderIntent.regionTopRight),
       Binding(['5', '3'], ReaderIntent.regionBottomLeft),
       Binding(['5', '4'], ReaderIntent.regionBottomRight),
+      Binding(['g', 'p'], ReaderIntent.pickPart),
       Binding(['t'], ReaderIntent.autoTrim),
       Binding(['i'], ReaderIntent.nightFilter),
       Binding(['c'], ReaderIntent.cleanUp),
