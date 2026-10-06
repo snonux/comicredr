@@ -112,8 +112,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// The details view (`I`) is open.
   bool _showDetails = false;
 
-  /// The collection dialog of `gc` is up over the reader (or being made).
-  bool _collecting = false;
+  /// The collection question of `gc` over the reader, from the key press
+  /// until it is answered: the keys of that time are its own, not commands
+  /// ([_typeAhead]). Touches need nothing: the Navigator absorbs pointers
+  /// from the push until the dialog's barrier is built.
+  CollectionQuestion? _question;
 
   /// In fullscreen: the mouse moved lately, so the pointer shows; the
   /// status line and progress bar show for a moment, or while the mouse is
@@ -648,30 +651,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// `gc` in the reader, the page grid or the bookmark list: asks for a
   /// collection for the open comic with the library's dialog, then puts it
-  /// there. The names come from the index, not the library's list of
-  /// books, since a comic opened with `o` need not be in the library: every
-  /// collection a library book is in plus this comic's own, less the ones
-  /// it is in already. Keys go back to the reader (or the grid) after.
+  /// there. The dialog goes up in this very call, before anything is
+  /// awaited, so no key typed after `gc` is taken for a command: its field
+  /// gets what is typed until it has the focus ([_typeAhead]), and the
+  /// names it offers are read while it shows ([_offered]). Nothing hands
+  /// the focus back afterwards: `gc` only ever comes from [_keys], and the
+  /// dialog's route gives the focus back to where it was when it goes,
+  /// however it was left (the tests leave it by key, button, chip and a
+  /// click beside it).
   Future<void> _collect(OpenBook book) async {
-    if (_collecting) return;
-    _collecting = true;
-    try {
-      final store = ref.read(libraryStoreProvider);
-      final mine = (await store.collectionsOf(book.key)).toSet();
-      final books = await store.books();
-      final all = {...mine, for (final b in books) ...b.collections};
-      // Named as its cover is in the library, when it is there.
-      final what = books.where((b) => b.key == book.key).firstOrNull?.name ?? book.title;
-      if (!mounted) return;
-      final name = await showCollectionDialog(context, what: what, names: all.difference(mine));
-      // Closed or swapped for another comic while the dialog was up: leave it.
-      if (name != null && identical(ref.read(readerProvider).book, book)) {
-        await ref.read(readerProvider.notifier).addToCollection(name);
-      }
-    } finally {
-      _collecting = false;
-      if (mounted) _keys.requestFocus();
-    }
+    if (_question != null) return;
+    final reader = ref.read(readerProvider.notifier);
+    // Named as its cover is in the library, when it is there.
+    final inLibrary = ref.read(booksProvider).value?.where((b) => b.key == book.key).firstOrNull;
+    final question = CollectionQuestion(context, what: inLibrary?.name ?? book.title, later: _offered(book.key));
+    _question = question;
+    final name = await question.answer;
+    // Keys are commands again, also while the row is being written.
+    _question = null;
+    if (!mounted) return;
+    // Closed or swapped for another comic while the dialog was up: leave it.
+    if (name == null || !identical(ref.read(readerProvider).book, book)) return;
+    await reader.addToCollection(name);
+  }
+
+  /// The collections `gc` offers for the comic [key]: every one there is,
+  /// less the ones it is in already. Both are read from the rows, not the
+  /// library's list of books, since neither the open comic nor the comics
+  /// in a collection need be in a library folder. A failure is the
+  /// dialog's to say (`CollectionDialog.later`).
+  Future<List<String>> _offered(String key) async {
+    final store = ref.read(libraryStoreProvider);
+    final mine = (await store.collectionsOf(key)).toSet();
+    return [
+      for (final name in await store.collectionNames())
+        if (!mine.contains(name)) name,
+    ];
+  }
+
+  /// A key pressed while `gc`'s question is up but its field has not got
+  /// the focus yet: typed into the question, never a command.
+  bool _typeAhead(KeyEvent event) {
+    final question = _question;
+    if (question == null || !question.open) return false;
+    question.typed(event);
+    return true;
   }
 
   /// `gu` or `gU` in the reader: the open comic onto S3 or off it.
@@ -1088,6 +1112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onCommand: _onCommand,
         onPendingChanged: (p) => setState(() => _pending = p),
         focusNode: _keys,
+        typeAhead: _typeAhead,
         child: Scaffold(
           // A page guided view shows whole turns the background wine red.
           backgroundColor: s.onWholePage ? heldColour : Colors.black,

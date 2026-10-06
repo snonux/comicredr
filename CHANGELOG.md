@@ -11,7 +11,10 @@ the `?` overlay.
   with a comic open, asking which collection to put it in (new or one you
   have) without going back to the library, also for a comic opened from
   outside the library folders. `gc` and `*` work with the page grid (`p`)
-  or the bookmark list (`M`) up too, which used to swallow them.
+  or the bookmark list (`M`) up too, which used to swallow them. The name
+  can be typed straight after `gc`, before the question shows: every
+  letter lands in it and none turns a page. Every collection is offered,
+  also one that only holds comics from outside the library folders.
 - **Back to the first page, in the guide:** `Home` and `gg` have a
   section of their own in Reading a comic: where they land in guided
   view, `''` to come back, the page grid and the bookmark list.

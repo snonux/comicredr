@@ -833,6 +833,17 @@ ORDER BY r.id, f.rel_path
     return [for (final r in rows) r.name]..sort(naturalCompare);
   }
 
+  /// Every collection with a book in it, in name order: also one that only
+  /// holds comics from outside the library folders, which [books] and so
+  /// the library's Collections tab never see.
+  Future<List<String>> collectionNames() async {
+    final name = db.collectionBooks.name;
+    final query = db.selectOnly(db.collectionBooks, distinct: true)
+      ..addColumns([name])
+      ..where(db.collectionBooks.removedAt.isNull());
+    return [for (final r in await query.get()) r.read(name)!]..sort(naturalCompare);
+  }
+
   /// Whether the book [contentKey] is a favourite.
   Future<bool> isFavourite(String contentKey) async =>
       await (db.select(

@@ -277,12 +277,24 @@ refreshes right away instead of within six hours.
   or the bookmark list see the command, so they work over both, which
   stay up (t563). `*` goes to `ReaderNotifier._toggleFavourite` (a
   status-line notice, no Undo: `*` again undoes it). `gc` runs
-  `_collect`: `showCollectionDialog` (`collection_dialog.dart`, the
-  dialog `askCollection` shows in the library) with the names from the
-  index (`LibraryStore.books()` plus `collectionsOf(key)`, since a comic
-  opened with `o` need not be a `LibraryBook`), then
-  `ReaderNotifier.addToCollection`, which says "Already in X" and writes
-  nothing when it is. The details view (`I`) and the `?` overlay are
+  `_collect`: a `CollectionQuestion` (`collection_dialog.dart`, the
+  dialog `askCollection` shows in the library) whose route is pushed in
+  the same call, nothing awaited first. The names it offers are read
+  while it shows (`_offered`: `LibraryStore.collectionNames()`, every
+  live collection, less `collectionsOf(key)`; from the rows, since
+  neither the open comic nor a collection's comics need be in a library
+  folder) and come as `CollectionDialog.later`; when that fails the
+  dialog says so in place of the chips. Until the dialog's field has the
+  focus (a frame at best, about a second for the first dialog of a run)
+  keys still arrive at ReaderKeyboard, which asks its `typeAhead`
+  (`HomeScreen._typeAhead`) before looking a key up:
+  `CollectionQuestion.typed` puts characters in the field, Backspace
+  takes one off, Enter answers, Esc leaves, anything else is dropped, so
+  nothing typed after `gc` is a command or lost. Touches need nothing,
+  the Navigator absorbs pointers from the push on. Then
+  `ReaderNotifier.addToCollection`, unless the comic was closed or
+  swapped meanwhile, which says "Already in X" and writes nothing when
+  it is. The details view (`I`) and the `?` overlay are
   left alone: `I` is a modal route with its own keys, and nothing reaches
   the comic behind `?`. No touch button for `gc` in the reader.
 - Continue (`C`, the library header's play button, widget key `continue`):
@@ -676,7 +688,7 @@ tool/e2e_continue.sh         # C and the library's Continue button (tapped): the
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
-tool/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; Esc in the dialog, a collection it is in already, keys back with the grid, a restart; checks the index and the sidecar with sqlite3; makes its own books
+tool/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already, keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic; checks the index and the sidecars with sqlite3; makes its own books
 tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
 tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars

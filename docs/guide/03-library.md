@@ -193,7 +193,8 @@ them.
 - `gc` in a comic you are reading asks the same question about that
   comic, so there is no need to go back to the library: halfway through
   an issue, press `gc`, type `To read next` and press `Enter`, and the
-  line at the bottom says *Added to To read next*. `Tab` reaches the
+  line at the bottom says *Added to To read next*. There is no need to
+  wait for the question to show before typing the name. `Tab` reaches the
   collections you already have, `Esc` leaves the comic where it was. It
   works the same with the [page grid](04-reading.md#see-every-page-at-once)
   (`p`) or the bookmark list (`M`) up, which stay open, and for a comic

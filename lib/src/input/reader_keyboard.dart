@@ -17,6 +17,7 @@ class ReaderKeyboard extends StatefulWidget {
     required this.onCommand,
     this.onPendingChanged,
     this.focusNode,
+    this.typeAhead,
     required this.child,
   });
 
@@ -28,6 +29,11 @@ class ReaderKeyboard extends StatefulWidget {
 
   /// Called with the half-typed sequence (`4z`, `m`), empty when none.
   final ValueChanged<String>? onPendingChanged;
+
+  /// Asked before a key is looked up: true when the key was taken as typing
+  /// meant for a dialog that is on its way but has no focus yet (`gc`'s
+  /// collection question), so it is no command and starts no sequence.
+  final bool Function(KeyEvent event)? typeAhead;
   final Widget child;
 
   @override
@@ -115,6 +121,7 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
       _focus.requestFocus();
       return KeyEventResult.handled;
     }
+    if (widget.typeAhead?.call(event) ?? false) return KeyEventResult.handled;
     final keys = HardwareKeyboard.instance;
     final token = keyToken(event, ctrl: keys.isControlPressed, shift: keys.isShiftPressed);
     if (token == null) return KeyEventResult.ignored;
