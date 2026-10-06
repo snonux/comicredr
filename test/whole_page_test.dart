@@ -145,6 +145,46 @@ void main() {
     expect(at(c), (3, 'S'));
   });
 
+  testWidgets("gg and Home land on page 1 shown whole, its first panel is the next step, and '' goes back", (
+    tester,
+  ) async {
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(writeGuidedBook()));
+    await settle(tester);
+    await key(tester, LogicalKeyboardKey.keyV);
+    Future<void> twice(LogicalKeyboardKey k, String character) async {
+      await tester.sendKeyEvent(k, character: character);
+      await tester.sendKeyEvent(k, character: character);
+      await settle(tester);
+    }
+
+    // Page 2, panel 3: somewhere to come back to.
+    await key(tester, LogicalKeyboardKey.pageDown);
+    await key(tester, LogicalKeyboardKey.keyL, times: 3);
+    expect(at(c), (1, 2));
+
+    // gg: page 1 whole, as on any arrival, still in guided view.
+    await twice(LogicalKeyboardKey.keyG, 'g');
+    expect(at(c), (0, 'S'));
+    expect(c.read(readerProvider).guided, isTrue);
+    expect(status(tester), contains('guided: whole page, then 4 panels'));
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(c), (0, 0), reason: 'the first panel is the step after the whole page');
+
+    // '' goes back to the panel gg left.
+    await twice(LogicalKeyboardKey.quote, "'");
+    expect(at(c), (1, 2));
+
+    // Home is the same. Pressed again on page 1 it leaves from page 1, so
+    // '' then stays there: only the last jump is remembered.
+    await key(tester, LogicalKeyboardKey.home);
+    expect(at(c), (0, 'S'));
+    await key(tester, LogicalKeyboardKey.home);
+    expect(at(c), (0, 'S'));
+    await twice(LogicalKeyboardKey.quote, "'");
+    expect(at(c), (0, 'S'), reason: "the second Home replaced the place '' goes back to");
+  });
+
   testWidgets('w turns whole-page steps off and on, and the choice is kept', (tester) async {
     final path = writeGuidedBook();
     var c = await pumpApp(tester);

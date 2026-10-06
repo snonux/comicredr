@@ -7,8 +7,9 @@ the `?` overlay.
 
 ## Unreleased
 
-- The guide has a section on going back to the first page (`Home` or
-  `gg`, also in guided view and the page grid), and tests now cover it.
+- **Back to the first page, in the guide:** `Home` and `gg` have a
+  section of their own in Reading a comic: where they land in guided
+  view, `''` to come back, the page grid and the bookmark list.
 
 ## 0.6.5
 

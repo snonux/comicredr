@@ -161,7 +161,9 @@ void main() {
     expect((s.page, s.panelIndex), (0, 2));
   });
 
-  testWidgets('gg and Home go to the first page in guided view, from anywhere and from page 1 itself', (tester) async {
+  testWidgets('gg and Home go to the first page in guided view without whole-page steps, from anywhere and page 1', (
+    tester,
+  ) async {
     final path = writeGuidedBook();
     final c = await pumpApp(tester);
     await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
@@ -178,7 +180,8 @@ void main() {
     await key(tester, LogicalKeyboardKey.keyL);
     expect(at(), (true, 1, 2));
 
-    // gg lands on page 1's first panel and stays in guided view.
+    // Whole-page steps are off here (setUp), so gg lands on page 1's first
+    // panel; whole_page_test has the default, the page whole. Guided view stays.
     await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
     expect(at(), (true, 1, 2), reason: 'one g alone only starts the sequence');
     await key(tester, LogicalKeyboardKey.keyG, character: 'g');
@@ -201,7 +204,21 @@ void main() {
     await key(tester, LogicalKeyboardKey.keyG, character: 'g');
     expect(at(), (true, 0, 0));
     await key(tester, LogicalKeyboardKey.home);
-    expect(at(), (true, 0, 0), reason: 'on the first panel of page 1 it is a no-op');
+    expect(at(), (true, 0, 0), reason: 'on the first panel of page 1 the view does not move');
+    // It is still a jump, though: it left from page 1's first panel, so that
+    // is where '' now goes, not back to page 2.
+    await tester.sendKeyEvent(LogicalKeyboardKey.quote, character: "'");
+    await key(tester, LogicalKeyboardKey.quote, character: "'");
+    expect(at(), (true, 0, 0), reason: "Home on page 1 replaced the place '' goes back to");
+    expect(status(tester), isNot(contains('No jump to go back from')));
+  });
+
+  testWidgets('a number before gg is not a page number: 3gg and 22gg both end on page 1', (tester) async {
+    final path = writeGuidedBook();
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
+    await settle(tester);
+    await key(tester, LogicalKeyboardKey.keyV);
 
     // A count does not make gg a page jump (that is G12): 3gg is still page 1.
     await key(tester, LogicalKeyboardKey.end);
@@ -209,7 +226,19 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.digit3, character: '3');
     await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
     await key(tester, LogicalKeyboardKey.keyG, character: 'g');
-    expect(at(), (true, 0, 0));
+    expect((c.read(readerProvider).page, c.read(readerProvider).panelIndex), (0, 0));
+
+    // Two quick digits are not a count at all: 22 is the lower half of the
+    // page, shown at once. gg after it leaves the part for page 1.
+    await key(tester, LogicalKeyboardKey.end);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit2, character: '2');
+    await key(tester, LogicalKeyboardKey.digit2, character: '2');
+    expect(c.read(readerProvider).page, 3);
+    expect(c.read(readerProvider).region, isNotNull, reason: '22 is a page part, not a count');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+    final s = c.read(readerProvider);
+    expect((s.guided, s.page, s.panelIndex, s.region, s.parts), (true, 0, 0, null, null));
   });
 
   testWidgets('Tab cycles single, spread, guided', (tester) async {

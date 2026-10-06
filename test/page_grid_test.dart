@@ -195,7 +195,13 @@ void main() {
 
     await key(tester, LogicalKeyboardKey.keyP);
     expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'selected starts on the current page');
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    // One g only starts the sequence, and once it has timed out (600 ms) the
+    // next g starts another: neither moves the selection.
+    await key(tester, LogicalKeyboardKey.keyG);
+    expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'a lone g selects nothing');
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 700)));
+    await key(tester, LogicalKeyboardKey.keyG);
+    expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'a g long after the first is alone again');
     await key(tester, LogicalKeyboardKey.keyG);
     expect(borderOf(tester, 0)?.top.color, Colors.amber, reason: 'gg scrolled to and selected page 1');
     expect(c.read(readerProvider).page, 39, reason: 'selecting does not turn the page');

@@ -48,23 +48,30 @@ after renaming or copying the file, and you are right back there.
 ## Back to the first page
 
 `Home` (or `gg`, two quick presses of `g`) takes you straight to page 1
-from anywhere in the comic; `End` (or `G`) goes to the last page. In
-guided view you land on the first panel of page 1 and stay in guided
-view. For example, to start a comic again that you had opened in the
-middle:
+from anywhere in the comic; `End` (or `G`) goes to the last page. Guided
+view stays on: page 1 shows whole first and the next step is its first
+panel, as on any page you arrive at. With whole-page steps turned off
+(`w`, see [Panel by panel](05-guided-view.md#panel-by-panel)) you land
+on its first panel straight away. For example, to start a comic again
+that you had opened in the middle:
 
 ```
 Home      page 1
-''        changed your mind: back to the page you were on
+''        changed your mind: back to where you pressed Home
 ```
+
+`''` goes back to the place the last jump left. Press `Home` a second
+time, or press it while you are on page 1, and that place is on page 1,
+so `''` no longer leads back to the middle of the comic.
 
 The same keys work in the page grid (`p`), where they pick the first or
 last page and `Enter` goes there; in the bookmark list (`M`) they pick
-the first or last bookmark. A number in
-front makes no difference (`3gg` is still page 1); for a page by number
-use `G12`. On a touchscreen no gesture does this out of the box, but any
-gesture can: give it the action `firstPage` in `keys.toml`, as in
-[Your own gestures](08-touch.md#your-own-gestures).
+the first or last bookmark. `gg` takes no page number: `3gg` is still
+page 1, and two quick digits such as `22` are a key of their own, a
+[part of the page](#parts-of-a-page), which `gg` then leaves for page 1.
+For a page by number use `G12`. On a touchscreen no gesture does this
+out of the box, but any gesture can: give it the action `firstPage` in
+`keys.toml`, as in [Your own gestures](08-touch.md#your-own-gestures).
 
 ## Jump around with the progress bar
 

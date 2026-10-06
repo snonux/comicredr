@@ -99,6 +99,29 @@ void main() {
     expect(s.unit, [4, 5]);
   });
 
+  testWidgets("gg from a spread goes to the cover alone, and '' comes back to the spread", (tester) async {
+    final path = writeSpreadBook();
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
+    await settle(tester);
+    await key(tester, LogicalKeyboardKey.keyD);
+    for (var i = 0; i < 3; i++) {
+      await key(tester, LogicalKeyboardKey.keyL);
+    }
+    expect(c.read(readerProvider).unit, [4, 5], reason: 'the pair after the wide page');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    expect(c.read(readerProvider).unit, [4, 5], reason: 'one g alone only starts the sequence');
+    await key(tester, LogicalKeyboardKey.keyG);
+    expect(c.read(readerProvider).unit, [0]);
+    expect(c.read(readerProvider).mode, PageMode.spread, reason: 'two-page mode stays on');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.quote, character: "'");
+    await tester.sendKeyEvent(LogicalKeyboardKey.quote, character: "'");
+    await settle(tester);
+    expect(c.read(readerProvider).unit, [4, 5]);
+  });
+
   testWidgets('guided view reads the left page of a spread before the right', (tester) async {
     final path = writeSpreadBook();
     final c = await pumpApp(tester);
