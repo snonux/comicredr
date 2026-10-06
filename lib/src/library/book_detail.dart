@@ -13,7 +13,7 @@ import '../reader/guided.dart';
 import '../reader/open_book.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/reset_dialog.dart';
-import 'collection_dialog.dart';
+import 'bulk_actions.dart';
 import 'cover_card.dart';
 import 'delete_book.dart';
 import 'edit_dialog.dart';
@@ -182,12 +182,10 @@ class BookDetail extends ConsumerWidget {
               key: const Key('addToCollection'),
               avatar: const Icon(Icons.add, size: 18),
               label: const Text('Add to a collection'),
-              onPressed: () async {
-                final name = await askCollection(context, ref, what: collectionWhat([book]), keys: [book.key]);
-                if (name != null) {
-                  await _changed(ref, () => ref.read(libraryStoreProvider).addToCollection(book.key, name));
-                }
-              },
+              // The question, the rule for a collection it is in already
+              // and the notice are gc's (also for a comic only on S3, which
+              // gc leaves out: its row is in the index, with no sidecar).
+              onPressed: () => collectBooks(context, ref, [book]),
             ),
           ],
         ),

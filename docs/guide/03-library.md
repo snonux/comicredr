@@ -207,6 +207,10 @@ them.
 - Every collection you have is offered, also one that so far only holds
   comics from outside your library folders, except those the comic (or
   every marked comic) is in already.
+- A collection the comic is in already is left as it is, and you are
+  told *Already in To read next*. With several comics marked, the ones
+  not yet in it are added and the line says how many: *2 comics added to
+  Space stories; 1 was already in it*.
 - If you close the comic, or open another, while the question is up, the
   name is not given to the wrong comic: nothing is added, and a line says
   so.

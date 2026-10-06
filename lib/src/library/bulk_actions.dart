@@ -188,26 +188,58 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
   return true;
 }
 
+/// `gc` in the library, on the selected cover or the marked comics, and
 /// Collection in the marks bar: asks for a collection, then puts every one
-/// of [books] in it.
-Future<bool> addBooksToCollection(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
+/// of [books] that is here in it ([collectBooks]). Comics only on S3 are
+/// left out; with nothing else there is no question.
+Future<bool> addBooksToCollection(BuildContext context, WidgetRef ref, List<LibraryBook> books) {
   final todo = books.where((b) => !b.remoteOnly).toList();
-  if (todo.isEmpty) return false;
+  if (todo.isEmpty) return Future.value(false);
+  return collectBooks(context, ref, todo);
+}
+
+/// Asks for a collection for [books] and puts them in it: what
+/// [addBooksToCollection] does, and the details' "Add to a collection" for
+/// its one book. False when the question was left or the index refused.
+///
+/// A comic that is in the collection already is left alone
+/// ([LibraryStore.addToCollection]): its row and its sidecar are not
+/// written, and the notice counts only the ones really added, as the
+/// reader's `gc` says "Already in X".
+Future<bool> collectBooks(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
   final messenger = ScaffoldMessenger.of(context);
   final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
   // Nothing is awaited before this: the dialog goes up in the key press's
   // own call, so a name typed straight after gc is the dialog's.
-  final name = await askCollection(context, ref, what: collectionWhat(todo), keys: todo.map((b) => b.key));
+  final name = await askCollection(context, ref, what: collectionWhat(books), keys: books.map((b) => b.key));
   if (name == null) return false;
+  final added = <LibraryBook>[];
+  Object? failed;
   try {
-    for (final b in todo) {
-      await store.addToCollection(b.key, name);
+    for (final b in books) {
+      if (await store.addToCollection(b.key, name)) added.add(b);
     }
   } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not add them to $name: $e')));
-    return false;
+    failed = e;
   }
-  await _writeSidecars(sidecars, todo);
-  messenger.showSnackBar(SnackBar(content: Text('${comicsCount(todo.length)} added to $name')));
-  return true;
+  // Also after a failure part of the way: the ones added are in the index.
+  await _writeSidecars(sidecars, added);
+  final said = failed == null
+      ? collectedNotice(added.length, books.length, name)
+      : 'Could not add them to $name: $failed';
+  // In place of a notice still up (the one of the gc before this one), not
+  // queued behind it.
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(said)));
+  return failed == null;
+}
+
+/// What [collectBooks] says after putting [added] of the [asked] comics in
+/// the collection [name], the rest being in it already.
+String collectedNotice(int added, int asked, String name) {
+  final already = asked - added;
+  if (already == 0) return '${comicsCount(added)} added to $name';
+  if (added == 0) return asked == 1 ? 'Already in $name' : 'All $asked comics are already in $name';
+  return '${comicsCount(added)} added to $name; ${already == 1 ? '1 was' : '$already were'} already in it';
 }

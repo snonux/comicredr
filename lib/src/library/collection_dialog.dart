@@ -48,8 +48,8 @@ Future<List<String>> _offered(LibraryStore store, Set<String> keys) async {
   ];
 }
 
-/// Asks the collection question, one at a time, and knows the one that is
-/// up: ReaderKeyboard hands it the keys typed before the dialog's field has
+/// Asks the collection question and knows the one that is up:
+/// ReaderKeyboard hands it the keys typed before the dialog's field has
 /// the focus ([typed], through `HomeScreen._typeAhead`).
 class CollectionAsker {
   /// The question asked last. Whether it is still open is the question's
@@ -60,12 +60,18 @@ class CollectionAsker {
 
   /// Shows the question for [what] and answers with the name picked or
   /// typed, null when it was left. [later] reads the names to offer, once
-  /// the dialog is on its way. While a question is up a second one is not
-  /// asked (a button activated by key in the gap) and answers null.
-  Future<String?> ask(BuildContext context, {required String what, required Future<List<String>> Function() later}) {
-    if (_open != null) return Future.value();
-    return (_last = CollectionQuestion(context, what: what, later: later())).answer;
-  }
+  /// the dialog is on its way.
+  ///
+  /// Nothing here refuses a second question while one is up, because no
+  /// input gets that far: every asker sits under ReaderKeyboard, which
+  /// gives each key to [typed] first while a question is open (so neither
+  /// `gc` nor Enter or Space on a focused button arrives), and the
+  /// Navigator absorbs pointers from the push until the dialog's barrier
+  /// covers the buttons. Were code to ask twice all the same, the second
+  /// dialog would lie over the first, each with its own answer, and
+  /// [typed] would go to the one on top.
+  Future<String?> ask(BuildContext context, {required String what, required Future<List<String>> Function() later}) =>
+      (_last = CollectionQuestion(context, what: what, later: later())).answer;
 
   /// A key pressed on the app's keyboard: true when a question is open, so
   /// the key was typed into it and is no command.

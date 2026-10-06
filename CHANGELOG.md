@@ -18,7 +18,11 @@ the `?` overlay.
   ask to delete the comic). Every collection is offered, in the library
   as in a comic, also one that only holds comics from outside the library
   folders. A name answered after the comic was closed or swapped for
-  another adds nothing and says so.
+  another adds nothing and says so. A collection a comic is in already
+  is left as it is, in the library as in a comic: the notice says
+  *Already in X*, and with several comics marked it counts only the ones
+  added (*2 comics added to X; 1 was already in it*). The details'
+  **Add to a collection** now says what it did, too.
 - **Back to the first page, in the guide:** `Home` and `gg` have a
   section of their own in Reading a comic: where they land in guided
   view, `''` to come back, the page grid and the bookmark list.

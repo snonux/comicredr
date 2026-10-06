@@ -804,17 +804,30 @@ ORDER BY r.id, f.rel_path
   });
 
   /// Puts the book [contentKey] in the collection [name], making the
-  /// collection if it is new.
-  Future<void> addToCollection(String contentKey, String name) => db
-      .into(db.collectionBooks)
-      .insertOnConflictUpdate(
-        CollectionBooksCompanion.insert(
-          name: name.trim(),
-          contentKey: contentKey,
-          addedAt: DateTime.now(),
-          removedAt: const Value(null),
-        ),
-      );
+  /// collection if it is new, and says whether it did. A book that is in
+  /// it already is left as it is and the answer is false: its row keeps
+  /// the time it was added, so there is nothing new for a sidecar to carry
+  /// and nothing to tell the reader but that. A row of a book taken out
+  /// earlier is written again, with the time now. This is the one place
+  /// that rule lives: the reader's `gc`, the library's (a cover, the marks,
+  /// the details' button) and the favourites all add through here.
+  Future<bool> addToCollection(String contentKey, String name) => db.transaction(() async {
+    final trimmed = name.trim();
+    final inIt = db.select(db.collectionBooks)
+      ..where((c) => c.contentKey.equals(contentKey) & c.name.equals(trimmed) & c.removedAt.isNull());
+    if (await inIt.getSingleOrNull() != null) return false;
+    await db
+        .into(db.collectionBooks)
+        .insertOnConflictUpdate(
+          CollectionBooksCompanion.insert(
+            name: trimmed,
+            contentKey: contentKey,
+            addedAt: DateTime.now(),
+            removedAt: const Value(null),
+          ),
+        );
+    return true;
+  });
 
   /// Takes the book out of [name]. The row stays with the time, for the
   /// sidecar; a collection with no books left is gone from the library.

@@ -17,7 +17,8 @@
 # and its sidecar, and that collection is offered to a library comic (Tab
 # and Space on its chip). Last, in the library: gc on a cover with a name
 # beginning gd X typed straight after it adds that name and deletes or
-# resets nothing. Checks the index and the sidecars with sqlite3,
+# resets nothing; gc on it again with that name leaves the row and the
+# sidecar as they were. Checks the index and the sidecars with sqlite3,
 # the dialog by comparing screenshots, and keeps the screenshots.
 #
 #   tool/e2e_open_comic_collections.sh
@@ -294,6 +295,26 @@ others() { collections "$1" | sed 's/\(, \)\?gd Xtra//'; }
 check "Alpha keeps its collections" "$(others 'Alpha 1.cbz')" "Grid picks, To read next"
 check "Bravo keeps its collection" "$(others 'Bravo 1.cbz')" "Aaa outside"
 check "nothing was deleted" "$(ls "$home/Comics" | tr '\n' ' ')" "Alpha 1.cbz Bravo 1.cbz "
+# gc on that cover again with the collection it is now in: as in the
+# reader, the row is left as it was (compared seconds later, as above) and
+# so is the comic's sidecar, which the add before it wrote.
+cover=$(sql "select f.rel_path from collection_books c join files f on f.content_key = c.content_key
+             where c.name = 'gd Xtra' and c.removed_at is null")
+was=$(row "$cover" 'gd Xtra')
+check "gd Xtra has a row for the cover" "${was#*|}" in
+check "the cover's sidecar has it" "$(sidecar Comics "$cover" | grep -c 'gd Xtra')" 1
+written=$(stat -c %y "$home/Comics/.$cover.crdb")
+sleep 2
+gc
+say "gd Xtra"
+shot 16_library_already
+key Return
+# The notice ("Already in gd Xtra") is up for four seconds, and wait_gone
+# only answers once it has gone too: the picture of it comes first.
+shot 17_library_already_said
+check "Enter closes the dialog" "$(wait_gone)" gone
+check "gc on a cover with a collection it is in leaves its row as it was" "$(row "$cover" 'gd Xtra')" "$was"
+check "and its sidecar unwritten" "$(stat -c %y "$home/Comics/.$cover.crdb")" "$written"
 stop
 
 rm -f "$out/now.png" "$before"

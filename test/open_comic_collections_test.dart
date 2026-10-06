@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/data/settings_store.dart';
+import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/scanner.dart';
@@ -46,6 +48,10 @@ void main() {
 
   LibraryBook named(List<LibraryBook> books, String name) => books.firstWhere((b) => b.name == name);
 
+  /// The sidecars the app was last pumped with: none are written, the ones
+  /// that would have been are listed.
+  late _Sidecars sidecars;
+
   Future<ProviderContainer> pumpApp(WidgetTester tester, {LibraryStore? store}) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
@@ -56,7 +62,7 @@ void main() {
           databaseProvider.overrideWithValue(db),
           coverDirProvider.overrideWithValue('${tmp.path}/covers'),
           classicCvOnly,
-          noSidecars(db),
+          sidecarSyncProvider.overrideWith((ref) => sidecars = _Sidecars(db, ref.watch(progressStoreProvider))),
           if (store != null) libraryStoreProvider.overrideWithValue(store),
         ],
         child: const ComicRedrApp(),
@@ -107,6 +113,22 @@ void main() {
       for (final r in rows)
         if (r.contentKey == key && r.removedAt == null) r.name,
     ]..sort();
+  }
+
+  /// Makes every collection row of [key] one added long ago. The table
+  /// keeps whole seconds, so a row written again within the second of the
+  /// test would otherwise look untouched.
+  final longAgo = DateTime(2020, 5, 17, 12);
+  Future<void> age(WidgetTester tester, String key) => tester.runAsync(
+    () => (db.update(
+      db.collectionBooks,
+    )..where((r) => r.contentKey.equals(key))).write(CollectionBooksCompanion(addedAt: Value(longAgo))),
+  );
+
+  /// The row of [key] in the collection [name], live or taken out.
+  Future<CollectionBook> rowOf(WidgetTester tester, String key, String name) async {
+    final rows = (await tester.runAsync(() => db.select(db.collectionBooks).get()))!;
+    return rows.singleWhere((r) => r.contentKey == key && r.name == name);
   }
 
   /// Types [name] into the collection dialog and presses Enter.
@@ -187,14 +209,7 @@ void main() {
     final key = named(books, 'Daredevil #181').key;
     await tester.runAsync(() => store.addToCollection(named(books, 'Swamp Thing #21').key, 'Moore'));
     await tester.runAsync(() => store.addToCollection(key, 'Miller'));
-    // Added long ago: the table keeps whole seconds, so a row written again
-    // within this second would look untouched.
-    final longAgo = DateTime(2020, 5, 17, 12);
-    await tester.runAsync(
-      () => (db.update(
-        db.collectionBooks,
-      )..where((r) => r.contentKey.equals(key))).write(CollectionBooksCompanion(addedAt: Value(longAgo))),
-    );
+    await age(tester, key);
 
     await type(tester, 'gc');
     expect(find.widgetWithText(ActionChip, 'Moore'), findsOneWidget);
@@ -606,6 +621,141 @@ void main() {
     await stop(tester);
   });
 
+  testWidgets('gc on a cover with a collection it is in already says so and leaves the row and the sidecar alone', (
+    tester,
+  ) async {
+    final (store, books) = await library(tester);
+    final wrote = sidecars.wrote;
+    await type(tester, 'gc');
+    final book = asked(tester, books);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    await tester.runAsync(() => store.addToCollection(book.key, 'Miller'));
+    await age(tester, book.key);
+    await settle(tester);
+
+    // Not offered, typed anyway.
+    await type(tester, 'gc');
+    expect(find.widgetWithText(ActionChip, 'Miller'), findsNothing);
+    await answer(tester, 'Miller');
+    expect(find.widgetWithText(SnackBar, 'Already in Miller'), findsOneWidget);
+    final row = await rowOf(tester, book.key, 'Miller');
+    expect((row.addedAt, row.removedAt), (longAgo, null));
+    expect(wrote, isEmpty);
+
+    // The details' button goes the same way.
+    await tester.tap(find.byKey(const Key('addToCollection')));
+    await tester.pump();
+    await settle(tester);
+    await answer(tester, ' Miller ');
+    expect(find.widgetWithText(SnackBar, 'Already in Miller'), findsOneWidget);
+    expect((await rowOf(tester, book.key, 'Miller')).addedAt, longAgo);
+    expect(wrote, isEmpty);
+
+    // One it is not in is added, and that one's sidecar written.
+    await tester.tap(find.byKey(const Key('addToCollection')));
+    await tester.pump();
+    await settle(tester);
+    await answer(tester, 'New one');
+    expect(find.widgetWithText(SnackBar, '1 comic added to New one'), findsOneWidget);
+    expect((await rowOf(tester, book.key, 'New one')).addedAt.isAfter(longAgo), isTrue);
+    expect((await rowOf(tester, book.key, 'Miller')).addedAt, longAgo);
+    expect(wrote, [book.key]);
+    await stop(tester);
+  });
+
+  testWidgets('gc on marked comics adds the ones not in the collection and counts only those', (tester) async {
+    final (store, books) = await library(tester);
+    final [first, second] = books;
+    final wrote = sidecars.wrote;
+    await tester.runAsync(() => store.addToCollection(first.key, 'Some'));
+    await age(tester, first.key);
+    await settle(tester);
+
+    Future<void> markAll() async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await settle(tester);
+      expect(find.text('2 selected'), findsOneWidget);
+    }
+
+    // One of the two is in it: offered still, the other one added.
+    await markAll();
+    await type(tester, 'gc');
+    await tester.tap(find.widgetWithText(ActionChip, 'Some'));
+    await settle(tester);
+    expect(find.widgetWithText(SnackBar, '1 comic added to Some; 1 was already in it'), findsOneWidget);
+    expect((await rowOf(tester, first.key, 'Some')).addedAt, longAgo);
+    expect((await rowOf(tester, second.key, 'Some')).addedAt.isAfter(longAgo), isTrue);
+    expect(wrote, [second.key]);
+    expect(find.text('2 selected'), findsNothing);
+
+    // Both in it now: said, nothing written, and the marks go all the same.
+    await age(tester, second.key);
+    wrote.clear();
+    await markAll();
+    await type(tester, 'gc');
+    expect(find.widgetWithText(ActionChip, 'Some'), findsNothing);
+    await answer(tester, 'Some');
+    expect(find.widgetWithText(SnackBar, 'All 2 comics are already in Some'), findsOneWidget);
+    for (final b in books) {
+      expect((await rowOf(tester, b.key, 'Some')).addedAt, longAgo);
+    }
+    expect(wrote, isEmpty);
+    expect(find.text('2 selected'), findsNothing);
+    await stop(tester);
+  });
+
+  testWidgets('no second question gets asked while one is on its way: neither by key nor by a second tap', (
+    tester,
+  ) async {
+    final (_, books) = await library(tester);
+    // Two taps on the details' button with no frame between them: the
+    // Navigator absorbs the second, the asker itself refuses nothing.
+    final button = tester.getCenter(find.byKey(const Key('addToCollection')));
+    await tester.tapAt(button);
+    await tester.tapAt(button);
+    await tester.pump();
+    await settle(tester);
+    expect(find.byKey(const Key('collectionDialog')), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(find.byType(AlertDialog), findsNothing);
+
+    // gc twice: the second is the name's first two letters.
+    await press(tester, 'gcgc');
+    await tester.pump();
+    await settle(tester);
+    expect(find.byKey(const Key('collectionDialog')), findsOneWidget);
+    expect(typedName(tester), 'gc');
+    final book = asked(tester, books);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(await rowsOf(tester, book.key), isEmpty);
+    await stop(tester);
+  });
+
+  testWidgets('gc with a collection the cover was taken out of puts it in again', (tester) async {
+    final (store, books) = await library(tester);
+    await type(tester, 'gc');
+    final book = asked(tester, books);
+    await answer(tester, 'Back again');
+    await tester.runAsync(() => store.removeFromCollection(book.key, 'Back again'));
+    await age(tester, book.key);
+    await settle(tester);
+    expect((await rowOf(tester, book.key, 'Back again')).removedAt, isNotNull);
+
+    await type(tester, 'gc');
+    await answer(tester, 'Back again');
+    expect(find.widgetWithText(SnackBar, '1 comic added to Back again'), findsOneWidget);
+    final row = await rowOf(tester, book.key, 'Back again');
+    expect(row.removedAt, isNull);
+    expect(row.addedAt.isAfter(longAgo), isTrue);
+    await stop(tester);
+  });
+
   testWidgets('with no comic open and no cover selected, gc and * do nothing', (tester) async {
     final store = (await tester.runAsync(shelf))!;
     await pumpApp(tester);
@@ -627,4 +777,28 @@ class _NoNames extends LibraryStore {
 
   @override
   Future<List<String>> collectionNames() async => throw StateError('the index is locked');
+}
+
+/// Sidecars that are never read or written; [wrote] lists the comics whose
+/// sidecar the library asked to have written at once (`writeBeside`).
+class _Sidecars extends SidecarSync {
+  _Sidecars(super.db, ProgressStore progress) : super(progress: progress);
+
+  final wrote = <String>[];
+
+  @override
+  Future<SidecarImport> attach(String path, String contentKey, {required bool folder, bool whole = false}) async =>
+      SidecarImport.none;
+
+  @override
+  void touch(String contentKey) {}
+
+  @override
+  Future<bool> write(String contentKey) async {
+    wrote.add(contentKey);
+    return true;
+  }
+
+  @override
+  Future<void> flush() => progress.flush();
 }
