@@ -214,10 +214,14 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 700)));
     // The pair goes back to back, nothing awaited in between but the key
     // itself: a settle (360 ms and more of real time) between the two could
-    // outlast the 600 ms on a busy machine and gg would never fire. That the
-    // selection is still on page 40 after the first g of the pair shows the
-    // timed-out g did not combine with it.
+    // outlast the 600 ms on a busy machine and gg would never fire. The pump
+    // after the first g of the pair takes no time (so no race with the
+    // 600 ms either) but rebuilds the grid, which borderOf reads: had the
+    // timed-out g combined with this one into gg, the selection would have
+    // left page 40 by now. Without the pump the tree is the one from before
+    // the key and the check could not fail.
     await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.pump();
     expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'a g long after the first is alone again');
     await key(tester, LogicalKeyboardKey.keyG);
     expect(borderOf(tester, 0)?.top.color, Colors.amber, reason: 'gg scrolled to and selected page 1');
@@ -248,6 +252,8 @@ void main() {
     expect(find.byKey(const Key('pageGrid')), findsNothing);
     expect(c.read(readerProvider).page, 0);
     expect(c.read(readerProvider).book, isNotNull, reason: 'Esc closed the grid, not the book');
+    // A 40-page book, like the gg test: don't leave the detector's rest pending.
+    await stopDetection(tester);
   });
 
   testWidgets('the status-line button opens the grid, a tap jumps, bookmarks show', (tester) async {
