@@ -326,7 +326,22 @@ refreshes right away instead of within six hours.
   one taken out earlier is put in again). Only the comics really added
   have their sidecars written, and the notice (`collectedNotice`) counts
   those: "2 comics added to X; 1 was already in it", "Already in X" for
-  one, "All 3 comics are already in X".
+  one, "All 3 comics are already in X". When the index fails part of the
+  way the comics after that one are not tried, the ones before it stay
+  added with their sidecars written, the marks stay (`collectBooks`
+  returns false) and `notAddedNotice` says it: "1 comic added to X, then
+  it failed and the rest were not: …", or with none added "Could not add
+  NAME to X: …" for one comic and "Could not add the 3 comics to X: …".
+  What the untouched `added_at` means for sync (a change with t563:
+  before, every add wrote the row again with the time now):
+  `mergeSidecars` lets the later of `removedAt ?? addedAt` win per
+  collection, so a comic taken out on another device after its first add
+  here goes out here too when that sidecar arrives, even if `gc` put it
+  in that collection here again in between; that changed nothing and is
+  no newer add. Taking it out and adding it again here is (a new row
+  time), and wins. `*` never adds a favourite twice (on one it takes it
+  out), so the Favourites behave as before. The merge rule itself is
+  unchanged; `test/collections_history_test.dart` holds both outcomes.
 - Continue (`C`, the library header's play button, widget key `continue`):
   `RecentBooks` (`lib/src/reader/recent_books.dart`) keeps the last five
   comics opened, path, content key and title, newest first, in the

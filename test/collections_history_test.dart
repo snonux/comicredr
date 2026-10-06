@@ -10,6 +10,7 @@ import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/scanner.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,6 +85,53 @@ void main() {
     final path = '${tmp.path}/x.crdb';
     writeSidecar(path, laptop, device: 'd');
     expect(readSidecar(path)!.collections.map((x) => x.name).toSet(), {'Moore', 'Classics'});
+  });
+
+  test('a name with spaces around it is the collection without them: the book in it is left as it is', () async {
+    final store = await shelf();
+    final key = named(await store.books(), 'Swamp Thing #21').key;
+    expect(await store.addToCollection(key, 'Miller'), isTrue);
+    // Whole seconds are kept, so the row is aged to tell a rewrite apart.
+    final longAgo = DateTime(2020, 5, 17, 12);
+    await db.update(db.collectionBooks).write(CollectionBooksCompanion(addedAt: Value(longAgo)));
+
+    expect(await store.addToCollection(key, ' Miller '), isFalse);
+    final rows = await db.select(db.collectionBooks).get();
+    expect(rows.map((r) => (r.name, r.addedAt, r.removedAt)), [('Miller', longAgo, null)]);
+  });
+
+  // Since t563 adding a book that is in the collection already no longer
+  // moves added_at, so that second add does not outvote a removal made in
+  // between on another device. This holds the outcome, whichever way round
+  // the sidecars meet.
+  test('adding a book again does not outvote a removal made elsewhere after the first add', () async {
+    final store = await shelf();
+    final key = named(await store.books(), 'Swamp Thing #21').key;
+    await store.addToCollection(key, 'Moore');
+    await db.update(db.collectionBooks).write(CollectionBooksCompanion(addedAt: Value(DateTime(2026, 1, 1))));
+    // The phone takes it out on the 3rd; here it is "added" again later,
+    // before the phone's sidecar arrives.
+    expect(await store.addToCollection(key, 'Moore'), isFalse);
+    final here = SidecarData(contentKey: key, collections: await db.select(db.collectionBooks).get());
+    expect(here.collections.single.addedAt, DateTime(2026, 1, 1));
+    final phone = SidecarData(
+      contentKey: key,
+      collections: [
+        CollectionBook(name: 'Moore', contentKey: key, addedAt: DateTime(2026, 1, 1), removedAt: DateTime(2026, 1, 3)),
+      ],
+    );
+    for (final m in [mergeSidecars(here, phone), mergeSidecars(phone, here)]) {
+      expect(m.collections.single.removedAt, DateTime(2026, 1, 3));
+    }
+
+    // Taken out here and added again is a new row time, and that one wins.
+    await store.removeFromCollection(key, 'Moore');
+    expect(await store.addToCollection(key, 'Moore'), isTrue);
+    final again = SidecarData(contentKey: key, collections: await db.select(db.collectionBooks).get());
+    expect(again.collections.single.addedAt.isAfter(DateTime(2026, 1, 3)), isTrue);
+    for (final m in [mergeSidecars(again, phone), mergeSidecars(phone, again)]) {
+      expect(m.collections.single.removedAt, isNull);
+    }
   });
 
   test('reading history: sittings, a glance left out, a quick return joined on', () async {

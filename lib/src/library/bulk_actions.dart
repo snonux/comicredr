@@ -206,6 +206,10 @@ Future<bool> addBooksToCollection(BuildContext context, WidgetRef ref, List<Libr
 /// ([LibraryStore.addToCollection]): its row and its sidecar are not
 /// written, and the notice counts only the ones really added, as the
 /// reader's `gc` says "Already in X".
+///
+/// When the index refuses part of the way, the comics after that one are
+/// not tried, the ones added before it stay added and have their sidecars
+/// written, and the notice says how many those were ([notAddedNotice]).
 Future<bool> collectBooks(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
   final messenger = ScaffoldMessenger.of(context);
   final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
@@ -226,7 +230,7 @@ Future<bool> collectBooks(BuildContext context, WidgetRef ref, List<LibraryBook>
   await _writeSidecars(sidecars, added);
   final said = failed == null
       ? collectedNotice(added.length, books.length, name)
-      : 'Could not add them to $name: $failed';
+      : notAddedNotice(added.length, books, name, failed);
   // In place of a notice still up (the one of the gc before this one), not
   // queued behind it.
   messenger
@@ -242,4 +246,15 @@ String collectedNotice(int added, int asked, String name) {
   if (already == 0) return '${comicsCount(added)} added to $name';
   if (added == 0) return asked == 1 ? 'Already in $name' : 'All $asked comics are already in $name';
   return '${comicsCount(added)} added to $name; ${already == 1 ? '1 was' : '$already were'} already in it';
+}
+
+/// What [collectBooks] says when the index failed with [error] while
+/// putting [books] in the collection [name], [added] of them being in it by
+/// then: the one comic by its name (the details' button), several as
+/// "the N comics", and when some went in before the failure, how many, so
+/// nobody takes it that none did.
+String notAddedNotice(int added, List<LibraryBook> books, String name, Object error) {
+  if (added > 0) return '${comicsCount(added)} added to $name, then it failed and the rest were not: $error';
+  final what = books.length == 1 ? books.single.name : 'the ${books.length} comics';
+  return 'Could not add $what to $name: $error';
 }

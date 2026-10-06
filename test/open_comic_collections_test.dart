@@ -494,10 +494,11 @@ void main() {
 
   /// The library up over the shelf with no comic open: the Folders tab,
   /// inside the library folder, a comic's cover selected.
-  Future<(LibraryStore, List<LibraryBook>)> library(WidgetTester tester) async {
+  /// [app] is the store the app itself gets, when not the plain one.
+  Future<(LibraryStore, List<LibraryBook>)> library(WidgetTester tester, {LibraryStore? app}) async {
     final store = (await tester.runAsync(shelf))!;
     final books = (await tester.runAsync(store.books))!;
-    await pumpApp(tester);
+    await pumpApp(tester, store: app);
     await settle(tester);
     await tester.tap(find.text('Folders'));
     await settle(tester);
@@ -707,6 +708,72 @@ void main() {
     await stop(tester);
   });
 
+  testWidgets('the index failing part of the way: the one added stays and is said, its sidecar written, marks kept', (
+    tester,
+  ) async {
+    writeBook(root, 'Preacher 1.cbz', 2);
+    final refusing = _Refusing(db, failOn: 2);
+    final (_, books) = await library(tester, app: refusing);
+    expect(books, hasLength(3));
+    final wrote = sidecars.wrote;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await settle(tester);
+    expect(find.text('3 selected'), findsOneWidget);
+
+    // The second of the three is refused: the third is never tried.
+    await type(tester, 'gc');
+    await answer(tester, 'Broken');
+    expect(refusing.calls, 2);
+    expect(
+      find.widgetWithText(
+        SnackBar,
+        '1 comic added to Broken, then it failed and the rest were not: Bad state: the index is locked',
+      ),
+      findsOneWidget,
+    );
+    final rows = (await tester.runAsync(() => db.select(db.collectionBooks).get()))!;
+    expect(rows.map((r) => (r.name, r.removedAt)), [('Broken', null)]);
+    expect(books.map((b) => b.key), contains(rows.single.contentKey));
+    expect(wrote, [rows.single.contentKey]);
+    expect(find.text('3 selected'), findsOneWidget);
+
+    // Refused at the first: none added, said of all three, nothing written.
+    wrote.clear();
+    refusing
+      ..calls = 0
+      ..failOn = 1;
+    await type(tester, 'gc');
+    await answer(tester, 'Other');
+    expect(
+      find.widgetWithText(SnackBar, 'Could not add the 3 comics to Other: Bad state: the index is locked'),
+      findsOneWidget,
+    );
+    expect((await tester.runAsync(() => db.select(db.collectionBooks).get()))!, hasLength(1));
+    expect(wrote, isEmpty);
+    expect(find.text('3 selected'), findsOneWidget);
+    await stop(tester);
+  });
+
+  testWidgets('the index failing for the one comic of the details: named in the notice, never "them"', (tester) async {
+    final (_, books) = await library(tester, app: _Refusing(db, failOn: 1));
+    final wrote = sidecars.wrote;
+    await tester.tap(find.byKey(const Key('addToCollection')));
+    await tester.pump();
+    await settle(tester);
+    final book = asked(tester, books);
+    await answer(tester, 'Miller');
+    expect(
+      find.widgetWithText(SnackBar, 'Could not add ${book.name} to Miller: Bad state: the index is locked'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('them'), findsNothing);
+    expect(await rowsOf(tester, book.key), isEmpty);
+    expect(wrote, isEmpty);
+    await stop(tester);
+  });
+
   testWidgets('no second question gets asked while one is on its way: neither by key nor by a second tap', (
     tester,
   ) async {
@@ -777,6 +844,21 @@ class _NoNames extends LibraryStore {
 
   @override
   Future<List<String>> collectionNames() async => throw StateError('the index is locked');
+}
+
+/// A library whose index refuses the [failOn]th comic put in a collection
+/// (counted in [calls]) and takes the ones before it.
+class _Refusing extends LibraryStore {
+  _Refusing(super.db, {required this.failOn});
+
+  int failOn;
+  int calls = 0;
+
+  @override
+  Future<bool> addToCollection(String contentKey, String name) {
+    if (++calls == failOn) throw StateError('the index is locked');
+    return super.addToCollection(contentKey, name);
+  }
 }
 
 /// Sidecars that are never read or written; [wrote] lists the comics whose

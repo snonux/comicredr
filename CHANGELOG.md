@@ -22,7 +22,13 @@ the `?` overlay.
   is left as it is, in the library as in a comic: the notice says
   *Already in X*, and with several comics marked it counts only the ones
   added (*2 comics added to X; 1 was already in it*). The details'
-  **Add to a collection** now says what it did, too.
+  **Add to a collection** now says what it did, too. Since adding a
+  comic to a collection it is in changes nothing, it no longer outvotes a
+  removal made on another device in the meantime: when that device's
+  sidecar arrives the comic goes out here as well (take it out and add
+  it again to keep it). If the library cannot save a collection, the
+  notice names the comic, or says how many of the marked ones were added
+  before it failed, and the marks stay.
 - **Back to the first page, in the guide:** `Home` and `gg` have a
   section of their own in Reading a comic: where they land in guided
   view, `''` to come back, the page grid and the bookmark list.

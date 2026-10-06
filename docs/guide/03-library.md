@@ -211,6 +211,16 @@ them.
   told *Already in To read next*. With several comics marked, the ones
   not yet in it are added and the line says how many: *2 comics added to
   Space stories; 1 was already in it*.
+- Because that changes nothing, it also does not count as adding the
+  comic anew when the comic's
+  [sidecar](11-your-data.md#the-sidecar-beside-each-comic) travels: if you
+  took it out of the collection on another device in the meantime, it
+  goes out here too once that device's sidecar arrives. To keep it in,
+  take it out here and add it again.
+- Should the library be unable to save it, the line says so, and with
+  several comics marked how many were added before it went wrong (*1
+  comic added to Space stories, then it failed and the rest were not*);
+  the marks stay, so you can try again.
 - If you close the comic, or open another, while the question is up, the
   name is not given to the wrong comic: nothing is added, and a line says
   so.

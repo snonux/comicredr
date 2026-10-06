@@ -811,6 +811,20 @@ ORDER BY r.id, f.rel_path
   /// earlier is written again, with the time now. This is the one place
   /// that rule lives: the reader's `gc`, the library's (a cover, the marks,
   /// the details' button) and the favourites all add through here.
+  ///
+  /// [name] is trimmed before the look-up as before the write, so
+  /// `' Miller '` is the collection `Miller` and finds the book in it.
+  ///
+  /// What leaving the time alone means for sync (t563; before it, every add
+  /// wrote the row again with the time now): `mergeSidecars` lets the later
+  /// of `removedAt ?? addedAt` win per collection. A book taken out on
+  /// another device after it was first added here, whose sidecar has not
+  /// arrived yet, is therefore taken out here too when it arrives, even if
+  /// `gc` put it in that collection here again in between: that changed
+  /// nothing, so it does not count as a newer add. To keep it against such
+  /// a removal it has to be taken out and added again here, which is a new
+  /// row time. (`*` never adds a favourite twice: on one it takes it out.)
+  /// `test/collections_history_test.dart` holds both outcomes.
   Future<bool> addToCollection(String contentKey, String name) => db.transaction(() async {
     final trimmed = name.trim();
     final inIt = db.select(db.collectionBooks)
