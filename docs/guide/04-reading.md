@@ -49,11 +49,15 @@ after renaming or copying the file, and you are right back there.
 
 `Home` (or `gg`, two quick presses of `g`) takes you straight to page 1
 from anywhere in the comic; `End` (or `G`) goes to the last page. Guided
-view stays on: page 1 shows whole first and the next step is its first
-panel, as on any page you arrive at. With whole-page steps turned off
-(`w`, see [Panel by panel](05-guided-view.md#panel-by-panel)) you land
-on its first panel straight away. For example, to start a comic again
-that you had opened in the middle:
+view stays on, and page 1 is treated like any page you arrive at. When
+it has panels to step through, it shows whole first and the next step is
+its first panel; with whole-page steps turned off (`w`, see
+[Panel by panel](05-guided-view.md#panel-by-panel)) you land on that
+panel straight away. When it has none, as a cover or a splash page often
+hasn't, it stays whole on a wine red background and the next step turns
+to page 2, or, pressed within 2 seconds, stays once more: see
+[Pages shown whole](05-guided-view.md#pages-shown-whole). For example,
+to start a comic again that you had opened in the middle:
 
 ```
 Home      page 1

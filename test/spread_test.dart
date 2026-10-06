@@ -112,7 +112,8 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
     expect(c.read(readerProvider).unit, [4, 5], reason: 'one g alone only starts the sequence');
-    await key(tester, LogicalKeyboardKey.keyG);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    await settle(tester);
     expect(c.read(readerProvider).unit, [0]);
     expect(c.read(readerProvider).mode, PageMode.spread, reason: 'two-page mode stays on');
 

@@ -66,6 +66,16 @@ void main() {
     return c;
   }
 
+  /// Ends a test on a long book: panels are detected in the background, page
+  /// after page, with a rest (a fake timer, up to 2 s) as long as the last
+  /// page took. On a busy machine that rest outlasts the test's last settle
+  /// and the test fails on a pending timer, so take the app down and let the
+  /// rest run out; the detector stops once its notifier is gone.
+  Future<void> stopDetection(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 3));
+  }
+
   Border? borderOf(WidgetTester tester, int i) {
     final box = find.descendant(of: find.byKey(Key('pageTile-$i')), matching: find.byType(Container)).first;
     return (tester.widget<Container>(box).foregroundDecoration as BoxDecoration?)?.border as Border?;
@@ -195,12 +205,19 @@ void main() {
 
     await key(tester, LogicalKeyboardKey.keyP);
     expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'selected starts on the current page');
-    // One g only starts the sequence, and once it has timed out (600 ms) the
-    // next g starts another: neither moves the selection.
+    // One g only starts the sequence: alone it moves nothing.
     await key(tester, LogicalKeyboardKey.keyG);
     expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'a lone g selects nothing');
+    // The keyboard stamps keys with the real clock and drops a pending g
+    // after 600 ms, so wait that out for real: the lone g above is gone and
+    // cannot pair with the first g below (a slow machine only waits longer).
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 700)));
-    await key(tester, LogicalKeyboardKey.keyG);
+    // The pair goes back to back, nothing awaited in between but the key
+    // itself: a settle (360 ms and more of real time) between the two could
+    // outlast the 600 ms on a busy machine and gg would never fire. That the
+    // selection is still on page 40 after the first g of the pair shows the
+    // timed-out g did not combine with it.
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
     expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'a g long after the first is alone again');
     await key(tester, LogicalKeyboardKey.keyG);
     expect(borderOf(tester, 0)?.top.color, Colors.amber, reason: 'gg scrolled to and selected page 1');
@@ -216,6 +233,7 @@ void main() {
     await key(tester, LogicalKeyboardKey.enter);
     expect(find.byKey(const Key('pageGrid')), findsNothing);
     expect(c.read(readerProvider).page, 0);
+    await stopDetection(tester);
   });
 
   testWidgets('G in the grid selects the last page, and Esc closes without jumping', (tester) async {
