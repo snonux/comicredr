@@ -7,6 +7,9 @@ the `?` overlay.
 
 ## Unreleased
 
+- The guide has a section on going back to the first page (`Home` or
+  `gg`, also in guided view and the page grid), and tests now cover it.
+
 ## 0.6.5
 
 - **Page-part digits match how many parts you think in:** `21`/`22`

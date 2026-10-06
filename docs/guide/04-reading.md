@@ -45,6 +45,27 @@ ComicRedr remembers where you are in every comic: the page, the panel in
 guided view, and how far you had zoomed in. Open the comic again, even
 after renaming or copying the file, and you are right back there.
 
+## Back to the first page
+
+`Home` (or `gg`, two quick presses of `g`) takes you straight to page 1
+from anywhere in the comic; `End` (or `G`) goes to the last page. In
+guided view you land on the first panel of page 1 and stay in guided
+view. For example, to start a comic again that you had opened in the
+middle:
+
+```
+Home      page 1
+''        changed your mind: back to the page you were on
+```
+
+The same keys work in the page grid (`p`), where they pick the first or
+last page and `Enter` goes there; in the bookmark list (`M`) they pick
+the first or last bookmark. A number in
+front makes no difference (`3gg` is still page 1); for a page by number
+use `G12`. On a touchscreen no gesture does this out of the box, but any
+gesture can: give it the action `firstPage` in `keys.toml`, as in
+[Your own gestures](08-touch.md#your-own-gestures).
+
 ## Jump around with the progress bar
 
 The thin bar at the bottom shows how far through the book you are. Move

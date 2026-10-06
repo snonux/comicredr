@@ -44,6 +44,7 @@ come back here for a key you forgot.
    - [Adding, rescanning and taking out folders](03-library.md#adding-rescanning-and-taking-out-folders)
 4. [Reading a comic](04-reading.md)
    - [Turning pages](04-reading.md#turning-pages)
+   - [Back to the first page](04-reading.md#back-to-the-first-page)
    - [Jump around with the progress bar](04-reading.md#jump-around-with-the-progress-bar)
    - [See every page at once](04-reading.md#see-every-page-at-once)
    - [Two pages side by side](04-reading.md#two-pages-side-by-side)

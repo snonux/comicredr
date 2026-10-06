@@ -188,6 +188,30 @@ void main() {
     expect(c.read(readerProvider).page, 19);
   });
 
+  testWidgets('gg and Home in the grid select the first page, and Enter jumps there', (tester) async {
+    final c = await openBook(tester, 40);
+    await key(tester, LogicalKeyboardKey.end);
+    expect(c.read(readerProvider).page, 39);
+
+    await key(tester, LogicalKeyboardKey.keyP);
+    expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'selected starts on the current page');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyG);
+    expect(borderOf(tester, 0)?.top.color, Colors.amber, reason: 'gg scrolled to and selected page 1');
+    expect(c.read(readerProvider).page, 39, reason: 'selecting does not turn the page');
+
+    // Home from further down does the same; on page 1 already it stays.
+    await key(tester, LogicalKeyboardKey.arrowDown);
+    expect(borderOf(tester, 0)?.top.color, isNot(Colors.amber));
+    await key(tester, LogicalKeyboardKey.home);
+    await key(tester, LogicalKeyboardKey.home);
+    expect(borderOf(tester, 0)?.top.color, Colors.amber);
+
+    await key(tester, LogicalKeyboardKey.enter);
+    expect(find.byKey(const Key('pageGrid')), findsNothing);
+    expect(c.read(readerProvider).page, 0);
+  });
+
   testWidgets('G in the grid selects the last page, and Esc closes without jumping', (tester) async {
     final c = await openBook(tester, 40);
     await key(tester, LogicalKeyboardKey.keyP);

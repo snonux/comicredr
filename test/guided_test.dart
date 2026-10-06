@@ -161,6 +161,57 @@ void main() {
     expect((s.page, s.panelIndex), (0, 2));
   });
 
+  testWidgets('gg and Home go to the first page in guided view, from anywhere and from page 1 itself', (tester) async {
+    final path = writeGuidedBook();
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
+    await settle(tester);
+    await key(tester, LogicalKeyboardKey.keyV);
+    (bool, int, int) at() {
+      final s = c.read(readerProvider);
+      return (s.guided, s.page, s.panelIndex);
+    }
+
+    // Page 2, panel 3: somewhere to come back from.
+    await key(tester, LogicalKeyboardKey.pageDown);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(), (true, 1, 2));
+
+    // gg lands on page 1's first panel and stays in guided view.
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    expect(at(), (true, 1, 2), reason: 'one g alone only starts the sequence');
+    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+    expect(at(), (true, 0, 0));
+    expect(status(tester), contains('guided: panel 1 / 4'));
+
+    // It is a jump, so '' goes back to the panel it left.
+    await tester.sendKeyEvent(LogicalKeyboardKey.quote, character: "'");
+    await key(tester, LogicalKeyboardKey.quote, character: "'");
+    expect(at(), (true, 1, 2));
+
+    // Home is the same key for the standard layer.
+    await key(tester, LogicalKeyboardKey.home);
+    expect(at(), (true, 0, 0));
+
+    // Already on page 1, further in: back to its first panel, no error.
+    await key(tester, LogicalKeyboardKey.keyL);
+    expect(at(), (true, 0, 1));
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+    expect(at(), (true, 0, 0));
+    await key(tester, LogicalKeyboardKey.home);
+    expect(at(), (true, 0, 0), reason: 'on the first panel of page 1 it is a no-op');
+
+    // A count does not make gg a page jump (that is G12): 3gg is still page 1.
+    await key(tester, LogicalKeyboardKey.end);
+    expect(c.read(readerProvider).page, 3);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit3, character: '3');
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+    expect(at(), (true, 0, 0));
+  });
+
   testWidgets('Tab cycles single, spread, guided', (tester) async {
     final path = writeGuidedBook();
     final c = await pumpApp(tester);
