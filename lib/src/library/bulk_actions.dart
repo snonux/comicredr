@@ -209,7 +209,9 @@ Future<bool> addBooksToCollection(BuildContext context, WidgetRef ref, List<Libr
 ///
 /// When the index refuses part of the way, the comics after that one are
 /// not tried, the ones added before it stay added and have their sidecars
-/// written, and the notice says how many those were ([notAddedNotice]).
+/// written, and the notice counts all three kinds: added, already in the
+/// collection, and not added (the refused one and those never tried), see
+/// [notAddedNotice]. The error itself goes to the log, not to the reader.
 Future<bool> collectBooks(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
   final messenger = ScaffoldMessenger.of(context);
   final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
@@ -218,26 +220,38 @@ Future<bool> collectBooks(BuildContext context, WidgetRef ref, List<LibraryBook>
   final name = await askCollection(context, ref, what: collectionWhat(books), keys: books.map((b) => b.key));
   if (name == null) return false;
   final added = <LibraryBook>[];
-  Object? failed;
+  // The comics the index answered for, added or in the collection already.
+  var done = 0;
   try {
     for (final b in books) {
       if (await store.addToCollection(b.key, name)) added.add(b);
+      done++;
     }
   } catch (e) {
-    failed = e;
+    debugPrint('Could not add ${books[done].path} to the collection $name: $e');
   }
   // Also after a failure part of the way: the ones added are in the index.
   await _writeSidecars(sidecars, added);
-  final said = failed == null
+  final already = done - added.length, notAdded = books.length - done;
+  final said = notAdded == 0
       ? collectedNotice(added.length, books.length, name)
-      : notAddedNotice(added.length, books, name, failed);
+      : notAddedNotice(
+          added: added.length,
+          already: already,
+          notAdded: notAdded,
+          name: name,
+          only: books.length == 1 ? books.single.name : null,
+        );
   // In place of a notice still up (the one of the gc before this one), not
   // queued behind it.
   messenger
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(said)));
-  return failed == null;
+  return notAdded == 0;
 }
+
+/// `1 was`, `3 were`: the comics a collection held already.
+String _wasOrWere(int n) => n == 1 ? '1 was' : '$n were';
 
 /// What [collectBooks] says after putting [added] of the [asked] comics in
 /// the collection [name], the rest being in it already.
@@ -245,16 +259,30 @@ String collectedNotice(int added, int asked, String name) {
   final already = asked - added;
   if (already == 0) return '${comicsCount(added)} added to $name';
   if (added == 0) return asked == 1 ? 'Already in $name' : 'All $asked comics are already in $name';
-  return '${comicsCount(added)} added to $name; ${already == 1 ? '1 was' : '$already were'} already in it';
+  return '${comicsCount(added)} added to $name; ${_wasOrWere(already)} already in it';
 }
 
-/// What [collectBooks] says when the index failed with [error] while
-/// putting [books] in the collection [name], [added] of them being in it by
-/// then: the one comic by its name (the details' button), several as
-/// "the N comics", and when some went in before the failure, how many, so
-/// nobody takes it that none did.
-String notAddedNotice(int added, List<LibraryBook> books, String name, Object error) {
-  if (added > 0) return '${comicsCount(added)} added to $name, then it failed and the rest were not: $error';
-  final what = books.length == 1 ? books.single.name : 'the ${books.length} comics';
-  return 'Could not add $what to $name: $error';
+/// What [collectBooks] says when the index failed while putting comics in
+/// the collection [name]: how many were [added] before that, how many were
+/// in it [already], and how many were [notAdded] (the one refused and the
+/// ones after it, never tried; at least one). Each count is left out when
+/// it is zero, so the three always add up to the comics asked for. [only]
+/// is the comic's name when just one was asked for (the details' button),
+/// which is then named instead of counted. The reason is a plain line: the
+/// error is in the log.
+String notAddedNotice({
+  required int added,
+  required int already,
+  required int notAdded,
+  required String name,
+  String? only,
+}) {
+  const why = 'the library could not be updated';
+  if (only != null) return 'Could not add $only to $name: $why';
+  if (added == 0 && already == 0) return 'Could not add the $notAdded comics to $name: $why';
+  final before = [
+    if (added > 0) '${comicsCount(added)} added to $name',
+    if (already > 0) '${_wasOrWere(already)} already in ${added > 0 ? 'it' : name}',
+  ];
+  return '${before.join('; ')}; $notAdded not added: $why';
 }

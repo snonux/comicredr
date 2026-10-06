@@ -218,9 +218,9 @@ them.
   goes out here too once that device's sidecar arrives. To keep it in,
   take it out here and add it again.
 - Should the library be unable to save it, the line says so, and with
-  several comics marked how many were added before it went wrong (*1
-  comic added to Space stories, then it failed and the rest were not*);
-  the marks stay, so you can try again.
+  several comics marked how many were added before it went wrong and how
+  many were not (*1 comic added to Space stories; 2 not added: the
+  library could not be updated*); the marks stay, so you can try again.
 - If you close the comic, or open another, while the question is up, the
   name is not given to the wrong comic: nothing is added, and a line says
   so.

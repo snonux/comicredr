@@ -329,9 +329,13 @@ refreshes right away instead of within six hours.
   one, "All 3 comics are already in X". When the index fails part of the
   way the comics after that one are not tried, the ones before it stay
   added with their sidecars written, the marks stay (`collectBooks`
-  returns false) and `notAddedNotice` says it: "1 comic added to X, then
-  it failed and the rest were not: …", or with none added "Could not add
-  NAME to X: …" for one comic and "Could not add the 3 comics to X: …".
+  returns false) and `notAddedNotice` counts all three kinds, leaving out
+  a zero: "1 comic added to X; 1 was already in it; 1 not added: the
+  library could not be updated" (not added = the refused one and those
+  never tried), "2 were already in X; 1 not added: …" with none added,
+  "Could not add the 3 comics to X: …" when it failed at the first, and
+  "Could not add NAME to X: …" for the details' one comic. The error
+  itself goes to the log (`debugPrint`), not into the notice.
   What the untouched `added_at` means for sync (a change with t563:
   before, every add wrote the row again with the time now):
   `mergeSidecars` lets the later of `removedAt ?? addedAt` win per

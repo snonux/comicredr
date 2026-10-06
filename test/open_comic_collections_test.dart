@@ -5,6 +5,7 @@ import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
+import 'package:comicredr/src/library/bulk_actions.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/scanner.dart';
@@ -708,13 +709,17 @@ void main() {
     await stop(tester);
   });
 
+  const why = 'the library could not be updated';
+
   testWidgets('the index failing part of the way: the one added stays and is said, its sidecar written, marks kept', (
     tester,
   ) async {
     writeBook(root, 'Preacher 1.cbz', 2);
     final refusing = _Refusing(db, failOn: 2);
-    final (_, books) = await library(tester, app: refusing);
+    final (store, books) = await library(tester, app: refusing);
     expect(books, hasLength(3));
+    // The order collectBooks walks the marked comics in: by path.
+    final [first, second, third] = [...books]..sort((a, b) => a.path.compareTo(b.path));
     final wrote = sidecars.wrote;
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
@@ -722,37 +727,74 @@ void main() {
     await settle(tester);
     expect(find.text('3 selected'), findsOneWidget);
 
-    // The second of the three is refused: the third is never tried.
-    await type(tester, 'gc');
-    await answer(tester, 'Broken');
-    expect(refusing.calls, 2);
-    expect(
-      find.widgetWithText(
-        SnackBar,
-        '1 comic added to Broken, then it failed and the rest were not: Bad state: the index is locked',
-      ),
-      findsOneWidget,
-    );
-    final rows = (await tester.runAsync(() => db.select(db.collectionBooks).get()))!;
-    expect(rows.map((r) => (r.name, r.removedAt)), [('Broken', null)]);
-    expect(books.map((b) => b.key), contains(rows.single.contentKey));
-    expect(wrote, [rows.single.contentKey]);
-    expect(find.text('3 selected'), findsOneWidget);
+    /// `gc` into [name] with the [n]th comic refused; the notice must be [said].
+    Future<void> refused(int n, String name, String said) async {
+      wrote.clear();
+      refusing
+        ..tried.clear()
+        ..failOn = n;
+      await type(tester, 'gc');
+      await answer(tester, name);
+      await tester.pump();
+      expect(find.widgetWithText(SnackBar, said), findsOneWidget);
+      // No exception text in front of the reader.
+      expect(find.textContaining('Bad state'), findsNothing);
+      expect(find.textContaining('index is locked'), findsNothing);
+      expect(find.text('3 selected'), findsOneWidget);
+    }
+
+    Future<List<String>> inIt(String name) async => [
+      for (final r in (await tester.runAsync(() => db.select(db.collectionBooks).get()))!)
+        if (r.name == name && r.removedAt == null) r.contentKey,
+    ];
+
+    // The second of the three is refused: the third is never tried, and the
+    // one added is the first of them.
+    await refused(2, 'Broken', '1 comic added to Broken; 2 not added: $why');
+    expect(refusing.tried, [first.key, second.key]);
+    expect(await inIt('Broken'), [first.key]);
+    expect(wrote, [first.key]);
 
     // Refused at the first: none added, said of all three, nothing written.
-    wrote.clear();
-    refusing
-      ..calls = 0
-      ..failOn = 1;
-    await type(tester, 'gc');
-    await answer(tester, 'Other');
-    expect(
-      find.widgetWithText(SnackBar, 'Could not add the 3 comics to Other: Bad state: the index is locked'),
-      findsOneWidget,
-    );
-    expect((await tester.runAsync(() => db.select(db.collectionBooks).get()))!, hasLength(1));
+    await refused(1, 'Other', 'Could not add the 3 comics to Other: $why');
+    expect(await inIt('Other'), isEmpty);
     expect(wrote, isEmpty);
-    expect(find.text('3 selected'), findsOneWidget);
+
+    // The first is in it already, the second refused: one of the three is
+    // in it, and that is not passed off as "could not add the 3".
+    await refused(2, 'Broken', '1 was already in Broken; 2 not added: $why');
+    expect(await inIt('Broken'), [first.key]);
+    expect(wrote, isEmpty);
+
+    // One added, one in it already, the third refused: all three counted.
+    await tester.runAsync(() => store.addToCollection(second.key, 'Mixed'));
+    await settle(tester);
+    await refused(3, 'Mixed', '1 comic added to Mixed; 1 was already in it; 1 not added: $why');
+    expect(refusing.tried, [first.key, second.key, third.key]);
+    expect((await inIt('Mixed')).toSet(), {first.key, second.key});
+    expect(wrote, [first.key]);
+    await stop(tester);
+  });
+
+  testWidgets('two marked and the second refused: one added, "1 not added", not "the rest"', (tester) async {
+    final refusing = _Refusing(db, failOn: 2);
+    final (_, books) = await library(tester, app: refusing);
+    final [first, second] = [...books]..sort((a, b) => a.path.compareTo(b.path));
+    final wrote = sidecars.wrote;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await settle(tester);
+
+    await type(tester, 'gc');
+    await answer(tester, 'Pair');
+    await tester.pump();
+    expect(find.widgetWithText(SnackBar, '1 comic added to Pair; 1 not added: $why'), findsOneWidget);
+    expect(find.textContaining('the rest'), findsNothing);
+    expect(await rowsOf(tester, first.key), ['Pair']);
+    expect(await rowsOf(tester, second.key), isEmpty);
+    expect(wrote, [first.key]);
+    expect(find.text('2 selected'), findsOneWidget);
     await stop(tester);
   });
 
@@ -764,14 +806,36 @@ void main() {
     await settle(tester);
     final book = asked(tester, books);
     await answer(tester, 'Miller');
-    expect(
-      find.widgetWithText(SnackBar, 'Could not add ${book.name} to Miller: Bad state: the index is locked'),
-      findsOneWidget,
-    );
+    await tester.pump();
+    expect(find.widgetWithText(SnackBar, 'Could not add ${book.name} to Miller: $why'), findsOneWidget);
     expect(find.textContaining('them'), findsNothing);
+    expect(find.textContaining('Bad state'), findsNothing);
     expect(await rowsOf(tester, book.key), isEmpty);
     expect(wrote, isEmpty);
     await stop(tester);
+  });
+
+  test('notAddedNotice counts added, already in and not added, each in its own number', () {
+    String said(int added, int already, int notAdded, {String? only}) =>
+        notAddedNotice(added: added, already: already, notAdded: notAdded, name: 'X', only: only);
+    // (added, already in, not added) to the notice, for every shape.
+    final cases = {
+      (0, 0, 2): 'Could not add the 2 comics to X: $why',
+      (0, 0, 3): 'Could not add the 3 comics to X: $why',
+      (1, 0, 1): '1 comic added to X; 1 not added: $why',
+      (1, 0, 2): '1 comic added to X; 2 not added: $why',
+      (2, 0, 1): '2 comics added to X; 1 not added: $why',
+      (0, 1, 1): '1 was already in X; 1 not added: $why',
+      (0, 1, 2): '1 was already in X; 2 not added: $why',
+      (0, 2, 1): '2 were already in X; 1 not added: $why',
+      (1, 1, 1): '1 comic added to X; 1 was already in it; 1 not added: $why',
+      (2, 3, 4): '2 comics added to X; 3 were already in it; 4 not added: $why',
+    };
+    for (final MapEntry(key: (added, already, notAdded), value: text) in cases.entries) {
+      expect(said(added, already, notAdded), text);
+    }
+    // The details' one comic is named, never counted.
+    expect(said(0, 0, 1, only: 'Daredevil #181'), 'Could not add Daredevil #181 to X: $why');
   });
 
   testWidgets('no second question gets asked while one is on its way: neither by key nor by a second tap', (
@@ -847,16 +911,20 @@ class _NoNames extends LibraryStore {
 }
 
 /// A library whose index refuses the [failOn]th comic put in a collection
-/// (counted in [calls]) and takes the ones before it.
+/// (counted in [tried]) and takes the ones before it.
 class _Refusing extends LibraryStore {
   _Refusing(super.db, {required this.failOn});
 
   int failOn;
-  int calls = 0;
+
+  /// The comics asked for since it was last cleared, in order, the refused
+  /// one included.
+  final tried = <String>[];
 
   @override
   Future<bool> addToCollection(String contentKey, String name) {
-    if (++calls == failOn) throw StateError('the index is locked');
+    tried.add(contentKey);
+    if (tried.length == failOn) throw StateError('the index is locked');
     return super.addToCollection(contentKey, name);
   }
 }

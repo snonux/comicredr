@@ -27,8 +27,8 @@ the `?` overlay.
   removal made on another device in the meantime: when that device's
   sidecar arrives the comic goes out here as well (take it out and add
   it again to keep it). If the library cannot save a collection, the
-  notice names the comic, or says how many of the marked ones were added
-  before it failed, and the marks stay.
+  notice names the comic, or says how many of the marked ones were
+  added, were in it already and were not added, and the marks stay.
 - **Back to the first page, in the guide:** `Home` and `gg` have a
   section of their own in Reading a comic: where they land in guided
   view, `''` to come back, the page grid and the bookmark list.
