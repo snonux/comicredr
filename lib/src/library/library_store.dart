@@ -823,6 +823,16 @@ ORDER BY r.id, f.rel_path
         CollectionBooksCompanion(removedAt: Value(DateTime.now())),
       );
 
+  /// The collections the book [contentKey] is in, in name order. Read from
+  /// the rows rather than [books], so it also answers for a comic opened
+  /// from outside the library folders.
+  Future<List<String>> collectionsOf(String contentKey) async {
+    final rows = await (db.select(
+      db.collectionBooks,
+    )..where((c) => c.contentKey.equals(contentKey) & c.removedAt.isNull())).get();
+    return [for (final r in rows) r.name]..sort(naturalCompare);
+  }
+
   /// Whether the book [contentKey] is a favourite.
   Future<bool> isFavourite(String contentKey) async =>
       await (db.select(

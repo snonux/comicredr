@@ -45,7 +45,8 @@ The top of the list also shows ComicRedr's data folder, and which
 | `gp` | [Pick a part of the page](04-reading.md#by-touch) on a small copy of it, by click or touch | |
 | `11` `00` | Whole page in the split; leave the split | |
 | `mm` `M` | [Bookmark, bookmark list](06-bookmarks.md) | `M`: the Bookmarks tab |
-| `*` | [Favourite](03-library.md#favourites) | Favourite the selected cover, or the marked ones |
+| `*` | [Favourite](03-library.md#favourites) this comic, also from the page grid or bookmark list | Favourite the selected cover, or the marked ones |
+| `gc` | Put this comic in a [collection](03-library.md#collections), also from the page grid or bookmark list | The selected cover, or the marked ones |
 | `Shift`+arrows | As the arrows alone | [Mark a run of comics](03-library.md#several-comics-at-once) |
 | `Ctrl+A` | | Mark every comic shown |
 | `gd` `X` | Delete, reset this comic | Delete, reset the selected or the marked comics |

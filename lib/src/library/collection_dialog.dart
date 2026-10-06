@@ -11,15 +11,23 @@ import 'providers.dart';
 /// new name. A collection every one of them is in already is not offered.
 Future<String?> askCollection(BuildContext context, WidgetRef ref, List<LibraryBook> books) {
   final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
-  final names = {
-    for (final b in all) ...b.collections,
-  }.where((n) => !books.every((b) => b.collections.contains(n))).toList()..sort(naturalCompare);
-  return showDialog<String>(
-    context: context,
-    builder: (_) =>
-        CollectionDialog(what: books.length == 1 ? books.single.name : '${books.length} comics', names: names),
+  final names = {for (final b in all) ...b.collections}.where((n) => !books.every((b) => b.collections.contains(n)));
+  return showCollectionDialog(
+    context,
+    what: books.length == 1 ? books.single.name : '${books.length} comics',
+    names: names,
   );
 }
+
+/// The collection question itself, for [what] (a comic's name, or how many
+/// comics), offering [names] in name order. The library asks through
+/// [askCollection]; the reader (`gc` on the open comic) works the names out
+/// itself, since an open comic need not be in the library.
+Future<String?> showCollectionDialog(BuildContext context, {required String what, required Iterable<String> names}) =>
+    showDialog<String>(
+      context: context,
+      builder: (_) => CollectionDialog(what: what, names: names.toList()..sort(naturalCompare)),
+    );
 
 class CollectionDialog extends StatefulWidget {
   const CollectionDialog({super.key, required this.what, required this.names});

@@ -19,6 +19,7 @@ import 'input/reader_touch.dart';
 import 'input/touch_providers.dart';
 import 'input/touch_zones.dart';
 import 'keymap_overlay.dart';
+import 'library/collection_dialog.dart';
 import 'library/default_folder.dart';
 import 'library/delete_book.dart';
 import 'library/library_screen.dart';
@@ -110,6 +111,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// The details view (`I`) is open.
   bool _showDetails = false;
+
+  /// The collection dialog of `gc` is up over the reader (or being made).
+  bool _collecting = false;
 
   /// In fullscreen: the mouse moved lately, so the pointer shows; the
   /// status line and progress bar show for a moment, or while the mouse is
@@ -623,6 +627,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (scope != null) await ref.read(readerProvider.notifier).reset(scope);
   }
 
+  /// `*` and `gc` with a comic open; true when [c] was one of them. They
+  /// are about the open comic, not the page under the cursor, so they also
+  /// work over the page grid and the bookmark list, which would otherwise
+  /// swallow them; both stay up. With no comic open they are left to the
+  /// library, for the selected or marked covers.
+  bool _onOpenComic(ReaderCommand c) {
+    final book = ref.read(readerProvider).book;
+    if (book == null) return false;
+    switch (c.intent) {
+      case ReaderIntent.toggleFavourite:
+        unawaited(ref.read(readerProvider.notifier).handle(c));
+      case ReaderIntent.addToCollection:
+        unawaited(_collect(book));
+      default:
+        return false;
+    }
+    return true;
+  }
+
+  /// `gc` in the reader, the page grid or the bookmark list: asks for a
+  /// collection for the open comic with the library's dialog, then puts it
+  /// there. The names come from the index, not the library's list of
+  /// books, since a comic opened with `o` need not be in the library: every
+  /// collection a library book is in plus this comic's own, less the ones
+  /// it is in already. Keys go back to the reader (or the grid) after.
+  Future<void> _collect(OpenBook book) async {
+    if (_collecting) return;
+    _collecting = true;
+    try {
+      final store = ref.read(libraryStoreProvider);
+      final mine = (await store.collectionsOf(book.key)).toSet();
+      final books = await store.books();
+      final all = {...mine, for (final b in books) ...b.collections};
+      // Named as its cover is in the library, when it is there.
+      final what = books.where((b) => b.key == book.key).firstOrNull?.name ?? book.title;
+      if (!mounted) return;
+      final name = await showCollectionDialog(context, what: what, names: all.difference(mine));
+      // Closed or swapped for another comic while the dialog was up: leave it.
+      if (name != null && identical(ref.read(readerProvider).book, book)) {
+        await ref.read(readerProvider.notifier).addToCollection(name);
+      }
+    } finally {
+      _collecting = false;
+      if (mounted) _keys.requestFocus();
+    }
+  }
+
   /// `gu` or `gU` in the reader: the open comic onto S3 or off it.
   Future<void> _s3OpenBook(OpenBook open, {required bool upload}) async {
     final books = await ref.read(libraryStoreProvider).books();
@@ -891,6 +942,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       unawaited(_continueReading());
       return;
     }
+    if (_onOpenComic(c)) return;
     if (_showPages) {
       _grid.currentState?.handle(c);
       return;

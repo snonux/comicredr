@@ -272,6 +272,19 @@ refreshes right away instead of within six hours.
   (`LibraryScreenState._favourites`), where `*`, `x` and the details' star
   take a comic out with an Undo notice. Renamed or emptied, the next
   favourite makes the collection again.
+  With a comic open, `*` and `gc` (`addToCollection`) are about that
+  comic and are taken by `HomeScreen._onOpenComic` before the page grid
+  or the bookmark list see the command, so they work over both, which
+  stay up (t563). `*` goes to `ReaderNotifier._toggleFavourite` (a
+  status-line notice, no Undo: `*` again undoes it). `gc` runs
+  `_collect`: `showCollectionDialog` (`collection_dialog.dart`, the
+  dialog `askCollection` shows in the library) with the names from the
+  index (`LibraryStore.books()` plus `collectionsOf(key)`, since a comic
+  opened with `o` need not be a `LibraryBook`), then
+  `ReaderNotifier.addToCollection`, which says "Already in X" and writes
+  nothing when it is. The details view (`I`) and the `?` overlay are
+  left alone: `I` is a modal route with its own keys, and nothing reaches
+  the comic behind `?`. No touch button for `gc` in the reader.
 - Continue (`C`, the library header's play button, widget key `continue`):
   `RecentBooks` (`lib/src/reader/recent_books.dart`) keeps the last five
   comics opened, path, content key and title, newest first, in the
@@ -663,6 +676,7 @@ tool/e2e_continue.sh         # C and the library's Continue button (tapped): the
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
+tool/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; Esc in the dialog, a collection it is in already, keys back with the grid, a restart; checks the index and the sidecar with sqlite3; makes its own books
 tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
 tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars

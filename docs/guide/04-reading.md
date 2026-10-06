@@ -95,6 +95,10 @@ the arrow keys and `Enter`, or click it. `+` and `-` (or `Ctrl` and the
 mouse wheel, or a pinch on a touchpad or touchscreen) make the pages
 bigger or smaller, `=` puts the size back, and the grid remembers it. `Esc` or `p` closes it.
 
+Leafing through a comic in the grid and it turns out to be a keeper? `*`
+makes it a [favourite](03-library.md#favourites) and `gc` puts it in a
+[collection](03-library.md#collections) right there; the grid stays open.
+
 ![The page grid](images/pages.webp)
 
 ![The page grid with bigger pages](images/pages-bigger.webp)

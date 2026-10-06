@@ -193,7 +193,7 @@ uploadToS3 = ["gu"]
 removeFromS3 = ["gU"]
 # Library: move the selected comic, or every marked one, to another folder, picked from a list you can type into
 moveBooks = ["gm"]
-# Library: put the selected comic, or every marked one, in a collection, new or one you have
+# Put this comic in a collection, new or one you have; in the library the selected book, or every marked one
 addToCollection = ["gc"]
 # Mark the selected book in the library, or unmark it, for an action on several (move, delete, reset, favourite, collection, upload, remove from S3)
 markBook = ["V"]

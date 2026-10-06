@@ -118,7 +118,9 @@ enum ReaderIntent {
   moveBooks(
     'Library: move the selected comic, or every marked one, to another folder, picked from a list you can type into',
   ),
-  addToCollection('Library: put the selected comic, or every marked one, in a collection, new or one you have'),
+  addToCollection(
+    'Put this comic in a collection, new or one you have; in the library the selected book, or every marked one',
+  ),
   markBook(
     'Mark the selected book in the library, or unmark it, for an action on several (move, delete, reset, favourite, collection, upload, remove from S3)',
   ),

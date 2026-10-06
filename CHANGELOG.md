@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Collections and favourites from inside a comic:** `gc` now works
+  with a comic open, asking which collection to put it in (new or one you
+  have) without going back to the library, also for a comic opened from
+  outside the library folders. `gc` and `*` work with the page grid (`p`)
+  or the bookmark list (`M`) up too, which used to swallow them.
 - **Back to the first page, in the guide:** `Home` and `gg` have a
   section of their own in Reading a comic: where they land in guided
   view, `''` to come back, the page grid and the bookmark list.

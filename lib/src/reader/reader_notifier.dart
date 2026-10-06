@@ -347,6 +347,26 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
+  /// `gc`: puts the open book in the collection [name] (picked or typed in
+  /// the dialog app.dart shows) and marks its sidecar to be written, as `*`
+  /// does. A collection it is in already is said so and left alone, so its
+  /// row keeps the time it was added.
+  Future<void> addToCollection(String name) async {
+    final book = state.book;
+    if (book == null) return;
+    final store = ref.read(libraryStoreProvider);
+    try {
+      final already = (await store.collectionsOf(book.key)).contains(name);
+      if (!already) {
+        await store.addToCollection(book.key, name);
+        _sidecars.touch(book.key);
+      }
+      if (identical(state.book, book)) _notice(already ? 'Already in $name' : 'Added to $name');
+    } catch (e) {
+      _notice('Could not add it to $name: $e');
+    }
+  }
+
   /// Writes the sidecar as the book opens, so a folder that refuses it says
   /// so now rather than silently later.
   Future<void> _writeSidecar(OpenBook book) async {

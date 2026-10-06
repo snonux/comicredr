@@ -166,7 +166,10 @@ off, across restarts and on every tab.
 
 Press `*` on a cover (or in a comic you are reading) to add it to your
 Favourites; press it again to take it out. The star in a book's details
-does the same.
+does the same. In a comic `*` is always about the comic you have open,
+also while its [page grid](04-reading.md#see-every-page-at-once) (`p`) or
+[bookmark list](06-bookmarks.md#jump-between-bookmarks) (`M`) is up, and
+the line at the bottom says which way it went.
 
 `gf`, or the star at the top of the library, shows your Favourites (from
 inside a comic, `gf` closes it first). There
@@ -187,6 +190,14 @@ them.
 - `gc` on a selected cover does the same without opening its details,
   and with [comics marked](#several-comics-at-once) it puts all of them
   in.
+- `gc` in a comic you are reading asks the same question about that
+  comic, so there is no need to go back to the library: halfway through
+  an issue, press `gc`, type `To read next` and press `Enter`, and the
+  line at the bottom says *Added to To read next*. `Tab` reaches the
+  collections you already have, `Esc` leaves the comic where it was. It
+  works the same with the [page grid](04-reading.md#see-every-page-at-once)
+  (`p`) or the bookmark list (`M`) up, which stay open, and for a comic
+  opened with `o` that is in none of your library folders.
 - The **x** on a collection's chip in the book's details takes the book
   out.
 - The Collections tab shows each collection as a cover; open one to see
