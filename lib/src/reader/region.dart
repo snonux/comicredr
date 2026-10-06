@@ -5,15 +5,28 @@ import 'package:reader_input/reader_input.dart';
 /// How a page is cut into fixed parts to enlarge by hand (`H1`, `B2`,
 /// `L3`, `Q4`...), for pages guided view shows whole or outside guided view.
 enum PageSplit {
-  halves(1, 2, ['upper half', 'lower half']),
-  thirds(1, 3, ['upper third', 'middle third', 'lower third']),
-  strips(1, 4, ['top strip', 'second strip', 'third strip', 'bottom strip']),
-  quarters(2, 2, ['top-left quarter', 'top-right quarter', 'bottom-left quarter', 'bottom-right quarter']);
+  halves(1, 2, 'H', 2, 'Halves', ['upper half', 'lower half']),
+  thirds(1, 3, 'B', 3, 'Thirds', ['upper third', 'middle third', 'lower third']),
+  strips(1, 4, 'L', 4, 'Strips', ['top strip', 'second strip', 'third strip', 'bottom strip']),
+  quarters(2, 2, 'Q', 5, 'Quarters', [
+    'top-left quarter',
+    'top-right quarter',
+    'bottom-left quarter',
+    'bottom-right quarter',
+  ]);
 
-  const PageSplit(this.columns, this.rows, this.names);
+  const PageSplit(this.columns, this.rows, this.letter, this.digit, this.label, this.names);
 
   final int columns;
   final int rows;
+
+  /// The default keys' first character: the letter (`H1`) and the digit
+  /// (`21`) that pick a part of this split.
+  final String letter;
+  final int digit;
+
+  /// The split's name on the page parts picker.
+  final String label;
 
   /// Each part's name, by [part] number.
   final List<String> names;
@@ -67,6 +80,28 @@ List<int> partOrder(PageSplit split, {required bool rightToLeft}) => [
   ReaderIntent.regionBottomLeft => (split: PageSplit.quarters, part: 2),
   ReaderIntent.regionBottomRight => (split: PageSplit.quarters, part: 3),
   _ => null,
+};
+
+/// The intent that picks [part] of [split], as its keys do.
+ReaderIntent regionIntent(PageSplit split, int part) => switch (split) {
+  PageSplit.halves => [ReaderIntent.regionUpperHalf, ReaderIntent.regionLowerHalf][part],
+  PageSplit.thirds => [
+    ReaderIntent.regionUpperThird,
+    ReaderIntent.regionMiddleThird,
+    ReaderIntent.regionLowerThird,
+  ][part],
+  PageSplit.strips => [
+    ReaderIntent.regionStrip1,
+    ReaderIntent.regionStrip2,
+    ReaderIntent.regionStrip3,
+    ReaderIntent.regionStrip4,
+  ][part],
+  PageSplit.quarters => [
+    ReaderIntent.regionTopLeft,
+    ReaderIntent.regionTopRight,
+    ReaderIntent.regionBottomLeft,
+    ReaderIntent.regionBottomRight,
+  ][part],
 };
 
 /// "upper third (1 / 3)", for the status line: the part's name and where

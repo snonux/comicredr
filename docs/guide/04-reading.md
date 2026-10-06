@@ -231,6 +231,24 @@ while staying in the split; `00` or `Esc` (or the same part key again)
 shows the whole page and goes back to the usual steps; a page key,
 `gg`, a switch into or out of guided view or two-page mode do too.
 
+### By touch
+
+On a phone or a tablet, **tap the page with two fingers**. A small copy
+of the page comes up, cut into halves; the buttons above it switch to
+thirds, strips or quarters. Tap the part you want and it fills the
+screen, just as its keys would. Each part shows its keys too, so the same
+picker teaches them.
+
+From there, tap the right edge of the page to go on part by part and the
+left edge to go back, exactly as `→` and `←` do above: each page whole,
+then its parts, then whole again. Drag to look around a part. Tap with
+two fingers again for **Whole page** (`11`) or **Stop parts** (`00`), or
+to pick another part; a tap beside the picker, or the back gesture,
+closes it. On a wider screen the status line has a button for the picker
+as well, and `gp` opens it from the keyboard.
+
+![The parts picker, on the lower half of a page](images/parts-picker.webp)
+
 ![Thirds, then quarters of a page](images/parts.gif)
 
 ![The upper half of a page, enlarged with H1](images/part-half.webp)

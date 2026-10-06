@@ -9,7 +9,9 @@
 # From guided view, the next page (which has panels) shows whole and guided
 # view goes on over its panels. The same keys again, 11, Esc or 00 show the
 # whole page; Esc / 00 leave the split; Esc does not leave guided view or the
-# book.
+# book. Then by touch alone: a two-finger tap opens the parts picker, a tap
+# on a part enlarges it, edge taps step as the arrows do, Stop parts leaves
+# and a tap beside the picker closes it.
 #
 #   tool/e2e_regions.sh book.cbz [page]   # page: 1-based, default 3
 #
@@ -61,6 +63,10 @@ key() { xdotool key "$@" 2>/dev/null; sleep "$step"; }
 shot() { import -window root "$out/$1.png"; }
 touch() { echo "$@" >>"$touches"; sleep 0.016; }
 tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep "$step"; }
+twofinger() {
+  touch down 0 500 340; touch down 1 780 340; sleep 0.08
+  touch up 0 500 340; touch up 1 780 340; sleep "$step"
+}
 # A part key: part H 1 types H then 1.
 part() { key "shift+${1,,}" "$2"; }
 # digits 3 3: the same part typed as two quick digits (33 for B3).
@@ -183,6 +189,31 @@ tap 1200 340; shot t02_tap;        framed t02_tap quarters 2
 tap 80 340;   shot t03_tap_back;   framed t03_tap_back quarters 1
 # Esc: the whole page first, then out of guided view, still in the book.
 key Escape; key Escape; shot g18_unguided; whole g18_unguided ref_a
+
+# By touch alone. Where the picker's parts and buttons are on the 1280x720
+# window, for this page: the split buttons along y 94, the small page from
+# 490,118 to 790,586, Whole page / Stop parts / Close along y 605.
+key "$page" shift+g
+twofinger;    shot p01_picker
+tap 601 94    # Thirds
+tap 640 352;  shot p02_third_2;    framed p02_third_2 thirds 2
+tap 1200 340; shot p03_third_3;    framed p03_third_3 thirds 3
+tap 1200 340; shot p04_whole;      whole p04_whole ref_a
+tap 1200 340; shot p05_next_whole; whole p05_next_whole ref_b
+tap 1200 340; shot p06_next_1;     framed p06_next_1 thirds 1 ref_b
+tap 80 340;   shot p07_back_whole; whole p07_back_whole ref_b
+tap 80 340;   shot p08_back_whole; whole p08_back_whole ref_a
+tap 80 340;   shot p09_back_3;     framed p09_back_3 thirds 3
+twofinger;    shot p10_picker_again
+tap 662 605;  shot p11_stopped;    whole p11_stopped ref_a
+tap 1200 340; shot p12_turned;     whole p12_turned ref_b
+key "$page" shift+g
+twofinger
+tap 757 94    # Quarters
+tap 715 470;  shot p13_quarter_4;  framed p13_quarter_4 quarters 4
+twofinger
+tap 1150 340; shot p14_closed;     framed p14_closed quarters 4
+key Escape
 close_gracefully
 montage -label '%t' "$out"/*.png -tile 5x -geometry 384x270+4+14 "$out/contact.png"
 grep -i 'detector' "$out/app.log" | sort | uniq -c || true

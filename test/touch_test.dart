@@ -10,6 +10,7 @@ import 'package:comicredr/src/library/settings_dialog.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
+import 'package:comicredr/src/reader/region.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -253,6 +254,101 @@ twoFingerTap = "autoTrim"
     expect(c.read(readerProvider).page, 1);
     expect(c.read(readerProvider).fullscreen, isFalse);
     expect(scale(tester), 1);
+  });
+
+  testWidgets('a two-finger tap picks a part of the page; taps then step part by part', (tester) async {
+    final c = await openBook(tester);
+    Future<void> twoFingers() async {
+      final r = view(tester);
+      final a = await tester.startGesture(r.center - const Offset(60, 0), kind: PointerDeviceKind.touch);
+      final b = await tester.startGesture(r.center + const Offset(60, 0), kind: PointerDeviceKind.touch, pointer: 9);
+      await tester.pump(const Duration(milliseconds: 80));
+      await a.up();
+      await b.up();
+      await settle(tester);
+    }
+
+    await twoFingers();
+    expect(find.byKey(const Key('partsPicker')), findsOneWidget);
+    // Halves first; thirds picked, then the middle one.
+    expect(find.byKey(const Key('part-22')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('split-thirds')));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('part-32')));
+    await settle(tester);
+    expect(find.byKey(const Key('partsPicker')), findsNothing);
+    var s = c.read(readerProvider);
+    expect((s.region?.split, s.region?.part, s.parts), (PageSplit.thirds, 1, PageSplit.thirds));
+
+    // The right edge goes on as → does: the lower third, the page whole,
+    // then the next page whole and its upper third.
+    final r = view(tester);
+    await touch(tester, Offset(r.right - 40, r.center.dy));
+    expect(c.read(readerProvider).region?.part, 2);
+    await touch(tester, Offset(r.right - 40, r.center.dy));
+    s = c.read(readerProvider);
+    expect((s.page, s.region), (0, null));
+    await touch(tester, Offset(r.right - 40, r.center.dy));
+    await touch(tester, Offset(r.right - 40, r.center.dy));
+    s = c.read(readerProvider);
+    expect((s.page, s.region?.part), (1, 0));
+    // And the left edge back, as ←.
+    await touch(tester, Offset(r.left + 40, r.center.dy));
+    expect((c.read(readerProvider).page, c.read(readerProvider).region), (1, null));
+
+    // Opened again it shows the split being stepped through; Stop leaves it.
+    await twoFingers();
+    expect(find.byKey(const Key('part-33')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('partsStop')));
+    await settle(tester);
+    expect(c.read(readerProvider).parts, isNull);
+    expect(find.byKey(const Key('partsPicker')), findsNothing);
+
+    // A tap beside the card closes it without picking anything.
+    await twoFingers();
+    await tester.tapAt(view(tester).topLeft + const Offset(4, 4));
+    await settle(tester);
+    expect(find.byKey(const Key('partsPicker')), findsNothing);
+    expect(c.read(readerProvider).parts, isNull);
+    expect(c.read(readerProvider).page, 1);
+  });
+
+  testWidgets('the parts picker fits a small phone, quarters included; the status line has no button there', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final c = await openBook(tester);
+    expect(find.byKey(const Key('partsButton')), findsNothing);
+    await c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.regionBottomRight));
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await settle(tester);
+    expect(find.byKey(const Key('partsPicker')), findsOneWidget);
+    expect(tester.takeException(), isNull, reason: 'nothing overflows');
+    expect(find.byKey(const Key('part-54')), findsOneWidget, reason: 'opens on the split being stepped through');
+    for (final k in ['split-halves', 'split-thirds', 'split-strips', 'split-quarters']) {
+      expect(tester.getRect(find.byKey(Key(k))).right, lessThanOrEqualTo(360));
+    }
+    await tester.tap(find.byKey(const Key('part-51')));
+    await settle(tester);
+    expect(c.read(readerProvider).region?.part, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a wider window has a status line button for the picker; Esc closes it', (tester) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final c = await openBook(tester);
+    await tester.tap(find.byKey(const Key('partsButton')));
+    await settle(tester);
+    expect(find.byKey(const Key('partsPicker')), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(find.byKey(const Key('partsPicker')), findsNothing);
+    expect(c.read(readerProvider).book, isNotNull, reason: 'Esc only closed the picker');
   });
 
   testWidgets('a double-tap only waits in zones that have one', (tester) async {

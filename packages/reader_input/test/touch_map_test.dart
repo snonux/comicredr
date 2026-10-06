@@ -24,7 +24,7 @@ void main() {
     expect(m.action(TouchGesture.swipeUp), isNull);
     expect(m.action(TouchGesture.longPress, TouchZone.middle), ReaderIntent.showTime);
     expect(m.action(TouchGesture.longPress, TouchZone.topLeft), isNull);
-    expect(m.action(TouchGesture.twoFingerTap), isNull);
+    expect(m.action(TouchGesture.twoFingerTap), ReaderIntent.pickPart);
   });
 
   test('left-handed mirrors the edges, one thumb goes on almost everywhere', () {

@@ -33,9 +33,11 @@ import 'reader/comic_details.dart';
 import 'reader/open_book.dart';
 import 'reader/page_grid.dart';
 import 'reader/page_scrubber.dart';
+import 'reader/parts_picker.dart';
 import 'reader/reader_notifier.dart';
 import 'reader/reader_view.dart';
 import 'reader/recent_books.dart';
+import 'reader/region.dart';
 import 'reader/reset_dialog.dart';
 import 'reader/scroll_speed.dart';
 import 'reader/status_line.dart';
@@ -120,6 +122,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   /// The touch zones drawn over the reader for a moment.
   bool _showZones = false;
+
+  /// The page parts picker (a two-finger tap, `gp`), and the split it
+  /// last showed, to show first next time.
+  bool _showParts = false;
+  PageSplit _partsSplit = PageSplit.halves;
   final _clock = GlobalKey<ClockFlashState>();
   Timer? _zonesTimer;
 
@@ -851,6 +858,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (reading && (_view.currentState?.handle(c) ?? false)) return;
       c = c.as(c.intent == ReaderIntent.scrollRight ? ReaderIntent.nextStep : ReaderIntent.prevStep);
     }
+    if (c.intent == ReaderIntent.pickPart) {
+      if (ref.read(readerProvider).book != null) _setShowParts(!_showParts);
+      return;
+    }
+    // Any other key or touch closes the picker and does what it always
+    // does; Esc or the back gesture only closes it.
+    if (_showParts) {
+      _setShowParts(false);
+      if (c.intent == ReaderIntent.back) return;
+    }
     if (c.intent == ReaderIntent.pageGrid && ref.read(readerProvider).book != null) {
       _setShowPages(!_showPages);
       return;
@@ -958,6 +975,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _keys.requestFocus();
   }
 
+  void _setShowParts(bool on) {
+    setState(() {
+      _showParts = on;
+      if (on) {
+        _showPages = _showBookmarks = false;
+        _partsSplit = ref.read(readerProvider).parts ?? _partsSplit;
+      }
+    });
+    _keys.requestFocus();
+  }
+
+  /// A part, Whole page or Stop picked on the parts picker: as its keys.
+  void _pickedPart(ReaderIntent intent) {
+    final split = regionFor(intent)?.split;
+    if (split != null) _partsSplit = split;
+    _onCommand(ReaderCommand(intent));
+  }
+
   void _setShowBookmarks(bool on) {
     setState(() => _showBookmarks = on);
     _keys.requestFocus();
@@ -973,8 +1008,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(readerProvider);
     ref.listen(readerProvider.select((s) => s.book), (was, book) {
-      if (!identical(was, book) && (_showPages || _showBookmarks)) {
-        setState(() => _showPages = _showBookmarks = false);
+      if (!identical(was, book) && (_showPages || _showBookmarks || _showParts)) {
+        setState(() => _showPages = _showBookmarks = _showParts = false);
       }
     });
     ref.listen(readerProvider.select((s) => s.fullscreen), (_, full) => _applyFullscreen(full));
@@ -1101,6 +1136,10 @@ extension on _HomeScreenState {
           onDetails: () => _onCommand(const ReaderCommand(ReaderIntent.showDetails)),
         ),
       ),
+    if (_showParts)
+      Positioned.fill(
+        child: PartsPicker(split: _partsSplit, onPick: _pickedPart, onClose: () => _setShowParts(false)),
+      ),
     if (_showZones)
       Positioned.fill(
         child: IgnorePointer(
@@ -1117,6 +1156,7 @@ extension on _HomeScreenState {
     state: s,
     pending: _pending,
     gridOpen: _showPages,
+    partsOpen: _showParts,
     bookmarksOpen: _showBookmarks,
     s3Progress: s.book == null ? null : ref.watch(s3StatusProvider).value?.transfers[s.book!.key],
     onCommand: _onCommand,
@@ -1146,7 +1186,7 @@ extension on _HomeScreenState {
   /// while the mouse is along the bottom; the pointer hides when the mouse
   /// rests. The page keeps its size either way, so nothing reflows.
   Widget _fullscreenReader(ReaderState s) {
-    final chrome = _chromeShown || _pending.isNotEmpty || _showPages || _showBookmarks;
+    final chrome = _chromeShown || _pending.isNotEmpty || _showPages || _showBookmarks || _showParts;
     return LayoutBuilder(
       builder: (context, constraints) => MouseRegion(
         cursor: _pointerShown ? MouseCursor.defer : SystemMouseCursors.none,
