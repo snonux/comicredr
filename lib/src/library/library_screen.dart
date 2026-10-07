@@ -196,10 +196,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   /// Takes up the saved cover size; unset, or anything that is no width
   /// ([SettingsStore.parseSize]: a settings file edited by hand), is the
-  /// default.
+  /// default. So is the default width itself, [_defaultCover], which only
+  /// a file written by hand or by another program holds (the app saves
+  /// the usual size as no setting): it means the usual size, with its
+  /// pictures and its two covers a row at least, not a size set by hand
+  /// that happens to be as wide. The setting is left as it was read.
   Future<void> _loadCoverSize() async {
     try {
-      final target = SettingsStore.parseSize(await ref.read(settingsStoreProvider).loadString(SettingsStore.coverSize));
+      final kept = SettingsStore.parseSize(await ref.read(settingsStoreProvider).loadString(SettingsStore.coverSize));
+      final target = kept == _defaultCover ? null : kept;
       if (mounted && target != _coverTarget) setState(() => _coverTarget = target);
     } catch (e) {
       debugPrint('Could not read the cover size: $e');
@@ -211,13 +216,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// there anything to size, and a width to work the columns out from.
   bool get _coversShown => _zoomArea.currentState != null && _inner > 0;
 
-  /// The covers a row for the size asked for, in a grid [inner] wide. The
-  /// default never shows one cover a row, however narrow the window;
-  /// zoomed, the size asked for decides.
+  /// The covers a row for the size asked for, in a grid [inner] wide:
+  /// the usual ones, or zoomed, what the size asked for gives.
   int _columnsIn(double inner) => switch (_coverTarget) {
-    null => math.max(2, _coverZoom.columns(inner, _defaultCover)),
+    null => usualCoverColumns(inner),
     final target => _coverZoom.columns(inner, target),
   };
+
+  /// The covers a row at the usual size in a grid [inner] wide: as many
+  /// 160 px covers as fit, and never one a row, however narrow the window.
+  /// Exactly what it was before covers could be sized, at every width
+  /// ([GridZoom.fitting], without the allowance a kept size needs).
+  @visibleForTesting
+  static int usualCoverColumns(double inner) => math.max(2, _coverZoom.fitting(inner, _defaultCover));
 
   /// What Settings' Cover size line shows (covers a row, bigger and smaller
   /// possible, sized by hand), as of the last frame: the line listens to
@@ -268,7 +279,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   /// Shows [columns] covers a row, within what the width allows; [reset]
   /// goes back to the default size. What is kept is the cover width that
-  /// gives, so a wider window later fits more covers of that size. At the
+  /// gives, so a wider window later fits more covers of that size. The
+  /// columns the usual size gives at this width are the usual size, as
+  /// `=` leaves it (no size kept, the setting unset): `+` and then `-`
+  /// changes nothing, not the pictures' decoded width and not what the
+  /// Usual size button offers either. At the
   /// smallest or biggest already, nothing changes and nothing is saved;
   /// nor while the covers are not on screen (a list tab, an empty one, a
   /// phone's details page), where a key would change a size nobody sees.
@@ -276,7 +291,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     if (!_coversShown) return;
     final next = _coverZoom.clamp(_inner, columns);
     if (reset ? _coverTarget == null : next == _columnsIn(_inner)) return;
-    final target = reset ? null : _coverZoom.tileWidth(_inner, next);
+    final usual = reset || next == usualCoverColumns(_inner);
+    final target = usual ? null : _coverZoom.tileWidth(_inner, next);
     final keep = _keptInView();
     setState(() => _coverTarget = target);
     unawaited(

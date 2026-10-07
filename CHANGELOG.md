@@ -22,14 +22,20 @@ the `?` overlay.
   line says how many covers there are in a row, also when the window
   changes or comics arrive while Settings is open. Covers
   are kept 512 pixels wide, so on a phone or a high-resolution screen
-  the biggest sizes are a little soft. At the usual size nothing changes
-  in how covers and shuffled pages are drawn or in the memory they take;
-  covers made smaller take less memory each, and in shuffle the pages of
-  covers made bigger than 332 screen pixels are now made 512 pixels wide
-  instead of 256. In the page
+  the biggest sizes are a little soft. At the usual size nothing
+  changes: the number of covers in a row at every window width, how
+  covers and shuffled pages are drawn and the memory they take. Steps
+  that end on the number of covers the usual size shows in the window
+  (`+` and then `-`) are the usual size again, with nothing kept. Covers
+  made smaller take less memory each. In shuffle a page 512 pixels wide
+  is made instead of the 256 pixel one only for a tile that is both
+  sized by hand (not at the usual size) and more than 332.8 device
+  pixels wide: 332.8 points on a screen of one pixel a point, 166.4 on a
+  2x screen, about 111 on a 3x phone. In the page
   grid (`p`), a finger resting on a page during a pinch no longer opens
-  that page when it lifts, and a third finger joining a pinch no longer
-  makes the size jump.
+  that page when it lifts, a third finger joining a pinch no longer
+  makes the size jump, and a `+` or `-` typed with two fingers down is no
+  longer taken back by the pinch.
 - **Fixed:** the page grid's size is now kept exactly, so a wide window
   with many small pages comes back with the same number in a row after a
   restart (it could come back with one fewer). A settings file whose

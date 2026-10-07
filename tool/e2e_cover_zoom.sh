@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end check of the library's cover size on the Linux build: on the
 # Folders tab `+` and `-` take a column off and add one, down to a biggest
-# and up to a smallest cover where nothing changes any more, `=` puts the
+# and up to a smallest cover where nothing changes any more, `+` then `-`
+# leaves nothing kept (by key and by Settings' buttons), `=` puts the
 # usual size back, Ctrl and the wheel zoom while the wheel alone does not,
 # `+` typed in the search box is typing, the Books tab shows the same
 # size, two injected fingers (tool/touch_inject.c) spread and pinch the
@@ -221,6 +222,7 @@ check "+ takes a column off" "$cols" $((usual - 1))
 if agrees "$(size)" "$width"; then ok "the kept size is the covers' width ($(size) kept, $width px on screen)"; else fail "kept $(size), $width px on screen"; fi
 step minus "-" minus
 check "- adds it again" "$cols" "$usual"
+check "+ then - is the usual size again: nothing kept" "$(size)" ""
 
 # 3. The biggest: + until nothing changes, then once more.
 for _ in $(seq 1 10); do key plus; done
@@ -373,7 +375,7 @@ wait_size_change "" || fail "Settings, bigger: nothing kept"
 kept=$(size)
 click "$smaller_x" "$size_y"
 wait_size_change "$kept" || fail "Settings, smaller: the kept size stayed $kept"
-check "Settings: bigger then smaller is the usual columns, kept as a size" "$(size | grep -c .)" 1
+check "Settings: bigger then smaller is the usual size again, nothing kept" "$(size)" ""
 kept=$(size)
 click "$smaller_x" "$size_y"
 wait_size_change "$kept" || fail "Settings, smaller again: the kept size stayed $kept"

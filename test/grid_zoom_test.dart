@@ -1,7 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/grid_zoom.dart';
 import 'package:comicredr/src/library/cover_card.dart';
+import 'package:comicredr/src/library/library_screen.dart';
 import 'package:comicredr/src/library/shuffle.dart';
+import 'package:comicredr/src/reader/page_grid.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -138,7 +142,43 @@ void main() {
     shuffle.close();
   });
 
+  test('the usual size shows the columns it did before the grids could be sized, at every width', () {
+    // The two expressions as they were (git show b320650^, the commit
+    // before the zoom was shared): the library's covers in a grid `w`
+    // wide, and the page grid's default, 110 px tiles on a phone and
+    // 150 px on anything wider. Every whole and half pixel of width.
+    int coversThen(double w) => math.max(2, (w - 12 * 2 + 12) ~/ (160 + 12));
+    int pagesThen(double w, double target) {
+      final inner = w - 2 * 12;
+      final most = math.max(2, ((inner + 8) / (56 + 8)).floor());
+      return ((inner + 8) / (target + 8) + 0.01).floor().clamp(1, most);
+    }
+
+    for (var w = 200.0; w <= 4000; w += 0.5) {
+      expect(LibraryScreenState.usualCoverColumns(w - 24), coversThen(w), reason: 'covers in $w px');
+      expect(PageGridState.usualColumns(w - 24, 400), pagesThen(w, 110), reason: 'pages on a phone in $w px');
+      expect(PageGridState.usualColumns(w - 24, 1280), pagesThen(w, 150), reason: 'pages in $w px');
+    }
+    // The band this is about: a grid of covers 527 px wide showed two a
+    // row, and a size kept at 160 px, counted with its allowance, three.
+    expect(LibraryScreenState.usualCoverColumns(527 - 24), 2);
+    expect(covers.columns(527 - 24, 160), 3);
+    expect(LibraryScreenState.usualCoverColumns(528 - 24), 3);
+    expect(PageGridState.usualColumns(599 - 24, 599), isNot(PageGridState.usualColumns(599 - 24, 600)));
+  });
+
+  test('a pinch scale that is no scale is no step', () {
+    for (final scale in [0.0, -1.0, double.nan, double.infinity, double.negativeInfinity]) {
+      expect(GridZoom.pinchSteps(scale), 0, reason: '$scale');
+    }
+    expect((GridZoom.pinchSteps(1.26), GridZoom.pinchSteps(1.24), GridZoom.pinchSteps(0.79)), (1, 0, -1));
+  });
+
   group('the pinch', () {
+    /// Changes the columns of [pumpArea]'s grid from outside the area, as
+    /// a key or a wider window does.
+    late void Function(int columns) change;
+
     /// A zoom area over a list, 6 columns at first, 1 to 12 allowed;
     /// returns every column count it asked for.
     Future<List<int>> pumpArea(WidgetTester tester) async {
@@ -147,16 +187,19 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: StatefulBuilder(
-            builder: (context, setState) => GridZoomArea(
-              columns: columns,
-              onColumns: (n) {
-                asked.add(n);
-                setState(() => columns = n.clamp(1, 12));
-                return columns;
-              },
-              builder: (context, physics) =>
-                  ListView(physics: physics, children: [Text('$columns columns'), const SizedBox(height: 3000)]),
-            ),
+            builder: (context, setState) {
+              change = (n) => setState(() => columns = n);
+              return GridZoomArea(
+                columns: columns,
+                onColumns: (n) {
+                  asked.add(n);
+                  setState(() => columns = n.clamp(1, 12));
+                  return columns;
+                },
+                builder: (context, physics) =>
+                    ListView(physics: physics, children: [Text('$columns columns'), const SizedBox(height: 3000)]),
+              );
+            },
           ),
         ),
       );
@@ -219,18 +262,23 @@ void main() {
       await b.moveBy(const Offset(40, 0));
       final c = await finger(tester, 600);
       await b.moveBy(const Offset(1, 0));
-      expect(asked, [5, 5], reason: 'the step, and then the same columns again, not the 6 of before it');
+      expect(asked, [5], reason: 'the step; within the next one nothing is asked');
+      // 141 apart when the third finger came, now 177: one step from there.
+      await b.moveBy(const Offset(36, 0));
+      expect(asked, [5, 4], reason: 'a step on from the 5 the grid took, not from the 6 of before it');
       await tester.pump();
-      expect(find.text('5 columns'), findsOneWidget);
+      expect(find.text('4 columns'), findsOneWidget);
 
       // The same at the limit, where the grid takes fewer steps than asked
-      // for: 140 to 1120 apart is nine steps, the grid stops at 1 column.
-      await b.moveBy(const Offset(979, 0));
+      // for: 141 to 1128 apart is nine steps, the grid stops at 1 column.
+      await b.moveBy(const Offset(951, 0));
       final d = await finger(tester, 700);
       await b.moveBy(const Offset(1, 0));
-      expect(asked.sublist(2), [-4, 1], reason: 'the pinch goes on from the 1 column the grid took');
+      // 1128 apart when the fourth finger came; back to 899 is a step closer.
+      await b.moveBy(const Offset(-230, 0));
+      expect(asked.sublist(2), [-4, 2], reason: 'the pinch goes on from the 1 column the grid took');
       await tester.pump();
-      expect(find.text('1 columns'), findsOneWidget);
+      expect(find.text('2 columns'), findsOneWidget);
       for (final f in [a, b, c, d]) {
         await f.up();
       }
@@ -249,9 +297,67 @@ void main() {
       await pad.panZoomEnd();
       await pad.panZoomStart(const Offset(300, 300));
       await pad.panZoomUpdate(const Offset(300, 300), scale: 1.01);
-      expect(asked, [5, 5], reason: 'the second pinch has not moved a step: still 5, not back to 6');
+      expect(asked, [5], reason: 'the second pinch has not moved a step: nothing asked');
       await pad.panZoomUpdate(const Offset(300, 300), scale: 1.3);
-      expect(asked.last, 4);
+      expect(asked, [5, 4], reason: 'its step counts from the 5 of the first, not from the 6 of before it');
+      await pad.panZoomEnd();
+      await tester.pump();
+      expect(find.text('4 columns'), findsOneWidget);
+    });
+
+    testWidgets('a step made by a key during a pinch stays: the pinch goes on from it', (tester) async {
+      final asked = await pumpArea(tester);
+      final a = await finger(tester, 100);
+      final b = await finger(tester, 200);
+      await tester.pump();
+      // `+` with two fingers down, and a finger moving a pixel before the
+      // next frame (a touchscreen reports several times a frame), then
+      // another after it. Counted from the pinch's start, either move
+      // would ask for the 6 columns of before the key.
+      change(5);
+      await b.moveBy(const Offset(1, 0));
+      expect(asked, isEmpty, reason: 'a move within a step asks nothing');
+      await tester.pump();
+      await b.moveBy(const Offset(1, 0));
+      await tester.pump();
+      expect(asked, isEmpty);
+      expect(find.text('5 columns'), findsOneWidget, reason: "the key's step stays");
+
+      // The pinch goes on from the key's columns and from where the
+      // fingers were then (101 apart): 127 is a step, from 5 to 4. From its
+      // old start (100 apart, 6 columns) it would have asked for 5.
+      await b.moveBy(const Offset(25, 0));
+      expect(asked, [4]);
+      await tester.pump();
+      expect(find.text('4 columns'), findsOneWidget);
+
+      // A window made wider under the fingers (more columns): the same.
+      change(9);
+      await tester.pump();
+      await b.moveBy(const Offset(1, 0));
+      await tester.pump();
+      expect(asked, [4], reason: 'nothing asked: the columns of before the resize do not come back');
+      expect(find.text('9 columns'), findsOneWidget);
+      await a.up();
+      await b.up();
+      await tester.pump();
+    });
+
+    testWidgets('a step made by a key during a touchpad pinch stays', (tester) async {
+      final asked = await pumpArea(tester);
+      final pad = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+      await pad.panZoomStart(const Offset(300, 300));
+      await pad.panZoomUpdate(const Offset(300, 300), scale: 1.1);
+      await tester.pump();
+      change(5);
+      await pad.panZoomUpdate(const Offset(300, 300), scale: 1.11);
+      await tester.pump();
+      // 1.3 is a step from the pinch's start, but not from the 1.11 the
+      // fingers were at when the key came.
+      await pad.panZoomUpdate(const Offset(300, 300), scale: 1.3);
+      expect(asked, isEmpty);
+      await pad.panZoomUpdate(const Offset(300, 300), scale: 1.4);
+      expect(asked, [4], reason: 'a step on from the 5 of the key');
       await pad.panZoomEnd();
       await tester.pump();
       expect(find.text('4 columns'), findsOneWidget);

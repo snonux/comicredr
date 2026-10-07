@@ -214,6 +214,57 @@ void main() {
     expect(find.byKey(const Key('pageGrid')), findsNothing);
   });
 
+  testWidgets('zoom steps with no frame between them count from each other: wheel notches, then a pinch', (
+    tester,
+  ) async {
+    // What the page grid itself answers a step with; everything here
+    // comes between two frames, as input faster than the screen does.
+    await openBook(tester, 30);
+    await key(tester, LogicalKeyboardKey.keyP);
+    final grid = tester.getRect(find.byKey(const Key('pageGrid')));
+    int columns() {
+      final top = tester.getTopLeft(find.byKey(const Key('pageTile-0'))).dy;
+      var n = 0;
+      while (find.byKey(Key('pageTile-$n')).evaluate().isNotEmpty &&
+          tester.getTopLeft(find.byKey(Key('pageTile-$n'))).dy == top) {
+        n++;
+      }
+      return n;
+    }
+
+    double width() => tester.getSize(find.byKey(const Key('pageTile-0'))).width;
+    Future<String?> saved() => tester.runAsync<String?>(() => SettingsStore(db).loadString(SettingsStore.gridZoom));
+    final cols = columns();
+    expect(cols, inInclusiveRange(3, 6));
+
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(mouse.hover(grid.center));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 40)));
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 40)));
+    await settle(tester);
+    expect(columns(), cols + 2, reason: 'two notches, two steps');
+    expect(SettingsStore.parseSize(await saved()), closeTo(width(), 0.001));
+
+    // One more notch, then two fingers down and spread from 60 to 100 px
+    // apart, which is two steps: a column more, then two fewer. Counted
+    // from the columns on screen it would end a column short of that.
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 40)));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    final a = await tester.startGesture(grid.center - const Offset(30, 0), kind: PointerDeviceKind.touch);
+    final b = await tester.startGesture(grid.center + const Offset(30, 0), kind: PointerDeviceKind.touch);
+    await a.moveBy(const Offset(-20, 0));
+    await b.moveBy(const Offset(20, 0));
+    await a.up();
+    await b.up();
+    await settle(tester);
+    expect(columns(), cols + 1);
+    expect(SettingsStore.parseSize(await saved()), closeTo(width(), 0.001));
+    expect(find.byKey(const Key('pageGrid')), findsOneWidget, reason: 'the pinch picked no page');
+    await stopDetection(tester);
+  });
+
   testWidgets('a kept grid size that is no size is left alone: the grid opens at its usual size', (tester) async {
     Future<void> plus() async {
       await tester.sendKeyEvent(LogicalKeyboardKey.equal, character: '+');

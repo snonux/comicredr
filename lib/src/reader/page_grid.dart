@@ -83,7 +83,20 @@ class PageGridState extends ConsumerState<PageGrid> {
     );
   }
 
-  double _defaultTarget(BuildContext context) => MediaQuery.sizeOf(context).width < 600 ? 110 : 150;
+  /// The columns at the usual size in a grid [inner] wide on a screen
+  /// [screen] wide: tiles about 110 px on a phone, 150 px on anything
+  /// wider. Counted as it always was, with the allowance of
+  /// [GridZoom.columns], so the usual grid has the columns it had before
+  /// the zoom was shared with the library.
+  @visibleForTesting
+  static int usualColumns(double inner, double screen) => _zoom.columns(inner, screen < 600 ? 110 : 150);
+
+  /// The columns in a grid [inner] wide for the size asked for, or with
+  /// none the usual ones.
+  int _columnsIn(double inner) => switch (_target) {
+    null => usualColumns(inner, MediaQuery.sizeOf(context).width),
+    final target => _zoom.columns(inner, target),
+  };
 
   /// Bigger thumbnails (fewer columns) for [by] > 0, smaller for [by] < 0.
   void zoom(int by) => _setColumns(_columnsNow - by);
@@ -91,7 +104,7 @@ class PageGridState extends ConsumerState<PageGrid> {
   /// The columns for the size asked for. [_columns] only follows at the
   /// next layout, and two zoom steps can come before it (two wheel
   /// notches, a pinch step and a finger down).
-  int get _columnsNow => _zoom.columns(_inner, _target ?? _defaultTarget(context));
+  int get _columnsNow => _columnsIn(_inner);
 
   /// Zooms to [columns] a row. What is kept is the tile width that gives,
   /// so a wider window later fits more of them.
@@ -262,9 +275,8 @@ class PageGridState extends ConsumerState<PageGrid> {
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final target = _target ?? _defaultTarget(context);
                 final inner = _inner = constraints.maxWidth - 2 * _pad;
-                _columns = _zoom.columns(inner, target);
+                _columns = _columnsIn(inner);
                 _tileWidth = _zoom.tileWidth(inner, _columns);
                 _rowExtent = _tileWidth * 1.5 + _labelHeight + _gap;
                 if (!_placed) {

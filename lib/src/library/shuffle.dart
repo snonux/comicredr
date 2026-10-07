@@ -32,7 +32,7 @@ LibraryBook? shuffleBook(String group, List<LibraryBook> books, int seed) {
 
 /// Makes the pages shuffle shows, as the page grid's thumbnails
 /// (`<cache>/covers/pages/<content key>/<page>.jpg`, 256 px wide, and
-/// `w512/<page>.jpg` for covers sized by hand to more than 332 device
+/// `w512/<page>.jpg` for covers sized by hand to more than 332.8 device
 /// pixels; never at the usual cover size), so a page the grid made is
 /// reused and the other way round.
 ///

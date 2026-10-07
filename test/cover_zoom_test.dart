@@ -6,6 +6,7 @@ import 'package:comicredr/src/data/app_database.dart' hide Override;
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/grid_zoom.dart';
 import 'package:comicredr/src/library/cover_card.dart';
+import 'package:comicredr/src/library/library_screen.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/shuffle.dart';
@@ -126,6 +127,17 @@ void main() {
 
   Future<String?> saved(WidgetTester tester) =>
       tester.runAsync<String?>(() => SettingsStore(db).loadString(SettingsStore.coverSize));
+
+  /// The pictures of the covers on screen, by the comic they are of, as
+  /// the image cache keys them: the same file at the same decode width is
+  /// the same decoded picture.
+  Map<String, ResizeImage> coverPictures(WidgetTester tester) => {
+    for (final card in find.byType(CoverCard).evaluate())
+      for (final image in find.descendant(of: find.byWidget(card.widget), matching: find.byType(Image)).evaluate())
+        if ((image.widget as Image).key == null)
+          (card.widget as CoverCard).item.id: (image.widget as Image).image as ResizeImage,
+  };
+  Set<int?> widthsOf(Iterable<ResizeImage> pictures) => {for (final p in pictures) p.width};
 
   testWidgets('+ and - size the covers a column at a time, between a smallest and a biggest; = puts it back', (
     tester,
@@ -347,6 +359,186 @@ void main() {
     expect(scroll.position.pixels, greaterThan(0), reason: 'it scrolls');
   });
 
+  /// Whether the covers are sized by hand: what Settings' Usual size
+  /// button goes by.
+  bool sized(WidgetTester tester) => tester.state<LibraryScreenState>(find.byType(LibraryScreen)).coversZoomed;
+
+  testWidgets('steps with no frame between them count from each other: two wheel notches, a notch and a pinch', (
+    tester,
+  ) async {
+    // What the cover grid itself answers a step with. Everything below
+    // comes between two frames, as input faster than the screen does.
+    await inFolder(tester, size: const Size(2000, 1000));
+    final grid = tester.getRect(find.byKey(const Key('grid')));
+    final cols = columns(tester);
+    expect(cols, greaterThan(7), reason: 'room for four steps either way');
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(mouse.hover(grid.center));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, -40)));
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, -40)));
+    await settle(tester);
+    expect(columns(tester), cols - 2, reason: 'two notches, two steps');
+    expect(SettingsStore.parseSize(await saved(tester)), closeTo(width(tester), 0.001));
+
+    // A notch back, then two fingers down and spread from 80 to 140 px
+    // apart, which is two steps: one column more, then two fewer. Counted
+    // from the columns on screen, it would end a column short of that.
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, 40)));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    final a = await tester.startGesture(grid.center - const Offset(40, 0), kind: PointerDeviceKind.touch);
+    final b = await tester.startGesture(grid.center + const Offset(40, 0), kind: PointerDeviceKind.touch);
+    await a.moveBy(const Offset(-30, 0));
+    await b.moveBy(const Offset(30, 0));
+    await a.up();
+    await b.up();
+    await settle(tester);
+    expect(columns(tester), cols - 3);
+    expect(SettingsStore.parseSize(await saved(tester)), closeTo(width(tester), 0.001));
+    expect(sized(tester), isTrue);
+  });
+
+  testWidgets('a key during a pinch keeps its step, and a window resized under the fingers keeps its columns', (
+    tester,
+  ) async {
+    await inFolder(tester, size: const Size(2000, 1000));
+    final grid = tester.getRect(find.byKey(const Key('grid')));
+    final cols = columns(tester);
+    final a = await tester.startGesture(grid.center - const Offset(50, 0), kind: PointerDeviceKind.touch);
+    final b = await tester.startGesture(grid.center + const Offset(50, 0), kind: PointerDeviceKind.touch);
+    await tester.pump();
+
+    // `+` with both fingers down, and one of them moving a pixel before
+    // the next frame and another after it.
+    await tester.sendKeyEvent(LogicalKeyboardKey.equal, character: '+');
+    await b.moveBy(const Offset(1, 0));
+    await settle(tester);
+    expect(columns(tester), cols - 1, reason: "the key's step stays");
+    await b.moveBy(const Offset(1, 0));
+    await settle(tester);
+    expect(columns(tester), cols - 1, reason: 'also a frame later');
+    expect(SettingsStore.parseSize(await saved(tester)), closeTo(width(tester), 0.001));
+
+    // The pinch goes on from there: 102 px apart to 132 is one step.
+    await a.moveBy(const Offset(-15, 0));
+    await b.moveBy(const Offset(15, 0));
+    await settle(tester);
+    expect(columns(tester), cols - 2);
+    final kept = await saved(tester);
+
+    // The window made narrower with the fingers still down: fewer covers
+    // of the same size fit, and a finger moving a pixel changes nothing.
+    tester.view.physicalSize = const Size(1500, 1000);
+    await settle(tester);
+    final narrow = columns(tester);
+    expect(narrow, lessThan(cols - 2));
+    final wide = width(tester);
+    await b.moveBy(const Offset(1, 0));
+    await settle(tester);
+    expect((columns(tester), width(tester)), (narrow, wide), reason: 'the resize is not taken for a pinch');
+    expect(await saved(tester), kept, reason: 'and the size kept is the one the pinch asked for');
+    await a.up();
+    await b.up();
+    await settle(tester);
+    expect(columns(tester), narrow);
+  });
+
+  testWidgets('+ and then - is the usual size again: nothing kept, the pictures of before, nothing to put back', (
+    tester,
+  ) async {
+    // On a dense phone, where it shows most: two covers a row some 490
+    // device pixels wide decode at 400 at the usual size and would at 512
+    // sized by hand, and in shuffle a 512 px page would be made for each.
+    final pages = _HandMadePages('${tmp.path}/covers/pages');
+    await inFolder(
+      tester,
+      size: const Size(360, 800),
+      ratio: 3,
+      overrides: [shufflePagesProvider.overrideWithValue(pages)],
+    );
+    await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+    final usual = (columns(tester), width(tester));
+    expect(usual.$1, 2);
+    expect((sized(tester), await saved(tester)), (false, null));
+    expect(pages.sizesAsked, {256});
+
+    await plus(tester);
+    expect(columns(tester), 1);
+    expect(sized(tester), isTrue);
+    expect(pages.sizesAsked, {512});
+    await minus(tester);
+    expect((columns(tester), width(tester)), usual);
+    expect((sized(tester), await saved(tester)), (false, null), reason: 'as before the +');
+    expect(pages.sizesAsked, {256}, reason: 'the 512 px pages asked for are let go');
+    await pages.makeAll(tester);
+    expect(_shuffledWidths(tester), {256});
+    expect(pages.made.where((f) => f.contains('/w512/')), isEmpty, reason: 'no 512 px page was made');
+    await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+    expect(widthsOf(coverPictures(tester).values), {400});
+
+    // The other way round, and by a pinch: smaller, then spread back.
+    await minus(tester);
+    expect((columns(tester), sized(tester)), (3, true));
+    expect(widthsOf(coverPictures(tester).values), {400}, reason: 'a third of the phone is 320 device pixels');
+    final grid = tester.getRect(find.byKey(const Key('grid')));
+    final a = await tester.startGesture(grid.center - const Offset(40, 0), kind: PointerDeviceKind.touch);
+    final b = await tester.startGesture(grid.center + const Offset(40, 0), kind: PointerDeviceKind.touch);
+    await b.moveBy(const Offset(25, 0));
+    await a.up();
+    await b.up();
+    await settle(tester);
+    expect((columns(tester), width(tester)), usual);
+    expect((sized(tester), await saved(tester)), (false, null));
+    expect(widthsOf(coverPictures(tester).values), {400});
+  });
+
+  testWidgets('a kept size of the usual 160 px is the usual size; one that only gives its columns here is not', (
+    tester,
+  ) async {
+    await inFolder(tester);
+    await tester.tap(find.text('Books'));
+    await settle(tester);
+    final usual = (columns(tester), width(tester));
+    expect(width(tester), inExclusiveRange(165, 256), reason: 'a row filled out: wider than the 160 aimed for');
+    expect(widthsOf(coverPictures(tester).values), {400});
+
+    Future<void> restartWith(String kept) async {
+      await tester.runAsync(() => SettingsStore(db).saveString(SettingsStore.coverSize, kept));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await pumpApp(tester, const Size(1280, 800));
+      await settle(tester);
+      await tester.tap(find.text('Books'));
+      await settle(tester);
+    }
+
+    // 160 from a settings file written by hand (the app keeps the usual
+    // size as no setting): the usual size, pictures and all. The setting
+    // is left as it is until a step changes it.
+    for (final kept in ['160', '160.0']) {
+      await restartWith(kept);
+      expect((columns(tester), width(tester)), usual, reason: 'kept "$kept"');
+      expect((sized(tester), await saved(tester)), (false, kept));
+      expect(widthsOf(coverPictures(tester).values), {400}, reason: 'kept "$kept"');
+      await plus(tester);
+      expect(sized(tester), isTrue);
+      await minus(tester);
+      expect((columns(tester), sized(tester), await saved(tester)), (usual.$1, false, null), reason: 'kept "$kept"');
+    }
+
+    // Any other width is a size set by hand, also when it shows as many
+    // covers a row as the usual size does in this window: it is kept, the
+    // pictures go by the covers' width, and Usual size has something to do.
+    await restartWith('165');
+    expect((columns(tester), width(tester)), usual);
+    expect((sized(tester), await saved(tester)), (true, '165'));
+    expect(widthsOf(coverPictures(tester).values), {256});
+    await equals(tester);
+    expect((columns(tester), sized(tester), await saved(tester)), (usual.$1, false, null));
+    expect(widthsOf(coverPictures(tester).values), {400});
+  });
+
   testWidgets('a pinch sizes the covers on a phone; one finger still scrolls, taps and long-presses', (tester) async {
     final c = await inFolder(tester, size: const Size(400, 800));
     final grid = tester.getRect(find.byKey(const Key('grid')));
@@ -523,17 +715,6 @@ void main() {
     expect(width(tester), inInclusiveRange(72, 72 * 1.2), reason: 'tiny: the smallest covers');
   });
 
-  /// The pictures of the covers on screen, by the comic they are of, as
-  /// the image cache keys them: the same file at the same decode width is
-  /// the same decoded picture.
-  Map<String, ResizeImage> coverPictures(WidgetTester tester) => {
-    for (final card in find.byType(CoverCard).evaluate())
-      for (final image in find.descendant(of: find.byWidget(card.widget), matching: find.byType(Image)).evaluate())
-        if ((image.widget as Image).key == null)
-          (card.widget as CoverCard).item.id: (image.widget as Image).image as ResizeImage,
-  };
-  Set<int?> widthsOf(Iterable<ResizeImage> pictures) => {for (final p in pictures) p.width};
-
   testWidgets('covers decode 400 px wide at the usual size, by their width once sized, and a step often reuses them', (
     tester,
   ) async {
@@ -543,10 +724,13 @@ void main() {
     expect(coverPictures(tester), isNotEmpty, reason: 'the scan made covers');
     expect(width(tester), lessThan(256));
     expect(widthsOf(coverPictures(tester).values), {400}, reason: 'the usual size: as before covers could be sized');
+    final usual = columns(tester);
 
     // Every size from the biggest to the smallest: the decode width is the
-    // tile's bucket, and a step that stays in the bucket shows the very
-    // pictures the image cache holds.
+    // tile's bucket (400 on the way through the usual size, which a step
+    // to its columns is), and a step that stays in the bucket shows the
+    // very pictures the image cache holds.
+    int decoded() => columns(tester) == usual ? usualCoverDecodeWidth : coverDecodeWidth(width(tester));
     for (var i = 0; i < 8; i++) {
       await plus(tester);
     }
@@ -554,12 +738,12 @@ void main() {
     var reused = 0;
     for (var last = 0; columns(tester) != last;) {
       last = columns(tester);
-      final bucket = coverDecodeWidth(width(tester));
+      final bucket = decoded();
       final before = coverPictures(tester);
       expect(widthsOf(before.values), {bucket}, reason: '$last a row, ${width(tester)} px');
       buckets.add(bucket);
       await minus(tester);
-      if (columns(tester) == last || coverDecodeWidth(width(tester)) != bucket) continue;
+      if (columns(tester) == last || decoded() != bucket) continue;
       final after = coverPictures(tester);
       for (final id in before.keys.where(after.containsKey)) {
         expect(after[id], before[id], reason: '$id, from $last a row to ${columns(tester)}');

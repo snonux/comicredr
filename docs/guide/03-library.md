@@ -80,7 +80,9 @@ the page as it is.
 
 Covers at the usual size look as they always did and take the same
 memory. Small covers each take less, since many more of them fit on a
-screen.
+screen. You get back to the usual size with `=`, and also by stepping
+back to it: after `+`, a `-` is the usual size again, exactly as if you
+had never changed it.
 
 The cover you selected stays in view while the size changes. The size
 is the same on every tab of covers (Reading, Series, Books, Collections

@@ -58,6 +58,14 @@ class GridZoom {
     return clamp(inner, _whole((inner + gap) / (target + gap) + 0.01));
   }
 
+  /// How many tiles exactly [width] wide fit in a row, with no allowance
+  /// for rounding and no limits: what a grid's usual size is counted
+  /// with. That size was never worked out from a column count, so it has
+  /// no rounding to make up for, and the hair [columns] adds would show a
+  /// tile more than the grid always did in the last pixel or two below
+  /// each further column (the covers: three for two at 526.3 to 528 px).
+  int fitting(double inner, double width) => _whole((inner + gap) / (width + gap));
+
   /// [x] rounded down to a whole number that is safe to count columns
   /// with: nothing for NaN and below zero, and no more than [_tooMany].
   /// (`floor()` on NaN or infinity throws.)
@@ -70,8 +78,11 @@ class GridZoom {
   double tileWidth(double inner, int columns) => (inner - (columns - 1) * gap) / columns;
 
   /// A pinch is a step each time the fingers spread by a quarter (positive)
-  /// or close by as much (negative).
-  static int pinchSteps(double scale) => (math.log(scale) / math.log(1.25)).truncate();
+  /// or close by as much (negative). None for a scale that is no scale
+  /// (zero, as two fingers on one spot give, below it or not a number):
+  /// its logarithm could not be counted in steps.
+  static int pinchSteps(double scale) =>
+      scale.isFinite && scale > 0 ? (math.log(scale) / math.log(1.25)).truncate() : 0;
 }
 
 /// Wraps a scrolling grid so that Ctrl and the wheel, a touchpad pinch and
@@ -103,11 +114,23 @@ class GridZoomAreaState extends State<GridZoomArea> {
 
   /// The fingers on the grid, in the order they came down. The first two
   /// pinch: [_pinchFrom] is how far apart they were, and [_pinchColumns]
-  /// the columns then, at the last time a finger came or went.
+  /// the columns then, at the last time the pinch started: a finger came
+  /// or went, or the columns changed from outside ([_restartPinch]).
   final _fingers = <int, Offset>{};
   double? _pinchFrom;
   int _pinchColumns = 1;
   bool _pinched = false;
+
+  /// The steps from [_pinchColumns] the pinch last asked for. The grid is
+  /// only asked when the fingers reach another step, so a finger moving
+  /// within a step leaves alone what a key or a button did meanwhile.
+  int _pinchSteps = 0;
+
+  /// A touchpad pinch reports its scale since it began: [_padScale] is
+  /// the last one (null with no such pinch under way) and [_padFrom] the
+  /// scale its steps are counted from, 1 until the pinch is started again.
+  double? _padScale;
+  double _padFrom = 1;
 
   /// What the grid answered the last time it was asked, until it is built
   /// again and [GridZoomArea.columns] says so itself. Several pointer
@@ -134,8 +157,24 @@ class GridZoomAreaState extends State<GridZoomArea> {
   @override
   void didUpdateWidget(GridZoomArea oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Built again: the widget's count is the grid's own once more.
+    // Built again: the widget's count is the grid's own once more. When it
+    // is not what the area last knew, something else changed it (a key, a
+    // button, a window resized), and a pinch under way goes on from it.
+    final known = _answered ?? oldWidget.columns;
     _answered = null;
+    if (widget.columns != known) _restartPinch();
+  }
+
+  /// The columns changed from outside with a pinch under way: it starts
+  /// again from them and from where the fingers are now. Counted on from
+  /// its old start, its next step would take a `+` typed meanwhile back,
+  /// or bring the column count of before a resize to the new width.
+  /// Nothing here is shown, so nothing is built again.
+  void _restartPinch() {
+    _pinchColumns = widget.columns;
+    _pinchSteps = 0;
+    if (_pinchFrom != null && _fingers.length >= 2) _pinchFrom = _spread;
+    _padFrom = _padScale ?? 1;
   }
 
   @override
@@ -170,7 +209,32 @@ class GridZoomAreaState extends State<GridZoomArea> {
 
   /// The columns the pinch started with, less a column for each step the
   /// fingers spread; a touchpad pinch (pan-zoom events) the same way.
-  void _pinch(double scale) => _ask(_pinchColumns - GridZoom.pinchSteps(scale));
+  /// Asked only when the step count changes: most moves stay within a
+  /// step, and asking for the pinch's own columns again on each of them
+  /// would undo a step made by a key since, which this area only learns
+  /// of when it is built again ([didUpdateWidget]). (A pinch reaching a
+  /// new step in the very frame of the key's step still counts from the
+  /// columns of before the key: the area cannot know of it yet.)
+  void _pinch(double scale) {
+    final steps = GridZoom.pinchSteps(scale);
+    if (steps == _pinchSteps) return;
+    _pinchSteps = steps;
+    _ask(_pinchColumns - steps);
+  }
+
+  /// A touchpad pinch begins, from the columns there are now.
+  void _padStart() {
+    if (!mounted) return;
+    _pinchColumns = _columns;
+    _pinchSteps = 0;
+    _padScale = _padFrom = 1;
+  }
+
+  /// The touchpad pinch moved: its steps are counted from [_padFrom].
+  void _padUpdate(PointerPanZoomUpdateEvent e) {
+    _padScale = e.scale;
+    _pinch(e.scale / _padFrom);
+  }
 
   // The pointer callbacks below can still come after the grid is gone (a
   // tab change or a closed book with fingers down): the touch keeps
@@ -207,6 +271,7 @@ class GridZoomAreaState extends State<GridZoomArea> {
   void _rebase() {
     final from = _fingers.length >= 2 ? _spread : null;
     _pinchColumns = _columns;
+    _pinchSteps = 0;
     // The grid stops scrolling while two fingers are down, and scrolls
     // again when they are not.
     if ((from == null) != (_pinchFrom == null)) {
@@ -229,10 +294,9 @@ class GridZoomAreaState extends State<GridZoomArea> {
     onPointerMove: _fingerMove,
     onPointerUp: _fingerUp,
     onPointerCancel: _fingerUp,
-    onPointerPanZoomStart: (_) {
-      if (mounted) _pinchColumns = _columns;
-    },
-    onPointerPanZoomUpdate: (e) => _pinch(e.scale),
+    onPointerPanZoomStart: (_) => _padStart(),
+    onPointerPanZoomUpdate: _padUpdate,
+    onPointerPanZoomEnd: (_) => _padScale = null,
     // Two fingers pinch; they do not scroll meanwhile. Nor does the wheel
     // while Ctrl makes it zoom.
     child: widget.builder(context, _pinchFrom != null || _ctrl ? const NeverScrollableScrollPhysics() : null),
