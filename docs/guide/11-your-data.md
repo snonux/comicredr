@@ -74,7 +74,8 @@ Settings → **Back up** → **Export settings…** saves everything of yours
 that is not a comic in one file, `comicredr-settings-2026-09-26.json`:
 
 - every setting, including the ones changed while reading (fullscreen,
-  the night filter, auto-trim, the page grid's size, shuffle);
+  the night filter, auto-trim, the page grid's size, the text size of
+  the `?` list, shuffle);
 - your library folders and where the sidecars are kept;
 - your `keys.toml`, if you have one;
 - for every comic, where you are, your bookmarks, notes and marks, the

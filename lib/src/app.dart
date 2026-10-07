@@ -13,6 +13,7 @@ import 'package:reader_input/reader_input.dart';
 
 import 'android_storage.dart';
 import 'data/settings_file.dart';
+import 'help_zoom.dart';
 import 'input/keys_file.dart';
 import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
@@ -583,6 +584,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await ref.read(scrollSmoothnessProvider.notifier).reload();
     await _library.currentState?.reloadSettings();
     forgetGridZoom(ref);
+    await ref.read(helpZoomProvider.notifier).reload();
     final sync = ref.read(sidecarSyncProvider)..placeChanged();
     done.books.forEach(sync.touch);
     unawaited(_rescan());
@@ -851,6 +853,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
+  /// The zoom keys while the `?` help is up: its text a step bigger or
+  /// smaller for each press (a count is that many steps, `3+`), or back to
+  /// the usual size. They come as intents, so keys set in keys.toml work.
+  /// False for any other command.
+  bool _sizeHelp(ReaderCommand c) {
+    final size = ref.read(helpZoomProvider.notifier);
+    switch (c.intent) {
+      case ReaderIntent.zoomIn:
+        size.step(c.times);
+      case ReaderIntent.zoomOut:
+        size.step(-c.times);
+      case ReaderIntent.zoomReset:
+        size.set(HelpZoom.usual);
+      default:
+        return false;
+    }
+    return true;
+  }
+
   void _onCommand(ReaderCommand c) {
     // The time, anywhere: the library, the reader, fullscreen.
     if (c.intent == ReaderIntent.showTime) {
@@ -877,6 +898,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       if (!(_overlay.currentState?.back() ?? false)) setState(() => _showKeymap = false);
       return;
     }
+    // + - = in the help size its text, not the page or the covers behind it.
+    if (_showKeymap && _sizeHelp(c)) return;
     // Nothing else reaches the library or the reader hidden behind the help:
     // Enter would open a book under it, gd ask to delete one.
     if (_showKeymap && c.intent != ReaderIntent.fullscreen) return;
@@ -1078,6 +1101,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
     final keymap = ref.watch(keymapProvider);
     final keysLoad = ref.watch(keymapLoadProvider);
+    // Watched whether the help shows or not, so the saved size is read at
+    // the start and the help opens at it the first time.
+    final helpStep = ref.watch(helpZoomProvider);
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -1127,6 +1153,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     keysFile: keysLoad.path,
                     dataDir: ref.watch(appDataDirProvider),
                     warnings: keysLoad.load.warnings,
+                    step: helpStep,
+                    onStep: ref.read(helpZoomProvider.notifier).set,
                     onDone: _keys.requestFocus,
                   ),
               ],

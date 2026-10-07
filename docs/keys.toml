@@ -87,11 +87,11 @@ fitWidth = ["zw"]
 fitHeight = ["zh"]
 # Fit whole page; re-centre the panel in guided view
 fitPage = ["zz"]
-# Zoom in; bigger pages in the page grid, bigger covers in the library
+# Zoom in; bigger pages in the page grid, bigger covers in the library, bigger text in the ? help
 zoomIn = ["+"]
-# Zoom out; smaller pages in the page grid, smaller covers in the library
+# Zoom out; smaller pages in the page grid, smaller covers in the library, smaller text in the ? help
 zoomOut = ["-"]
-# Reset zoom; the usual size in the page grid and the library
+# Reset zoom; the usual size in the page grid, the library and the ? help
 zoomReset = ["="]
 # Zoom in on that spot, or back out when zoomed; re-centre the panel in guided view
 zoomToggle = ["Z"]

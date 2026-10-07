@@ -124,6 +124,11 @@ a phone's touchscreen and a laptop touchscreen all do the same things, and
 the `?` help and `docs/keys.toml` are generated from the one keymap. Pinch
 zoom and panning are the only gestures handled directly by the view.
 
+While the `?` help is open the app keeps every intent from the library and
+the reader behind it. It acts on a few itself: search, back, and the zoom
+intents (`+` `-` `=`), which size the help's text in fixed steps
+(`HelpZoom` in `lib/src/help_zoom.dart`, the setting `help.textSize`).
+
 ## Guided view
 
 Guided view moves a camera from panel to panel. The camera is just a

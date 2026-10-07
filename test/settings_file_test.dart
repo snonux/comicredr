@@ -59,6 +59,7 @@ void main() {
     SettingsStore.sidecarDir: (await dir('Stash')).path,
     SettingsStore.gridZoom: '212.5',
     SettingsStore.coverSize: '240.0',
+    SettingsStore.helpTextSize: '1.5',
     SettingsStore.shuffle: true,
     SettingsStore.folderFilter: '{"formats":["pdf"],"size":"any","date":"week"}',
     SettingsStore.touchPreset: 'oneThumb',
@@ -169,7 +170,7 @@ void main() {
     expect(done.books, {'a', 'b'});
     expect(
       importNotice(done),
-      'Imported 21 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
+      'Imported 22 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
       'and 2 history entries.',
     );
 
@@ -284,33 +285,48 @@ void main() {
     expect(importNotice(done), endsWith('11 entries this version does not know skipped.'));
   });
 
-  test('a size in a file must be a finite number above zero, for the covers and the page grid alike', () async {
-    String file(String key, Object? value) => jsonEncode({
-      'app': 'org.snonux.comicredr',
-      'kind': 'settings',
-      'format': 1,
-      'settings': {key: value, SettingsStore.night: true},
-    });
-    for (final key in [SettingsStore.coverSize, SettingsStore.gridZoom]) {
-      // No size: a grid laid out from one of these could not be built.
-      for (final bad in <Object?>['NaN', '-12', '0', '-0.0', 'Infinity', '-Infinity', '1e999', 'big', '', 240, true]) {
-        final read = SettingsFile.decode(file(key, bad));
-        expect(read.settings, {SettingsStore.night: true}, reason: '$key: $bad is left out');
-        expect(read.skipped, 1, reason: '$key: $bad is counted');
+  test(
+    'a size in a file must be a finite number above zero, for the covers, the page grid and the help alike',
+    () async {
+      String file(String key, Object? value) => jsonEncode({
+        'app': 'org.snonux.comicredr',
+        'kind': 'settings',
+        'format': 1,
+        'settings': {key: value, SettingsStore.night: true},
+      });
+      for (final key in [SettingsStore.coverSize, SettingsStore.gridZoom, SettingsStore.helpTextSize]) {
+        // No size: a grid laid out from one of these could not be built.
+        for (final bad in <Object?>[
+          'NaN',
+          '-12',
+          '0',
+          '-0.0',
+          'Infinity',
+          '-Infinity',
+          '1e999',
+          'big',
+          '',
+          240,
+          true,
+        ]) {
+          final read = SettingsFile.decode(file(key, bad));
+          expect(read.settings, {SettingsStore.night: true}, reason: '$key: $bad is left out');
+          expect(read.skipped, 1, reason: '$key: $bad is counted');
+        }
+        // A size, however odd: the grids keep to their own limits, the help to its steps.
+        for (final good in ['240.0', '72.05263157894737', '1e300', '0.001']) {
+          final read = SettingsFile.decode(file(key, good));
+          expect(read.settings, {key: good, SettingsStore.night: true}, reason: '$key: $good');
+          expect(read.skipped, 0);
+        }
       }
-      // A size, however odd: the grid keeps to its own limits.
-      for (final good in ['240.0', '72.05263157894737', '1e300', '0.001']) {
-        final read = SettingsFile.decode(file(key, good));
-        expect(read.settings, {key: good, SettingsStore.night: true}, reason: '$key: $good');
-        expect(read.skipped, 0);
-      }
-    }
-    // Imported over a good size here, a bad one leaves the default, never itself.
-    await SettingsStore(to).saveString(SettingsStore.coverSize, '200.0');
-    await SettingsStore(to).saveString(SettingsStore.gridZoom, '120.0');
-    await import(file(SettingsStore.coverSize, 'NaN'));
-    expect(await settingsOf(to), {SettingsStore.night: true});
-  });
+      // Imported over a good size here, a bad one leaves the default, never itself.
+      await SettingsStore(to).saveString(SettingsStore.coverSize, '200.0');
+      await SettingsStore(to).saveString(SettingsStore.gridZoom, '120.0');
+      await import(file(SettingsStore.coverSize, 'NaN'));
+      expect(await settingsOf(to), {SettingsStore.night: true});
+    },
+  );
 
   test('an import merges with what is here, and twice is the same as once', () async {
     await fill();
@@ -364,7 +380,7 @@ void main() {
     expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], ['Comics']);
     expect(done.foldersMissing, [p.join(tmp.path, 'Manga')]);
     expect(done.sidecarDirMissing, here);
-    expect(done.settings, 20);
+    expect(done.settings, 21);
     expect(importNotice(done), contains('1 library folder not on this device: ${p.join(tmp.path, 'Manga')}.'));
     expect(importNotice(done), contains("The sidecar folder $here is not on this device; kept this one's."));
   });

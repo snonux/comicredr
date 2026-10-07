@@ -7,6 +7,21 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Bigger and smaller text in the `?` help:** in the list of keys `+`
+  makes all of its text a step bigger, up to three times the usual size,
+  `-` makes it smaller again (down to 0.7 of the usual size) and `=` puts
+  the usual size back. `Ctrl` and the mouse wheel, a pinch on a touchpad
+  and two fingers on a touchscreen do the same. They are the zoom keys,
+  so keys of your own from `keys.toml` work, and the first line of the
+  help names them. The size is remembered across restarts and goes into
+  a settings export. While the help is open the keys change only the
+  help, not the comic or the covers behind it; typed into the help's
+  search, `+` and `-` are searched for as before, and size the text again
+  after `Enter`. With big text in a narrow window each action's keys go
+  on a line above what it does, so nothing is cut off. The help's title
+  line and the notes under it (the data folder, the `keys.toml` in use)
+  now scroll away with the list instead of staying on top: in big
+  letters they would have left no room for the keys.
 - **Bigger and smaller covers in the library:** `+` and `-` now size the
   covers on the Folders tab and every other tab of covers (Reading,
   Series, Books, Collections), a column fewer or more a press, and `=`

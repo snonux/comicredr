@@ -56,15 +56,21 @@ class SettingsStore {
   /// a string. Unset for the default.
   static const coverSize = 'library.coverSize';
 
-  /// The settings that hold a tile width: a file's value must be one
-  /// ([parseSize]).
-  static const sizes = {gridZoom, coverSize};
+  /// How big the text of the `?` help is (`+` `-` in it): the factor on
+  /// the usual text size, as a string (`1.5`). Unset for the usual size.
+  /// Read back as the nearest of the help's steps (HelpZoom).
+  static const helpTextSize = 'help.textSize';
 
-  /// A tile width as saved, or null when it is not a finite number above
-  /// zero: `NaN`, `-12`, `0`, `Infinity` and `1e999` (which reads as
-  /// infinity) are no width, and a grid laid out from one could not be
-  /// built. A width too big or too small for the grid is fine: the grid
-  /// keeps to its own limits (GridZoom).
+  /// The settings that hold a size, a tile width or the help's text
+  /// factor: a file's value must be one ([parseSize]).
+  static const sizes = {gridZoom, coverSize, helpTextSize};
+
+  /// A size as saved (a tile width, the help's text factor), or null when
+  /// it is not a finite number above zero: `NaN`, `-12`, `0`, `Infinity`
+  /// and `1e999` (which reads as infinity) are no size, and a grid laid
+  /// out from one could not be built. A size too big or too small is
+  /// fine: the grids keep to their own limits (GridZoom) and the help
+  /// takes the nearest of its steps (HelpZoom).
   static double? parseSize(String? s) => switch (double.tryParse(s ?? '')) {
     final v? when v.isFinite && v > 0 => v,
     _ => null,
@@ -128,6 +134,7 @@ class SettingsStore {
     sidecarDir: false,
     gridZoom: false,
     coverSize: false,
+    helpTextSize: false,
     shuffle: true,
     folderFilter: false,
     touchPreset: false,

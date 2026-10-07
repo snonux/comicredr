@@ -25,6 +25,32 @@ and `Esc` again closes the list.
 The top of the list also shows ComicRedr's data folder, and which
 `keys.toml` is loaded when you have one.
 
+### Bigger and smaller text
+
+When the list is hard to read, press `+` in it: every press makes all of
+its text a step bigger, up to three times the usual size. `-` makes it
+smaller again, down to a little under the usual size, and `=` puts the
+usual size back. `Ctrl` and the mouse wheel do the same, and so does a
+pinch on a touchpad or two fingers on a touchscreen. The first line of
+the list names the keys.
+
+Say you sit back from the screen with the keyboard on your lap: press
+`?`, then `+` three times, and the keys can be read from there. The size
+stays for the next time you press `?`, also after a restart, and it goes
+into a [settings export](11-your-data.md#back-up-and-restore-your-settings).
+
+With big text in a narrow window there is no room for the keys and what
+they do side by side; each action then has its keys on one line and what
+it does below. Scroll with the mouse wheel or a finger as before.
+
+These are the same keys that [zoom a page](04-reading.md#zoom) and
+[size the covers](03-library.md#bigger-and-smaller-covers), so if you
+gave zooming other keys in your `keys.toml`, those work here too. While
+the help is open they change only the help, never the comic or the
+library behind it. While you type in the search, `+` and `-` are typed
+like any other character, so you can search for them; press `Enter` to
+keep what you found and get the keys back, and then they size the text.
+
 ## The keys you'll use most
 
 | Key | In a comic | In the library |
@@ -54,7 +80,7 @@ The top of the list also shows ComicRedr's data folder, and which
 | `I` | [Details](07-managing-comics.md#details-of-a-comic) | Details of the selected book |
 | `f` | [Fullscreen](04-reading.md#fullscreen) | Fullscreen |
 | `/` | | [Search](03-library.md#search) |
-| `?` | Every key | Every key |
+| `?` | Every key (`+` `-` `=` in it: [bigger and smaller text](#bigger-and-smaller-text)) | Every key |
 
 The full list, with every key and a line on what it does, is
 [docs/keys.toml](../keys.toml).
