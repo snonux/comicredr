@@ -12,6 +12,18 @@ import 'library_store.dart';
 import 'providers.dart';
 import 'shuffle.dart';
 
+/// The widths a cover is decoded at. Only these two, so that a pinch, a
+/// `+` or a window dragged wider does not decode every cover on screen
+/// again at each new tile width while the old sizes sit in the image
+/// cache: 400 for the default size and everything smaller (the details
+/// pane decodes at 400 too), and the 512 the cover files have.
+const coverDecodeWidths = [400, 512];
+
+/// The decode width for a cover drawn [px] screen pixels wide: the first
+/// of [coverDecodeWidths] that covers it, else the biggest. A tile wider
+/// than that shows the cover scaled up; the file has no more.
+int coverDecodeWidth(double px) => coverDecodeWidths.firstWhere((w) => w >= px, orElse: () => coverDecodeWidths.last);
+
 /// A cover image from the cache, or a placeholder while the scan has not
 /// made it yet.
 class CoverImage extends StatelessWidget {
@@ -52,10 +64,16 @@ class CoverCard extends StatelessWidget {
     this.shuffleBook,
     this.marked = false,
     this.coverWidth = 400,
+    this.shuffleSize = ShufflePages.width,
   });
 
-  /// How many pixels wide the cover is decoded: more for a zoomed-in grid.
+  /// How many pixels wide the cover is decoded ([coverDecodeWidth]): more
+  /// for a zoomed-in grid.
   final int coverWidth;
+
+  /// In shuffle, how many pixels wide the page is made and decoded
+  /// ([ShufflePages.sizeFor]).
+  final int shuffleSize;
 
   /// Marked with the others for an action on several (`V`, Ctrl+click).
   final bool marked;
@@ -116,6 +134,7 @@ class CoverCard extends StatelessWidget {
                       ShuffledPage(
                         book: from,
                         page: page,
+                        size: shuffleSize,
                         cover: CoverImage(bookKey: book?.key, width: coverWidth),
                       )
                     else if (onlyBook?.remoteOnly ?? false)

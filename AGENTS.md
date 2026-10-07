@@ -375,43 +375,76 @@ refreshes right away instead of within six hours.
   by Flutter's decoder, JPEG-encoded on a short isolate and kept in
   `<cache>/covers/pages/<content key>/<page>.jpg`. Newest request first,
   two at a time; tiles evict their images when they scroll away.
-- Cover size (`+` `-` `=`, Ctrl+wheel, a pinch; snonux, task 063): the
-  reader's `zoomIn`/`zoomOut`/`zoomReset` intents, which
-  `LibraryScreenState.handle` takes on a tab of covers (`_coverTab`; the
-  History and Bookmarks lists ignore them). `GridZoom`
+- Cover size (`+` `-` `=`, Ctrl+wheel, a pinch, two buttons in Settings;
+  snonux, task 063): the reader's `zoomIn`/`zoomOut`/`zoomReset`
+  intents, which `LibraryScreenState.handle` takes on a tab of covers.
+  They, the pinch and the buttons all end in `_setCoverColumns`, which
+  does nothing and saves nothing unless the cover grid is on screen
+  (`_coversShown`: the `GridZoomArea`'s GlobalKey has a state, so not on
+  the History and Bookmarks lists, an empty tab, or a phone-wide window
+  with a cover's or folder's details page up). `GridZoom`
   (`lib/src/grid_zoom.dart`) is the arithmetic the page grid (`p`) and
   the cover grids share: a step is one column, what is kept is the tile
   width that gives (`tileWidth`), and `columns` brings a kept width back
-  to a column count within `fewest`..`most`. The page grid is
+  to a column count within `fewest`..`most`. It never throws, whatever
+  the width or target (NaN, zero and below give the most columns,
+  infinity the fewest). The page grid is
   `GridZoom(gap: 8, smallest: 56)` (down to one page a row), the covers
   `GridZoom(gap: 12, smallest: 72, largest: 480)`; unzoomed, the covers
-  aim for 160 px and never fewer than two a row, as before.
+  aim for 160 px and never fewer than two a row (`_columnsIn`).
   `GridZoomArea` (same file) wraps either grid in a `Listener`: Ctrl and
   the wheel, a touchpad pinch (pan-zoom events) and two touch pointers
   (a step per quarter the fingers spread or close, `pinchSteps`) call
   `onColumns`, and the grid is built with the physics it hands over
-  (`NeverScrollableScrollPhysics` while two fingers are down or Ctrl is
-  held). Its `pinched` stays true from the second finger down until the
+  (`NeverScrollableScrollPhysics` while two or more fingers are down or
+  Ctrl is held). The pinch is between the first two fingers down and
+  starts again (`_rebase`: spread and columns as they are now) whenever a
+  finger comes or goes, so a third finger taking over from one that
+  lifted does not jump; every pointer callback checks `mounted`, since a
+  touch keeps reporting to a grid that a tab change took away. Its
+  `pinched` stays true from the second finger down until the
   next touch starts; while it is, the cover grid drops taps and long
   presses and the page grid taps, so a finger resting during a pinch
   opens nothing. The covers' width
-  is `_coverTarget`, one for every tab, saved as `library.coverSize` (a
-  number as a string, unset for the default; in `SettingsStore.backedUp`
-  and `SettingsStore.sizes`, which a settings file must give as numbers)
-  and reloaded by `reloadSettings` after an import. After a zoom
+  is `_coverTarget`, one for every tab, saved as `library.coverSize`,
+  the page grid's as `grid.zoom`: the width in full
+  (`SettingsStore.sizeText`, the double's own text; a tenth of a pixel
+  could give a column fewer back from 16 columns on in the page grid and
+  19 in the covers), unset for the default. Both are in `SettingsStore.backedUp` and
+  `SettingsStore.sizes`; `SettingsStore.parseSize` reads one, null unless
+  it is a finite number above zero, which is what a settings file must
+  give (`SettingsFile._fits`) and what both grids take up at start (a
+  `NaN` put there by hand is the default size). `reloadSettings` reloads
+  it after an import. After a zoom
   `_showAgain` reveals the selected cover if it was on screen, else puts
-  the row that was along the top back there. Covers decode at the tile's
-  width, 400 to 512 px (`CoverCard.coverWidth`). There is no button for
-  it: the phone's header has no room, so there it is the pinch.
+  the row that was along the top back there. Settings → Library → Cover
+  size (`_CoverSizePicker` in `settings_dialog.dart`) drives the library
+  through the `CoverSizer` interface `LibraryScreenState` implements
+  (`showSettings(covers: this)`): two buttons and Usual size, off at the
+  limits and while no cover grid is behind the dialog. It sits between
+  Guided view and Sidecars, so what the e2e scripts click above it,
+  counted from the dialog's top, has not moved; the ones that click from
+  its bottom (e2e_s3_settings, e2e_settings_backup) scroll 30 wheel
+  notches to get there, since 20 no longer reach the end.
+  Pictures: cover files are 512 px wide (the scanner makes them), so a
+  cover is sharp up to 512 device pixels and scaled up beyond (480 px
+  covers at 3x are 1440); the range is not cut down for that, and the
+  guide says so. Covers decode at 400 or 512 px only
+  (`coverDecodeWidth`, `cover_card.dart`), shuffled pages at 256 or
+  512 (`ShufflePages.sizeFor`), so zoom steps and resizes reuse the
+  decoded pictures.
 - Shuffle (`S` on the Folders tab, `gs` picks again; setting
   `library.shuffle`): each book tile shows page `shufflePage(key, pages,
   seed)` instead of its cover, never page 1, from a seed made anew when
   shuffle turns on, a folder is entered or `gs`, so scrolling keeps the
   picks. `ShufflePages` (`lib/src/library/shuffle.dart`) makes them into
   the page grid's thumbnail files (`<cache>/covers/pages/<key>/<n>.jpg`,
-  256 px) for tiles on screen only, newest first, two at a time; each opens
+  256 px; `w512/<n>.jpg`, 512 px, for tiles more than 332 device pixels
+  wide, never the grid's 1024) for tiles on screen only, newest first,
+  two at a time; each opens
   the book through `BackgroundDocument` and closes it straight after. The
-  cover shows until the page is ready. On a phone-wide header the
+  cover shows until the page is ready, and the 256 px page until a 512 px
+  one is. On a phone-wide header the
   reshuffle button is left out; `gs` or `S` twice picks again.
 - The Folders tab's filter (`F`, `ReaderIntent.filterFolders`;
   `FolderFilter` in `lib/src/library/folder_filter.dart`, its window in
@@ -783,7 +816,7 @@ tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slo
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
-tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, + typed in the search box, the size kept across a restart; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
+tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked, the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
 python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot

@@ -214,6 +214,60 @@ void main() {
     expect(find.byKey(const Key('pageGrid')), findsNothing);
   });
 
+  testWidgets('a kept grid size that is no size is left alone: the grid opens at its usual size', (tester) async {
+    Future<void> plus() async {
+      await tester.sendKeyEvent(LogicalKeyboardKey.equal, character: '+');
+      await settle(tester);
+    }
+
+    double width() => tester.getSize(find.byKey(const Key('pageTile-0'))).width;
+    Future<String?> saved() => tester.runAsync<String?>(() => SettingsStore(db).loadString(SettingsStore.gridZoom));
+    final path = writeBook(tmp, 'Grid 01.cbz', 30);
+
+    /// A fresh start with [kept] as the saved size, the grid open.
+    Future<void> startWith(String? kept) async {
+      await tester.runAsync(() => SettingsStore(db).saveString(SettingsStore.gridZoom, kept));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            coverDirProvider.overrideWithValue('${tmp.path}/covers'),
+            classicCvOnly,
+            noSidecars(db),
+          ],
+          child: const ComicRedrApp(),
+        ),
+      );
+      await tester.pump();
+      final c = ProviderScope.containerOf(tester.element(find.byType(ComicRedrApp)));
+      await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.keyP);
+      expect(tester.takeException(), isNull, reason: 'kept "$kept"');
+      expect(find.byKey(const Key('pageTile-0')), findsOneWidget, reason: 'kept "$kept": the grid is built');
+    }
+
+    await startWith(null);
+    final usual = width();
+    for (final bad in ['NaN', '-12', '0', 'Infinity', '-Infinity', '1e999', 'big', '']) {
+      await startWith(bad);
+      expect(width(), usual, reason: 'kept "$bad"');
+      // And + works from there, keeping a real size.
+      await plus();
+      expect(width(), greaterThan(usual), reason: '+ after "$bad"');
+      expect(SettingsStore.parseSize(await saved()), closeTo(width(), 0.001));
+    }
+    // Numbers beyond the limits are the limits: one page a row, and the smallest tiles.
+    await startWith('1e300');
+    expect(width(), greaterThan(700));
+    await startWith('0.001');
+    expect(width(), inInclusiveRange(56, 56 * 1.2));
+    await stopDetection(tester);
+  });
+
   testWidgets('gg and Home in the grid select the first page, and Enter jumps there', (tester) async {
     final c = await openBook(tester, 40);
     await key(tester, LogicalKeyboardKey.end);

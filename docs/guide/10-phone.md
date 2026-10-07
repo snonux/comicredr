@@ -51,7 +51,8 @@ Android 7–10 uses a permission dialog instead (Android 10 shown here):
   with its details and a **Read** button. A long press does the same.
 - Two fingers spread apart on the covers make them bigger, pinched
   together smaller: [one cover a row up to four](03-library.md#bigger-and-smaller-covers)
-  on most phones.
+  on most phones. Settings → **Library → Cover size** has two buttons
+  for the same.
 - The reader's status line puts the page number and the title on a line
   of their own above its buttons: guided view, balloons (in guided view),
   the page grid, bookmarks and fullscreen; see [Touch](08-touch.md) for the

@@ -23,20 +23,38 @@ class GridZoom {
   final double largest;
 
   /// The most columns [inner] (the grid's width inside its padding) takes;
-  /// never fewer than two, so there is always a step to take.
-  int most(double inner) => math.max(2, ((inner + gap) / (smallest + gap)).floor());
+  /// never fewer than two, so there is always a step to take. Two as well
+  /// for a width that is no width (not a number, or nothing).
+  int most(double inner) => math.max(2, _whole((inner + gap) / (smallest + gap)));
 
   /// The fewest columns: one, unless that would make a tile wider than
   /// [largest].
   int fewest(double inner) =>
-      largest.isFinite ? ((inner + gap) / (largest + gap)).ceil().clamp(1, most(inner)).toInt() : 1;
+      largest.isFinite ? _whole(((inner + gap) / (largest + gap)).ceilToDouble()).clamp(1, most(inner)).toInt() : 1;
 
   /// [columns] brought within what [inner] allows.
   int clamp(double inner, int columns) => columns.clamp(fewest(inner), most(inner)).toInt();
 
   /// The columns of tiles about [target] wide. A hair over, so a width
-  /// saved from this very column count gives it back despite rounding.
-  int columns(double inner, double target) => clamp(inner, ((inner + gap) / (target + gap) + 0.01).floor());
+  /// worked out from this very column count gives it back despite the
+  /// arithmetic's rounding (and one saved to a tenth of a pixel, as an
+  /// earlier build did, mostly does).
+  ///
+  /// Safe for any [target], since it may come from a settings file: one
+  /// that is not a number, or not above zero, gives the most columns, an
+  /// infinite one the fewest.
+  int columns(double inner, double target) {
+    if (target.isNaN || target <= 0) return most(inner);
+    return clamp(inner, _whole((inner + gap) / (target + gap) + 0.01));
+  }
+
+  /// [x] rounded down to a whole number that is safe to count columns
+  /// with: nothing for NaN and below zero, and no more than [_tooMany].
+  /// (`floor()` on NaN or infinity throws.)
+  static int _whole(double x) => x.isNaN || x <= 0 ? 0 : (x >= _tooMany ? _tooMany : x.floor());
+
+  /// More columns than any screen has pixels.
+  static const _tooMany = 1 << 20;
 
   /// How wide a tile is with [columns] of them a row: the size to keep.
   double tileWidth(double inner, int columns) => (inner - (columns - 1) * gap) / columns;
@@ -71,7 +89,9 @@ class GridZoomAreaState extends State<GridZoomArea> {
   /// Ctrl is held: the wheel zooms, so the grid must not scroll with it.
   bool _ctrl = false;
 
-  /// Two fingers on the grid: their first spread, and the columns then.
+  /// The fingers on the grid, in the order they came down. The first two
+  /// pinch: [_pinchFrom] is how far apart they were, and [_pinchColumns]
+  /// the columns then, at the last time a finger came or went.
   final _fingers = <int, Offset>{};
   double? _pinchFrom;
   int _pinchColumns = 1;
@@ -103,7 +123,9 @@ class GridZoomAreaState extends State<GridZoomArea> {
   }
 
   /// Bigger tiles (fewer columns) for [by] > 0, smaller for [by] < 0.
-  void _step(int by) => widget.onColumns(widget.columns - by);
+  void _step(int by) {
+    if (mounted) widget.onColumns(widget.columns - by);
+  }
 
   /// Ctrl and the wheel zooms; the wheel alone scrolls as usual.
   void _onSignal(PointerSignalEvent e) {
@@ -116,34 +138,53 @@ class GridZoomAreaState extends State<GridZoomArea> {
 
   /// The columns the pinch started with, less a column for each step the
   /// fingers spread; a touchpad pinch (pan-zoom events) the same way.
-  void _pinch(double scale) => widget.onColumns(_pinchColumns - GridZoom.pinchSteps(scale));
+  void _pinch(double scale) {
+    if (mounted) widget.onColumns(_pinchColumns - GridZoom.pinchSteps(scale));
+  }
+
+  // The pointer callbacks below can still come after the grid is gone (a
+  // tab change or a closed book with fingers down): the touch keeps
+  // reporting to what it first hit. Then there is nothing to zoom.
 
   void _fingerDown(PointerDownEvent e) {
+    if (!mounted) return;
     // A new touch or click: the last pinch is over.
     if (_fingers.isEmpty) _pinched = false;
     if (e.kind != PointerDeviceKind.touch) return;
     _fingers[e.pointer] = e.position;
-    if (_fingers.length == 2) {
-      setState(() {
-        _pinched = true;
-        _pinchFrom = _spread;
-        _pinchColumns = widget.columns;
-      });
-    }
+    if (_fingers.length >= 2) _pinched = true;
+    _rebase();
   }
 
   void _fingerMove(PointerMoveEvent e) {
-    if (!_fingers.containsKey(e.pointer)) return;
+    if (!mounted || !_fingers.containsKey(e.pointer)) return;
     _fingers[e.pointer] = e.position;
     final from = _pinchFrom;
-    if (from != null && from > 0 && _fingers.length == 2) _pinch(_spread / from);
+    if (from != null && from > 0) _pinch(_spread / from);
   }
 
   void _fingerUp(PointerEvent e) {
-    _fingers.remove(e.pointer);
-    if (_fingers.length < 2 && _pinchFrom != null) setState(() => _pinchFrom = null);
+    if (_fingers.remove(e.pointer) == null || !mounted) return;
+    _rebase();
   }
 
+  /// A finger came or went: the pinch starts again from the two fingers
+  /// that are first now and the columns there are now. Without this, a
+  /// third finger taking the place of one that lifted would be measured
+  /// against the spread of the old pair, and the columns would jump.
+  void _rebase() {
+    final from = _fingers.length >= 2 ? _spread : null;
+    _pinchColumns = widget.columns;
+    // The grid stops scrolling while two fingers are down, and scrolls
+    // again when they are not.
+    if ((from == null) != (_pinchFrom == null)) {
+      setState(() => _pinchFrom = from);
+    } else {
+      _pinchFrom = from;
+    }
+  }
+
+  /// How far apart the two pinching fingers are.
   double get _spread {
     final [a, b] = _fingers.values.take(2).toList();
     return (a - b).distance;
@@ -156,7 +197,9 @@ class GridZoomAreaState extends State<GridZoomArea> {
     onPointerMove: _fingerMove,
     onPointerUp: _fingerUp,
     onPointerCancel: _fingerUp,
-    onPointerPanZoomStart: (_) => _pinchColumns = widget.columns,
+    onPointerPanZoomStart: (_) {
+      if (mounted) _pinchColumns = widget.columns;
+    },
     onPointerPanZoomUpdate: (e) => _pinch(e.scale),
     // Two fingers pinch; they do not scroll meanwhile. Nor does the wheel
     // while Ctrl makes it zoom.

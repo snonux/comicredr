@@ -56,8 +56,24 @@ class SettingsStore {
   /// a string. Unset for the default.
   static const coverSize = 'library.coverSize';
 
-  /// The settings that hold a tile width: a file's value must be a number.
+  /// The settings that hold a tile width: a file's value must be one
+  /// ([parseSize]).
   static const sizes = {gridZoom, coverSize};
+
+  /// A tile width as saved, or null when it is not a finite number above
+  /// zero: `NaN`, `-12`, `0`, `Infinity` and `1e999` (which reads as
+  /// infinity) are no width, and a grid laid out from one could not be
+  /// built. A width too big or too small for the grid is fine: the grid
+  /// keeps to its own limits (GridZoom).
+  static double? parseSize(String? s) => switch (double.tryParse(s ?? '')) {
+    final v? when v.isFinite && v > 0 => v,
+    _ => null,
+  };
+
+  /// [width] as it is saved: every digit, so that reading it back gives
+  /// the very same number and with it the same columns. (Rounded to a
+  /// tenth of a pixel, 19 columns in a 1585 px grid came back as 18.)
+  static String sizeText(double width) => '$width';
 
   /// Shuffle on the library's Folders tab (`S`): random pages instead of
   /// covers. Off by default.

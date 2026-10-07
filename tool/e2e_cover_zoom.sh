@@ -5,8 +5,11 @@
 # usual size back, Ctrl and the wheel zoom while the wheel alone does not,
 # `+` typed in the search box is typing, the Books tab shows the same
 # size, two injected fingers (tool/touch_inject.c) spread and pinch the
-# covers while one finger still scrolls and a tap still selects, and the
-# size is there again after a restart.
+# covers while one finger still scrolls and a tap still selects, a finger
+# resting on the selected cover while another pinches opens nothing,
+# Settings' Cover size buttons do the same steps, the size is there again
+# after a restart, and a size that is no number put into the index (NaN)
+# still starts with covers at the usual size.
 #
 # Every cover is plain magenta, so the covers in the first row and their
 # width are counted off a screenshot; the width is compared with the
@@ -132,6 +135,18 @@ else:
     row = runs(min(top + 20, im.height - 1))
     print(len(row), max(row), top)
 EOF
+}
+# Settings, scrolled six notches down to its Library section: where the
+# Cover size line's smaller and bigger buttons and Usual size are in this
+# window. The line sits under the panel detector's path, which wraps into
+# more lines in a checkout with a long path: SIZE_Y moves it then.
+smaller_x=${SMALLER_X:-746} bigger_x=${BIGGER_X:-786} usual_x=${USUAL_X:-853} size_y=${SIZE_Y:-506}
+settings() {
+  # The gear wants the pointer on it before the click.
+  xdotool mousemove 1251 28; sleep 0.5; xdotool click 1; sleep 1.5
+  xdotool mousemove 640 400
+  for _ in 1 2 3 4 5 6; do xdotool click 5; sleep 0.1; done
+  sleep 1
 }
 n=0
 # Where the covers end: 1280, or 895 while a cover is selected and its
@@ -315,15 +330,61 @@ EOF
 )
 if ((${differ:-0} > 20000)); then ok "a tap selects a cover: its details show ($differ pixels differ)"; else fail "tap: only ${differ:-0} pixels differ"; fi
 check "the tap alone opens nothing" "$(q 'select count(*) from progress')" 0
+# A finger resting on that selected cover, not moving and lifted within the
+# half second of a long press, while a second one spreads away from it: on
+# its own that finger would be the second tap, which opens the comic.
+kept=$(size)
+before=$cols
+touch down 0 "$tx" "$ty"; touch down 1 $((tx + 90)) "$ty"
+for i in 1 2 3 4 5 6; do touch move 1 $((tx + 90 + i * 40)) "$ty"; done
+touch up 0 "$tx" "$ty"; touch up 1 $((tx + 330)) "$ty"
+wait_size_change "$kept" || fail "a pinch with one finger resting: the kept size stayed $kept"
+sleep 1.5
+look resting_finger
+if ((cols < before)); then ok "one finger resting, one spreading: $before to $cols covers a row"; else fail "resting pinch: $before to $cols a row"; fi
+check "the resting finger opened no comic" "$(q 'select count(*) from progress')" 0
 tap "$tx" "$ty"
 for _ in $(seq 1 20); do [[ "$(q 'select count(*) from progress')" == 1 ]] && break; sleep 0.3; done
 check "a second tap opens the comic" "$(q 'select count(*) from progress')" 1
 key Escape
 sleep 1.5
 
-# 10. A restart keeps the size.
-click 43 170 # Books: no details beside the covers.
+# 10. Settings' Cover size buttons, for a phone without a pinch: the same
+# steps, on the covers behind the dialog. From the usual size on the Books
+# tab (no details beside the covers).
+click 43 170
 pane=1280
+step equal "= before Settings" before_settings
+check "the Books tab at the usual size again" "$cols" "$books_usual"
+settings
+shot settings_cover_size
+click "$bigger_x" "$size_y"
+wait_size_change "" || fail "Settings, bigger: nothing kept"
+kept=$(size)
+click "$smaller_x" "$size_y"
+wait_size_change "$kept" || fail "Settings, smaller: the kept size stayed $kept"
+check "Settings: bigger then smaller is the usual columns, kept as a size" "$(size | grep -c .)" 1
+kept=$(size)
+click "$smaller_x" "$size_y"
+wait_size_change "$kept" || fail "Settings, smaller again: the kept size stayed $kept"
+key Escape
+sleep 1
+look settings_smaller
+check "Settings' smaller button twice, bigger once: a column more" "$cols" $((books_usual + 1))
+if agrees "$(size)" "$width"; then ok "and the size is kept ($(size))"; else fail "Settings: kept $(size), $width px on screen"; fi
+kept=$(size)
+settings
+click "$usual_x" "$size_y"
+wait_size_change "$kept" || fail "Settings, Usual size: still kept"
+check "Settings' Usual size forgets the kept size" "$(size)" ""
+click "$bigger_x" "$size_y"
+wait_size_change "" || fail "Settings, bigger again: nothing kept"
+key Escape
+sleep 1
+look settings_bigger
+check "Settings' bigger button takes a column off" "$cols" $((books_usual - 1))
+
+# 11. A restart keeps the size.
 look before_restart
 want=$cols
 kept=$(size)
@@ -334,6 +395,19 @@ look after_restart
 check "the kept size after a restart" "$(size)" "$kept"
 check "and the covers a row" "$cols" "$want"
 stop
+
+# 12. A size that is no size, as a settings file edited by hand could have
+# left it: the covers show, at the usual size, and + works from there.
+for bad in NaN -12 Infinity; do
+  q "insert or replace into settings (key, value) values ('library.coverSize', '\"$bad\"')"
+  start
+  click 43 170
+  look "bad_size_$bad"
+  check "a kept size of $bad: the covers a row are the usual" "$cols" "$books_usual"
+  step plus "+ after a kept size of $bad" "bad_size_${bad}_plus"
+  check "+ after a kept size of $bad takes a column off" "$cols" $((books_usual - 1))
+  stop
+done
 
 echo
 if ((failed)); then echo "FAILED; screenshots in $out/"; exit 1; fi

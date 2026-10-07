@@ -71,7 +71,9 @@ class PageGridState extends ConsumerState<PageGrid> {
           .read(settingsStoreProvider)
           .loadString(SettingsStore.gridZoom)
           .then((v) {
-            final target = double.tryParse(v ?? '');
+            // Anything that is no width (a settings file edited by hand)
+            // is left alone: the default size.
+            final target = SettingsStore.parseSize(v);
             if (target == null || !mounted || _target != null) return;
             setState(() => _target = ref.read(_lastZoom).target = target);
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,7 +99,7 @@ class PageGridState extends ConsumerState<PageGrid> {
     unawaited(
       ref
           .read(settingsStoreProvider)
-          .saveString(SettingsStore.gridZoom, target?.toStringAsFixed(1))
+          .saveString(SettingsStore.gridZoom, target == null ? null : SettingsStore.sizeText(target))
           .catchError((Object e) => debugPrint('Could not save the grid size: $e')),
     );
     // The rows moved: the selected page goes back to the middle.

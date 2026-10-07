@@ -54,20 +54,37 @@ Small marks on the covers tell you where you are:
 or more with each press; `=` puts them back to the usual size. `Ctrl`
 and the mouse wheel do the same, and so does a pinch on a touchpad or a
 touchscreen: spread two fingers for bigger covers, pinch them together
-for smaller ones. On the phone that is the way to do it.
+for smaller ones.
+
+Without a keyboard, and when a pinch is not for you, [Settings](12-settings.md)
+has the same steps as buttons: open it with the gear while the covers
+show, and under **Library → Cover size** tap the magnifier with the
+plus or the minus. The covers behind the dialog change with each tap,
+the line says how many there are in a row, and **Usual size** puts them
+back.
 
 Say a folder holds two hundred comics and you want to see more of them
 at once: press `-` a few times until the covers are small. To look at
 the covers properly, press `+` until they are big. The smallest covers
-are just wide enough for the start of a title, the biggest about twice
-the usual width (one cover a row on a phone).
+are just wide enough for the start of a title; the biggest are up to
+three times the usual width (one cover a row on a phone).
+
+Big covers are not always sharp. ComicRedr keeps each cover as a
+picture 512 pixels wide, which is plenty at the usual size. On a laptop
+screen that stays sharp all the way up. On a phone or a high-resolution
+screen, which packs two or three pixels into each point, covers bigger
+than the usual size are the same picture stretched, and look a little
+soft at the biggest sizes. The pages [shuffle](#shuffle) shows are at
+most 512 pixels wide too, so the same holds for them. Open the comic to
+see the page as it is.
 
 The cover you selected stays in view while the size changes. The size
 is the same on every tab of covers (Reading, Series, Books, Collections
 and Folders) and is remembered across restarts. The History and
-Bookmarks tabs are lists and have no size to change. While the cursor
-is in the search box, `+` and `-` are typed into it like any other
-character.
+Bookmarks tabs are lists and have no size to change, and neither `+`
+nor `-` does anything while a cover's details fill the screen on a
+phone. While the cursor is in the search box, `+` and `-` are typed
+into it like any other character.
 
 ## The tabs
 

@@ -404,6 +404,259 @@ void main() {
     expect(find.byKey(const Key('detail')), findsOneWidget, reason: 'a tap after a pinch works');
   });
 
+  testWidgets('a finger resting on a cover while another pinches opens nothing when it lifts', (tester) async {
+    final c = await inFolder(tester, size: const Size(400, 800));
+    final grid = tester.getRect(find.byKey(const Key('grid')));
+    expect(columns(tester), 2);
+    // The first finger on the first cover, still, and up again well inside
+    // the half second a long press takes: on its own that is a tap, which
+    // on a phone opens the cover's details. The second, on the cover
+    // beside it, spreads away from it.
+    final rest = await tester.startGesture(grid.topLeft + const Offset(100, 120), kind: PointerDeviceKind.touch);
+    await tester.pump(const Duration(milliseconds: 40));
+    final move = await tester.startGesture(grid.topLeft + const Offset(250, 120), kind: PointerDeviceKind.touch);
+    await tester.pump(const Duration(milliseconds: 40));
+    await move.moveBy(const Offset(60, 0));
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(columns(tester), 1, reason: 'the pinch zoomed');
+    await rest.up();
+    await tester.pump(const Duration(milliseconds: 40));
+    await move.up();
+    await settle(tester);
+    expect(columns(tester), 1);
+    expect(find.byKey(const Key('detail')), findsNothing, reason: 'the resting finger was no tap');
+    expect(c.read(readerProvider).book, isNull, reason: 'and opened no comic');
+
+    // The same finger alone, as long: a tap, and the details open.
+    final alone = await tester.startGesture(grid.topLeft + const Offset(100, 120), kind: PointerDeviceKind.touch);
+    await tester.pump(const Duration(milliseconds: 120));
+    await alone.up();
+    await settle(tester);
+    expect(find.byKey(const Key('detail')), findsOneWidget, reason: 'alone it is a tap');
+  });
+
+  testWidgets('+ - = do nothing while the covers are not on screen: a phone with the details page up', (tester) async {
+    await inFolder(tester, size: const Size(400, 800));
+    expect(columns(tester), 2);
+    await tester.tap(find.byType(CoverCard).first);
+    await settle(tester);
+    expect(find.byKey(const Key('detail')), findsOneWidget);
+    expect(find.byKey(const Key('grid')), findsNothing, reason: 'the details page took the covers place');
+    await plus(tester);
+    await minus(tester);
+    await minus(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit3, character: '3');
+    await plus(tester);
+    expect(await saved(tester), isNull, reason: 'nothing to size, nothing kept');
+    expect(find.byKey(const Key('detail')), findsOneWidget);
+
+    // Back at the covers: as they were, and now the keys size them.
+    await key(tester, LogicalKeyboardKey.escape);
+    expect(find.byKey(const Key('grid')), findsOneWidget);
+    expect(columns(tester), 2);
+    await plus(tester);
+    expect(columns(tester), 1);
+    expect(await saved(tester), isNotNull);
+    // Kept, with the details up again, = does not forget it either.
+    await tester.tap(find.byType(CoverCard).first);
+    await settle(tester);
+    expect(find.byKey(const Key('detail')), findsOneWidget);
+    final kept = await saved(tester);
+    await equals(tester);
+    expect(await saved(tester), kept);
+  });
+
+  testWidgets('a kept size that is no size is left alone at start-up: the covers show at the usual size', (
+    tester,
+  ) async {
+    await inFolder(tester);
+    await tester.tap(find.text('Books'));
+    await settle(tester);
+    final usual = (columns(tester), width(tester));
+    expect(usual.$1, greaterThan(3));
+
+    Future<void> restartWith(String kept) async {
+      await tester.runAsync(() => SettingsStore(db).saveString(SettingsStore.coverSize, kept));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await pumpApp(tester, const Size(1280, 800));
+      await settle(tester);
+      await tester.tap(find.text('Books'));
+      await settle(tester);
+      expect(tester.takeException(), isNull, reason: 'kept "$kept"');
+      expect(find.byType(CoverCard), findsWidgets, reason: 'kept "$kept": the grid is built');
+    }
+
+    for (final bad in ['NaN', '-12', '0', 'Infinity', '-Infinity', '1e999', 'big', '']) {
+      await restartWith(bad);
+      expect((columns(tester), width(tester)), usual, reason: 'kept "$bad"');
+      // And the keys work from there.
+      await plus(tester);
+      expect(columns(tester), usual.$1 - 1, reason: '+ after "$bad"');
+      expect(SettingsStore.parseSize(await saved(tester)), closeTo(width(tester), 0.001));
+    }
+    // Numbers beyond the limits are the limits.
+    await restartWith('1e300');
+    expect(width(tester), inInclusiveRange(usual.$2 * 1.5, 480), reason: 'huge: the biggest covers');
+    final fewest = columns(tester);
+    await plus(tester);
+    expect(columns(tester), fewest);
+    await restartWith('0.001');
+    expect(width(tester), inInclusiveRange(72, 72 * 1.2), reason: 'tiny: the smallest covers');
+  });
+
+  testWidgets('shuffled pages are made and decoded 256 px wide at the usual size, 512 for big covers', (tester) async {
+    // A wide window, on the Books tab: room for a step between the biggest
+    // covers and ones still over 333 pixels wide.
+    await inFolder(tester, size: const Size(2000, 1000));
+    await tester.tap(find.text('Books'));
+    await settle(tester);
+    Finder shuffled() => find.byWidgetPredicate(
+      (w) => w is Image && w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('shuffled-'),
+    );
+    Set<int?> decoded() => {for (final w in tester.widgetList<Image>(shuffled())) (w.image as ResizeImage).width};
+    List<String> made(String sub) => [
+      for (final f in Directory('${tmp.path}/covers/pages').listSync(recursive: true).whereType<File>())
+        if (f.parent.path.endsWith(sub)) f.path,
+    ];
+    Future<void> until(bool Function() there) async {
+      for (var i = 0; i < 100 && !there(); i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+        await tester.pump();
+      }
+    }
+
+    await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+    await until(() => shuffled().evaluate().length >= 2);
+    expect(shuffled().evaluate().length, greaterThanOrEqualTo(2), reason: 'pages are made, two at a time');
+    expect(decoded(), {256});
+    expect(made('w512'), isEmpty, reason: 'covers of the usual size need no more');
+
+    // As big as they go: over 333 pixels wide, so the 512 px pages.
+    for (var i = 0; i < 8; i++) {
+      await plus(tester);
+    }
+    expect(width(tester), greaterThan(333));
+    await until(() => decoded().contains(512) && !decoded().contains(256));
+    expect(decoded(), {512});
+    expect(made('w512'), isNotEmpty, reason: "beside the page grid's 512 px thumbnails");
+    final big = made('w512').length;
+
+    // A step smaller, still over 333: the same decoded pictures, by the
+    // image cache's own key, and nothing new made.
+    final images = {for (final w in tester.widgetList<Image>(shuffled())) w.image};
+    final biggest = width(tester);
+    await minus(tester);
+    expect(width(tester), inExclusiveRange(333, biggest));
+    await until(() => shuffled().evaluate().isNotEmpty);
+    expect(decoded(), {512});
+    final after = {for (final w in tester.widgetList<Image>(shuffled())) w.image};
+    expect(after.intersection(images), images, reason: 'every page that was on screen is the same cached picture');
+    expect(made('w512').length, greaterThanOrEqualTo(big));
+  });
+
+  /// Whether the button with [k] can be pressed.
+  bool pressable(WidgetTester tester, Key k) => switch (tester.widget(find.byKey(k))) {
+    IconButton(:final onPressed) => onPressed != null,
+    ButtonStyleButton(:final enabled) => enabled,
+    final other => throw StateError('$other is no button'),
+  };
+
+  /// Whether the keyboard focus is on the widget with [k], or inside it.
+  bool focusIn(Key k) {
+    var found = false;
+    FocusManager.instance.primaryFocus?.context?.visitAncestorElements((e) {
+      found = e.widget.key == k;
+      return !found;
+    });
+    return found;
+  }
+
+  testWidgets("Settings' Cover size buttons size the covers behind it, by tap and by key, within the same limits", (
+    tester,
+  ) async {
+    await inFolder(tester, size: const Size(400, 800));
+    expect(columns(tester), 2);
+    const bigger = Key('setting-coverSize-bigger'), smaller = Key('setting-coverSize-smaller');
+    const usual = Key('setting-coverSize-usual');
+    bool enabled(Key k) => pressable(tester, k);
+    String line() => tester.widget<Text>(find.byKey(const Key('setting-coverSize'))).data!;
+    Future<void> press(Key k) async {
+      await tester.ensureVisible(find.byKey(k));
+      await tester.pump();
+      await tester.tap(find.byKey(k));
+      await settle(tester);
+    }
+
+    await tester.tap(find.byKey(const Key('settings')));
+    await settle(tester);
+    await tester.ensureVisible(find.byKey(bigger));
+    await tester.pump();
+    expect(line(), 'Cover size: 2 a row');
+    expect((enabled(bigger), enabled(smaller), enabled(usual)), (true, true, false));
+
+    await press(bigger);
+    expect(line(), 'Cover size: 1 a row');
+    expect(columns(tester), 1, reason: 'the covers behind the window changed at once');
+    expect(SettingsStore.parseSize(await saved(tester)), closeTo(width(tester), 0.001), reason: 'the same setting');
+    expect((enabled(bigger), enabled(smaller), enabled(usual)), (false, true, true), reason: 'at the biggest');
+
+    // Smaller until it stops, at the smallest the keys stop at too.
+    var presses = 0;
+    while (enabled(smaller) && presses < 12) {
+      await press(smaller);
+      presses++;
+    }
+    final most = columns(tester);
+    expect(presses, most - 1);
+    expect(most, greaterThan(2));
+    expect(line(), 'Cover size: $most a row');
+    expect(width(tester), inInclusiveRange(72, 72 * 1.2));
+    expect((enabled(bigger), enabled(smaller)), (true, false));
+
+    await press(usual);
+    expect(line(), 'Cover size: 2 a row');
+    expect(columns(tester), 2);
+    expect(await saved(tester), isNull, reason: 'the usual size is no setting');
+    expect(enabled(usual), isFalse);
+
+    // By keyboard: Tab to the button, Enter presses it.
+    for (var i = 0; i < 60 && !focusIn(bigger); i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+    }
+    expect(focusIn(bigger), isTrue, reason: 'Tab reaches the button');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await settle(tester);
+    expect(line(), 'Cover size: 1 a row');
+    expect(columns(tester), 1);
+
+    // Closed, the covers are as the dialog left them, and - goes on from there.
+    await tester.tap(find.byKey(const Key('setting-close')));
+    await settle(tester);
+    expect(columns(tester), 1);
+    await minus(tester);
+    expect(columns(tester), 2);
+  });
+
+  testWidgets("Settings' Cover size buttons are off where there are no covers to size", (tester) async {
+    await inFolder(tester);
+    // The rail's, not the heading in the selected comic's details.
+    await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Bookmarks')));
+    await settle(tester);
+    expect(find.byKey(const Key('grid')), findsNothing);
+    await tester.tap(find.byKey(const Key('settings')));
+    await settle(tester);
+    await tester.ensureVisible(find.byKey(const Key('setting-coverSize')));
+    await tester.pump();
+    expect(tester.widget<Text>(find.byKey(const Key('setting-coverSize'))).data, 'Cover size');
+    for (final k in ['bigger', 'smaller', 'usual']) {
+      expect(pressable(tester, Key('setting-coverSize-$k')), isFalse, reason: k);
+    }
+    expect(find.textContaining('from a tab with covers'), findsOneWidget);
+    expect(await saved(tester), isNull);
+  });
+
   test('zoom steps: columns from a width and back, within the limits', () {
     const zoom = GridZoom(gap: 12, smallest: 72, largest: 480);
     expect(zoom.most(336), 4);
@@ -413,8 +666,8 @@ void main() {
     for (final inner in [296.0, 336.0, 795.0, 1176.0]) {
       for (var n = zoom.fewest(inner); n <= zoom.most(inner); n++) {
         expect(zoom.columns(inner, zoom.tileWidth(inner, n)), n, reason: '$n columns in $inner');
-        // Saved to a tenth of a pixel, as the setting is.
-        final kept = double.parse(zoom.tileWidth(inner, n).toStringAsFixed(1));
+        // As the setting keeps it (test/grid_zoom_test.dart sweeps every width).
+        final kept = SettingsStore.parseSize(SettingsStore.sizeText(zoom.tileWidth(inner, n)))!;
         expect(zoom.columns(inner, kept), n, reason: '$n columns in $inner from the saved width');
       }
     }

@@ -119,7 +119,7 @@ class SettingsFile {
     true => value is bool,
     false =>
       value is String &&
-          (!SettingsStore.sizes.contains(key) || double.tryParse(value) != null) &&
+          (!SettingsStore.sizes.contains(key) || SettingsStore.parseSize(value) != null) &&
           (key != SettingsStore.pauseSeconds || SettingsStore.parseSeconds(value) != null),
     null => false,
   };

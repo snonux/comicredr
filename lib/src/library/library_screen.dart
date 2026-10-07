@@ -95,7 +95,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<LibraryScreen> createState() => LibraryScreenState();
 }
 
-class LibraryScreenState extends ConsumerState<LibraryScreen> {
+class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSizer {
   LibraryTab? _tab;
   int? _series; // The series drilled into on the Series tab.
   bool _favourites = false; // The Favourites collection open on the Collections tab.
@@ -147,8 +147,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   double? _coverTarget;
 
   /// The default cover width, and the steps and limits of the zoom: from
-  /// covers just wide enough for a few letters of the title up to 480 px,
-  /// about what the 512 px cover files are good for.
+  /// covers just wide enough for a few letters of the title up to 480 px.
+  /// The cover files are 512 pixels wide ([coverDecodeWidth]), so a cover
+  /// is sharp up to 512 screen pixels: all the way on a screen of one
+  /// pixel a point, to 256 px on a 2x one and about 170 px on a 3x phone.
+  /// Bigger than that it is the same picture scaled up, and soft. The
+  /// limit is not lowered on such screens for it: big covers are asked
+  /// for to see them big, soft or not, and sharper files would mean
+  /// making every cover in the library and on S3 again (the guide says
+  /// where they turn soft).
   static const _defaultCover = 160.0;
   static const _coverGap = 12.0;
   static const _coverPad = 12.0;
@@ -185,34 +192,70 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     _reshuffle();
   }
 
-  /// Takes up the saved cover size; unset or not a number is the default.
+  /// Takes up the saved cover size; unset, or anything that is no width
+  /// ([SettingsStore.parseSize]: a settings file edited by hand), is the
+  /// default.
   Future<void> _loadCoverSize() async {
     try {
-      final target = double.tryParse(await ref.read(settingsStoreProvider).loadString(SettingsStore.coverSize) ?? '');
+      final target = SettingsStore.parseSize(await ref.read(settingsStoreProvider).loadString(SettingsStore.coverSize));
       if (mounted && target != _coverTarget) setState(() => _coverTarget = target);
     } catch (e) {
       debugPrint('Could not read the cover size: $e');
     }
   }
 
+  /// The grid of covers is on screen: a tab of covers with something on
+  /// it, and no details page over it (a phone-wide window). Only then is
+  /// there anything to size, and a width to work the columns out from.
+  bool get _coversShown => _zoomArea.currentState != null && _inner > 0;
+
+  /// The covers a row for the size asked for, in a grid [inner] wide. The
+  /// default never shows one cover a row, however narrow the window;
+  /// zoomed, the size asked for decides.
+  int _columnsIn(double inner) => switch (_coverTarget) {
+    null => math.max(2, _coverZoom.columns(inner, _defaultCover)),
+    final target => _coverZoom.columns(inner, target),
+  };
+
+  // CoverSizer, for Settings' Cover size buttons: the same steps as the
+  // keys, with the same limits. Worked out from the size asked for and not
+  // from [_cols], which only follows at the next layout.
+  @override
+  int? get coversPerRow => _coversShown ? _columnsIn(_inner) : null;
+  @override
+  bool get canGrowCovers => _coversShown && _columnsIn(_inner) > _coverZoom.fewest(_inner);
+  @override
+  bool get canShrinkCovers => _coversShown && _columnsIn(_inner) < _coverZoom.most(_inner);
+  @override
+  bool get coversZoomed => _coverTarget != null;
+
   /// Bigger covers (fewer columns) for [by] > 0, smaller for [by] < 0.
-  void zoomCovers(int by) => _setCoverColumns(_cols - by);
+  @override
+  void zoomCovers(int by) {
+    if (_coversShown) _setCoverColumns(_columnsIn(_inner) - by);
+  }
+
+  /// The usual cover size again (`=`).
+  @override
+  void resetCovers() => _setCoverColumns(0, reset: true);
 
   /// Shows [columns] covers a row, within what the width allows; [reset]
   /// goes back to the default size. What is kept is the cover width that
   /// gives, so a wider window later fits more covers of that size. At the
-  /// smallest or biggest already, nothing changes and nothing is saved.
+  /// smallest or biggest already, nothing changes and nothing is saved;
+  /// nor while the covers are not on screen (a list tab, an empty one, a
+  /// phone's details page), where a key would change a size nobody sees.
   void _setCoverColumns(int columns, {bool reset = false}) {
-    if (!_coverTab || _items.isEmpty || _inner <= 0) return;
+    if (!_coversShown) return;
     final next = _coverZoom.clamp(_inner, columns);
-    if (reset ? _coverTarget == null : next == _cols) return;
+    if (reset ? _coverTarget == null : next == _columnsIn(_inner)) return;
     final target = reset ? null : _coverZoom.tileWidth(_inner, next);
     final keep = _keptInView();
     setState(() => _coverTarget = target);
     unawaited(
       ref
           .read(settingsStoreProvider)
-          .saveString(SettingsStore.coverSize, target?.toStringAsFixed(1))
+          .saveString(SettingsStore.coverSize, target == null ? null : SettingsStore.sizeText(target))
           .catchError((Object e) => debugPrint('Could not save the cover size: $e')),
     );
     // The rows moved: back to the cover that was looked at.
@@ -275,6 +318,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   void _showSettings() => showSettings(
     context,
+    covers: this,
     onExportSidecars: widget.onExportSidecars,
     onExportSettings: widget.onExportSettings,
     onImportSettings: widget.onImportSettings,
@@ -446,7 +490,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       case ReaderIntent.zoomOut when _coverTab:
         zoomCovers(-c.times);
       case ReaderIntent.zoomReset when _coverTab:
-        _setCoverColumns(_cols, reset: true);
+        resetCovers();
       case ReaderIntent.toggleShuffle when _coverTab:
         setShuffle(!_shuffle);
       case ReaderIntent.reshuffle when _coverTab && _shuffle:
@@ -1643,12 +1687,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       builder: (context, box) {
         const pad = _coverPad, gap = _coverGap;
         final inner = _inner = box.maxWidth - pad * 2;
-        final target = _coverTarget;
-        // The default never shows one cover a row, however narrow the
-        // window; zoomed, the size asked for decides.
-        _cols = target == null
-            ? math.max(2, _coverZoom.columns(inner, _defaultCover))
-            : _coverZoom.columns(inner, target);
+        _cols = _columnsIn(inner);
         final itemW = _coverZoom.tileWidth(inner, _cols);
         final extent = itemW * 1.5 + 48;
         _rowExtent = extent + gap;
@@ -1667,9 +1706,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// high, scrolling with [physics] (null for the usual ones).
   Widget _covers(ScrollPhysics? physics, {required bool wide, required double extent, required double itemW}) {
     final shuffle = _shuffle && _coverTab;
-    // Sharp enough for a zoomed-in cover, up to the 512 px the files have;
-    // never under the 400 px of the default size, already decoded.
-    final coverWidth = (itemW * MediaQuery.devicePixelRatioOf(context)).round().clamp(400, 512).toInt();
+    // One of a few decode widths each, so a zoom step or a resize mostly
+    // reuses the pictures already decoded.
+    final px = itemW * MediaQuery.devicePixelRatioOf(context);
+    final sizes = (cover: coverDecodeWidth(px), shuffled: ShufflePages.sizeFor(px));
     return GridView.builder(
       key: const Key('grid'),
       controller: _scroll,
@@ -1682,13 +1722,18 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         crossAxisSpacing: _coverGap,
       ),
       itemCount: _items.length,
-      itemBuilder: (context, i) => _cover(_items[i], wide: wide, shuffle: shuffle, coverWidth: coverWidth),
+      itemBuilder: (context, i) => _cover(_items[i], wide: wide, shuffle: shuffle, sizes: sizes),
     );
   }
 
   /// One cover of the grid: [item]'s, or with [shuffle] a random page from
-  /// it, decoded [coverWidth] pixels wide.
-  Widget _cover(LibraryItem item, {required bool wide, required bool shuffle, required int coverWidth}) {
+  /// it, decoded [sizes] pixels wide.
+  Widget _cover(
+    LibraryItem item, {
+    required bool wide,
+    required bool shuffle,
+    required ({int cover, int shuffled}) sizes,
+  }) {
     // The fingers of a pinch open nothing as they rest or lift.
     bool pinched() => _zoomArea.currentState?.pinched ?? false;
     // A folder or series shuffles too: a random page of a random comic in it.
@@ -1706,7 +1751,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
       shufflePage: from == null ? null : shufflePage(from.key, from.pageCount, _seed),
       shuffleBook: item is BookItem ? null : from,
       selected: item.id == _selected,
-      coverWidth: coverWidth,
+      coverWidth: sizes.cover,
+      shuffleSize: sizes.shuffled,
       onTap: () {
         if (!pinched()) _tap(item, wide: wide);
       },

@@ -37,7 +37,8 @@ small window) the first tap shows its details on a page of their own,
 with a **Read** button. A
 long press shows a cover's details, a finger scrolls the covers, and two
 fingers spread apart or pinched together make them
-[bigger or smaller](03-library.md#bigger-and-smaller-covers).
+[bigger or smaller](03-library.md#bigger-and-smaller-covers); Settings
+has two buttons that do the same.
 
 ## The tap zones
 

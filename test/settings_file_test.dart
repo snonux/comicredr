@@ -284,6 +284,34 @@ void main() {
     expect(importNotice(done), endsWith('11 entries this version does not know skipped.'));
   });
 
+  test('a size in a file must be a finite number above zero, for the covers and the page grid alike', () async {
+    String file(String key, Object? value) => jsonEncode({
+      'app': 'org.snonux.comicredr',
+      'kind': 'settings',
+      'format': 1,
+      'settings': {key: value, SettingsStore.night: true},
+    });
+    for (final key in [SettingsStore.coverSize, SettingsStore.gridZoom]) {
+      // No size: a grid laid out from one of these could not be built.
+      for (final bad in <Object?>['NaN', '-12', '0', '-0.0', 'Infinity', '-Infinity', '1e999', 'big', '', 240, true]) {
+        final read = SettingsFile.decode(file(key, bad));
+        expect(read.settings, {SettingsStore.night: true}, reason: '$key: $bad is left out');
+        expect(read.skipped, 1, reason: '$key: $bad is counted');
+      }
+      // A size, however odd: the grid keeps to its own limits.
+      for (final good in ['240.0', '72.05263157894737', '1e300', '0.001']) {
+        final read = SettingsFile.decode(file(key, good));
+        expect(read.settings, {key: good, SettingsStore.night: true}, reason: '$key: $good');
+        expect(read.skipped, 0);
+      }
+    }
+    // Imported over a good size here, a bad one leaves the default, never itself.
+    await SettingsStore(to).saveString(SettingsStore.coverSize, '200.0');
+    await SettingsStore(to).saveString(SettingsStore.gridZoom, '120.0');
+    await import(file(SettingsStore.coverSize, 'NaN'));
+    expect(await settingsOf(to), {SettingsStore.night: true});
+  });
+
   test('an import merges with what is here, and twice is the same as once', () async {
     await fill();
     final text = await exportSettings(from);

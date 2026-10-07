@@ -101,9 +101,10 @@ at() { origin; click $((ox + $1)) $((oy + $2)); }
 settings_bottom() {
   origin
   click $((ox + w - 30)) $((oy + 28))
-  xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 20 --delay 50 5; sleep 1
-  # Back up from S3 sync, the section below it, to where the clicks below
-  # were measured.
+  xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 30 --delay 50 5; sleep 1
+  # That was the dialog's end (30 notches: 20 stopped short once the
+  # Library section made it longer). Back up from S3 sync, the section
+  # below it, to where the clicks below were measured.
   xdotool click --repeat 2 --delay 50 4; sleep 1
 }
 # Export settings… and Import settings…: the dialog is centred and, scrolled
@@ -253,7 +254,7 @@ shot 07_fresh
 # The empty library has its Settings button in the middle.
 origin
 click $((ox + w / 2 + 175)) $((oy + h / 2 + 14))
-xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 20 --delay 50 5; sleep 1
+xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 30 --delay 50 5; sleep 1
 xdotool click --repeat 2 --delay 50 4; sleep 1
 backup_button import
 sleep 1.5

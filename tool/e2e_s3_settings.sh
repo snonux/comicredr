@@ -83,12 +83,13 @@ origin() {
   w=$(awk '/Width:/ {print $NF}' <<<"$info")
   h=$(awk '/Height:/ {print $NF}' <<<"$info")
 }
-# The gear, the Settings dialog scrolled to its end, then "Set up S3 sync…",
+# The gear, the Settings dialog scrolled to its end (30 notches: 20 stopped
+# short once the Library section made it longer), then "Set up S3 sync…",
 # a fixed way up from the bottom of the dialog.
 s3_dialog() {
   origin
   click $((ox + w - 30)) $((oy + 28))
-  xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 20 --delay 50 5; sleep 1
+  xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 30 --delay 50 5; sleep 1
   click $((ox + w / 2 - ${S3_BUTTON_DX:-168})) $((oy + h - ${S3_BUTTON_DY:-152}))
 }
 # The S3 dialog opens with the address focused; Tab walks the fields in order.

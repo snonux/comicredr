@@ -15,9 +15,22 @@ the `?` overlay.
   spread apart or pinched together on the covers. The selected cover
   stays in view, the size is one for all those tabs, it is remembered
   across restarts and goes into a settings export. Typing `+` or `-` in
-  the search box still types. In the page grid (`p`), a finger
-  resting on a page during a pinch no longer opens that page when it
-  lifts.
+  the search box still types, and the keys do nothing while no covers
+  show (a list tab, a cover's details filling a phone's screen).
+  Settings → **Library → Cover size** has the same steps as two buttons
+  and **Usual size**, for a phone when pinching is not an option. Covers
+  are kept 512 pixels wide, so on a phone or a high-resolution screen
+  the biggest sizes are a little soft; in shuffle the pages of
+  bigger covers are now made 512 pixels wide instead of 256. In the page
+  grid (`p`), a finger resting on a page during a pinch no longer opens
+  that page when it lifts, and a third finger joining a pinch no longer
+  makes the size jump.
+- **Fixed:** the page grid's size is now kept exactly, so a wide window
+  with many small pages comes back with the same number in a row after a
+  restart (it could come back with one fewer). A settings file whose
+  page grid or cover size is not a real size (`NaN`, a negative number,
+  `Infinity`) is no longer taken: such a value used to stop the page
+  grid from showing at all.
 - **Collections and favourites from inside a comic:** `gc` now works
   with a comic open, asking which collection to put it in (new or one you
   have) without going back to the library, also for a comic opened from
