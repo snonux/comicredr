@@ -23,13 +23,20 @@
 # Needs: Xvfb, xdotool, ImageMagick, ffmpeg, gifsicle, sqlite3, and cwebp
 # or an ImageMagick that writes WebP.
 # Output: docs/guide/images/*.webp and *.gif; raw captures in build/guide/.
+#
+# The app's HOME for the pictures is /tmp/comicredr-guide/home (GUIDE_HOME
+# for another), never a folder of the checkout: the ? help and Settings
+# show the data and library folders in full, and a path under the checkout
+# puts the name of whoever took the pictures into them. Keep GUIDE_HOME
+# free of names too. Nothing else that is drawn knows where the checkout
+# is: the comics are copied into that HOME and opened from there.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 out=build/guide
 img=docs/guide/images
 corpus=test/corpus
-home="$PWD/$out/home"
+home=${GUIDE_HOME:-/tmp/comicredr-guide/home}
 comics="$home/Comics"
 db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
@@ -225,6 +232,8 @@ parts)
   ;;
 
 keys)
+  # Over an open comic, which shows through the help a little.
+  open "mercy"
   key question; sleep 2; still keymap
   key slash; typ "bookmark"; sleep 1; still keymap-search
   key Escape; key Escape
@@ -277,8 +286,8 @@ history)
 
 empty)
   stop
-  mkdir -p "$out/empty-home"
-  HOME="$PWD/$out/empty-home" "$app" >>"$out/app.log" 2>&1 &
+  mkdir -p "$home-empty"
+  HOME="$home-empty" "$app" >>"$out/app.log" 2>&1 &
   pid=$!
   sleep 8; park
   still empty

@@ -35,8 +35,9 @@ pinch on a touchpad or two fingers on a touchscreen. The first line of
 the list names the keys; it makes way for the search field while you
 search or keep what you found.
 
-The list stays where you were reading: the action along its top is
-still there after the text has changed size.
+The list stays where you were reading: what was along its top, an
+action or part of the title, is still there after the text has changed
+size. The version in the bottom right corner keeps its size.
 
 Say you sit back from the screen with the keyboard on your lap: press
 `?`, then `+` three times, and the keys can be read from there. The size

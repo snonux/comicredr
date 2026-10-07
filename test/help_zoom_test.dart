@@ -88,10 +88,14 @@ void main() {
   Future<void> esc(WidgetTester tester) => key(tester, LogicalKeyboardKey.escape);
 
   /// A fresh start over the same database, the help opened.
-  Future<ProviderContainer> startInHelp(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
+  Future<ProviderContainer> startInHelp(
+    WidgetTester tester, {
+    Size size = const Size(1280, 800),
+    List<Override> overrides = const [],
+  }) async {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
-    final c = await pumpApp(tester, size: size);
+    final c = await pumpApp(tester, size: size, overrides: overrides);
     await settle(tester);
     await help(tester);
     expect(find.byType(KeymapOverlay), findsOneWidget);
@@ -146,7 +150,7 @@ void main() {
     expect(letters(tester), closeTo(14 * 1.15, 0.001));
     expect(tester.getSize(what).height, greaterThan(height), reason: 'drawn bigger, not only asked for');
     expect(lettersOf(tester, const Key('keymap-title')), closeTo(title * 1.15, 0.001), reason: 'the title too');
-    expect(lettersOf(tester, const Key('keymap-version')), greaterThan(14));
+    expect(lettersOf(tester, const Key('keymap-version')), 14, reason: 'the version is no help text');
     expect(await saved(tester), '1.15');
     await plus(tester);
     expect(letters(tester), closeTo(14 * 1.3, 0.001));
@@ -275,7 +279,7 @@ void main() {
     await plus(tester);
     expect(letters(tester), closeTo(14 * 1.5 * 1.15, 0.001));
     expect(lettersOf(tester, const Key('keymap-title')), closeTo(title * 1.15, 0.001));
-    expect(lettersOf(tester, const Key('keymap-version')), closeTo(14 * 1.5 * 1.15, 0.001));
+    expect(lettersOf(tester, const Key('keymap-version')), 21, reason: 'the version keeps the system\'s size');
     expect(await saved(tester), '1.15', reason: 'what is kept is the help\'s factor alone');
     await minus(tester);
     await minus(tester);
@@ -287,39 +291,40 @@ void main() {
     expect(tester.getTopLeft(what).dx, closeTo(24 + 200 * 1.5 * 1.15, 0.01));
   });
 
-  testWidgets('the version under the list never lies over a row and is never cut off, at any size or width', (
-    tester,
-  ) async {
+  testWidgets('the version under the list never lies over a row, keeps its size whatever the help\'s, '
+      'and is drawn whole in a window narrower than its line', (tester) async {
     final version = find.byKey(const Key('keymap-version'));
     final listBox = find.byKey(const Key('keymap-list'));
     // The last action of the list, which the version used to lie over.
     final last = find.byKey(ValueKey('keymap-${keymapEntries(Keymap.defaults()).last.intent.name}'));
-    Future<void> toTheEnd(WidgetTester tester) async {
-      // A lazy list only knows its end once it has laid out the way there.
-      for (var i = 0; i < 40 && list(tester).pixels != list(tester).maxScrollExtent; i++) {
-        list(tester).jumpTo(list(tester).maxScrollExtent);
-        await tester.pump();
-      }
-      expect(list(tester).pixels, list(tester).maxScrollExtent);
+    // The line as wide as its letters make it, laid out without a limit:
+    // not broken or cut to the room there is.
+    void whole(WidgetTester tester, String where) {
+      final line = tester.renderObject<RenderParagraph>(version);
+      expect(line.size.width, closeTo(line.getMaxIntrinsicWidth(double.infinity), 0.01), reason: '$where: all of it');
     }
 
     for (final system in const [1.0, 1.5]) {
       systemTextScale(tester, system);
-      for (final size in const [Size(1280, 800), Size(360, 640), Size(320, 480)]) {
+      for (final size in const [Size(1280, 800), Size(360, 640), Size(320, 480), Size(640, 360)]) {
         await startInHelp(tester, size: size);
         await equals(tester);
+        final usual = tester.getRect(version);
         for (var step = HelpZoom.usual; step <= HelpZoom.largest; step++) {
           final where = '$size, system text $system, step $step';
           // At the top, with rows under the list's whole height...
           final label = tester.getRect(version);
           final rows = tester.getRect(listBox);
+          expect(label, usual, reason: '$where: the help\'s size is not the version\'s');
           expect(label.top, greaterThanOrEqualTo(rows.bottom), reason: '$where: under the list, not over it');
           expect(label.left, greaterThanOrEqualTo(24 - 0.01), reason: '$where: cut off at the left');
-          expect(label.right, lessThanOrEqualTo(size.width - 24 + 0.01), reason: '$where: cut off at the right');
+          expect(label.right, closeTo(size.width - 24, 0.01), reason: '$where: at the right edge');
           expect(label.bottom, lessThanOrEqualTo(size.height), reason: '$where: cut off at the bottom');
           expect(label.height, greaterThan(8), reason: '$where: still letters');
+          whole(tester, where);
           // ...and at the end, against the last row itself.
-          await toTheEnd(tester);
+          list(tester).jumpTo(list(tester).maxScrollExtent);
+          await tester.pump();
           expect(last, findsOneWidget, reason: where);
           final lastRow = tester.getRect(last);
           expect(lastRow.bottom, lessThanOrEqualTo(tester.getRect(version).top), reason: '$where: the last row');
@@ -330,33 +335,48 @@ void main() {
         }
       }
     }
-    // A window wide enough shows the version at its full size, three times the usual here.
-    systemTextScale(tester, 1);
+    // The fake font's letters are squares, so at 1.5 the line (15 letters of
+    // 21 px) is wider than a 320 px window has room for: shrunk there, and
+    // at its full size where there is room.
+    systemTextScale(tester, 1.5);
+    await startInHelp(tester, size: const Size(320, 480));
+    expect(tester.renderObject<RenderParagraph>(version).size.width, greaterThan(320 - 48));
+    expect(tester.getRect(version).width, closeTo(320 - 48, 0.01), reason: 'shrunk to the room');
+    whole(tester, 'shrunk');
     await startInHelp(tester);
-    expect(letters(tester), 42);
-    expect(tester.getRect(version).height, greaterThan(40));
-    expect(tester.getRect(version).right, closeTo(1280 - 24, 0.01));
+    expect(lettersOf(tester, const Key('keymap-version')), 21);
+    expect(tester.getRect(version).width, tester.renderObject<RenderParagraph>(version).size.width);
   });
+
+  final listBox = find.byKey(const Key('keymap-list'));
+
+  /// The item of the list its top edge goes through, an action's row or
+  /// with [others] also the title or a note, and the share of the item's
+  /// height that is above the edge.
+  (Key, double) top(WidgetTester tester, {bool others = false}) {
+    final items = find.descendant(
+      of: listBox,
+      matching: find.byWidgetPredicate(
+        (w) => w.key is ValueKey<String> && (w is Padding || others && w is Text),
+        skipOffstage: false,
+      ),
+    );
+    final edge = tester.getRect(listBox).top;
+    for (final e in items.evaluate()) {
+      var rect = tester.getRect(find.byKey(e.widget.key!, skipOffstage: false));
+      // The title and the notes are items with the room above their text.
+      if (e.widget is Text) {
+        final above = e.widget.key == const Key('keymap-title') ? 16.0 : 8.0;
+        rect = Rect.fromLTRB(rect.left, rect.top - above, rect.right, rect.bottom);
+      }
+      if (rect.top <= edge && edge < rect.bottom) return (e.widget.key!, (edge - rect.top) / rect.height);
+    }
+    fail('nothing along the top of the list');
+  }
 
   testWidgets('a size change keeps the place in the list: the row along its top stays there, as far into it', (
     tester,
   ) async {
-    final listBox = find.byKey(const Key('keymap-list'));
-    final rows = find.descendant(
-      of: listBox,
-      matching: find.byWidgetPredicate((w) => w.key is ValueKey<String> && w is Padding),
-    );
-    // The row the top edge of the list goes through, and the share of the
-    // row's height that is above the edge.
-    (Key, double) top(WidgetTester tester) {
-      final edge = tester.getRect(listBox).top;
-      for (final e in rows.evaluate()) {
-        final rect = tester.getRect(find.byKey(e.widget.key!));
-        if (rect.top <= edge && edge < rect.bottom) return (e.widget.key!, (edge - rect.top) / rect.height);
-      }
-      fail('no row along the top of the list');
-    }
-
     await pumpApp(tester);
     await settle(tester);
     await help(tester);
@@ -408,6 +428,91 @@ void main() {
       tester.getRect(find.byKey(const Key('keymap-title'))).top,
       greaterThanOrEqualTo(tester.getRect(listBox).top),
     );
+  });
+
+  testWidgets('the first frame after a size change already shows the same row along the top', (tester) async {
+    await startInHelp(tester, size: const Size(360, 640));
+    await equals(tester);
+    list(tester).jumpTo(1507);
+    await tester.pump();
+    final (held, into) = top(tester);
+    expect(into, inExclusiveRange(0.05, 0.95), reason: 'the edge goes through the row, not between two');
+    for (final (count, sign, factor) in [(2, '+', 1.3), (5, '+', 3.0), (9, '-', 0.7), (1, '+', 0.85)]) {
+      // The keys and exactly one frame: no later frame may be what puts the list right.
+      await tester.sendKeyEvent(LogicalKeyboardKey(LogicalKeyboardKey.digit0.keyId + count), character: '$count');
+      await tester.sendKeyEvent(sign == '+' ? LogicalKeyboardKey.equal : LogicalKeyboardKey.minus, character: sign);
+      await tester.pump();
+      expect(letters(tester, of: held), closeTo(14 * factor, 0.001), reason: '$count$sign: the frame has the new size');
+      expect(top(tester).$1, held, reason: '$count$sign: another row along the top in the first frame');
+      expect(top(tester).$2, closeTo(into, 0.05), reason: '$count$sign');
+      await settle(tester);
+      expect(top(tester).$1, held, reason: '$count$sign: and it stays');
+      expect(top(tester).$2, closeTo(into, 0.05), reason: '$count$sign');
+    }
+  });
+
+  testWidgets('with the list\'s top edge in the title or a note, a size change keeps that place too', (tester) async {
+    // Biggest text in a phone's window: the title alone is taller than the list.
+    await keep(tester, '3.0');
+    await startInHelp(tester, size: const Size(360, 640));
+    const title = Key('keymap-title');
+    expect(lettersOf(tester, title), 48);
+    expect(tester.getRect(find.byKey(title)).height, greaterThan(600));
+    list(tester).jumpTo(60);
+    await tester.pump();
+    final (held, into) = top(tester, others: true);
+    expect(held, title);
+    expect(into, inExclusiveRange(0.05, 0.2));
+    await minus(tester);
+    expect(lettersOf(tester, title), closeTo(16 * 2.5, 0.001));
+    expect(top(tester, others: true).$1, title, reason: 'still in the title');
+    expect(top(tester, others: true).$2, closeTo(into, 0.02), reason: 'as far into it');
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit6, character: '6');
+    await minus(tester);
+    expect(top(tester, others: true).$1, title);
+    expect(top(tester, others: true).$2, closeTo(into, 0.05));
+
+    // And in the note under the title, the data folder's.
+    const note = Key('app-data');
+    await equals(tester);
+    await startInHelp(
+      tester,
+      size: const Size(360, 640),
+      overrides: [appDataDirProvider.overrideWithValue('/home/me/Comics/.comicredr')],
+    );
+    expect(find.byKey(note), findsOneWidget);
+    final rect = tester.getRect(find.byKey(note));
+    list(tester).jumpTo(rect.top - tester.getRect(listBox).top + rect.height * 0.4);
+    await tester.pump();
+    expect(top(tester, others: true).$1, note);
+    final share = top(tester, others: true).$2;
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit7, character: '7');
+    await plus(tester);
+    expect(lettersOf(tester, note), closeTo(12 * 3, 0.001));
+    expect(top(tester, others: true).$1, note, reason: 'still in the note');
+    expect(top(tester, others: true).$2, closeTo(share, 0.03));
+  });
+
+  testWidgets('a search that finds nothing says so in the middle of the room under the search', (tester) async {
+    await pumpApp(tester);
+    await settle(tester);
+    await help(tester);
+    await key(tester, LogicalKeyboardKey.slash, character: '/');
+    tester.testTextInput.enterText('zzqq');
+    await settle(tester);
+    final nothing = find.byKey(const Key('keymap-nothing'));
+    expect(tester.widget<Text>(nothing).data, 'Nothing matches "zzqq"');
+    final said = tester.getRect(nothing);
+    final room = tester.getRect(listBox);
+    expect(said.center.dx, closeTo(room.center.dx, 1));
+    // Under the notes at the top of the list, in the middle of what they leave.
+    final notes = [
+      const Key('keymap-file'),
+      const Key('app-data'),
+    ].map(find.byKey).where((f) => f.evaluate().isNotEmpty).map((f) => tester.getRect(f).bottom);
+    final from = notes.fold(room.top, (a, b) => a > b ? a : b);
+    expect(said.center.dy, closeTo((from + 12 + 8 + room.bottom) / 2, 2));
+    expect(said.center.dy, inExclusiveRange(room.top + room.height * 0.4, room.top + room.height * 0.6));
   });
 
   testWidgets('the size keys in the help do not reach the comic behind it', (tester) async {

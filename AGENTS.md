@@ -663,41 +663,62 @@ refreshes right away instead of within six hours.
   reloads it. HomeScreen watches the provider from the first build, so
   the size is read before the help is first opened. Keys: nothing is
   bound for it. `HomeScreen._onCommand` hands `zoomIn`/`zoomOut`/
-  `zoomReset` to `_sizeHelp` (through `_helpTook`) while the help is up (a count is that many
-  steps), before the line that keeps every other intent from the library
-  and reader behind it, so a keys.toml of one's own works and the comic
-  and covers behind are never sized. With the cursor in the help's
-  search ReaderKeyboard makes no commands at all, so `+` and `-` are
-  typed and searched for; Enter keeps the filter and hands the keys
-  back. The overlay is wrapped in `GridZoomArea` for Ctrl+wheel, a
-  touchpad pinch and two touch fingers, counting the largest text as one
-  "column" and each smaller step as one more (`_columnsOf`). The size is
-  applied as a `MediaQuery` text scaler over the whole overlay (the
-  system's scaling of 14 px text times the factor; the system's own
-  scaler untouched at the usual size). The layout goes by the letters as
-  drawn, `_factor`: that scaler's effect on 14 px text, so the system's
-  text scale times the help's factor. The key column is 200 px times it,
-  and when that leaves the descriptions less than 70 px times it the
-  keys go on a line above (`_row`); with the system's text at 1.5 a
-  360 dp phone has them above at the usual size already. The title
+  `zoomReset` to `_sizeHelp` (through `_helpTook`) while the help is up
+  (a count is that many steps), before the line that keeps every other
+  intent from the library and reader behind it, so a keys.toml of one's
+  own works and the comic and covers behind are never sized. With the
+  cursor in the help's search ReaderKeyboard makes no commands at all,
+  so `+` and `-` are typed and searched for; Enter keeps the filter and
+  hands the keys back. The overlay is wrapped in `GridZoomArea` for
+  Ctrl+wheel, a touchpad pinch and two touch fingers, counting the
+  largest text as one "column" and each smaller step as one more
+  (`_columnsOf`). The size is applied as a `MediaQuery` text scaler over
+  the search field and the list (the system's scaling of 14 px text
+  times the factor; the system's own scaler untouched at the usual
+  size); the version line is outside it. The layout goes by the letters
+  as drawn, `_factor`: that scaler's effect on 14 px text, so the
+  system's text scale times the help's factor. The key column is 200 px
+  times it, and when that leaves the descriptions less than 70 px times
+  it the keys go on a line above (`_row`); with the system's text at 1.5
+  a 360 dp phone has them above at the usual size already. The title
   ("Keys · / searches · + - = text size · Esc closes", the size keys
   read from the keymap) and the notes under it are the first items of
   the list and scroll with it; only the search field is fixed above. They
   were fixed before, and at three times the size filled a phone's
   screen (a RenderFlex overflow in test/help_zoom_test.dart's narrow
-  windows). The version is a line of its own under the list
-  (`_version`, in the Column, not over the list as before, where from
-  about twice the size it covered the last rows): right-aligned, in a
-  `FittedBox` that shrinks it where the window is narrower than the
-  line. A size change keeps the row along the top of the list there, as
-  far scrolled into it as it was (`_keepPlace` notes the row by its
-  GlobalKey in `_rowKeys` before the new layout, `_putBack` jumps to it
-  after the frame). For that the list lays out all of its rows
-  (`scrollCacheExtent` of `_wholeList`; some 150, only those on screen painted):
-  laid out lazily it guessed its length and left the rows above the
-  screen at the old size's offsets, and going by the share of its extent
-  ended several rows off after one step. So in a widget test a row off
-  screen is in the tree but offstage, which finders skip by default.
+  windows). A search that finds nothing says so in the middle of the
+  room under the notes (`_nothing`, a `SliverFillRemaining` after the
+  list's items in the one `CustomScrollView`). The version is a line of
+  its own under the list (`_version`, in the outer Column, not over the
+  list as before): right-aligned, and always at the system's text size,
+  whatever the help's (it is not help text, and in 42 px letters it took
+  a line some 100 px tall from a short window); a `FittedBox` shrinks it
+  only where the window is narrower than the line.
+  A size change keeps the item along the top of the list there, as far
+  scrolled into it as it was; an item is an action's row, the title, a
+  note, the gap under them or the parts note, each wrapped by `_item` in
+  a `_Measured` under a GlobalKey (`_itemKeys`, in list order `_order`).
+  `_keepPlace` (from `didUpdateWidget`, before the new layout) finds the
+  item at the top edge and the share of it above the edge from the
+  items' heights added up, and leaves `_PlaceController.place`, which
+  `_PlacePosition.applyContentDimensions` takes up: that is called by
+  the viewport once the items have their new heights, the position
+  corrects its pixels (`_placeOf`) and answers false, and the viewport
+  lays out once more at that offset, all before the frame is painted. So
+  the first frame at the new size is right; a `jumpTo` after the frame
+  showed one frame of other rows first. The heights are kept by
+  `_RenderMeasured` in its own layout because a render object's `size`
+  and `getOffsetToReveal` may not be read while an ancestor is laying
+  out (a debug assertion). At offset 0 the list stays at the top. For
+  all this the list lays out all of its items (`scrollCacheExtent` of
+  `_wholeList`; 102 actions with the default keys plus the notes, only
+  those on screen painted): laid out lazily it guessed its length and
+  left the rows above the screen at the old size's offsets, and going by
+  the share of its extent ended several rows off after one step. The
+  cost, in a debug build's widget test at 1280x800 against a lazy list:
+  opening the help 38 ms for 9 ms, a step 25 ms for 7 ms; nothing while
+  scrolling. So in a widget test a row off screen is in the tree but
+  offstage, which finders skip by default.
   `HomeScreen._helpTook` is the help's part of `_onCommand`: search,
   back, the size keys, and everything else but fullscreen kept from what
   is behind. No Settings entry and no touch button.
@@ -927,10 +948,10 @@ tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps w
 tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
 tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
-tool/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the size stays, the list shows something else) and + after Enter, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
+tool/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
 python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
-tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
+tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot; the app's HOME is /tmp/comicredr-guide/home (GUIDE_HOME), never under the checkout, since the ? help and Settings show the data folder's path and with it the name of whoever took the pictures
 ```
 
 ## Detection spike (M1)
