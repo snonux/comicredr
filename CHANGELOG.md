@@ -18,10 +18,15 @@ the `?` overlay.
   the search box still types, and the keys do nothing while no covers
   show (a list tab, a cover's details filling a phone's screen).
   Settings → **Library → Cover size** has the same steps as two buttons
-  and **Usual size**, for a phone when pinching is not an option. Covers
+  and **Usual size**, for a phone when pinching is not an option; the
+  line says how many covers there are in a row, also when the window
+  changes or comics arrive while Settings is open. Covers
   are kept 512 pixels wide, so on a phone or a high-resolution screen
-  the biggest sizes are a little soft; in shuffle the pages of
-  bigger covers are now made 512 pixels wide instead of 256. In the page
+  the biggest sizes are a little soft. At the usual size nothing changes
+  in how covers and shuffled pages are drawn or in the memory they take;
+  covers made smaller take less memory each, and in shuffle the pages of
+  covers made bigger than 332 screen pixels are now made 512 pixels wide
+  instead of 256. In the page
   grid (`p`), a finger resting on a page during a pinch no longer opens
   that page when it lifts, and a third finger joining a pinch no longer
   makes the size jump.

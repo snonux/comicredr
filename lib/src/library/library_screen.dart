@@ -146,20 +146,22 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// covers, kept across restarts. Null for the default.
   double? _coverTarget;
 
-  /// The default cover width, and the steps and limits of the zoom: from
-  /// covers just wide enough for a few letters of the title up to 480 px.
-  /// The cover files are 512 pixels wide ([coverDecodeWidth]), so a cover
-  /// is sharp up to 512 screen pixels: all the way on a screen of one
-  /// pixel a point, to 256 px on a 2x one and about 170 px on a 3x phone.
-  /// Bigger than that it is the same picture scaled up, and soft. The
+  /// The default cover width, and the steps and limits of the zoom
+  /// ([GridZoom.covers]: 72 to 480 px).
+  /// The cover files are 512 pixels wide, so a cover sized by hand
+  /// ([coverDecodeWidth]) is sharp up to 512 device pixels: all the way
+  /// on a screen of one pixel a point, to 256 px on a 2x one and about
+  /// 170 px on a 3x phone. Bigger than that it is the same picture scaled
+  /// up, and soft. (Covers of the usual size are decoded 400 pixels wide
+  /// on every screen, [usualCoverDecodeWidth].) The
   /// limit is not lowered on such screens for it: big covers are asked
   /// for to see them big, soft or not, and sharper files would mean
   /// making every cover in the library and on S3 again (the guide says
   /// where they turn soft).
   static const _defaultCover = 160.0;
-  static const _coverGap = 12.0;
+  static const _coverGap = GridZoom.coversGap;
   static const _coverPad = 12.0;
-  static const _coverZoom = GridZoom(gap: _coverGap, smallest: 72, largest: 480);
+  static const _coverZoom = GridZoom.covers;
 
   /// The cover grid's width inside its padding at the last layout.
   double _inner = 0;
@@ -216,6 +218,31 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     null => math.max(2, _coverZoom.columns(inner, _defaultCover)),
     final target => _coverZoom.columns(inner, target),
   };
+
+  /// What Settings' Cover size line shows (covers a row, bigger and smaller
+  /// possible, sized by hand), as of the last frame: the line listens to
+  /// it, so it follows a window made wider, the first comics of a scan and
+  /// a `+` from elsewhere while Settings is open.
+  final _sizerState = ValueNotifier<(int?, bool, bool, bool)>((null, false, false, false));
+  bool _sizerDue = false;
+
+  /// After this frame, tells whoever listens what the cover size line
+  /// should say now. Called from every build and layout, where it can
+  /// change; told after the frame, since a listener rebuilds and nothing
+  /// may be marked for that while the frame is built.
+  void _tellSizer() {
+    if (_sizerDue) return;
+    _sizerDue = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sizerDue = false;
+      if (mounted) _sizerState.value = (coversPerRow, canGrowCovers, canShrinkCovers, coversZoomed);
+    });
+  }
+
+  @override
+  void addListener(VoidCallback listener) => _sizerState.addListener(listener);
+  @override
+  void removeListener(VoidCallback listener) => _sizerState.removeListener(listener);
 
   // CoverSizer, for Settings' Cover size buttons: the same steps as the
   // keys, with the same limits. Worked out from the size asked for and not
@@ -365,6 +392,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     _search.dispose();
     _searchFocus.dispose();
     _scroll.dispose();
+    _sizerState.dispose();
     super.dispose();
   }
 
@@ -1195,6 +1223,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   @override
   Widget build(BuildContext context) {
+    _tellSizer();
     final books = ref.watch(booksProvider).value ?? const <LibraryBook>[];
     final roots = ref.watch(rootsProvider).value;
     // Open on what you are reading when there is something; else the series.
@@ -1687,6 +1716,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       builder: (context, box) {
         const pad = _coverPad, gap = _coverGap;
         final inner = _inner = box.maxWidth - pad * 2;
+        _tellSizer();
         _cols = _columnsIn(inner);
         final itemW = _coverZoom.tileWidth(inner, _cols);
         final extent = itemW * 1.5 + 48;
@@ -1695,7 +1725,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         return GridZoomArea(
           key: _zoomArea,
           columns: _cols,
-          onColumns: _setCoverColumns,
+          onColumns: (n) {
+            _setCoverColumns(n);
+            return _columnsIn(_inner);
+          },
           builder: (context, physics) => _covers(physics, wide: wide, extent: extent, itemW: itemW),
         );
       },
@@ -1706,10 +1739,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// high, scrolling with [physics] (null for the usual ones).
   Widget _covers(ScrollPhysics? physics, {required bool wide, required double extent, required double itemW}) {
     final shuffle = _shuffle && _coverTab;
-    // One of a few decode widths each, so a zoom step or a resize mostly
-    // reuses the pictures already decoded.
-    final px = itemW * MediaQuery.devicePixelRatioOf(context);
-    final sizes = (cover: coverDecodeWidth(px), shuffled: ShufflePages.sizeFor(px));
+    final sizes = coverPictureSizes(itemW * MediaQuery.devicePixelRatioOf(context), zoomed: _coverTarget != null);
     return GridView.builder(
       key: const Key('grid'),
       controller: _scroll,

@@ -12,22 +12,49 @@ import 'library_store.dart';
 import 'providers.dart';
 import 'shuffle.dart';
 
-/// The widths a cover is decoded at. Only these two, so that a pinch, a
-/// `+` or a window dragged wider does not decode every cover on screen
-/// again at each new tile width while the old sizes sit in the image
-/// cache: 400 for the default size and everything smaller (the details
-/// pane decodes at 400 too), and the 512 the cover files have.
-const coverDecodeWidths = [400, 512];
+/// The width covers of the usual size are decoded at, on every screen:
+/// what they were decoded at before covers could be sized, so the memory
+/// they take is the same for whoever never sizes them (0.96 MB a cover of
+/// 400 x 600). It is more than a 160 px cover needs on a screen of one
+/// pixel a point and less than the 490 device pixels of one on a 3x
+/// phone, where the usual covers are a little softer than the 512 px
+/// file could give.
+const usualCoverDecodeWidth = 400;
 
-/// The decode width for a cover drawn [px] screen pixels wide: the first
-/// of [coverDecodeWidths] that covers it, else the biggest. A tile wider
-/// than that shows the cover scaled up; the file has no more.
+/// The widths a cover of another size than the usual is decoded at. Only
+/// these four, so that a pinch, a `+` or a window dragged wider does not
+/// decode every cover on screen again at each new tile width while the
+/// old sizes sit in the image cache. The small ones are for small covers:
+/// there are many of those on a screen (about 200 of 72 px in a 1920 px
+/// window), and at 400 px each they would take some 190 MB, more than the
+/// 100 MB Flutter's image cache holds; at 128 px they take 20 MB. 512 is
+/// what the cover files have.
+const coverDecodeWidths = [128, 256, usualCoverDecodeWidth, 512];
+
+/// The decode width for a cover drawn [px] device pixels wide in a grid
+/// sized by hand: the first of [coverDecodeWidths] that covers it, else
+/// the biggest. A tile wider than that shows the cover scaled up; the
+/// file has no more.
 int coverDecodeWidth(double px) => coverDecodeWidths.firstWhere((w) => w >= px, orElse: () => coverDecodeWidths.last);
+
+/// What a tile [px] device pixels wide decodes: its cover [cover] pixels
+/// wide, and in shuffle the page file [shuffled] pixels wide
+/// ([ShufflePages.sizeFor]), decoded no wider than [cover].
+///
+/// At the usual cover size ([zoomed] false) these are what they were
+/// before covers could be sized, on every screen: [usualCoverDecodeWidth]
+/// and the 256 px page ([ShufflePages.width]). So memory, and which page
+/// files get made, only change for a grid sized by hand; the price is
+/// that on a dense phone, whose usual covers are some 490 device pixels
+/// wide, they are not as sharp as their files allow.
+({int cover, int shuffled}) coverPictureSizes(double px, {required bool zoomed}) => zoomed
+    ? (cover: coverDecodeWidth(px), shuffled: ShufflePages.sizeFor(px))
+    : (cover: usualCoverDecodeWidth, shuffled: ShufflePages.width);
 
 /// A cover image from the cache, or a placeholder while the scan has not
 /// made it yet.
 class CoverImage extends StatelessWidget {
-  const CoverImage({super.key, required this.bookKey, this.width = 400});
+  const CoverImage({super.key, required this.bookKey, this.width = usualCoverDecodeWidth});
 
   /// Null for a library folder with no books in it yet: the placeholder.
   final String? bookKey;
@@ -63,15 +90,16 @@ class CoverCard extends StatelessWidget {
     this.shufflePage,
     this.shuffleBook,
     this.marked = false,
-    this.coverWidth = 400,
+    this.coverWidth = usualCoverDecodeWidth,
     this.shuffleSize = ShufflePages.width,
   });
 
-  /// How many pixels wide the cover is decoded ([coverDecodeWidth]): more
-  /// for a zoomed-in grid.
+  /// How many pixels wide the cover is decoded: [usualCoverDecodeWidth]
+  /// at the usual size, else by the tile's width ([coverDecodeWidth]). A
+  /// shuffled page is decoded no wider than this either.
   final int coverWidth;
 
-  /// In shuffle, how many pixels wide the page is made and decoded
+  /// In shuffle, how many pixels wide the page's file is
   /// ([ShufflePages.sizeFor]).
   final int shuffleSize;
 
@@ -135,6 +163,7 @@ class CoverCard extends StatelessWidget {
                         book: from,
                         page: page,
                         size: shuffleSize,
+                        decodeWidth: coverWidth,
                         cover: CoverImage(bookKey: book?.key, width: coverWidth),
                       )
                     else if (onlyBook?.remoteOnly ?? false)

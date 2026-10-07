@@ -50,7 +50,10 @@ done
 cc -shared -fPIC -o "$out/touch_inject.so" tool/touch_inject.c $(pkg-config --cflags --libs gtk+-3.0)
 
 export DISPLAY=:89
-Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
+# -noreset: without it Xvfb starts over when its last client goes, which
+# the app is when it is stopped for a restart, and the next start could
+# find the display closed for that moment ("cannot open display").
+Xvfb "$DISPLAY" -noreset -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
@@ -136,16 +139,23 @@ else:
     print(len(row), max(row), top)
 EOF
 }
-# Settings, scrolled six notches down to its Library section: where the
-# Cover size line's smaller and bigger buttons and Usual size are in this
-# window. The line sits under the panel detector's path, which wraps into
-# more lines in a checkout with a long path: SIZE_Y moves it then.
-smaller_x=${SMALLER_X:-746} bigger_x=${BIGGER_X:-786} usual_x=${USUAL_X:-853} size_y=${SIZE_Y:-506}
+# Settings, scrolled to its end and then twelve wheel notches (53 px each)
+# back up: where the Cover size line's smaller and bigger buttons and
+# Usual size are then. Counted from the end because what is under the line
+# (Sidecars, Touch, Reading history, Back up, S3 sync) is the same in every
+# run here, while above it the panel detector's path wraps into more lines
+# in a checkout with a longer path, which would move the line if it were
+# counted from the top. (Tab does not find the buttons reliably either:
+# the focus goes by where things are on screen, and the dialog scrolls as
+# it moves.)
+smaller_x=${SMALLER_X:-400} bigger_x=${BIGGER_X:-444} usual_x=${USUAL_X:-515} size_y=${SIZE_Y:-362}
 settings() {
   # The gear wants the pointer on it before the click.
   xdotool mousemove 1251 28; sleep 0.5; xdotool click 1; sleep 1.5
   xdotool mousemove 640 400
-  for _ in 1 2 3 4 5 6; do xdotool click 5; sleep 0.1; done
+  for _ in $(seq 1 40); do xdotool click 5; sleep 0.05; done
+  sleep 0.8
+  for _ in $(seq 1 12); do xdotool click 4; sleep 0.05; done
   sleep 1
 }
 n=0

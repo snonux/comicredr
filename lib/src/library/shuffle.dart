@@ -32,7 +32,8 @@ LibraryBook? shuffleBook(String group, List<LibraryBook> books, int seed) {
 
 /// Makes the pages shuffle shows, as the page grid's thumbnails
 /// (`<cache>/covers/pages/<content key>/<page>.jpg`, 256 px wide, and
-/// `w512/<page>.jpg` for covers zoomed in), so a page the grid made is
+/// `w512/<page>.jpg` for covers sized by hand to more than 332 device
+/// pixels; never at the usual cover size), so a page the grid made is
 /// reused and the other way round.
 ///
 /// Only tiles on screen ask; the newest request is made first, two at a
@@ -58,7 +59,8 @@ class ShufflePages {
   /// covers cost it, about 1.5 MB decoded each.
   static const sizes = [256, 512];
 
-  /// The size for a tile [px] screen pixels wide, by the page grid's rule
+  /// The size for a tile [px] device pixels wide in a grid sized by hand
+  /// (the usual cover size keeps to [width], see `coverPictureSizes`), by the page grid's rule
   /// ([Thumbnails.sizeFor]): the smallest that needs enlarging by no more
   /// than a third. A tile over 665 pixels wide shows the 512 px page
   /// scaled up further, and soft.
@@ -162,11 +164,17 @@ class ShuffledPage extends ConsumerStatefulWidget {
     required this.page,
     required this.cover,
     this.size = ShufflePages.width,
+    this.decodeWidth,
   });
 
   final LibraryBook book;
   final int page;
   final int size;
+
+  /// The most pixels wide the page is decoded, when that is less than its
+  /// file has: small tiles are many, and each would hold the whole 256 px
+  /// page in memory. Null for the file's own width.
+  final int? decodeWidth;
 
   /// What shows until the page is made, or when it cannot be.
   final Widget cover;
@@ -239,8 +247,9 @@ class _ShuffledPageState extends ConsumerState<ShuffledPage> {
       File(path),
       key: Key('shuffled-${widget.book.key}-${widget.page}'),
       fit: BoxFit.cover,
-      // Its own width, one of two: a zoom step decodes nothing again.
-      cacheWidth: _shown,
+      // The file's width or the tile's decode width, each one of a few:
+      // most zoom steps decode nothing again.
+      cacheWidth: math.min(_shown, widget.decodeWidth ?? _shown),
       gaplessPlayback: true,
       errorBuilder: (_, _, _) => widget.cover,
     );

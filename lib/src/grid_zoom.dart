@@ -12,6 +12,16 @@ import 'package:flutter/widgets.dart';
 class GridZoom {
   const GridZoom({required this.gap, required this.smallest, this.largest = double.infinity});
 
+  /// The library's covers: from covers just wide enough for a few letters
+  /// of the title up to 480 px, [coversGap] apart.
+  static const covers = GridZoom(gap: coversGap, smallest: 72, largest: 480);
+  static const coversGap = 12.0;
+
+  /// The page grid (`p`): from tiles too small to say anything up to one
+  /// page a row, [pagesGap] apart.
+  static const pages = GridZoom(gap: pagesGap, smallest: 56);
+  static const pagesGap = 8.0;
+
   /// The space between two tiles.
   final double gap;
 
@@ -75,8 +85,10 @@ class GridZoomArea extends StatefulWidget {
   /// The columns the grid has now.
   final int columns;
 
-  /// Asked for another column count; the grid clamps it to what it allows.
-  final ValueChanged<int> onColumns;
+  /// Asked for another column count; the grid clamps it to what it allows
+  /// and answers with the columns it has from now on, which [columns] only
+  /// says after the grid is built again.
+  final int Function(int columns) onColumns;
 
   /// Builds the grid with [physics]: null for its usual ones.
   final Widget Function(BuildContext context, ScrollPhysics? physics) builder;
@@ -97,6 +109,16 @@ class GridZoomAreaState extends State<GridZoomArea> {
   int _pinchColumns = 1;
   bool _pinched = false;
 
+  /// What the grid answered the last time it was asked, until it is built
+  /// again and [GridZoomArea.columns] says so itself. Several pointer
+  /// events can come between two frames: a step, then a finger down. With
+  /// the widget's count alone the second would start from the columns of
+  /// before the step, and the next move would take the step back.
+  int? _answered;
+
+  /// The columns the grid has now, also between two frames.
+  int get _columns => _answered ?? widget.columns;
+
   /// A second finger came down in the touch that is on the grid, or that
   /// just left it: its taps and long presses are part of a pinch and mean
   /// nothing. Still true when the last finger lifts (a tap is only
@@ -107,6 +129,13 @@ class GridZoomAreaState extends State<GridZoomArea> {
   void initState() {
     super.initState();
     HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  @override
+  void didUpdateWidget(GridZoomArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Built again: the widget's count is the grid's own once more.
+    _answered = null;
   }
 
   @override
@@ -122,10 +151,13 @@ class GridZoomAreaState extends State<GridZoomArea> {
     return false;
   }
 
-  /// Bigger tiles (fewer columns) for [by] > 0, smaller for [by] < 0.
-  void _step(int by) {
-    if (mounted) widget.onColumns(widget.columns - by);
+  /// Asks the grid for [columns] and notes what it took.
+  void _ask(int columns) {
+    if (mounted) _answered = widget.onColumns(columns);
   }
+
+  /// Bigger tiles (fewer columns) for [by] > 0, smaller for [by] < 0.
+  void _step(int by) => _ask(_columns - by);
 
   /// Ctrl and the wheel zooms; the wheel alone scrolls as usual.
   void _onSignal(PointerSignalEvent e) {
@@ -138,9 +170,7 @@ class GridZoomAreaState extends State<GridZoomArea> {
 
   /// The columns the pinch started with, less a column for each step the
   /// fingers spread; a touchpad pinch (pan-zoom events) the same way.
-  void _pinch(double scale) {
-    if (mounted) widget.onColumns(_pinchColumns - GridZoom.pinchSteps(scale));
-  }
+  void _pinch(double scale) => _ask(_pinchColumns - GridZoom.pinchSteps(scale));
 
   // The pointer callbacks below can still come after the grid is gone (a
   // tab change or a closed book with fingers down): the touch keeps
@@ -171,10 +201,12 @@ class GridZoomAreaState extends State<GridZoomArea> {
   /// A finger came or went: the pinch starts again from the two fingers
   /// that are first now and the columns there are now. Without this, a
   /// third finger taking the place of one that lifted would be measured
-  /// against the spread of the old pair, and the columns would jump.
+  /// against the spread of the old pair, and the columns would jump. The
+  /// columns are [_columns], right also when the finger comes in the same
+  /// frame as a step.
   void _rebase() {
     final from = _fingers.length >= 2 ? _spread : null;
-    _pinchColumns = widget.columns;
+    _pinchColumns = _columns;
     // The grid stops scrolling while two fingers are down, and scrolls
     // again when they are not.
     if ((from == null) != (_pinchFrom == null)) {
@@ -198,7 +230,7 @@ class GridZoomAreaState extends State<GridZoomArea> {
     onPointerUp: _fingerUp,
     onPointerCancel: _fingerUp,
     onPointerPanZoomStart: (_) {
-      if (mounted) _pinchColumns = widget.columns;
+      if (mounted) _pinchColumns = _columns;
     },
     onPointerPanZoomUpdate: (e) => _pinch(e.scale),
     // Two fingers pinch; they do not scroll meanwhile. Nor does the wheel

@@ -419,10 +419,13 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
 
 /// What Settings' Cover size buttons need of the library: the steps `+`
 /// `-` and `=` take there, with the same limits, saved the same way
-/// (`library.coverSize`). The library screen is one.
-abstract interface class CoverSizer {
+/// (`library.coverSize`). The library screen is one. Its listeners are
+/// told when any of the getters has changed, whatever changed it: a press
+/// here, a key, the window's width, covers coming or going.
+abstract interface class CoverSizer implements Listenable {
   /// How many covers a row there are; null while no grid of covers is on
-  /// screen (a list tab, an empty library), when nothing can be sized.
+  /// screen (a list tab, an empty tab or library, a search that found
+  /// nothing), when nothing can be sized.
   int? get coversPerRow;
 
   /// Not at the biggest yet, and not at the smallest.
@@ -441,66 +444,72 @@ abstract interface class CoverSizer {
 
 /// Sizes the library's covers with two buttons, for a phone in a hand that
 /// cannot pinch and has no `+` key. The covers behind the dialog change at
-/// each press, and the line says how many a row there are now.
-class _CoverSizePicker extends StatefulWidget {
+/// each press, and the line says how many a row there are now: it listens
+/// to the library ([CoverSizer]), so it also follows the window's width
+/// and comics arriving while Settings is open.
+///
+/// The line is on its own above the buttons, and they wrap: beside them it
+/// had 11 px left in a 400 px wide phone and overflowed below 360.
+class _CoverSizePicker extends StatelessWidget {
   const _CoverSizePicker({required this.covers});
 
   final CoverSizer covers;
 
   @override
-  State<_CoverSizePicker> createState() => _CoverSizePickerState();
-}
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: covers,
+    builder: (context, _) {
+      final theme = Theme.of(context);
+      final n = covers.coversPerRow;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            n == null ? 'Cover size' : 'Cover size: $n a row',
+            key: const Key('setting-coverSize'),
+            style: theme.textTheme.bodyLarge,
+          ),
+          _buttons(n),
+          Text(
+            n == null
+                ? 'No covers show behind Settings now (a list, an empty tab, a search that found nothing), so '
+                      'there is nothing to size.'
+                : 'One size for every tab of covers. In the library + - and = do the same, and so do Ctrl with '
+                      'the wheel and a pinch with two fingers.',
+            key: const Key('setting-coverSize-help'),
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      );
+    },
+  );
 
-class _CoverSizePickerState extends State<_CoverSizePicker> {
-  /// Takes the step, then shows what the library says now.
-  void _then(VoidCallback step) => setState(step);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final covers = widget.covers;
-    final n = covers.coversPerRow;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                n == null ? 'Cover size' : 'Cover size: $n a row',
-                key: const Key('setting-coverSize'),
-                style: theme.textTheme.bodyLarge,
-              ),
-            ),
-            IconButton(
-              key: const Key('setting-coverSize-smaller'),
-              icon: const Icon(Icons.zoom_out),
-              tooltip: 'Smaller covers (-)',
-              onPressed: covers.canShrinkCovers ? () => _then(() => covers.zoomCovers(-1)) : null,
-            ),
-            IconButton(
-              key: const Key('setting-coverSize-bigger'),
-              icon: const Icon(Icons.zoom_in),
-              tooltip: 'Bigger covers (+)',
-              onPressed: covers.canGrowCovers ? () => _then(() => covers.zoomCovers(1)) : null,
-            ),
-            TextButton(
-              key: const Key('setting-coverSize-usual'),
-              onPressed: n != null && covers.coversZoomed ? () => _then(covers.resetCovers) : null,
-              child: const Text('Usual size'),
-            ),
-          ],
-        ),
-        Text(
-          n == null
-              ? 'Open Settings from a tab with covers on it to change their size.'
-              : 'One size for every tab of covers. In the library + - and = do the same, and so do Ctrl with '
-                    'the wheel and a pinch with two fingers.',
-          style: theme.textTheme.bodySmall,
-        ),
-      ],
-    );
-  }
+  /// Smaller, bigger and Usual size, each off when it would change
+  /// nothing; on a second line when the window or big letters leave no
+  /// room for all three.
+  Widget _buttons(int? n) => Wrap(
+    crossAxisAlignment: WrapCrossAlignment.center,
+    spacing: 4,
+    children: [
+      IconButton(
+        key: const Key('setting-coverSize-smaller'),
+        icon: const Icon(Icons.zoom_out),
+        tooltip: 'Smaller covers (-)',
+        onPressed: covers.canShrinkCovers ? () => covers.zoomCovers(-1) : null,
+      ),
+      IconButton(
+        key: const Key('setting-coverSize-bigger'),
+        icon: const Icon(Icons.zoom_in),
+        tooltip: 'Bigger covers (+)',
+        onPressed: covers.canGrowCovers ? () => covers.zoomCovers(1) : null,
+      ),
+      TextButton(
+        key: const Key('setting-coverSize-usual'),
+        onPressed: n != null && covers.coversZoomed ? covers.resetCovers : null,
+        child: const Text('Usual size'),
+      ),
+    ],
+  );
 }
 
 /// Picks how fast the arrow keys scroll a zoomed page and how smoothly

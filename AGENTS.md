@@ -389,18 +389,26 @@ refreshes right away instead of within six hours.
   to a column count within `fewest`..`most`. It never throws, whatever
   the width or target (NaN, zero and below give the most columns,
   infinity the fewest). The page grid is
-  `GridZoom(gap: 8, smallest: 56)` (down to one page a row), the covers
-  `GridZoom(gap: 12, smallest: 72, largest: 480)`; unzoomed, the covers
+  `GridZoom.pages` (gap 8, smallest 56, down to one page a row), the
+  covers `GridZoom.covers` (gap 12, 72 to 480 px), which the tests use
+  too; unzoomed, the covers
   aim for 160 px and never fewer than two a row (`_columnsIn`).
   `GridZoomArea` (same file) wraps either grid in a `Listener`: Ctrl and
   the wheel, a touchpad pinch (pan-zoom events) and two touch pointers
   (a step per quarter the fingers spread or close, `pinchSteps`) call
-  `onColumns`, and the grid is built with the physics it hands over
+  `onColumns`, which answers with the columns the grid then has (clamped),
+  and the grid is built with the physics it hands over
   (`NeverScrollableScrollPhysics` while two or more fingers are down or
   Ctrl is held). The pinch is between the first two fingers down and
   starts again (`_rebase`: spread and columns as they are now) whenever a
   finger comes or goes, so a third finger taking over from one that
-  lifted does not jump; every pointer callback checks `mounted`, since a
+  lifted does not jump. The columns it starts again from, and the ones a
+  wheel notch or a new touchpad pinch counts from, are `_columns`: the
+  grid's last answer until the area is built again, since several pointer
+  events can come within one frame, when `widget.columns` is still the
+  count of before the step (test/grid_zoom_test.dart does a step, a
+  finger down and a move without a pump; the page grid's `_columnsNow`
+  is the same for its own compare). Every pointer callback checks `mounted`, since a
   touch keeps reporting to a grid that a tab change took away. Its
   `pinched` stays true from the second finger down until the
   next touch starts; while it is, the cover grid drops taps and long
@@ -421,7 +429,13 @@ refreshes right away instead of within six hours.
   size (`_CoverSizePicker` in `settings_dialog.dart`) drives the library
   through the `CoverSizer` interface `LibraryScreenState` implements
   (`showSettings(covers: this)`): two buttons and Usual size, off at the
-  limits and while no cover grid is behind the dialog. It sits between
+  limits and while no cover grid is behind the dialog. `CoverSizer` is a
+  `Listenable` and the line a `ListenableBuilder` on it: the library
+  notes what the line would say after every build and layout
+  (`_tellSizer`, a post-frame callback setting `_sizerState`), so it
+  follows a resize, the first comics of a scan and the buttons alike.
+  The line is above the buttons, which are in a `Wrap`: it fits 320 dp
+  and 1.5x letters (tested). It sits between
   Guided view and Sidecars, so what the e2e scripts click above it,
   counted from the dialog's top, has not moved; the ones that click from
   its bottom (e2e_s3_settings, e2e_settings_backup) scroll 30 wheel
@@ -429,10 +443,23 @@ refreshes right away instead of within six hours.
   Pictures: cover files are 512 px wide (the scanner makes them), so a
   cover is sharp up to 512 device pixels and scaled up beyond (480 px
   covers at 3x are 1440); the range is not cut down for that, and the
-  guide says so. Covers decode at 400 or 512 px only
-  (`coverDecodeWidth`, `cover_card.dart`), shuffled pages at 256 or
-  512 (`ShufflePages.sizeFor`), so zoom steps and resizes reuse the
-  decoded pictures.
+  guide says so. What a tile decodes is `coverPictureSizes`
+  (`cover_card.dart`). At the usual size (`_coverTarget` null) it is what
+  it was before covers could be sized, on every screen: covers 400 px
+  (`usualCoverDecodeWidth`), shuffled pages the 256 px file. So a phone's
+  usual covers, some 490 device pixels wide at 3x, are decoded at 400 and
+  not as sharp as the file allows; that was chosen (2026-10-07) so that
+  memory (0.96 MB a cover, not 1.57) and the page files made do not
+  change for whoever never sizes the covers. Sized by hand, a cover
+  decodes at the first of 128, 256, 400, 512 px (`coverDecodeWidths`)
+  that covers the tile's device pixels (`coverDecodeWidth`), so small
+  covers are small in memory (about 200 of 72 px in a 1920 px window:
+  20 MB, where 400 px each would be 190 MB against the image cache's
+  100 MB), and a step that stays in a bucket reuses the decoded
+  pictures. The other covers do not follow the grid: the details pane
+  and page decode at 512, the bookmark and history rows at 96. A shuffled page's file is
+  256 or 512 px (`ShufflePages.sizeFor`) and is decoded no wider than
+  the cover would be (`ShuffledPage.decodeWidth`).
 - Shuffle (`S` on the Folders tab, `gs` picks again; setting
   `library.shuffle`): each book tile shows page `shufflePage(key, pages,
   seed)` instead of its cover, never page 1, from a seed made anew when
@@ -440,7 +467,8 @@ refreshes right away instead of within six hours.
   picks. `ShufflePages` (`lib/src/library/shuffle.dart`) makes them into
   the page grid's thumbnail files (`<cache>/covers/pages/<key>/<n>.jpg`,
   256 px; `w512/<n>.jpg`, 512 px, for tiles more than 332 device pixels
-  wide, never the grid's 1024) for tiles on screen only, newest first,
+  wide in a grid sized with `+` or a pinch, never at the usual cover size
+  and never the grid's 1024) for tiles on screen only, newest first,
   two at a time; each opens
   the book through `BackgroundDocument` and closes it straight after. The
   cover shows until the page is ready, and the 256 px page until a 512 px
@@ -816,7 +844,7 @@ tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slo
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
-tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked, the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
+tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
 python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot

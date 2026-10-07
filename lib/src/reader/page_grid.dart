@@ -53,15 +53,14 @@ class PageGridState extends ConsumerState<PageGrid> {
   /// the default, about three columns on a phone and more on the laptop.
   late double? _target = ref.read(_lastZoom).target;
 
-  /// The grid's zoom steps and limits: from tiles too small to say
-  /// anything up to one page a row.
-  static const _zoom = GridZoom(gap: _gap, smallest: 56);
+  /// The grid's zoom steps and limits.
+  static const _zoom = GridZoom.pages;
 
   /// Ctrl and the wheel and the pinch; it knows when a touch was a pinch.
   final _area = GlobalKey<GridZoomAreaState>();
 
   static const _pad = 12.0;
-  static const _gap = 8.0;
+  static const _gap = GridZoom.pagesGap;
 
   @override
   void initState() {
@@ -87,13 +86,18 @@ class PageGridState extends ConsumerState<PageGrid> {
   double _defaultTarget(BuildContext context) => MediaQuery.sizeOf(context).width < 600 ? 110 : 150;
 
   /// Bigger thumbnails (fewer columns) for [by] > 0, smaller for [by] < 0.
-  void zoom(int by) => _setColumns(_columns - by);
+  void zoom(int by) => _setColumns(_columnsNow - by);
+
+  /// The columns for the size asked for. [_columns] only follows at the
+  /// next layout, and two zoom steps can come before it (two wheel
+  /// notches, a pinch step and a finger down).
+  int get _columnsNow => _zoom.columns(_inner, _target ?? _defaultTarget(context));
 
   /// Zooms to [columns] a row. What is kept is the tile width that gives,
   /// so a wider window later fits more of them.
   void _setColumns(int columns, {bool reset = false}) {
     final next = _zoom.clamp(_inner, columns);
-    if (next == _columns && !reset) return;
+    if (next == _columnsNow && !reset) return;
     final target = reset ? null : _zoom.tileWidth(_inner, next);
     setState(() => _target = ref.read(_lastZoom).target = target);
     unawaited(
@@ -273,7 +277,10 @@ class PageGridState extends ConsumerState<PageGrid> {
                 return GridZoomArea(
                   key: _area,
                   columns: _columns,
-                  onColumns: _setColumns,
+                  onColumns: (n) {
+                    _setColumns(n);
+                    return _columnsNow;
+                  },
                   builder: (context, physics) => Directionality(
                     textDirection: s.rightToLeft ? TextDirection.rtl : TextDirection.ltr,
                     child: GridView.builder(

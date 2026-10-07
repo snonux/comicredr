@@ -1,18 +1,23 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
-import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/app_database.dart' hide Override;
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/grid_zoom.dart';
 import 'package:comicredr/src/library/cover_card.dart';
+import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
+import 'package:comicredr/src/library/shuffle.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fixtures.dart';
@@ -39,9 +44,16 @@ void main() {
     tmp.deleteSync(recursive: true);
   });
 
-  Future<ProviderContainer> pumpApp(WidgetTester tester, Size size) async {
-    tester.view.physicalSize = size;
-    tester.view.devicePixelRatio = 1;
+  /// The app in a window of [size] logical pixels, [ratio] device pixels
+  /// each.
+  Future<ProviderContainer> pumpApp(
+    WidgetTester tester,
+    Size size, {
+    double ratio = 1,
+    List<Override> overrides = const [],
+  }) async {
+    tester.view.physicalSize = size * ratio;
+    tester.view.devicePixelRatio = ratio;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
       ProviderScope(
@@ -52,6 +64,7 @@ void main() {
           coverDirProvider.overrideWithValue('${tmp.path}/covers'),
           classicCvOnly,
           noSidecars(db),
+          ...overrides,
         ],
         child: const ComicRedrApp(),
       ),
@@ -78,8 +91,13 @@ void main() {
 
   /// The app with the library scanned, inside the library folder on the
   /// Folders tab, its first comic selected.
-  Future<ProviderContainer> inFolder(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
-    final c = await pumpApp(tester, size);
+  Future<ProviderContainer> inFolder(
+    WidgetTester tester, {
+    Size size = const Size(1280, 800),
+    double ratio = 1,
+    List<Override> overrides = const [],
+  }) async {
+    final c = await pumpApp(tester, size, ratio: ratio, overrides: overrides);
     await tester.runAsync(() async {
       await c.read(libraryStoreProvider).addRoot(root.path);
       await c.read(scannerProvider).scan();
@@ -505,54 +523,132 @@ void main() {
     expect(width(tester), inInclusiveRange(72, 72 * 1.2), reason: 'tiny: the smallest covers');
   });
 
-  testWidgets('shuffled pages are made and decoded 256 px wide at the usual size, 512 for big covers', (tester) async {
-    // A wide window, on the Books tab: room for a step between the biggest
-    // covers and ones still over 333 pixels wide.
+  /// The pictures of the covers on screen, by the comic they are of, as
+  /// the image cache keys them: the same file at the same decode width is
+  /// the same decoded picture.
+  Map<String, ResizeImage> coverPictures(WidgetTester tester) => {
+    for (final card in find.byType(CoverCard).evaluate())
+      for (final image in find.descendant(of: find.byWidget(card.widget), matching: find.byType(Image)).evaluate())
+        if ((image.widget as Image).key == null)
+          (card.widget as CoverCard).item.id: (image.widget as Image).image as ResizeImage,
+  };
+  Set<int?> widthsOf(Iterable<ResizeImage> pictures) => {for (final p in pictures) p.width};
+
+  testWidgets('covers decode 400 px wide at the usual size, by their width once sized, and a step often reuses them', (
+    tester,
+  ) async {
     await inFolder(tester, size: const Size(2000, 1000));
     await tester.tap(find.text('Books'));
     await settle(tester);
-    Finder shuffled() => find.byWidgetPredicate(
-      (w) => w is Image && w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('shuffled-'),
-    );
-    Set<int?> decoded() => {for (final w in tester.widgetList<Image>(shuffled())) (w.image as ResizeImage).width};
-    List<String> made(String sub) => [
-      for (final f in Directory('${tmp.path}/covers/pages').listSync(recursive: true).whereType<File>())
-        if (f.parent.path.endsWith(sub)) f.path,
-    ];
-    Future<void> until(bool Function() there) async {
-      for (var i = 0; i < 100 && !there(); i++) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
-        await tester.pump();
-      }
-    }
+    expect(coverPictures(tester), isNotEmpty, reason: 'the scan made covers');
+    expect(width(tester), lessThan(256));
+    expect(widthsOf(coverPictures(tester).values), {400}, reason: 'the usual size: as before covers could be sized');
 
-    await key(tester, LogicalKeyboardKey.keyS, character: 'S');
-    await until(() => shuffled().evaluate().length >= 2);
-    expect(shuffled().evaluate().length, greaterThanOrEqualTo(2), reason: 'pages are made, two at a time');
-    expect(decoded(), {256});
-    expect(made('w512'), isEmpty, reason: 'covers of the usual size need no more');
-
-    // As big as they go: over 333 pixels wide, so the 512 px pages.
+    // Every size from the biggest to the smallest: the decode width is the
+    // tile's bucket, and a step that stays in the bucket shows the very
+    // pictures the image cache holds.
     for (var i = 0; i < 8; i++) {
       await plus(tester);
     }
-    expect(width(tester), greaterThan(333));
-    await until(() => decoded().contains(512) && !decoded().contains(256));
-    expect(decoded(), {512});
-    expect(made('w512'), isNotEmpty, reason: "beside the page grid's 512 px thumbnails");
-    final big = made('w512').length;
+    final buckets = <int>{};
+    var reused = 0;
+    for (var last = 0; columns(tester) != last;) {
+      last = columns(tester);
+      final bucket = coverDecodeWidth(width(tester));
+      final before = coverPictures(tester);
+      expect(widthsOf(before.values), {bucket}, reason: '$last a row, ${width(tester)} px');
+      buckets.add(bucket);
+      await minus(tester);
+      if (columns(tester) == last || coverDecodeWidth(width(tester)) != bucket) continue;
+      final after = coverPictures(tester);
+      for (final id in before.keys.where(after.containsKey)) {
+        expect(after[id], before[id], reason: '$id, from $last a row to ${columns(tester)}');
+        reused++;
+      }
+    }
+    expect(buckets, {128, 256, 400, 512}, reason: 'small covers decode small');
+    expect(reused, greaterThan(20), reason: 'steps within a bucket were looked at');
 
-    // A step smaller, still over 333: the same decoded pictures, by the
-    // image cache's own key, and nothing new made.
-    final images = {for (final w in tester.widgetList<Image>(shuffled())) w.image};
-    final biggest = width(tester);
+    // The usual size again: 400 whatever the width.
+    await equals(tester);
+    expect(widthsOf(coverPictures(tester).values), {400});
+  });
+
+  testWidgets('a dense phone at the usual size: covers 400 px and shuffled pages 256 px, as before; more once sized', (
+    tester,
+  ) async {
+    final pages = _HandMadePages('${tmp.path}/covers/pages');
+    await inFolder(
+      tester,
+      size: const Size(360, 800),
+      ratio: 3,
+      overrides: [shufflePagesProvider.overrideWithValue(pages)],
+    );
+    expect(columns(tester), 2);
+    expect(width(tester) * 3, greaterThan(480), reason: 'a tile is some 490 device pixels wide');
+    expect(widthsOf(coverPictures(tester).values), {400});
+    await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+    expect(pages.sizesAsked, {256}, reason: 'no 512 px page is made for whoever never sizes the covers');
+    await pages.makeAll(tester);
+    expect(_shuffledWidths(tester), {256});
+
+    // One cover a row: 1008 device pixels, so all the files have.
+    await plus(tester);
+    expect(columns(tester), 1);
+    expect(pages.sizesAsked, {512});
+    await pages.makeAll(tester);
+    expect(_shuffledWidths(tester), {512});
+    await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+    expect(widthsOf(coverPictures(tester).values), {512});
+  });
+
+  testWidgets('shuffled pages: 256 px at the usual size, 512 px files for big covers, small tiles decode small', (
+    tester,
+  ) async {
+    // The pages are made by hand here (the files written when the test
+    // says so), so nothing waits on a worker: test/shuffle_pages_test.dart
+    // has the real making. A wide window, on the Books tab: room for a
+    // step between the biggest covers and ones still over 333 pixels wide.
+    final pages = _HandMadePages('${tmp.path}/covers/pages');
+    await inFolder(tester, size: const Size(2000, 1000), overrides: [shufflePagesProvider.overrideWithValue(pages)]);
+    await tester.tap(find.text('Books'));
+    await settle(tester);
+
+    await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+    expect(pages.sizesAsked, {256}, reason: 'covers of the usual size need no more');
+    expect(_shuffledWidths(tester), isEmpty, reason: 'the covers show until the pages are made');
+    await pages.makeAll(tester);
+    expect(_shuffledWidths(tester), {256});
+
+    // As big as they go: over 400 pixels wide, so the 512 px pages. The
+    // 256 px ones stay up until those are made.
+    for (var i = 0; i < 8; i++) {
+      await plus(tester);
+    }
+    expect(width(tester), greaterThan(400));
+    expect(pages.sizesAsked, {512});
+    expect(_shuffledWidths(tester), {256});
+    await pages.makeAll(tester);
+    expect(_shuffledWidths(tester), {512});
+    expect(pages.made.where((f) => f.contains('/w512/')), isNotEmpty, reason: "beside the page grid's 512 px files");
+
+    // A step smaller, between 334 and 400: still the 512 px file, decoded
+    // 400 wide as the covers are.
     await minus(tester);
-    expect(width(tester), inExclusiveRange(333, biggest));
-    await until(() => shuffled().evaluate().isNotEmpty);
-    expect(decoded(), {512});
-    final after = {for (final w in tester.widgetList<Image>(shuffled())) w.image};
-    expect(after.intersection(images), images, reason: 'every page that was on screen is the same cached picture');
-    expect(made('w512').length, greaterThanOrEqualTo(big));
+    expect(width(tester), inExclusiveRange(333, 400));
+    await pages.makeAll(tester);
+    expect(_shuffledWidths(tester), {400});
+    expect(pages.sizesAsked, isEmpty);
+
+    // The smallest: the 256 px file again, already made for the pages that
+    // showed at first, decoded 128 wide.
+    for (var i = 0; i < 30; i++) {
+      await minus(tester);
+    }
+    expect(width(tester), lessThan(128));
+    expect(pages.sizesAsked.difference({256}), isEmpty);
+    await pages.makeAll(tester);
+    expect(_shuffledWidths(tester), {128});
   });
 
   /// Whether the button with [k] can be pressed.
@@ -561,6 +657,9 @@ void main() {
     ButtonStyleButton(:final enabled) => enabled,
     final other => throw StateError('$other is no button'),
   };
+
+  String line(WidgetTester tester) => tester.widget<Text>(find.byKey(const Key('setting-coverSize'))).data!;
+  String helpText(WidgetTester tester) => tester.widget<Text>(find.byKey(const Key('setting-coverSize-help'))).data!;
 
   /// Whether the keyboard focus is on the widget with [k], or inside it.
   bool focusIn(Key k) {
@@ -653,9 +752,158 @@ void main() {
     for (final k in ['bigger', 'smaller', 'usual']) {
       expect(pressable(tester, Key('setting-coverSize-$k')), isFalse, reason: k);
     }
-    expect(find.textContaining('from a tab with covers'), findsOneWidget);
+    expect(helpText(tester), contains('No covers show behind Settings now'));
     expect(await saved(tester), isNull);
   });
+
+  testWidgets('with nothing found by a search, Settings does not send you to a tab with covers', (tester) async {
+    await inFolder(tester);
+    await tester.tap(find.byKey(const Key('search')));
+    await tester.enterText(find.byKey(const Key('search')), 'no such comic');
+    await settle(tester);
+    expect(find.byKey(const Key('grid')), findsNothing);
+    await tester.tap(find.byKey(const Key('settings')));
+    await settle(tester);
+    await tester.ensureVisible(find.byKey(const Key('setting-coverSize')));
+    await tester.pump();
+    expect(line(tester), 'Cover size');
+    expect(helpText(tester), contains('a search that found nothing'));
+    expect(helpText(tester), isNot(contains('Open Settings')), reason: 'this is a tab of covers');
+    expect(pressable(tester, const Key('setting-coverSize-bigger')), isFalse);
+  });
+
+  testWidgets("Settings' Cover size line follows the window and the first comics while it is open", (tester) async {
+    // An empty library: nothing to size.
+    final c = await pumpApp(tester, const Size(1280, 800));
+    await settle(tester);
+    await tester.tap(find.byKey(const Key('settingsEmpty')));
+    await settle(tester);
+    await tester.ensureVisible(find.byKey(const Key('setting-coverSize')));
+    await tester.pump();
+    expect(line(tester), 'Cover size');
+    expect(pressable(tester, const Key('setting-coverSize-bigger')), isFalse);
+
+    // The first comics come in behind the dialog.
+    await tester.runAsync(() async {
+      await c.read(libraryStoreProvider).addRoot(root.path);
+      await c.read(scannerProvider).scan();
+    });
+    await settle(tester);
+    expect(find.byType(CoverCard), findsWidgets);
+    // The covers a row, from how wide a cover is in the grid (the Series
+    // tab here has one cover only, so there is no row to count).
+    int perRow() {
+      final inner = tester.getSize(find.byKey(const Key('grid'))).width - 24;
+      return ((inner + GridZoom.coversGap) / (width(tester) + GridZoom.coversGap)).round();
+    }
+
+    final wide = perRow();
+    expect(wide, greaterThan(4));
+    expect(line(tester), 'Cover size: $wide a row');
+    expect(pressable(tester, const Key('setting-coverSize-bigger')), isTrue);
+    expect(helpText(tester), contains('One size for every tab of covers'));
+
+    // The window made narrower: fewer covers a row, and the line says so.
+    tester.view.physicalSize = const Size(700, 800);
+    await settle(tester);
+    final narrow = perRow();
+    expect(narrow, inExclusiveRange(1, wide));
+    expect(line(tester), 'Cover size: $narrow a row');
+
+    // A step by the button there, and on to the smallest covers this
+    // window takes, where the smaller button goes off.
+    await tester.tap(find.byKey(const Key('setting-coverSize-bigger')));
+    await settle(tester);
+    expect(perRow(), narrow - 1);
+    expect(line(tester), 'Cover size: ${narrow - 1} a row');
+    for (var i = 0; i < 20 && pressable(tester, const Key('setting-coverSize-smaller')); i++) {
+      await tester.tap(find.byKey(const Key('setting-coverSize-smaller')));
+      await settle(tester);
+    }
+    final most = perRow();
+    expect(most, greaterThan(narrow));
+    expect(pressable(tester, const Key('setting-coverSize-smaller')), isFalse);
+
+    // The window wide again: covers of the kept width, more of them a
+    // row, and room for a smaller size still. The line and the button
+    // follow with no press.
+    tester.view.physicalSize = const Size(1280, 800);
+    await settle(tester);
+    expect(perRow(), greaterThan(most));
+    expect(line(tester), 'Cover size: ${perRow()} a row');
+    expect(pressable(tester, const Key('setting-coverSize-smaller')), isTrue, reason: 'a column more fits here');
+  });
+
+  for (final (size, scale) in [
+    (const Size(320, 640), 1.0),
+    (const Size(360, 800), 1.0),
+    (const Size(400, 800), 1.0),
+    (const Size(320, 640), 1.5),
+    (const Size(360, 800), 1.5),
+  ]) {
+    testWidgets("Settings' Cover size fits a ${size.width.round()} px wide phone at ${scale}x letters", (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      // On the Series tab, where a phone starts: one series of all the
+      // comics, a cover.
+      final c = await pumpApp(tester, size);
+      await tester.runAsync(() async {
+        await c.read(libraryStoreProvider).addRoot(root.path);
+        await c.read(scannerProvider).scan();
+      });
+      await settle(tester);
+      expect(find.byType(CoverCard), findsWidgets);
+      await tester.tap(find.byKey(const Key('settings')));
+      await settle(tester);
+      const label = Key('setting-coverSize');
+      await tester.ensureVisible(find.byKey(const Key('setting-coverSize-help')));
+      await settle(tester);
+      expect(tester.takeException(), isNull, reason: 'nothing overflows');
+      final words = line(tester);
+      expect(words, startsWith('Cover size: '));
+      expect(words, endsWith(' a row'));
+
+      // The line has the whole width of the section, as the text under it
+      // has, and breaks only when its words need more than that. (The
+      // test font's letters are squares as wide as the font size, about
+      // twice a real font's: a phone shows the line on one.)
+      final paragraph = tester.renderObject<RenderParagraph>(find.byKey(label));
+      final room = tester.getSize(find.byKey(const Key('setting-coverSize-help'))).width;
+      expect(room, greaterThanOrEqualTo(190));
+      expect(paragraph.constraints.maxWidth, room);
+      final letter = paragraph.text.style!.fontSize! * scale;
+      final boxes = paragraph.getBoxesForSelection(TextSelection(baseOffset: 0, extentOffset: words.length));
+      // One more than the letters need at most, for breaking between words.
+      final needed = (words.length * letter / room).ceil();
+      expect({for (final b in boxes) b.top}.length, inInclusiveRange(needed, needed + 1), reason: 'lines of text');
+      expect(paragraph.didExceedMaxLines, isFalse);
+      final dialog = tester.getRect(find.byType(AlertDialog));
+      // The three buttons are all there to press, inside the dialog, none
+      // over another.
+      final buttons = [
+        for (final k in ['smaller', 'bigger', 'usual']) tester.getRect(find.byKey(Key('setting-coverSize-$k'))),
+      ];
+      for (final (i, b) in buttons.indexed) {
+        expect(b.left >= dialog.left && b.right <= dialog.right, isTrue, reason: 'button $i at $b in $dialog');
+        expect(b.width, greaterThanOrEqualTo(40));
+        for (final other in buttons.skip(i + 1)) {
+          expect(b.overlaps(other), isFalse, reason: '$b and $other');
+        }
+      }
+      expect(
+        tester.getRect(find.byKey(label)).bottom,
+        lessThanOrEqualTo(buttons.first.top + 0.5),
+        reason: 'above them',
+      );
+      // And they work at this size.
+      await tester.ensureVisible(find.byKey(const Key('setting-coverSize-bigger')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('setting-coverSize-bigger')));
+      await settle(tester);
+      expect(line(tester), isNot(words));
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   test('zoom steps: columns from a width and back, within the limits', () {
     const zoom = GridZoom(gap: 12, smallest: 72, largest: 480);
@@ -678,4 +926,56 @@ void main() {
     expect(GridZoom.pinchSteps(1.2), 0);
     expect(GridZoom.pinchSteps(0.6), -2);
   });
+}
+
+/// The decode widths of the shuffled pages on screen.
+Set<int?> _shuffledWidths(WidgetTester tester) => {
+  for (final w in tester.widgetList<Image>(
+    find.byWidgetPredicate(
+      (w) => w is Image && w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('shuffled-'),
+    ),
+  ))
+    (w.image as ResizeImage).width,
+};
+
+/// Shuffle's pages made when the test says so instead of by a worker in
+/// its own time: a page asked for waits until [makeAll] writes its file.
+/// The paths and what counts as made are the real [ShufflePages]'.
+class _HandMadePages extends ShufflePages {
+  _HandMadePages(String dir) : super(dir: dir);
+
+  final _asked = <(String, int, int), Completer<String?>>{};
+
+  /// Every file made so far.
+  final made = <String>[];
+
+  /// The sizes of the pages asked for and not made yet.
+  Set<int> get sizesAsked => {for (final (_, _, size) in _asked.keys) size};
+
+  @override
+  Future<String?> get(LibraryBook book, int index, {int size = ShufflePages.width}) {
+    final path = pathOf(book.key, index, size);
+    if (File(path).existsSync()) return Future.value(path);
+    return (_asked[(book.key, index, size)] ??= Completer()).future;
+  }
+
+  @override
+  void cancel(String bookKey, int index, {int size = ShufflePages.width}) =>
+      _asked.remove((bookKey, index, size))?.complete(null);
+
+  /// Writes the file of every page asked for and answers the tiles, which
+  /// show it a frame later.
+  Future<void> makeAll(WidgetTester tester) async {
+    for (final MapEntry(key: (book, index, size), value: asked) in _asked.entries.toList()) {
+      final path = pathOf(book, index, size);
+      File(path)
+        ..parent.createSync(recursive: true)
+        ..writeAsBytesSync(png);
+      made.add(path);
+      asked.complete(path);
+    }
+    _asked.clear();
+    await tester.pump();
+    await tester.pump();
+  }
 }
