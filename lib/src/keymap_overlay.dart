@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:reader_input/reader_input.dart';
 
@@ -61,14 +62,36 @@ class KeymapOverlayState extends State<KeymapOverlay> {
   final _scroll = ScrollController();
   bool _searching = false;
 
+  /// A key for the row of each action, made when the row is first built:
+  /// [_keepPlace] finds the row along the top of the list by them.
+  final _rowKeys = <ReaderIntent, GlobalKey>{};
+
   /// The key column's width and the narrowest the descriptions beside it
-  /// may get, both at the usual text size; they grow with the text.
+  /// may get, both for letters of the list's own size ([_letters], no
+  /// scaling by the help or the system); they grow with the letters.
   static const _keysWidth = 200.0;
   static const _leastText = 70.0;
   static const _side = 24.0;
 
-  /// The factor on the usual text size.
+  /// How far beyond the screen the list lays out its rows: all the way.
+  /// The list is short (some 150 actions), and laid out lazily it only
+  /// guessed its length and kept the rows above the screen where the old
+  /// text size had put them, so after a size change no row could be put
+  /// back where it was ([_keepPlace]). Only the rows on screen are painted.
+  static const _wholeList = 1e6;
+
+  /// The size of the list's text before any scaling.
+  static const _letters = 14.0;
+
+  /// The help's own factor on the usual text size.
   double get _scale => HelpZoom.scales[HelpZoom.clamp(widget.step)];
+
+  /// What the letters are really multiplied by where [context] is: the
+  /// system's text scale times the help's factor, read off the scaler
+  /// [_scaler] put over the overlay. The layout goes by this and not by
+  /// the help's factor alone: with the system's text at 1.5 one step is
+  /// 24 px letters, which need the room of 24 px letters.
+  static double _factor(BuildContext context) => MediaQuery.textScalerOf(context).scale(_letters) / _letters;
 
   @override
   void didUpdateWidget(KeymapOverlay oldWidget) {
@@ -76,15 +99,49 @@ class KeymapOverlayState extends State<KeymapOverlay> {
     if (oldWidget.step != widget.step) _keepPlace();
   }
 
-  /// The text changed size, and with it the height of every row: the list
-  /// goes to the same share of the way down it was at, so about the same
-  /// keys stay on screen. (About: the list only knows the heights of the
-  /// rows it has laid out and estimates the rest.)
+  /// The text changed size, and with it the height of every row: the row
+  /// along the top of the list stays there, as far scrolled into it as it
+  /// was (a quarter of the row above the edge before, a quarter after).
+  /// Called before the new layout, so the rows are still where they were.
+  ///
+  /// By a row and not by the share of the way down the list: rows grow
+  /// unevenly (a long description wraps into more lines), so the same
+  /// share was several rows away after a step. At the very top the list
+  /// stays at the top, the title in sight.
   void _keepPlace() {
-    if (!_scroll.hasClients || _scroll.position.maxScrollExtent <= 0) return;
-    final share = _scroll.offset / _scroll.position.maxScrollExtent;
+    if (!_scroll.hasClients || _scroll.offset <= 0) return;
+    final at = _scroll.offset;
+    GlobalKey? first;
+    var firstTop = double.infinity;
+    var into = 0.0;
+    for (final key in _rowKeys.values) {
+      final box = key.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.attached || box.size.height <= 0) continue;
+      final top = _topOf(box);
+      // The first row not wholly above the edge.
+      if (top + box.size.height > at && top < firstTop) {
+        first = key;
+        firstTop = top;
+        into = (at - top) / box.size.height;
+      }
+    }
+    if (first != null) _putBack(first, into);
+  }
+
+  /// How far the list is scrolled when [row] is along its top.
+  static double _topOf(RenderBox row) => RenderAbstractViewport.of(row).getOffsetToReveal(row, 0).offset;
+
+  /// After the frame that lays the rows out anew, scrolls [row] back along
+  /// the top, [into] of its new height above the edge. The row is there to
+  /// be found wherever the new sizes put it, since the list lays out all
+  /// of its rows ([_wholeList]).
+  void _putBack(GlobalKey row, double into) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _scroll.hasClients) _scroll.jumpTo(share * _scroll.position.maxScrollExtent);
+      final box = row.currentContext?.findRenderObject();
+      if (!mounted || !_scroll.hasClients || box is! RenderBox || !box.attached) return;
+      final position = _scroll.position;
+      final to = _topOf(box) + into * box.size.height;
+      position.jumpTo(to.clamp(position.minScrollExtent, position.maxScrollExtent));
     });
   }
 
@@ -135,11 +192,12 @@ class KeymapOverlayState extends State<KeymapOverlay> {
 
   /// The text scaler for everything in the overlay: the system's, times
   /// the help's own factor. At the usual size it is the system's untouched.
-  /// Otherwise the system's scaling is taken as what it does to 14 px text
-  /// (the list's size), since two scalers cannot be multiplied in general.
+  /// Otherwise the system's scaling is taken as what it does to the
+  /// list's text ([_factor]), since two scalers cannot be multiplied in
+  /// general.
   TextScaler _scaler(BuildContext context) {
     final system = MediaQuery.textScalerOf(context);
-    return _scale == 1 ? system : TextScaler.linear(system.scale(14) / 14 * _scale);
+    return _scale == 1 ? system : TextScaler.linear(_factor(context) * _scale);
   }
 
   @override
@@ -163,7 +221,8 @@ class KeymapOverlayState extends State<KeymapOverlay> {
                 children: [
                   if (_filtering)
                     Padding(padding: const EdgeInsets.fromLTRB(_side, 16, _side, 0), child: _search(found)),
-                  Expanded(child: Stack(children: [_list(theme, found, physics), _version(theme)])),
+                  Expanded(child: _list(theme, found, physics)),
+                  _version(theme),
                 ],
               ),
             ),
@@ -250,13 +309,16 @@ class KeymapOverlayState extends State<KeymapOverlay> {
     builder: (context, box) {
       // Keys beside what they do while that leaves the text some room; in
       // a narrow window or with big text, keys above the text, so a row
-      // never overflows.
-      final beside = box.maxWidth - 2 * _side - _keysWidth * _scale >= _leastText * _scale;
+      // never overflows. Big text is the letters as drawn, the system's
+      // scaling included.
+      final factor = _factor(context);
+      final beside = box.maxWidth - 2 * _side - _keysWidth * factor >= _leastText * factor;
       return ListView(
         key: const Key('keymap-list'),
         controller: _scroll,
         physics: physics,
-        padding: const EdgeInsets.fromLTRB(_side, 0, _side, 40),
+        scrollCacheExtent: const ScrollCacheExtent.pixels(_wholeList),
+        padding: const EdgeInsets.fromLTRB(_side, 0, _side, 8),
         children: [
           ..._notes(theme),
           if (found.entries.isEmpty && found.error == null)
@@ -266,7 +328,7 @@ class KeymapOverlayState extends State<KeymapOverlay> {
             ),
           for (final e in found.entries) ...[
             if (e.intent == ReaderIntent.regionWhole && _query.text.isEmpty) _partsNote(theme),
-            _row(e, beside: beside),
+            _row(e, keysWidth: beside ? _keysWidth * factor : null),
           ],
         ],
       );
@@ -283,20 +345,22 @@ class KeymapOverlayState extends State<KeymapOverlay> {
     ),
   );
 
-  /// One action: its keys and what it does, side by side when [beside],
-  /// else the keys on a line of their own above.
-  Widget _row(KeymapEntry e, {required bool beside}) {
+  /// One action: its keys and what it does, side by side with the keys in
+  /// a column [keysWidth] wide, or without one the keys on a line of their
+  /// own above.
+  Widget _row(KeymapEntry e, {required double? keysWidth}) {
     final keys = Text(e.keys.isEmpty ? '(no key)' : e.keys.join('  '), style: const TextStyle(fontFamily: 'monospace'));
     final what = Text(e.intent.description);
     return MergeSemantics(
+      key: _rowKeys.putIfAbsent(e.intent, GlobalKey.new),
       child: Padding(
         key: ValueKey('keymap-${e.intent.name}'),
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: beside
+        child: keysWidth != null
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(width: _keysWidth * _scale, child: keys),
+                  SizedBox(width: keysWidth, child: keys),
                   Expanded(child: what),
                 ],
               )
@@ -314,10 +378,25 @@ class KeymapOverlayState extends State<KeymapOverlay> {
     );
   }
 
-  /// In a corner, so the keymap list keeps its whole height.
-  Widget _version(ThemeData theme) => Positioned(
-    right: _side,
-    bottom: 16,
-    child: Text('ComicRedr $appVersion', key: const Key('keymap-version'), style: theme.textTheme.titleSmall),
+  /// The version, in the bottom right corner under the list, always in
+  /// sight. It has a line of its own there, as tall as its letters, where
+  /// it once lay over the list's last 40 px: at the bigger sizes it grew
+  /// out of that room and covered the keys' descriptions. Where the window
+  /// is narrower than the line it shrinks to fit, so it is never cut off
+  /// and never takes more than a line from the list.
+  Widget _version(ThemeData theme) => Padding(
+    padding: const EdgeInsets.fromLTRB(_side, 4, _side, 12),
+    child: Align(
+      alignment: Alignment.centerRight,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          'ComicRedr $appVersion',
+          key: const Key('keymap-version'),
+          maxLines: 1,
+          style: theme.textTheme.titleSmall,
+        ),
+      ),
+    ),
   );
 }

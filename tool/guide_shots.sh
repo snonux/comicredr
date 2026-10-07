@@ -20,7 +20,8 @@
 # android-guided.gif is adb shell screenrecord --size 540x1200 of taps on
 # the right edge in guided view, made into a GIF like the ones here at 300 px.
 #
-# Needs: Xvfb, xdotool, ImageMagick, ffmpeg, gifsicle, cwebp, sqlite3.
+# Needs: Xvfb, xdotool, ImageMagick, ffmpeg, gifsicle, sqlite3, and cwebp
+# or an ImageMagick that writes WebP.
 # Output: docs/guide/images/*.webp and *.gif; raw captures in build/guide/.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -70,9 +71,18 @@ park() { xdotool mousemove 1279 300; sleep 0.3; }
 q() { sqlite3 -batch -noheader -cmd ".timeout 10000" "$db" "$1"; }
 # still NAME [WxH]: the window as it is, as WebP.
 grab() { import -window root -crop "${2:-1280x720}+0+0" "$out/raw/$1.png"; }
+# webp IN OUT: cwebp, or without it ImageMagick's WebP writer (the same
+# libwebp) at the same quality.
+webp() {
+  if command -v cwebp >/dev/null; then
+    cwebp -quiet -q 82 "$1" -o "$2"
+  else
+    "$(command -v magick || echo convert)" "$1" -quality 82 "$2"
+  fi
+}
 still() {
   grab "$@"
-  cwebp -quiet -q 82 "$out/raw/$1.png" -o "$img/$1.webp"
+  webp "$out/raw/$1.png" "$img/$1.webp"
 }
 # rec NAME SECONDS [WxH]: records the screen in the background; then drive
 # the app and call gif NAME to turn it into a small looping GIF.
@@ -163,7 +173,7 @@ reader)
   key c; sleep 4; grab cleanup-after; key c; key z z
   convert \( "$out/raw/cleanup-before.png" -crop 640x660+320+0 \) \( "$out/raw/cleanup-after.png" -crop 640x660+320+0 \) \
     +append +repage "$out/raw/cleanup.png"
-  cwebp -quiet -q 82 "$out/raw/cleanup.png" -o "$img/cleanup.webp"
+  webp "$out/raw/cleanup.png" "$img/cleanup.webp"
   open "episode"
   page 2
   rec rotate 13; key greater; sleep 1.5; key greater; sleep 1.5; key less; sleep 1.5; key g r; sleep 2; gif rotate

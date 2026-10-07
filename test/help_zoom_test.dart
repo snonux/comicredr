@@ -102,9 +102,12 @@ void main() {
   const row = ValueKey('keymap-nextStep');
   final what = find.descendant(of: find.byKey(row), matching: find.text(ReaderIntent.nextStep.description));
 
-  /// How big the letters of a row of the list are drawn, in pixels.
-  double letters(WidgetTester tester) {
-    final text = tester.renderObject<RenderParagraph>(what);
+  /// How big the letters of a row of the list are drawn, in pixels: the
+  /// first row's, or those of the row with the key [of].
+  double letters(WidgetTester tester, {Key? of}) {
+    final text = tester.renderObject<RenderParagraph>(
+      of == null ? what : find.descendant(of: find.byKey(of), matching: find.byType(RichText)).first,
+    );
     return text.textScaler.scale(text.text.style!.fontSize!);
   }
 
@@ -203,36 +206,208 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('in a narrow window big text puts the keys above what they do, and nothing overflows at any size', (
-    tester,
-  ) async {
-    for (final size in const [Size(360, 640), Size(800, 600), Size(320, 480)]) {
-      await startInHelp(tester, size: size);
-      await equals(tester);
-      final keys = find.descendant(of: find.byKey(row), matching: find.text('l  Space'));
-      for (var step = HelpZoom.usual; step <= HelpZoom.largest; step++) {
-        expect(tester.takeException(), isNull, reason: '$size at step $step');
-        // The title above the keys is tall in big letters: down to the first row.
+  /// The system's text scale (Android's font size, GNOME's large text) for
+  /// the rest of a test.
+  void systemTextScale(WidgetTester tester, double scale) {
+    tester.platformDispatcher.textScaleFactorTestValue = scale;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  }
+
+  testWidgets('in a narrow window big text puts the keys above what they do, and nothing overflows at any size, '
+      'whatever the system\'s text scale', (tester) async {
+    for (final system in const [1.0, 1.5]) {
+      systemTextScale(tester, system);
+      for (final size in const [Size(360, 640), Size(800, 600), Size(320, 480)]) {
+        await startInHelp(tester, size: size);
+        await equals(tester);
+        final where = '$size, system text $system';
+        final keys = find.descendant(of: find.byKey(row), matching: find.text('l  Space'));
+        for (var step = HelpZoom.usual; step <= HelpZoom.largest; step++) {
+          expect(tester.takeException(), isNull, reason: '$where at step $step');
+          // The title above the keys is tall in big letters: down to the first row.
+          await tester.scrollUntilVisible(what, 100, scrollable: scrollable);
+          final factor = letters(tester) / 14;
+          expect(factor, closeTo(system * HelpZoom.scales[step], 0.001), reason: '$where at step $step');
+          final right = tester.getTopRight(what).dx;
+          expect(right, lessThanOrEqualTo(size.width - 24 + 0.01), reason: '$where at step $step: inside the window');
+          // Room to read: beside the keys a description has at least 70 px
+          // for letters of the usual size and as much more as its letters
+          // are bigger, the system's scaling counted; below the keys it has
+          // the row less its indent, which is all there is.
+          final below = size.width - 48 - 24;
+          final beside = tester.getTopLeft(keys).dy == tester.getTopLeft(what).dy;
+          final width = tester.getSize(what).width;
+          if (beside) {
+            expect(width, greaterThanOrEqualTo(70 * factor - 0.01), reason: '$where at step $step: room to read');
+          } else {
+            expect(width, closeTo(below, 0.01), reason: '$where at step $step: the whole row');
+            // And the keys went above only when beside there was no such room.
+            expect(below + 24 - 200 * factor, lessThan(70 * factor), reason: '$where at step $step: not too early');
+          }
+          await plus(tester);
+        }
         await tester.scrollUntilVisible(what, 100, scrollable: scrollable);
-        final right = tester.getTopRight(what).dx;
-        expect(right, lessThanOrEqualTo(size.width - 24 + 0.01), reason: '$size at step $step: inside the window');
-        expect(tester.getSize(what).width, greaterThanOrEqualTo(69), reason: '$size at step $step: room to read');
-        await plus(tester);
+        // At the biggest text there is no room for two columns in any of these.
+        expect(tester.getTopLeft(keys).dy, lessThan(tester.getTopLeft(what).dy), reason: '$where: keys above');
+        expect(tester.getTopLeft(keys).dx, 24);
+        expect(tester.getSize(find.byKey(row)).width, size.width - 48);
+        expect(list(tester).maxScrollExtent, greaterThan(size.height), reason: 'the list still scrolls');
+        expect(tester.takeException(), isNull);
       }
-      await tester.scrollUntilVisible(what, 100, scrollable: scrollable);
-      // At the biggest text there is no room for two columns in any of these.
-      expect(tester.getTopLeft(keys).dy, lessThan(tester.getTopLeft(what).dy), reason: '$size: keys above');
-      expect(tester.getTopLeft(keys).dx, 24);
-      expect(tester.getSize(find.byKey(row)).width, size.width - 48);
-      expect(list(tester).maxScrollExtent, greaterThan(size.height), reason: 'the list still scrolls');
-      expect(tester.takeException(), isNull);
     }
-    // At the usual size a 360 px phone keeps its two columns, as before.
+    // At the usual size and the system's usual text a 360 px phone keeps its
+    // two columns, as before.
+    systemTextScale(tester, 1);
     await startInHelp(tester, size: const Size(360, 640));
     await equals(tester);
     final keys = find.descendant(of: find.byKey(row), matching: find.text('l  Space'));
     expect(tester.getTopLeft(keys).dy, tester.getTopLeft(what).dy);
     expect(tester.getTopLeft(what).dx, 224);
+  });
+
+  testWidgets('the help\'s size is on top of the system\'s text scale, not in its place', (tester) async {
+    systemTextScale(tester, 1.5);
+    await pumpApp(tester);
+    await settle(tester);
+    await help(tester);
+    expect(letters(tester), 21, reason: 'the usual size is the system\'s');
+    final title = lettersOf(tester, const Key('keymap-title'));
+    await plus(tester);
+    expect(letters(tester), closeTo(14 * 1.5 * 1.15, 0.001));
+    expect(lettersOf(tester, const Key('keymap-title')), closeTo(title * 1.15, 0.001));
+    expect(lettersOf(tester, const Key('keymap-version')), closeTo(14 * 1.5 * 1.15, 0.001));
+    expect(await saved(tester), '1.15', reason: 'what is kept is the help\'s factor alone');
+    await minus(tester);
+    await minus(tester);
+    expect(letters(tester), closeTo(14 * 1.5 * 0.85, 0.001));
+    await equals(tester);
+    expect(letters(tester), 21);
+    // In a wide window the key column is as much wider as the letters are.
+    await plus(tester);
+    expect(tester.getTopLeft(what).dx, closeTo(24 + 200 * 1.5 * 1.15, 0.01));
+  });
+
+  testWidgets('the version under the list never lies over a row and is never cut off, at any size or width', (
+    tester,
+  ) async {
+    final version = find.byKey(const Key('keymap-version'));
+    final listBox = find.byKey(const Key('keymap-list'));
+    // The last action of the list, which the version used to lie over.
+    final last = find.byKey(ValueKey('keymap-${keymapEntries(Keymap.defaults()).last.intent.name}'));
+    Future<void> toTheEnd(WidgetTester tester) async {
+      // A lazy list only knows its end once it has laid out the way there.
+      for (var i = 0; i < 40 && list(tester).pixels != list(tester).maxScrollExtent; i++) {
+        list(tester).jumpTo(list(tester).maxScrollExtent);
+        await tester.pump();
+      }
+      expect(list(tester).pixels, list(tester).maxScrollExtent);
+    }
+
+    for (final system in const [1.0, 1.5]) {
+      systemTextScale(tester, system);
+      for (final size in const [Size(1280, 800), Size(360, 640), Size(320, 480)]) {
+        await startInHelp(tester, size: size);
+        await equals(tester);
+        for (var step = HelpZoom.usual; step <= HelpZoom.largest; step++) {
+          final where = '$size, system text $system, step $step';
+          // At the top, with rows under the list's whole height...
+          final label = tester.getRect(version);
+          final rows = tester.getRect(listBox);
+          expect(label.top, greaterThanOrEqualTo(rows.bottom), reason: '$where: under the list, not over it');
+          expect(label.left, greaterThanOrEqualTo(24 - 0.01), reason: '$where: cut off at the left');
+          expect(label.right, lessThanOrEqualTo(size.width - 24 + 0.01), reason: '$where: cut off at the right');
+          expect(label.bottom, lessThanOrEqualTo(size.height), reason: '$where: cut off at the bottom');
+          expect(label.height, greaterThan(8), reason: '$where: still letters');
+          // ...and at the end, against the last row itself.
+          await toTheEnd(tester);
+          expect(last, findsOneWidget, reason: where);
+          final lastRow = tester.getRect(last);
+          expect(lastRow.bottom, lessThanOrEqualTo(tester.getRect(version).top), reason: '$where: the last row');
+          expect(lastRow.bottom, lessThanOrEqualTo(rows.bottom), reason: '$where: the last row is in sight');
+          expect(tester.takeException(), isNull, reason: where);
+          list(tester).jumpTo(0);
+          await plus(tester);
+        }
+      }
+    }
+    // A window wide enough shows the version at its full size, three times the usual here.
+    systemTextScale(tester, 1);
+    await startInHelp(tester);
+    expect(letters(tester), 42);
+    expect(tester.getRect(version).height, greaterThan(40));
+    expect(tester.getRect(version).right, closeTo(1280 - 24, 0.01));
+  });
+
+  testWidgets('a size change keeps the place in the list: the row along its top stays there, as far into it', (
+    tester,
+  ) async {
+    final listBox = find.byKey(const Key('keymap-list'));
+    final rows = find.descendant(
+      of: listBox,
+      matching: find.byWidgetPredicate((w) => w.key is ValueKey<String> && w is Padding),
+    );
+    // The row the top edge of the list goes through, and the share of the
+    // row's height that is above the edge.
+    (Key, double) top(WidgetTester tester) {
+      final edge = tester.getRect(listBox).top;
+      for (final e in rows.evaluate()) {
+        final rect = tester.getRect(find.byKey(e.widget.key!));
+        if (rect.top <= edge && edge < rect.bottom) return (e.widget.key!, (edge - rect.top) / rect.height);
+      }
+      fail('no row along the top of the list');
+    }
+
+    await pumpApp(tester);
+    await settle(tester);
+    await help(tester);
+    // Some way down, by the wheel: neither end, where any rule would do.
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(mouse.hover(const Offset(640, 400)));
+    for (var i = 0; i < 12; i++) {
+      await tester.sendEventToBinding(mouse.scroll(const Offset(0, 101)));
+      await tester.pump();
+    }
+    await settle(tester);
+    expect(list(tester).pixels, 1212);
+    expect(list(tester).maxScrollExtent, greaterThan(2000));
+    final (held, into) = top(tester);
+    expect(into, inExclusiveRange(0.05, 0.95), reason: 'the edge goes through the row, not between two');
+
+    // One step: the same row, the same share of it above the edge.
+    await plus(tester);
+    expect(letters(tester, of: held), closeTo(14 * 1.15, 0.001));
+    expect(top(tester).$1, held);
+    expect(top(tester).$2, closeTo(into, 0.02));
+    // Six more at once, to three times the size, where rows with a long
+    // description have wrapped and grown far more than the others.
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit6, character: '6');
+    await plus(tester);
+    await settle(tester);
+    expect(letters(tester, of: held), 42);
+    expect(list(tester).pixels, greaterThan(2000), reason: 'the list went along with its rows');
+    expect(top(tester).$1, held);
+    expect(top(tester).$2, closeTo(into, 0.02));
+    // Down to the smallest, nine steps at once, and back to the usual size.
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit9, character: '9');
+    await minus(tester);
+    await settle(tester);
+    expect(letters(tester, of: held), closeTo(9.8, 0.001));
+    expect(top(tester).$1, held);
+    expect(top(tester).$2, closeTo(into, 0.05), reason: 'small rows: a pixel is more of one');
+    await equals(tester);
+    expect(top(tester).$1, held);
+    expect(top(tester).$2, closeTo(into, 0.05));
+
+    // At the very top the list stays there, the title in sight.
+    list(tester).jumpTo(0);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.digit7, character: '7');
+    await plus(tester);
+    expect(list(tester).pixels, 0);
+    expect(
+      tester.getRect(find.byKey(const Key('keymap-title'))).top,
+      greaterThanOrEqualTo(tester.getRect(listBox).top),
+    );
   });
 
   testWidgets('the size keys in the help do not reach the comic behind it', (tester) async {
@@ -297,20 +472,29 @@ void main() {
     final field = find.byKey(const Key('keymap-search'));
     expect(field, findsOneWidget);
     expect(tester.widget<TextField>(field).focusNode!.hasFocus, isTrue);
-    // The key itself, with the cursor in the field: no command.
+    // The + key alone, with the cursor in the field: no command, so nothing
+    // sized and nothing kept. (One key and not + - =, which would end at
+    // the usual size also if each of them had sized the text.)
     await plus(tester);
-    await minus(tester);
-    await equals(tester);
-    expect(letters(tester), 14, reason: 'a key typed in the search sized the text');
-    expect(await saved(tester), isNull);
-    // What the keyboard types there searches.
-    await tester.enterText(field, '+');
+    expect(letters(tester), 14, reason: '+ typed in the search sized the text');
+    expect(await saved(tester), isNull, reason: '+ typed in the search kept a size');
+    // What the key types arrives through the input method, as on a real
+    // keyboard (a test's key event types nothing): it is searched for.
+    tester.testTextInput.enterText('+');
     await settle(tester);
+    expect(tester.widget<TextField>(field).controller!.text, '+');
+    expect(letters(tester, of: const ValueKey('keymap-zoomIn')), 14);
+    expect(await saved(tester), isNull);
     expect(find.byKey(const ValueKey('keymap-zoomIn')), findsOneWidget);
     expect(find.byKey(const ValueKey('keymap-scrollFaster')), findsOneWidget, reason: 'g+ has a + too');
     expect(find.byKey(row), findsNothing);
-    await tester.enterText(field, '-');
+    // The same for - alone, from a size that is not the smallest.
+    await minus(tester);
+    expect(letters(tester, of: const ValueKey('keymap-zoomIn')), 14, reason: '- typed in the search sized the text');
+    expect(await saved(tester), isNull, reason: '- typed in the search kept a size');
+    tester.testTextInput.enterText('-');
     await settle(tester);
+    expect(tester.widget<TextField>(field).controller!.text, '-');
     expect(find.byKey(const ValueKey('keymap-zoomOut')), findsOneWidget);
     expect(find.byKey(const ValueKey('keymap-zoomIn')), findsNothing);
     expect(await saved(tester), isNull);
@@ -382,6 +566,75 @@ void main() {
     expect(letters(tester), 42);
     expect(await saved(tester), '3.0');
     expect(tester.takeException(), isNull);
+  });
+
+  /// Ctrl and two wheel notches up, then two fingers spread by two steps,
+  /// both in the middle of the help.
+  Future<void> wheelAndPinch(WidgetTester tester) async {
+    const centre = Offset(640, 400);
+    final mouse = TestPointer(1, PointerDeviceKind.mouse);
+    await tester.sendEventToBinding(mouse.hover(centre));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, -40)));
+    await settle(tester);
+    await tester.sendEventToBinding(mouse.scroll(const Offset(0, -40)));
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await settle(tester);
+    expect(letters(tester), closeTo(14 * 1.3, 0.001), reason: 'the wheel sized the help');
+    final a = await tester.startGesture(centre - const Offset(40, 0), kind: PointerDeviceKind.touch);
+    final b = await tester.startGesture(centre + const Offset(40, 0), kind: PointerDeviceKind.touch);
+    await a.moveBy(const Offset(-30, 0));
+    await b.moveBy(const Offset(30, 0));
+    await settle(tester);
+    await a.up();
+    await b.up();
+    await settle(tester);
+    expect(letters(tester), closeTo(14 * 1.75, 0.001), reason: 'the pinch sized the help');
+  }
+
+  testWidgets('Ctrl and the wheel and a pinch on the help leave the covers behind it alone', (tester) async {
+    for (var i = 1; i <= 8; i++) {
+      writeBook(root, 'Book 0$i.cbz', i + 1);
+    }
+    final c = await pumpApp(tester);
+    await tester.runAsync(() async {
+      await c.read(libraryStoreProvider).addRoot(root.path);
+      await c.read(scannerProvider).scan();
+    });
+    await settle(tester);
+    await tester.tap(find.text('Books'));
+    await settle(tester);
+    // The covers stay built behind the help, so they can be measured under it.
+    double cover() => tester.getSize(find.byType(CoverCard).first).width;
+    int covers() => find.byType(CoverCard).evaluate().length;
+    final usual = cover();
+    final count = covers();
+    await help(tester);
+    await wheelAndPinch(tester);
+    expect(cover(), usual, reason: 'the covers behind the help were sized');
+    expect(covers(), count);
+    expect(await tester.runAsync<String?>(() => SettingsStore(db).loadString(SettingsStore.coverSize)), isNull);
+    expect(c.read(readerProvider).book, isNull, reason: 'a finger on the help opened a comic behind it');
+    await esc(tester);
+    expect(cover(), usual);
+    expect(await saved(tester), '1.75');
+  });
+
+  testWidgets('nor the comic behind it', (tester) async {
+    final path = writeBook(tmp, 'Behind 01.cbz', 4);
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
+    await settle(tester);
+    Matrix4 view() => tester.state<ReaderViewState>(find.byType(ReaderView)).transform.clone();
+    final fit = view();
+    await help(tester);
+    await wheelAndPinch(tester);
+    expect(view(), fit, reason: 'the page behind the help was zoomed or moved');
+    expect(c.read(readerProvider).page, 0, reason: 'a finger on the help turned the page');
+    await esc(tester);
+    expect(view(), fit);
+    expect(await saved(tester), '1.75');
   });
 
   testWidgets('the size is back after a restart, also the first time the help opens', (tester) async {

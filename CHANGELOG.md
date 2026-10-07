@@ -21,7 +21,12 @@ the `?` overlay.
   on a line above what it does, so nothing is cut off. The help's title
   line and the notes under it (the data folder, the `keys.toml` in use)
   now scroll away with the list instead of staying on top: in big
-  letters they would have left no room for the keys.
+  letters they would have left no room for the keys. The version has a
+  line of its own under the list, where it lay over the list's last
+  lines, and shrinks to fit a narrow window. The list stays at the
+  action you were reading when the size changes. Where the system's
+  text is set bigger (a phone's font size), the keys go above what they
+  do as soon as the letters as drawn need it, at the usual size too.
 - **Bigger and smaller covers in the library:** `+` and `-` now size the
   covers on the Folders tab and every other tab of covers (Reading,
   Series, Books, Collections), a column fewer or more a press, and `=`

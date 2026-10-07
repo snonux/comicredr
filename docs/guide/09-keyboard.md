@@ -29,10 +29,14 @@ The top of the list also shows ComicRedr's data folder, and which
 
 When the list is hard to read, press `+` in it: every press makes all of
 its text a step bigger, up to three times the usual size. `-` makes it
-smaller again, down to a little under the usual size, and `=` puts the
+smaller again, down to seven tenths of the usual size, and `=` puts the
 usual size back. `Ctrl` and the mouse wheel do the same, and so does a
 pinch on a touchpad or two fingers on a touchscreen. The first line of
-the list names the keys.
+the list names the keys; it makes way for the search field while you
+search or keep what you found.
+
+The list stays where you were reading: the action along its top is
+still there after the text has changed size.
 
 Say you sit back from the screen with the keyboard on your lap: press
 `?`, then `+` three times, and the keys can be read from there. The size

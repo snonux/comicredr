@@ -872,6 +872,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return true;
   }
 
+  /// A command while the `?` help is up (never the key that closes it,
+  /// which [_onCommand] takes first): true when it was the help's or is
+  /// kept from what is behind, false when the help is away or the command
+  /// is one that goes through it (fullscreen).
+  bool _helpTook(ReaderCommand c) {
+    if (!_showKeymap) return false;
+    if (c.intent == ReaderIntent.search) {
+      _overlay.currentState?.startSearch();
+      return true;
+    }
+    if (c.intent == ReaderIntent.back) {
+      if (!(_overlay.currentState?.back() ?? false)) setState(() => _showKeymap = false);
+      return true;
+    }
+    // + - = in the help size its text, not the page or the covers behind it.
+    if (_sizeHelp(c)) return true;
+    // Nothing else reaches the library or the reader hidden behind the help:
+    // Enter would open a book under it, gd ask to delete one.
+    return c.intent != ReaderIntent.fullscreen;
+  }
+
   void _onCommand(ReaderCommand c) {
     // The time, anywhere: the library, the reader, fullscreen.
     if (c.intent == ReaderIntent.showTime) {
@@ -890,19 +911,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() => _showKeymap = !_showKeymap);
       return;
     }
-    if (_showKeymap && c.intent == ReaderIntent.search) {
-      _overlay.currentState?.startSearch();
-      return;
-    }
-    if (_showKeymap && c.intent == ReaderIntent.back) {
-      if (!(_overlay.currentState?.back() ?? false)) setState(() => _showKeymap = false);
-      return;
-    }
-    // + - = in the help size its text, not the page or the covers behind it.
-    if (_showKeymap && _sizeHelp(c)) return;
-    // Nothing else reaches the library or the reader hidden behind the help:
-    // Enter would open a book under it, gd ask to delete one.
-    if (_showKeymap && c.intent != ReaderIntent.fullscreen) return;
+    if (_helpTook(c)) return;
     // Shift+arrows mark covers in the library; in a comic they move as the
     // arrows alone do.
     if (ref.read(readerProvider).book != null) {
