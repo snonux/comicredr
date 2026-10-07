@@ -17,9 +17,16 @@
 #    (the letters of Add and Cancel are letters in the field), Alt+A adds
 #    it; a second name is dropped with Alt+C.
 #  - `*`, `gf`, `x` and then `u`: the undo key puts the favourite back.
+#    (That it undoes once is test/hotkeys_test.dart's: putting a favourite
+#    back twice shows nothing.)
 #  - The Folders tab's filter (`F`): Space picks the type that has the
 #    focus, Alt+C clears it, Alt+D is Done.
-#  - `gA` takes the selected library folder out; its comics stay on disk.
+#  - `gA` takes the selected library folder out; its comics stay on disk;
+#    `u` puts it back and its comics are found again.
+#  - The comic's details (`I`): End, then Alt+P is Redo panels: the pages
+#    are analysed again, the app is still there and answers keys (`mm`
+#    bookmarks the page and takes the bookmark off again, in the index;
+#    Esc, the library as it was).
 #
 # Nothing is checked after a fixed wait where there is something to wait
 # for: the script asks the index (sqlite3) or looks at the screen again
@@ -80,8 +87,15 @@ q() { sqlite3 -batch -noheader -cmd ".timeout 10000" "$db" "$1"; }
 setting() { q "select value from settings where key = '$1'" | tr -d '"'; }
 start() {
   # GDK_BACKEND: on a desktop running Wayland GTK would otherwise open the
-  # window there instead of in Xvfb, where the keys go.
-  HOME="$home" GDK_BACKEND=x11 "$top/build/linux/x64/release/bundle/comicredr" "$@" >>"$top/$out/app.log" 2>&1 &
+  # window there instead of in Xvfb, where the keys go. No session bus and
+  # no XDG folders of whoever runs this: the app then cannot reach their
+  # keyring (the S3 secret) or their own data, whatever a key here does.
+  # The bus address names a socket that is not there, rather than being
+  # unset: unset, D-Bus falls back to $XDG_RUNTIME_DIR/bus, which on a
+  # desktop is the real session's.
+  env -u XDG_DATA_HOME -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+    DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/comicredr-no-session-bus \
+    HOME="$home" GDK_BACKEND=x11 "$top/build/linux/x64/release/bundle/comicredr" "$@" >>"$top/$out/app.log" 2>&1 &
   app=$!
   local win=
   for _ in $(seq 1 60); do
@@ -205,9 +219,50 @@ check "Alt+L clears the history" "$(q 'select count(*) from read_log')" 0
 key alt+c
 same settings_closed "$library" "Alt+C closes Settings: the library as it was"
 
+# 2b. Redo panels in the comic's details: Alt+P from the end of the list,
+# where its button is built, closes the details and nothing under them.
+# (When the button's label and a shortcut of the view both took the key,
+# the second pop took the app's own page away: a dead dark window.)
+key Return
+sleep 3
+wait_q 'select count(*) from analysed_pages' 5 || true
+check "the open comic's pages are analysed" "$(q 'select count(*) from analysed_pages')" 5
+before=$(q 'select max(analysed_at) from analysed_pages')
+sleep 1.5 # The index keeps whole seconds: the redo is later than $before.
+shot reader
+reader=$(sum "$last")
+key I
+differs details "$reader" "I opens the details"
+key End
+sleep 1
+shot details_end
+key alt+p
+wait_q "select count(*) from analysed_pages where analysed_at <= $before" 0 || true
+check "Alt+P: the panels found before are forgotten" \
+  "$(q "select count(*) from analysed_pages where analysed_at <= $before")" 0
+wait_q "select count(*) > 0 from analysed_pages where analysed_at > $before" 1 || true
+check "and found again" "$(q "select count(*) > 0 from analysed_pages where analysed_at > $before")" 1
+if kill -0 "$app" 2>/dev/null; then ok "the app is still running"; else fail "the app is gone after Alt+P"; fi
+shot after_redo
+# The app is alive and answers keys: mm bookmarks the page (a row in the
+# index), mm again takes the bookmark off, Esc is back in the library as
+# it was.
+marks='select count(*) from bookmarks where deleted_at is null'
+key m m
+wait_q "$marks" 1 || true
+check "mm bookmarks the page: the comic answers keys" "$(q "$marks")" 1
+key m m
+wait_q "$marks" 0 || true
+check "mm again takes the bookmark off" "$(q "$marks")" 0
+key Escape
+same library_after_redo "$library" "Esc leaves the comic: the library as it was"
+
 # 3. The delete question.
 key g d
 differs delete "$library" "gd asks before deleting"
+# The question once it has faded in: the look above can be of it halfway.
+sleep 1
+shot delete_settled
 question=$(sum "$last")
 key Tab
 differs delete_tab "$question" "Tab moves the focus ring off Cancel"
@@ -236,8 +291,15 @@ if [[ ! -e "$comics/Book 01.cbz" ]]; then ok "the selected comic, Book 01, is th
 # 4. The collection question: the name typed with no pause after gc, the
 # letters of its buttons among them.
 sleep 5 # The notice of the delete gone.
+shot before_collection
+before=$(sum "$last")
 xdotool key g c
 xdotool type --delay 40 ac
+# The name is typed at once; Alt+A waits until the question is drawn. A
+# key with Alt that comes before the dialog is built (the first one of a
+# run can take a moment) is dropped, by design: it is no part of a name,
+# and there is no button yet to press.
+differs collection "$before" "gc shows the collection question"
 key alt+a
 wait_q "select count(*) from collection_books where name = 'ac' and removed_at is null" 1 || true
 check "gc, ac typed at once, Alt+A: a comic in the collection ac" "$(in_collection ac)" 1
@@ -262,9 +324,6 @@ check "gf, then x takes it out" "$(in_collection Favourites)" 0
 key u
 wait_q "select count(*) from collection_books where name = 'Favourites' and removed_at is null" 1 || true
 check "u undoes that: a favourite again" "$(in_collection Favourites)" 1
-key u
-sleep 1.5
-check "u again changes nothing" "$(in_collection Favourites)" 1
 key Escape
 
 # 6. The Folders tab's filter. gf left the library on Collections.
@@ -296,6 +355,15 @@ key g A
 wait_q 'select count(*) from roots' 0 || true
 check "gA takes the selected library folder out" "$(q 'select count(*) from roots')" 0
 check "its comics stay on disk" "$(files)" 5
+# The notice offers it back, and u is its Undo: in the library again, and
+# scanned, so its comics are in the index again.
+key u
+wait_q 'select count(*) from roots' 1 || true
+check "u puts the library folder back" "$(q 'select count(*) from roots')" 1
+check "the same folder" "$(q 'select path from roots')" "$comics"
+wait_q 'select count(*) from files' 5 || true
+check "and its comics are found again" "$(q 'select count(*) from files')" 5
+check "nothing on disk changed" "$(files)" 5
 shot end
 
 if ((failed)); then

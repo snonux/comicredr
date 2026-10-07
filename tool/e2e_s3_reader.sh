@@ -111,7 +111,10 @@ Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
 trap 'kill $app $xvfb $proxy 2>/dev/null || true' EXIT
-unset DBUS_SESSION_BUS_ADDRESS
+# A bus address that is not there, not an unset one: unset, D-Bus falls
+# back to $XDG_RUNTIME_DIR/bus, a desktop's real session bus, and the test
+# secret would be saved over the real one in the keyring of whoever runs this.
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/comicredr-no-session-bus
 sleep 1
 
 home=

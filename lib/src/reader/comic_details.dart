@@ -37,7 +37,7 @@ Future<void> showComicDetails(
         canRedo: onRedoPanels != null,
         closeKeys: closeKeys,
       );
-      // Alt+R is Redo panels; Tab reaches it and the pages of the list.
+      // Alt+P is Redo panels; Tab reaches it and the pages of the list.
       return DialogHotkeys(
         child: narrow
             ? Dialog.fullscreen(child: details)
@@ -96,6 +96,9 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
   Future<List<PdfImage>>? _pdfImages;
   final _scroll = ScrollController();
 
+  /// Set once the view was asked to close; see [_leave].
+  bool _left = false;
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -114,17 +117,20 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
     );
   }
 
+  /// Closes the view with what was [picked] in it, once: whatever asks a
+  /// second time while it is on its way out (a key and a click together)
+  /// must not pop the route under it, which is the app's own.
+  void _leave([_Picked? picked]) {
+    if (_left) return;
+    _left = true;
+    Navigator.pop(context, picked);
+  }
+
   @override
   Widget build(BuildContext context) {
-    void close() => Navigator.pop(context);
     return CallbackShortcuts(
       bindings: {
-        for (final k in widget.closeKeys) CharacterActivator(k): close,
-        // Redo panels' Alt+R is taken here and not left to its label: the
-        // button is a row of the list, built only once it scrolls into
-        // view, and the key works from the top of the list too.
-        if (widget.canRedo)
-          const SingleActivator(LogicalKeyboardKey.keyR, alt: true): () => Navigator.pop(context, const _RedoPanels()),
+        for (final k in widget.closeKeys) CharacterActivator(k): _leave,
         const CharacterActivator('j'): () => _scrollBy(0.15),
         const CharacterActivator('k'): () => _scrollBy(-0.15),
         const SingleActivator(LogicalKeyboardKey.arrowDown): () => _scrollBy(0.15),
@@ -136,29 +142,39 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
         const SingleActivator(LogicalKeyboardKey.end): () => _scrollBy(1e9),
         const SingleActivator(LogicalKeyboardKey.home): () => _scrollBy(-1e9),
       },
-      child: Focus(
-        autofocus: true,
-        child: Column(
-          key: const Key('comicDetails'),
-          children: [
-            _TitleBar(title: widget.book.title, onClose: close),
-            const Divider(height: 1),
-            Expanded(
-              child: FutureBuilder<ComicReport>(
-                future: _report,
-                builder: (context, snap) {
-                  if (snap.hasError) {
-                    return Center(child: Text('Could not read the details: ${snap.error}'));
-                  }
-                  final r = snap.data;
-                  if (r == null) return const Center(child: CircularProgressIndicator());
-                  if (r.isPdf) _pdfImages ??= pdfImagesOf(r.path, r.contentKey);
-                  return _body(context, r);
-                },
-              ),
+      // Redo panels' Alt+P is held here and not by the button's label: the
+      // button is a row of the list, built only once it scrolls into view,
+      // and the key works from the top of the list too. DialogHotkeys is
+      // the one that takes the key either way.
+      child: DialogKey(letter: 'p', onPressed: widget.canRedo ? _redo : null, child: _view(context)),
+    );
+  }
+
+  void _redo() => _leave(const _RedoPanels());
+
+  Widget _view(BuildContext context) {
+    return Focus(
+      autofocus: true,
+      child: Column(
+        key: const Key('comicDetails'),
+        children: [
+          _TitleBar(title: widget.book.title, onClose: _leave),
+          const Divider(height: 1),
+          Expanded(
+            child: FutureBuilder<ComicReport>(
+              future: _report,
+              builder: (context, snap) {
+                if (snap.hasError) {
+                  return Center(child: Text('Could not read the details: ${snap.error}'));
+                }
+                final r = snap.data;
+                if (r == null) return const Center(child: CircularProgressIndicator());
+                if (r.isPdf) _pdfImages ??= pdfImagesOf(r.path, r.contentKey);
+                return _body(context, r);
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -438,9 +454,10 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
             alignment: Alignment.centerLeft,
             child: OutlinedButton.icon(
               key: const Key('detailsRedoPanels'),
-              onPressed: () => Navigator.pop(context, const _RedoPanels()),
+              onPressed: _redo,
               icon: const Icon(Icons.refresh),
-              label: const Mnemonic('Redo panels'),
+              // Underlined only: the key is the DialogKey's in build.
+              label: const Mnemonic.shown('Redo panels', letter: 'p'),
             ),
           ),
         ),
@@ -491,7 +508,7 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
               size: 20,
               semanticLabel: d.guided ? 'guided' : 'shown whole',
             ),
-      onTap: widget.canJump ? () => Navigator.pop(context, _JumpTo(page)) : null,
+      onTap: widget.canJump ? () => _leave(_JumpTo(page)) : null,
     );
   }
 

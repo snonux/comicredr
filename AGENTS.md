@@ -375,17 +375,45 @@ refreshes right away instead of within six hours.
   with a comic open, and `LibraryScreenState._settingsOpen` keeps a
   second `g,`, typed before the dialog has the focus, from stacking a
   second dialog), `undo` (`u`), `downloadFromS3` (`gD`), `removeRoot`
-  (`gA`, says what it did in a notice), `showScanFailures` (`g!`, a
-  notice when nothing failed), and `remove` (`x`) now also takes the
-  selected comic out of an open collection
-  (`_takeOutOfCollection`). `u` presses the Undo of the notice that
+  (`gA`), `showScanFailures` (`g!`, a notice when nothing failed), and
+  `remove` (`x`) now also takes the selected comic, or with marks the
+  marked ones, out of an open collection (`takeOutOfCollection` in
+  bulk_actions.dart; a sidecar that can't be written is no failure, as
+  for a favourite). The library's own of these are in
+  `LibraryScreenState._buttonKeys`, not in `handle`'s switch.
+  `gA` and its button in a folder's details go one way,
+  `LibraryScreenState._removeRoot` (`FolderDetail.onRemoveRoot`): the
+  folder's rows leave the index, nothing on disk is touched, and the
+  notice has an Undo, since two keys take a whole folder off the shelves
+  unasked. The Undo is `restoreLibraryFolder` (default_folder.dart: the
+  folder added again, and `library.defaultFolderRemoved` put back to
+  false when this taking out was what set it, which
+  `removeLibraryFolder` answers) and then `LibraryScreen.onRescan`
+  (HomeScreen's `_rescan`, which also watches the folder again).
+  `u` presses the Undo of the notice that
   shows: a SnackBar's action is out of the keyboard's reach, so the
   notices with an Undo go through `UndoNotice` (`undoNoticeProvider`,
   `lib/src/undo_notice.dart`), which keeps what the button does until
-  the notice has gone and runs it once, by button or by key.
-  Buttons left without a key of their own, each a shortcut to something
-  the keys reach in two steps (the walk in `test/hotkeys_test.dart`
-  lists the two it meets as `noKey`): the breadcrumb's folder names
+  the notice has gone and runs it once, by button or by key (also the
+  key and then the button of a notice still on its way out). The rule:
+  whenever such a notice is visible `u` runs it, on any screen, and with
+  none it does nothing and says nothing. So `u` is taken by
+  `HomeScreen._buttonKey`, before the help, the reader or the library
+  see the command: the notice of something done in the library is still
+  up over a comic opened after it. It stays up, too: in this Flutter a
+  SnackBar with an action does not time out (`persist` defaults to
+  whether it has an action), as it did before task 263; another notice
+  (`hideCurrentSnackBar`) or its Undo takes it away, and then `u` is
+  nothing again.
+  Controls left without a key of their own, each a shortcut to something
+  the keys reach in two steps. The walk in `test/hotkeys_test.dart`
+  looks at every button, chip, ListTile, switch and bare
+  InkWell/GestureDetector with an `onTap` on the screens it visits, under
+  the default keys and under a keymap with none of them (so a tooltip
+  with a key written into its text fails), and a control that names no
+  key must be in its `noKey` list, by the name of the nearest widget key
+  at or above it; an entry the walk no longer meets fails too. The
+  exceptions: the breadcrumb's folder names
   (`Backspace`, a folder at a time; their tooltips say so), **Read** /
   **Continue** in a series' or a folder's details (`readNext`,
   `continueInFolder`: Enter, then Enter on the comic), the x on a part
@@ -394,7 +422,14 @@ refreshes right away instead of within six hours.
   of a collection chip in a book's details (tooltips name `e` and `x`
   and where they work), the parts picker's choice of split (the part's
   own key picks it), tabs (Tab, Shift+Tab), and rows and covers (arrows
-  and Enter). Pointer-only by nature: the progress bar, the bookmark
+  and Enter: covers `b:` `f:` `s:`, the page grid's `pageTile-`, the
+  Bookmarks tab's `bookmarkItem-`, the reader's list's `bookmarkRow-`,
+  History's `history-`), the comics listed in a series' details
+  (`seriesBook-`: Enter shows the books, then the arrows and Enter) and
+  the bookmarks listed in a comic's details (`detailBookmark-`: the
+  Bookmarks tab or `M`, then the arrows and Enter), the parts picker's
+  backdrop (`partsPicker`: Esc). A folder's details have no rows.
+  Pointer-only by nature: the progress bar, the bookmark
   ribbon (`M`), the text field's clear button (Esc). Help texts that
   spell keys in a sentence (Settings' subtitles, the empty library's
   paragraph, empty tabs) are still fixed text.
@@ -407,9 +442,12 @@ refreshes right away instead of within six hours.
   the nearest `ButtonStyleButton` and calls its `onPressed`, so a
   disabled button does nothing and `.icon` buttons work). Alt, not the
   bare letter, so a letter typed into a dialog's field is text; Ctrl+Alt
-  and AltGr are not Alt. ReaderKeyboard in turn drops every key pressed
-  with Alt (function keys apart): no binding has Alt, and an Alt+C too
-  many after a dialog closed must not be `c` on the comic. Two labels
+  and AltGr are not Alt. ReaderKeyboard in turn drops a key that types a
+  character (a letter, a digit, a sign, Space) when Alt is held: no
+  binding has Alt, and an Alt+C too many after a dialog closed must not
+  be `c` on the comic. Keys that type nothing (arrows, Enter, Home, the
+  F-keys) act with Alt as without, as before the task: they are no
+  dialog's letter. Two labels
   with one letter trip an assert when
   the key is pressed. The letters are underlined on Linux, macOS and
   Windows; on Android and iOS only while Alt is held
@@ -421,29 +459,72 @@ refreshes right away instead of within six hours.
   and never reached the switches or sliders; its
   `WidgetOrderTraversalPolicy` is the order the controls were made in,
   which put the collection question's chips (read from the index, so
-  made after the buttons) behind Cancel and Add. (3) The letters are taken by a `HardwareKeyboard` handler, for the
-  dialog whose route is on top, not through the focus: they work before
-  anything in the dialog has the focus, and the wrapper holds no focus
-  node of its own (one that took the focus when nothing else had it kept
-  the S3 settings' first field, which shows only once the settings are
-  read, from getting its autofocus). A dialog still autofocuses a
-  control, for Enter. `ComicDetails` takes Alt+R (Redo
-  panels) in its own `CallbackShortcuts`, since that button is a row of
-  a lazily built list and its label is not there until scrolled to.
+  made after the buttons) behind Cancel and Add. (3) The letters are taken in one place, an
+  early key handler of the `FocusManager`
+  (`addEarlyKeyEventHandler`), for the dialog whose route is on top, not
+  by a node of the focus tree: they work before anything in the dialog
+  has the focus, and the wrapper holds no focus node of its own (one
+  that took the focus when nothing else had it kept the S3 settings'
+  first field, which shows only once the settings are read, from getting
+  its autofocus). A dialog still autofocuses a control, for Enter. It
+  must be an early handler and not one of `HardwareKeyboard`: Flutter
+  gives a key to the hardware handlers and to the focus tree both,
+  whatever the first answer, while what an early handler takes the
+  focus tree never sees. (With a `HardwareKeyboard` handler, Alt+R in
+  the comic's details was taken by the button's label and by a
+  `CallbackShortcuts` of the view on one press: two `Navigator.pop`s,
+  the second of the app's own route, a dead window.) One press of a key
+  presses once (`_taken`, the event last acted on). No dialog has an Alt
+  shortcut of its own; the source scan fails on `alt: true` in lib/. A
+  button that is not always built names its key with `DialogKey(letter:,
+  onPressed:, child:)` around something that is, and is labelled
+  `Mnemonic.shown`, which only underlines: Redo panels in `ComicDetails`
+  (Alt+P, a row of a lazily built list; the same letter as Redo panels
+  in the reset question, where Alt+R is Reset everything, so one chord
+  is never a mild thing here and a destructive one there), and
+  Settings' two cover size buttons, which have a picture and no label
+  (Alt+M smaller, Alt+B bigger, named in their tooltips).
+  `ComicDetails` closes through `_leave`, once, whatever asks.
+  Other dialogs' own shortcuts were looked at for the same double
+  dispatch: the move dialog's `CallbackShortcuts` has the arrows, Page
+  keys and Ctrl+N, none of them a letter of `DialogHotkeys` (which lets
+  Ctrl+Alt and Ctrl pass), and the details' has only plain keys; Enter
+  in a field is the field's `onSubmitted` alone and Esc is Flutter's
+  dismiss, one pop each. The dialog walk in the test counts routes
+  popped with a `NavigatorObserver` (`ComicRedrApp.navigatorObservers`):
+  one for Esc and one for the Alt+letter of Cancel, Close or Done in
+  every dialog it opens.
   The ring around the focused control is `withFocusRing` on both themes:
   a 2 px `side` for the focused state of the button, chip and
   segmented-button themes and a stronger `focusColor`; Flutter reports
   the focused state only in `FocusHighlightMode.traditional`, i.e. while
   keys or a mouse are in use.
   Not done, for follow-up tasks: Settings' rows have no letters of their
-  own (Tab and Space; only its buttons have); the collection chips of the
+  own (Tab and Space; only its buttons have); help sentences that spell
+  keys (Settings' subtitles, the empty library's paragraph, empty tabs)
+  are fixed text, not read from the keymap; `tool/e2e_touch_zones.sh`
+  does not parse ImageMagick 7's output; the collection chips of the
   collection question and the pages of the details list are reached by
   Tab only; the dialogs only Android shows (storage access, the folder
   paths) and the ones that need another device or a bucket (position
   offer, import confirmation, S3 settings and its Turn off, Remove from
   S3, the move clash, failures) are wrapped and lettered, but the
   keyboard walk in `test/hotkeys_test.dart` does not open them (its scan
-  of the sources covers their wrapping and labels); the system's file pickers are GTK's own.
+  of the sources covers their wrapping and labels, and fails on anything
+  else that opens over the screen, a sheet, a menu, a dropdown, a route
+  made by hand, unless it is in `knownOverlays` with its reason); the
+  system's file pickers are GTK's own.
+  `tool/guide_shots.sh` and `tool/e2e_hotkeys.sh` start the app with
+  the XDG data, config and cache folders unset, `GDK_BACKEND=x11` and
+  `DBUS_SESSION_BUS_ADDRESS` set to a socket that is not there: with the
+  session bus in reach the S3 dialog reads the real keyring of whoever
+  runs them (the guide's picture said "A secret key is saved in the
+  keyring"), and Enter in an S3 field saves. Unsetting the address is
+  not enough on a desktop: D-Bus then looks at `$XDG_RUNTIME_DIR/bus`,
+  the real session's (seen 2026-10-07: the picture still said "saved").
+  The S3 e2e scripts (`e2e_s3_settings`, `e2e_s3_reader`,
+  `e2e_s3_android`), which save a test secret, set the same dead
+  address in place of their `unset`.
 - Continue (`C`, the library header's play button, widget key `continue`):
   `RecentBooks` (`lib/src/reader/recent_books.dart`) keeps the last five
   comics opened, path, content key and title, newest first, in the
@@ -1028,7 +1109,7 @@ tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posin
 tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
-tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star, x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
+tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star (found by comparing two screenshots, not at a fixed place), x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books
 tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
 tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
@@ -1047,7 +1128,7 @@ tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
 tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
-tool/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), d without Alt and Enter delete nothing, Alt+C cancels, Alt+D deletes; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out; checks the index with sqlite3 and the comics on disk; makes its own books
+tool/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; in a comic I, End and Alt+P redo its panels (analysed_pages newer than before) with the app still there (mm bookmarks the page and takes it off again, Esc the library as it was); gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), d without Alt and Enter delete nothing, Alt+C cancels, Alt+D deletes; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out and u puts it back with its comics found again; the app has no session bus (no keyring) and no XDG folders of the caller; checks the index with sqlite3 and the comics on disk; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
 python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot; the app's HOME is /tmp/comicredr-guide/home (GUIDE_HOME), never under the checkout, since the ? help and Settings show the data folder's path and with it the name of whoever took the pictures

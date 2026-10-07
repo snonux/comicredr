@@ -110,6 +110,14 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     LogicalKeyboardKey.f12,
   };
 
+  /// Whether [event]'s key is one that types a character: a letter, a
+  /// digit, a sign, Space. By the key, not by `event.character`, which is
+  /// null for many keys while Alt is held.
+  static bool _types(KeyEvent event) {
+    final label = event.logicalKey.keyLabel;
+    return label.characters.length == 1;
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is KeyUpEvent) return KeyEventResult.ignored;
     // Typing into a text field (the library search) is not a command; Esc
@@ -123,11 +131,13 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     }
     if (widget.typeAhead?.call(event) ?? false) return KeyEventResult.handled;
     final keys = HardwareKeyboard.instance;
-    // Alt and a letter is a dialog's key (DialogHotkeys), never a command:
-    // no binding has Alt, and Alt+C pressed once too often after a dialog
-    // closed would otherwise be c on the comic behind it. F-keys keep
-    // working (Alt+F4 is the window manager's anyway). AltGr is not Alt.
-    if (keys.isAltPressed && !_functionKeys.contains(event.logicalKey)) return KeyEventResult.ignored;
+    // Alt and a character is a dialog's key (DialogHotkeys), never a
+    // command: no binding has Alt, and Alt+C pressed once too often after
+    // a dialog closed would otherwise be c on the comic behind it. Keys
+    // that type nothing (the arrows, Enter, Home, the F-keys) are no
+    // dialog's letter and act with Alt held as they do without, as they
+    // did before task 263. AltGr is not Alt.
+    if (keys.isAltPressed && _types(event)) return KeyEventResult.ignored;
     final token = keyToken(event, ctrl: keys.isControlPressed, shift: keys.isShiftPressed);
     if (token == null) return KeyEventResult.ignored;
     final now = DateTime.now();

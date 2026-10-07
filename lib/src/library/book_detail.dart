@@ -221,8 +221,11 @@ class BookDetail extends ConsumerWidget {
               style: theme.textTheme.bodySmall,
             ),
           ),
+        // No key of its own: the Bookmarks tab and the reader's list (M) go
+        // to a bookmark with the arrows and Enter.
         for (final m in marks)
           ListTile(
+            key: Key('detailBookmark-${m.id}'),
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: m.mark == null ? const Icon(Icons.bookmark) : CircleAvatar(radius: 12, child: Text(m.mark!)),

@@ -10,12 +10,16 @@ the `?` overlay.
 - **A key for every button and dialog:** everything that can be clicked
   can now be done from the keyboard.
   - Buttons that had no key have one: `g,` opens Settings (in a comic
-    too), `u` is the **Undo** of the notice along the bottom, `gA` takes
-    the selected library folder out of the library, `gD` downloads a
+    too), `u` is the **Undo** of the notice along the bottom, on
+    whatever screen that notice shows (over a comic opened in the
+    meantime as well), `gA` takes the selected library folder out of
+    the library (its button now says what it did too, and both offer an
+    **Undo** that puts the folder back and scans it), `gD` downloads a
     comic that is only on S3, `g!` lists the comics the last scan could
-    not read, and `x` takes the selected comic out of an open collection
-    (with Undo), as it did in the Favourites. They are actions like the
-    others: `?` lists them and `keys.toml` can change them.
+    not read, and `x` takes the selected comic out of an open
+    collection, or the marked ones (with Undo), as it did in the
+    Favourites. They are actions like the others: `?` lists them and
+    `keys.toml` can change them.
   - A button's tooltip names its key as it is now, also after you
     changed it in `keys.toml` (*Settings (g,)*); before, the keys in
     tooltips were fixed text and some buttons named none.
@@ -35,8 +39,14 @@ the `?` overlay.
   - Whatever has the keyboard focus has a ring around it; the tint
     Material draws could hardly be seen on the dark theme. It shows
     while keys are in use, not for touch.
-  - In the details of a comic `Alt+R` is Redo panels, from anywhere in
-    the list.
+  - In the details of a comic `Alt+P` is Redo panels, from anywhere in
+    the list: the same letter as Redo panels in the reset question,
+    where `Alt+R` is Reset everything.
+  - In Settings `Alt+M` and `Alt+B` are the two cover size buttons
+    (smaller, bigger).
+  - `Alt` with a key that types nothing (an arrow, `Enter`, `Home`)
+    still does what the key does alone; only `Alt` with a letter, a
+    digit or a sign is kept for dialogs.
 - **Bigger and smaller text in the `?` help:** in the list of keys `+`
   makes all of its text a step bigger, up to three times the usual size,
   `-` makes it smaller again (down to 0.7 of the usual size) and `=` puts

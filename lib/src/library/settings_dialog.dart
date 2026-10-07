@@ -511,31 +511,45 @@ class _CoverSizePicker extends StatelessWidget {
 
   /// Smaller, bigger and Usual size, each off when it would change
   /// nothing; on a second line when the window or big letters leave no
-  /// room for all three.
-  Widget _buttons(BuildContext context, int? n) => Wrap(
-    crossAxisAlignment: WrapCrossAlignment.center,
-    spacing: 4,
-    children: [
-      IconButton(
-        key: const Key('setting-coverSize-smaller'),
-        icon: const Icon(Icons.zoom_out),
-        // The library's own keys; behind the dialog they do not arrive.
-        tooltip: 'Smaller covers (${KeyHints.of(context).hint(ReaderIntent.zoomOut) ?? '-'} in the library)',
-        onPressed: covers.canShrinkCovers ? () => covers.zoomCovers(-1) : null,
-      ),
-      IconButton(
-        key: const Key('setting-coverSize-bigger'),
-        icon: const Icon(Icons.zoom_in),
-        tooltip: 'Bigger covers (${KeyHints.of(context).hint(ReaderIntent.zoomIn) ?? '+'} in the library)',
-        onPressed: covers.canGrowCovers ? () => covers.zoomCovers(1) : null,
-      ),
-      TextButton(
-        key: const Key('setting-coverSize-usual'),
-        onPressed: n != null && covers.coversZoomed ? covers.resetCovers : null,
-        child: const Mnemonic('Usual size'),
-      ),
-    ],
-  );
+  /// room for all three. The two with a picture and no label have their
+  /// letters from a [DialogKey] (Alt+M, Alt+B), named in the tooltip with
+  /// the library's own keys, which do not arrive behind the dialog.
+  Widget _buttons(BuildContext context, int? n) {
+    final keys = KeyHints.of(context);
+    final smaller = covers.canShrinkCovers ? () => covers.zoomCovers(-1) : null;
+    final bigger = covers.canGrowCovers ? () => covers.zoomCovers(1) : null;
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 4,
+      children: [
+        DialogKey(
+          letter: 'm',
+          onPressed: smaller,
+          child: IconButton(
+            key: const Key('setting-coverSize-smaller'),
+            icon: const Icon(Icons.zoom_out),
+            tooltip: 'Smaller covers (Alt+M; ${keys.hint(ReaderIntent.zoomOut) ?? '-'} in the library)',
+            onPressed: smaller,
+          ),
+        ),
+        DialogKey(
+          letter: 'b',
+          onPressed: bigger,
+          child: IconButton(
+            key: const Key('setting-coverSize-bigger'),
+            icon: const Icon(Icons.zoom_in),
+            tooltip: 'Bigger covers (Alt+B; ${keys.hint(ReaderIntent.zoomIn) ?? '+'} in the library)',
+            onPressed: bigger,
+          ),
+        ),
+        TextButton(
+          key: const Key('setting-coverSize-usual'),
+          onPressed: n != null && covers.coversZoomed ? covers.resetCovers : null,
+          child: const Mnemonic('Usual size'),
+        ),
+      ],
+    );
+  }
 }
 
 /// Picks how fast the arrow keys scroll a zoomed page and how smoothly

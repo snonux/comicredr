@@ -25,7 +25,8 @@ everything ComicRedr knows about it:
   spent on it and in how many sittings, its bookmarks and collections.
 - **Panels and balloons**: how many pages guided view steps through panel
   by panel, which are shown whole and why, and how sure the detector was,
-  with a **Redo panels** button.
+  with a **Redo panels** button (`Alt+P`, wherever the list is scrolled
+  to).
 - **Page by page**: one line per page with all of the above. Click a page
   to go there (when you opened the details from inside the comic).
 

@@ -133,7 +133,11 @@ has the focus, so `ReaderKeyboard` never sees its keys: nothing typed in
 a dialog acts on what is behind it. There the keys are Flutter's (Esc,
 Enter, Tab, arrows, Space) plus one wrapper, `DialogHotkeys`, under which
 a button labelled with `Mnemonic` is pressed by Alt and its underlined
-letter, and Tab goes through the controls in the order they are written
+letter. The wrapper takes that key in an early key handler of the
+`FocusManager`, so the focus tree (a field, a `Shortcuts`, a focused
+button) never sees it and one press is one action; a dialog adds no Alt
+shortcut of its own, and a button that is not always built (a row of a
+lazy list) has its key held by a `DialogKey`. And Tab goes through the controls in the order they are written
 (the default, by position on screen, loses its way in a dialog that
 scrolls).
 
@@ -141,7 +145,7 @@ scrolls).
 flowchart LR
   key["Key press"] --> where{"Focus"}
   where -- "the screen" --> rk["ReaderKeyboard<br/>keymap, sequences"] --> intent(("ReaderIntent"))
-  key -- "Alt+letter, the dialog on top" --> dh["DialogHotkeys<br/>Mnemonic's button"]
+  key -- "Alt+letter, the dialog on top<br/>(early handler: the focus tree never sees it)" --> dh["DialogHotkeys<br/>Mnemonic's button, DialogKey"]
   where -- "a dialog's route" --> fl["Flutter: Esc, Enter,<br/>Tab, arrows, Space"]
   button["A screen's button"] --> intent
   keymap["Keymap"] -. "KeyHints: tooltip names the key" .-> button

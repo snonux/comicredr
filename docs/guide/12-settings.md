@@ -10,8 +10,8 @@ Settings can be worked without the mouse: `Tab` and `Shift+Tab` go from
 one control to the next, with a ring around the one you are on, `Space`
 switches a switch or picks a choice, the left and right arrows move a
 slider, and `Alt` with an underlined letter presses that button (`Alt+H`
-for **Clear reading history**, `Alt+S` for the S3 sync, `Alt+C` to
-close). See [a key for every button](09-keyboard.md#a-key-for-every-button).
+for **Clear reading history**, `Alt+S` for the S3 sync, `Alt+M` and
+`Alt+B` for smaller and bigger covers, `Alt+C` to close). See [a key for every button](09-keyboard.md#a-key-for-every-button).
 
 ![The Settings dialog](images/settings.webp)
 

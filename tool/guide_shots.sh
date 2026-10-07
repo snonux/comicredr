@@ -105,9 +105,26 @@ gif() {
     -loop 0 "$img/$1.gif"
   gifsicle -O3 --lossy=80 --batch "$img/$1.gif" 2>/dev/null || gifsicle -O3 --batch "$img/$1.gif"
 }
-start() {
-  HOME="$home" "$app" "$@" >>"$out/app.log" 2>&1 &
+# launch HOME [ARG...]: the app in the background with that home and
+# nothing of whoever takes the pictures in reach. Without a session bus it
+# cannot ask their keyring, which made the S3 picture say "A secret key
+# is saved in the keyring" and would let a Return in that dialog save over
+# their real secret key. The bus address is set to a socket that is not
+# there, not unset: with the variable unset D-Bus looks for the bus at
+# $XDG_RUNTIME_DIR/bus, where a desktop session has it, and finds the
+# keyring all the same. Without their XDG folders the app reads and
+# writes under the home given; and GDK_BACKEND=x11 opens the window in
+# Xvfb, not on a Wayland desktop.
+launch() {
+  local h=$1
+  shift
+  env -u XDG_DATA_HOME -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+    DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/comicredr-no-session-bus \
+    HOME="$h" GDK_BACKEND=x11 "$app" "$@" >>"$out/app.log" 2>&1 &
   pid=$!
+}
+start() {
+  launch "$home" "$@"
   sleep 8
   win=$(xdotool search --name '^ComicRedr$' | tail -1)
   xdotool windowmove "$win" 0 0 windowsize "$win" 1280 720 2>/dev/null || true
@@ -297,8 +314,7 @@ history)
 empty)
   stop
   mkdir -p "$home-empty"
-  HOME="$home-empty" "$app" >>"$out/app.log" 2>&1 &
-  pid=$!
+  launch "$home-empty"
   sleep 8; park
   still empty
   stop
@@ -318,7 +334,10 @@ marks)
 
 s3)
   # Settings → S3 sync, filled in with a made-up home Garage: no server
-  # needed, and no real keys in a picture.
+  # needed, and no real keys in a picture. It is a first set-up: the
+  # secret key's hint must read "Kept in the keyring, never in settings
+  # files" (launch keeps the real keyring out of reach). Nothing here
+  # presses Save or Enter in a field: Esc leaves without saving.
   # By keys: g, opens Settings and Alt+S its S3 button, wherever the
   # dialog is scrolled to (a click at a fixed place missed the button once
   # Settings had grown).

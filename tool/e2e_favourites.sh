@@ -38,6 +38,10 @@ Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
+# Xvfb takes a moment to listen, and with GDK_BACKEND=x11 the app dies on
+# a display that is not there yet.
+for _ in $(seq 1 100); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+xdotool getdisplaygeometry >/dev/null 2>&1 || { echo "FAIL  Xvfb did not come up on $DISPLAY"; exit 1; }
 
 failed=0
 check() { # check "what" actual expected
@@ -94,9 +98,46 @@ key asterisk
 shot 04_library_star
 check "* on a cover" "$(favourites)" "Alpha 1.cbz, Bravo 1.cbz"
 
-# 3. The header's star opens the Favourites, from the Books tab.
-click "${STAR_X:-751}" "${STAR_Y:-28}"
-shot 05_star_menu
+# 3. The header's star opens the Favourites, from the Books tab. Where the
+# star is, is read off the screenshot: the header's buttons are the
+# pictures 14 to 28 px wide in its row, and the star is the fifth from the
+# right (star, add a folder, shuffle, open a file, settings). Not a fixed
+# place: a button more to its left (Continue, once a comic was read) or a
+# details pane beside the covers moves it. STAR_X overrides.
+star_in() { # star_in shot: the x of the middle of the star in that screenshot
+  convert "$out/$1.png" -crop 1280x24+0+16 +repage -colorspace gray -threshold 45% -scale '1280x1!' \
+    -depth 8 gray:- 2>/dev/null | od -An -v -tu1 -w1 | awk '
+      { on = ($1 > 0) }
+      on && !run { start = NR - 1 }
+      !on && run { w = NR - 1 - start; if (w >= 14 && w <= 28) seg[++n] = int((start + NR - 2) / 2) }
+      { run = on }
+      END { if (n >= 5) print seg[n - 4] }'
+}
+# How much of the star is drawn: the outline is a few lines, the filled
+# star of the open Favourites about twice as much.
+star_ink() { # star_ink shot x
+  convert "$out/$1.png" -crop "24x24+$(($2 - 12))+16" +repage -colorspace gray -threshold 45% \
+    -format '%[fx:int(mean*1000)]' info: 2>/dev/null
+}
+star_x=${STAR_X:-$(star_in 04_library_star)}
+if [[ -n "$star_x" ]]; then
+  echo "ok    the header's star is at x=$star_x"
+  outline=$(star_ink 04_library_star "$star_x")
+  click "$star_x" "${STAR_Y:-28}"
+  shot 05_star_menu
+  now=$(star_in 05_star_menu)
+  filled=$(star_ink 05_star_menu "${now:-$star_x}")
+  if ((filled * 10 > outline * 14)); then
+    echo "ok    a click on it opens the Favourites: the star is filled ($outline -> $filled)"
+  else
+    echo "FAIL  a click on the star at x=$star_x left it an outline ($outline -> $filled)"
+    failed=1
+  fi
+else
+  echo "FAIL  the header's star not found in 04_library_star.png"
+  failed=1
+  shot 05_star_menu
+fi
 
 # 4. x takes the selected one (Alpha, the first) out; it leaves the list.
 key x

@@ -44,9 +44,14 @@ import 'reader/region.dart';
 import 'reader/reset_dialog.dart';
 import 'reader/scroll_speed.dart';
 import 'reader/status_line.dart';
+import 'undo_notice.dart';
 
 class ComicRedrApp extends StatelessWidget {
-  const ComicRedrApp({super.key, this.initialPath, this.addRoots = const []});
+  const ComicRedrApp({super.key, this.initialPath, this.addRoots = const [], this.navigatorObservers = const []});
+
+  /// Told of every route pushed and popped (the dialogs): for tests that
+  /// count them.
+  final List<NavigatorObserver> navigatorObservers;
 
   /// A book to open at start, from the command line.
   final String? initialPath;
@@ -69,6 +74,7 @@ class ComicRedrApp extends StatelessWidget {
       builder: (context, child) => Consumer(
         builder: (context, ref, _) => KeyHints(keymap: ref.watch(keymapProvider), child: child!),
       ),
+      navigatorObservers: navigatorObservers,
       home: HomeScreen(initialPath: initialPath, addRoots: addRoots),
     );
   }
@@ -532,8 +538,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             width: 520,
             child: Text(
               '${from.isEmpty ? '' : 'Exported from ${from.join(' ')}. '}It holds ${holds.join(', ')}.\n\n'
-              'Your settings become the file\'s, except that where this device keeps its sidecars only changes when the '
-              'file says. Positions, bookmarks, collections, edits and history are merged '
+              'Your settings become the file\'s, except that where this device keeps its sidecars only changes when '
+              'the file says. Positions, bookmarks, collections, edits and history are merged '
               'with what is here. Its library folders that are on this device are added; none is taken out.',
             ),
           ),
@@ -909,6 +915,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return c.intent != ReaderIntent.fullscreen;
   }
 
+  /// Two keys of buttons that are the same on every screen (task 263):
+  /// true when [c] was one of them.
+  ///
+  /// `u` presses the Undo of the notice along the bottom, wherever that
+  /// notice shows: over the library, an open comic, the page grid, the
+  /// help. The notice of something done in the library stays up when a
+  /// comic is opened, and its button says `Undo (u)` there too. With no
+  /// such notice `u` does nothing and says nothing.
+  ///
+  /// Settings are the library's, and open over a comic as well; not over
+  /// the help, which keeps every key but its own from what is behind.
+  bool _buttonKey(ReaderCommand c) {
+    if (c.intent == ReaderIntent.undo) {
+      ref.read(undoNoticeProvider).press();
+      return true;
+    }
+    if (c.intent == ReaderIntent.showSettings && !_showKeymap) {
+      _library.currentState?.handle(c);
+      return true;
+    }
+    return false;
+  }
+
   void _onCommand(ReaderCommand c) {
     // The time, anywhere: the library, the reader, fullscreen.
     if (c.intent == ReaderIntent.showTime) {
@@ -927,12 +956,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() => _showKeymap = !_showKeymap);
       return;
     }
+    if (_buttonKey(c)) return;
     if (_helpTook(c)) return;
-    // Settings are the library's, and open over a comic as well.
-    if (c.intent == ReaderIntent.showSettings) {
-      _library.currentState?.handle(c);
-      return;
-    }
     // Shift+arrows mark covers in the library; in a comic they move as the
     // arrows alone do.
     if (ref.read(readerProvider).book != null) {
@@ -1169,6 +1194,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       onOpenFile: _pickFile,
                       onOpenFolder: _pickFolder,
                       onContinue: _continueReading,
+                      onRescan: _rescan,
                       keysFocus: _keys,
                       pending: s.book == null ? _pending : '',
                     ),

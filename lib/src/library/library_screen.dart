@@ -67,6 +67,7 @@ class LibraryScreen extends ConsumerStatefulWidget {
     required this.onOpenFile,
     required this.onOpenFolder,
     this.onContinue,
+    this.onRescan,
     this.onExportSidecars,
     this.onExportSettings,
     this.onImportSettings,
@@ -83,6 +84,10 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
   /// Opens the comic read last where it was left (`C`).
   final VoidCallback? onContinue;
+
+  /// Scans the library folders and watches them anew, after a folder came
+  /// back into the library (the Undo of taking it out).
+  final Future<void> Function()? onRescan;
 
   /// Writes every book's sidecar to a folder of the person's choosing.
   final VoidCallback? onExportSidecars;
@@ -472,6 +477,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     // With comics marked, these act on all of them.
     final marked = _markedBooks();
 
+    if (_buttonKeys(c, marked)) return true;
     switch (c.intent) {
       case ReaderIntent.nextStep:
         move(c.times);
@@ -527,15 +533,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         if (_selectedItem case BookItem(:final book)) {
           unawaited(_toggleFavourite(book));
         }
-      case ReaderIntent.remove when _favourites:
+      case ReaderIntent.remove when _favourites && marked.isEmpty:
         if (_selectedItem case BookItem(:final book)) {
           unawaited(_toggleFavourite(book));
-        }
-      case ReaderIntent.remove when tab == LibraryTab.collections && _series != null:
-        final books = ref.read(booksProvider).value ?? const <LibraryBook>[];
-        final collection = _groups(books).where((s) => s.id == _series).firstOrNull;
-        if (_selectedItem case BookItem(:final book) when collection != null) {
-          unawaited(_takeOutOfCollection(book, collection.name));
         }
       case ReaderIntent.remove:
         if (_selectedItem case BookmarkItem(:final bookmark, :final book)) {
@@ -601,19 +601,6 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       case ReaderIntent.removeFromS3:
         final books = _actOn();
         if (books.isNotEmpty) unawaited(_s3Action(() => removeBooksFromS3(context, ref, books)));
-      case ReaderIntent.downloadFromS3:
-        final books = _actOn().where((b) => b.remoteOnly).toList();
-        if (books.isNotEmpty) unawaited(_s3Action(() => downloadBooks(context, ref, books)));
-      case ReaderIntent.removeRoot:
-        if (_selectedItem case FolderItem(:final folder)) {
-          if (folder.root case final root?) unawaited(_removeRoot(root.id, root.path));
-        }
-      case ReaderIntent.showScanFailures:
-        _showFailures(context);
-      case ReaderIntent.showSettings:
-        unawaited(_showSettings());
-      case ReaderIntent.undo:
-        ref.read(undoNoticeProvider).press();
       case ReaderIntent.showDetails:
         if (_selectedItem case BookItem(:final book) when !book.remoteOnly) {
           unawaited(showBookDetails(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
@@ -633,6 +620,47 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         return false;
     }
     return true;
+  }
+
+  /// The keys task 263 gave to buttons that had none, and `x` in an open
+  /// collection: true when [c] was one of them. (`u`, the notice's Undo,
+  /// is HomeScreen's: it works over an open comic too.)
+  bool _buttonKeys(ReaderCommand c, List<LibraryBook> marked) {
+    switch (c.intent) {
+      case ReaderIntent.remove when _openCollection != null && (marked.isNotEmpty || !_favourites):
+        // With comics marked, all of them, like the other keys of the
+        // marks; else the selected one.
+        final collection = _openCollection!;
+        if (marked.isNotEmpty) {
+          unawaited(_bulk(() => takeOutOfCollection(context, ref, marked, collection)));
+        } else if (_selectedItem case BookItem(:final book)) {
+          unawaited(_takeOutOfCollection(book, collection));
+        }
+      case ReaderIntent.downloadFromS3:
+        final books = _actOn().where((b) => b.remoteOnly).toList();
+        if (books.isNotEmpty) unawaited(_s3Action(() => downloadBooks(context, ref, books)));
+      case ReaderIntent.removeRoot:
+        if (_selectedItem case FolderItem(:final folder)) {
+          if (folder.root case final root?) unawaited(_removeRoot(root.id, root.path));
+        }
+      case ReaderIntent.showScanFailures:
+        _showFailures(context);
+      case ReaderIntent.showSettings:
+        unawaited(_showSettings());
+      default:
+        return false;
+    }
+    return true;
+  }
+
+  /// The collection whose comics are shown (the Favourites are one), null
+  /// on any other screen.
+  String? get _openCollection {
+    if (tab != LibraryTab.collections) return null;
+    if (_favourites) return favouritesCollection;
+    if (_series == null) return null;
+    final books = ref.read(booksProvider).value ?? const <LibraryBook>[];
+    return _groups(books).where((s) => s.id == _series).firstOrNull?.name;
   }
 
   /// Esc: closes the detail page, then clears the search, then leaves the
@@ -661,13 +689,31 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   /// `gA`, or the button in a library folder's details: out of the
   /// library, its files left alone, and said in a notice, since by key
-  /// nothing else shows that it happened but a cover gone.
+  /// nothing else shows that it happened but a cover gone. The notice
+  /// offers it back (Undo, `u`): two keys take a whole folder of comics
+  /// off the shelves, and nothing asks first. Putting it back adds the
+  /// folder again and scans it, which finds what was there; positions,
+  /// bookmarks and collections were never gone, they go by the comics'
+  /// content.
   Future<void> _removeRoot(int id, String path) async {
     final messenger = ScaffoldMessenger.of(context);
-    await removeLibraryFolder(ref.read(libraryStoreProvider), ref.read(settingsStoreProvider), id, path);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('${p.basename(path)} taken out of the library; its comics stay on disk')));
+    final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
+    final store = ref.read(libraryStoreProvider), settings = ref.read(settingsStoreProvider);
+    final scanner = ref.read(scannerProvider);
+    final rescan = widget.onRescan;
+    final remembered = await removeLibraryFolder(store, settings, id, path);
+    ref
+        .read(undoNoticeProvider)
+        .show(
+          messenger,
+          '${p.basename(path)} taken out of the library; its comics stay on disk',
+          label: undoLabel,
+          undo: () async {
+            await restoreLibraryFolder(store, settings, path, forget: remembered);
+            // HomeScreen's rescan also watches the folder again.
+            await (rescan?.call() ?? scanner.scan());
+          },
+        );
   }
 
   /// Backspace, and Esc once nothing else is open: up to the folder above
@@ -741,40 +787,17 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   }
 
   /// `x` on a comic in an open collection (the Favourites have their own
-  /// rule above): out of the collection, the next comic selected, and a
-  /// notice that offers it back. Before task 263 only the x on the chip in
-  /// the comic's details did this, which no key reached.
+  /// rule above): the next comic is selected, and [takeOutOfCollection]
+  /// takes this one out with a notice that offers it back. Before task 263
+  /// only the x on the chip in the comic's details did this, which no key
+  /// reached.
   Future<void> _takeOutOfCollection(LibraryBook book, String collection) async {
     final i = _items.indexWhere((it) => it.id == _selected);
     if (i >= 0) {
       final next = i + 1 < _items.length ? _items[i + 1] : (i > 0 ? _items[i - 1] : null);
       setState(() => _selected = next?.id);
     }
-    final messenger = ScaffoldMessenger.of(context);
-    final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
-    final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
-    Future<void> write() => sidecars.writeBeside(book.path, book.key, folder: book.isFolder);
-    try {
-      await store.removeFromCollection(book.key, collection);
-      await write();
-    } catch (e) {
-      debugPrint('Could not take ${book.path} out of $collection: $e');
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Could not take ${book.name} out of $collection')));
-      return;
-    }
-    ref
-        .read(undoNoticeProvider)
-        .show(
-          messenger,
-          '${book.name} taken out of $collection',
-          label: undoLabel,
-          undo: () async {
-            await store.addToCollection(book.key, collection);
-            await write();
-          },
-        );
+    await takeOutOfCollection(context, ref, [book], collection);
   }
 
   /// Shows [dir], under the library folder [root], on the Folders tab: for a
@@ -1083,7 +1106,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           key: Key(key),
           onPressed: onPressed,
           icon: Icon(icon),
-          label: Text(narrow ? label : KeyHints.tip(context, label, intent)),
+          label: Text(narrow ? label : _tip(label, intent)),
         );
     return Material(
       key: const Key('marksBar'),
@@ -1141,34 +1164,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                 ReaderIntent.deleteBook,
                 () => _bulk(() => _deleteMarked(marked)),
               ),
-            if (s3 && marked.any((b) => b.s3 == null))
-              button(
-                'marksUpload',
-                Icons.cloud_upload,
-                'Upload to S3',
-                ReaderIntent.uploadToS3,
-                () => _s3Action(() => uploadBooks(context, ref, marked)),
-              ),
-            if (s3 && marked.any((b) => b.remoteOnly))
-              button(
-                'marksDownload',
-                Icons.cloud_download,
-                'Download',
-                ReaderIntent.downloadFromS3,
-                () => _s3Action(() => downloadBooks(context, ref, marked)),
-              ),
-            if (s3 && marked.any((b) => b.s3 != null))
-              button(
-                'marksRemove',
-                Icons.cloud_off,
-                'Remove from S3',
-                ReaderIntent.removeFromS3,
-                () => _s3Action(() => removeBooksFromS3(context, ref, marked)),
-              ),
+            if (s3) ..._marksS3Buttons(marked, button),
             TextButton(
               key: const Key('marksClear'),
               onPressed: _clearMarks,
-              child: Text(narrow ? 'Clear' : KeyHints.tip(context, 'Clear', ReaderIntent.back)),
+              child: Text(narrow ? 'Clear' : _tip('Clear', ReaderIntent.back)),
             ),
           ],
         ),
@@ -1176,22 +1176,43 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     );
   }
 
+  /// The marks bar's S3 buttons, each only while a marked comic can take it.
+  List<Widget> _marksS3Buttons(
+    List<LibraryBook> marked,
+    Widget Function(String key, IconData icon, String label, ReaderIntent intent, VoidCallback onPressed) button,
+  ) => [
+    if (marked.any((b) => b.s3 == null))
+      button(
+        'marksUpload',
+        Icons.cloud_upload,
+        'Upload to S3',
+        ReaderIntent.uploadToS3,
+        () => _s3Action(() => uploadBooks(context, ref, marked)),
+      ),
+    if (marked.any((b) => b.remoteOnly))
+      button(
+        'marksDownload',
+        Icons.cloud_download,
+        'Download',
+        ReaderIntent.downloadFromS3,
+        () => _s3Action(() => downloadBooks(context, ref, marked)),
+      ),
+    if (marked.any((b) => b.s3 != null))
+      button(
+        'marksRemove',
+        Icons.cloud_off,
+        'Remove from S3',
+        ReaderIntent.removeFromS3,
+        () => _s3Action(() => removeBooksFromS3(context, ref, marked)),
+      ),
+  ];
+
   /// Under the Folders tab's header: the filter's button, and while it is
   /// on, what it lets through, each part with its own x, and a way to clear
   /// it all. A tap on a part opens the filter. Its own line, as the header
   /// has no room left beside a breadcrumb.
   Widget _filterBar(BuildContext context) {
     final f = _filter;
-    Widget part(String key, String label, FolderFilter without) => InputChip(
-      key: Key(key),
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-      // By key the filter is changed in its dialog; the x has none of its own.
-      tooltip: KeyHints.tip(context, 'Change the filter', ReaderIntent.filterFolders),
-      onPressed: _openFilter,
-      onDeleted: () => setFilter(without),
-      deleteButtonTooltipMessage: 'Take this off the filter',
-    );
     return Container(
       key: const Key('filterBar'),
       alignment: AlignmentDirectional.centerStart,
@@ -1201,33 +1222,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // The tooltip names the key also while the label says what is filtered.
-          Tooltip(
-            message: KeyHints.tip(context, 'Filter by type, size, date', ReaderIntent.filterFolders),
-            child: TextButton.icon(
-              key: const Key('filter'),
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              icon: Icon(f.isActive ? Icons.filter_alt : Icons.filter_alt_outlined),
-              label: Text(
-                f.isActive
-                    ? 'Filtered:'
-                    : KeyHints.tip(context, 'Filter by type, size, date', ReaderIntent.filterFolders),
-              ),
-              onPressed: _openFilter,
-            ),
-          ),
+          _filterButton(f),
           if (f.formats.isNotEmpty)
-            part(
+            _filterPart(
               'filterBarType',
               (f.formats.map(formatLabel).toList()..sort()).join(', '),
               f.copyWith(formats: const {}),
             ),
-          if (f.size != SizeRange.any) part('filterBarSize', f.size.label, f.copyWith(size: SizeRange.any)),
+          if (f.size != SizeRange.any) _filterPart('filterBarSize', f.size.label, f.copyWith(size: SizeRange.any)),
           if (f.date != DateRange.any)
-            part('filterBarDate', 'Modified: ${f.date.label.toLowerCase()}', f.copyWith(date: DateRange.any)),
+            _filterPart('filterBarDate', 'Modified: ${f.date.label.toLowerCase()}', f.copyWith(date: DateRange.any)),
           if (f.isActive)
             Tooltip(
-              message: KeyHints.tip(context, 'By key: Clear all in the filter', ReaderIntent.filterFolders),
+              message: _tip('By key: Clear all in the filter', ReaderIntent.filterFolders),
               child: TextButton(
                 key: const Key('filterBarClear'),
                 style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
@@ -1239,6 +1246,41 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       ),
     );
   }
+
+  static const _shuffleKey = ReaderIntent.toggleShuffle;
+  static const _markHelp = 'Mark comics to delete, reset, favourite or sync together';
+
+  /// [text] with the key [intent] has now, for a tooltip or a label.
+  String _tip(String text, ReaderIntent intent) => KeyHints.tip(context, text, intent);
+
+  /// The filter line's button. Its tooltip names the key also while the
+  /// label says what is filtered.
+  Widget _filterButton(FolderFilter f) {
+    final named = _tip('Filter by type, size, date', ReaderIntent.filterFolders);
+    return Tooltip(
+      message: named,
+      child: TextButton.icon(
+        key: const Key('filter'),
+        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+        icon: Icon(f.isActive ? Icons.filter_alt : Icons.filter_alt_outlined),
+        label: Text(f.isActive ? 'Filtered:' : named),
+        onPressed: _openFilter,
+      ),
+    );
+  }
+
+  /// One part of what the filter lets through; [without] is the filter
+  /// with that part off, which its x sets.
+  Widget _filterPart(String key, String label, FolderFilter without) => InputChip(
+    key: Key(key),
+    label: Text(label),
+    visualDensity: VisualDensity.compact,
+    // By key the filter is changed in its dialog; the x has none of its own.
+    tooltip: _tip('Change the filter', ReaderIntent.filterFolders),
+    onPressed: _openFilter,
+    onDeleted: () => setFilter(without),
+    deleteButtonTooltipMessage: 'Take this off the filter',
+  );
 
   /// A tap: selects, and a second tap on the selected cover opens it. On a
   /// phone-sized screen a tap on a book shows its detail page.
@@ -1429,6 +1471,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                 folder: selectedItem.folder,
                 onOpen: () => _activate(selectedItem),
                 onRead: read,
+                onRemoveRoot: _removeRoot,
                 onBack: back,
               )
             : Column(
@@ -1469,6 +1512,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                   folder: folder,
                   onOpen: () => _activate(selectedItem),
                   onRead: read,
+                  onRemoveRoot: _removeRoot,
                 ),
                 BookmarkItem(:final book) => BookDetail(
                   book: book,
@@ -1547,8 +1591,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           if (series != null) ...[
             IconButton(
               icon: const Icon(Icons.arrow_back),
-              tooltip: KeyHints.tip(
-                context,
+              tooltip: _tip(
                 tab == LibraryTab.collections ? 'Back to collections' : 'Back to series',
                 ReaderIntent.back,
               ),
@@ -1561,7 +1604,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           ] else if (tab == LibraryTab.collections && _favourites) ...[
             IconButton(
               icon: const Icon(Icons.arrow_back),
-              tooltip: KeyHints.tip(context, 'Back to collections', ReaderIntent.back),
+              tooltip: _tip('Back to collections', ReaderIntent.back),
               onPressed: back,
             ),
             Flexible(
@@ -1610,11 +1653,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
               key: const Key('shuffle'),
               icon: Icon(_shuffle ? Icons.shuffle_on_outlined : Icons.shuffle),
               isSelected: _shuffle,
-              tooltip: KeyHints.tip(
-                context,
-                _shuffle ? 'Show covers again' : 'Shuffle: a random page of each comic',
-                ReaderIntent.toggleShuffle,
-              ),
+              tooltip: _tip(_shuffle ? 'Show covers again' : 'Shuffle: a random page of each comic', _shuffleKey),
               onPressed: () => setShuffle(!_shuffle),
             ),
             if (_shuffle && !narrow)
@@ -1643,13 +1682,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
               key: const Key('select'),
               icon: Icon(_selecting ? Icons.checklist_rtl : Icons.checklist),
               isSelected: _selecting,
-              tooltip: _selecting
-                  ? KeyHints.tip(context, 'Stop marking', ReaderIntent.back)
-                  : KeyHints.tip(
-                      context,
-                      'Mark comics to delete, reset, favourite or sync together',
-                      ReaderIntent.markBook,
-                    ),
+              tooltip: _selecting ? _tip('Stop marking', ReaderIntent.back) : _tip(_markHelp, ReaderIntent.markBook),
               onPressed: () => _selecting ? _clearMarks() : setState(() => _selecting = true),
             ),
           IconButton(

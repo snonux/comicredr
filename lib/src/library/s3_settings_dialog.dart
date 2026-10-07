@@ -249,7 +249,7 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
                         'Secret key',
                         secret: true,
                         hint: saved.hasSecret
-                            ? 'A secret key is saved ${saved.secretPlace == SecretPlace.file ? 'in a private file' : 'in the keyring'}; leave this empty to keep it'
+                            ? 'A secret key is saved ${_placeName(saved.secretPlace)}; leave this empty to keep it'
                             : 'Kept in the keyring, never in settings files',
                       ),
                       Row(
@@ -310,3 +310,6 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
     );
   }
 }
+
+/// Where a saved secret key is, as the field's hint says it.
+String _placeName(SecretPlace? place) => place == SecretPlace.file ? 'in a private file' : 'in the keyring';

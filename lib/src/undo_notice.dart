@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// does, kept so that the `undo` key (`u`) can press it: a SnackBar's
 /// action is not in reach of the keyboard otherwise (task 263). One at a
 /// time: a new notice replaces the last, and once the notice has gone
-/// there is nothing left to undo.
+/// there is nothing left to undo. The key is HomeScreen's, so it works on
+/// whatever screen the notice shows over. (The notice does not go by
+/// itself: a SnackBar with an action stays until it is hidden.)
 class UndoNotice {
   Future<void> Function()? _undo;
   ScaffoldMessengerState? _messenger;
@@ -37,7 +39,8 @@ class UndoNotice {
   }
 
   /// Forgets [undo] before running it, so the button and the key together
-  /// undo once.
+  /// undo once: the key hides the notice, whose button can still be
+  /// pressed while it slides away.
   Future<void> _run(Future<void> Function() undo) async {
     if (!identical(_undo, undo)) return;
     _undo = _messenger = null;

@@ -106,9 +106,9 @@ them all. The buttons that had no key before have one now:
 | Key | Button |
 |---|---|
 | `g,` | The gear at the top of the library: [Settings](12-settings.md). It works in a comic too, and the comic keeps its page. |
-| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections). Only while the notice shows. |
-| `x` | In an open collection: takes the selected comic out of it (the **x** on its chip in the details). |
-| `gA` | **Take out of the library** in a library folder's details: select the folder at the top of the Folders tab first. Its comics stay on disk. |
+| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections), or `gA` a folder out of the library. It works wherever the notice shows, also over a comic you opened in the meantime, and only while it shows (it stays until you undo or another notice takes its place): with no such notice `u` does nothing. |
+| `x` | In an open collection: takes the selected comic out of it (the **x** on its chip in the details), or all the [marked](03-library.md#several-comics-at-once) ones. |
+| `gA` | **Take out of the library** in a library folder's details: select the folder at the top of the Folders tab first. Its comics stay on disk, and the notice has an **Undo** (`u`) that puts the folder back. |
 | `gD` | **Download** on a comic that is [only on S3](13-s3-sync.md#on-the-other-device), or on the marked ones. |
 | `g!` | The count of comics that could not be read, in the line at the bottom: which ones, and why. |
 

@@ -103,7 +103,10 @@ xvfb=$!
 app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
 # No D-Bus session, so no keyring: the secret key is in its private file.
-unset DBUS_SESSION_BUS_ADDRESS
+# A bus address that is not there, not an unset one: unset, D-Bus falls
+# back to $XDG_RUNTIME_DIR/bus, a desktop's real session bus, and the test
+# secret would be saved over the real one in the keyring of whoever runs this.
+export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/comicredr-no-session-bus
 db="$home/Comics/.comicredr/comicredr.sqlite"
 sql() { sqlite3 -batch -noheader "$db" "$1"; }
 start() {

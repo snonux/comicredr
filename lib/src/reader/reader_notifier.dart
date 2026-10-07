@@ -1138,7 +1138,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.deleteBook:
       case ReaderIntent.uploadToS3:
       case ReaderIntent.removeFromS3:
-      // The library's own, with nothing to do on an open comic.
+      // The library's own, with nothing to do on an open comic (undo and
+      // showSettings never get here: HomeScreen takes them on every screen).
       case ReaderIntent.downloadFromS3:
       case ReaderIntent.removeRoot:
       case ReaderIntent.showScanFailures:

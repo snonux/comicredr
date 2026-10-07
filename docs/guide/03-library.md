@@ -270,7 +270,8 @@ them.
   so.
 - The **x** on a collection's chip in the book's details takes the book
   out. So does `x` on the comic inside the open collection on the
-  Collections tab, with an **Undo** (`u`) as in the Favourites.
+  Collections tab, with an **Undo** (`u`) as in the Favourites; with
+  comics marked there, `x` takes all of them out.
 - The Collections tab shows each collection as a cover; open one to see
   its books.
 
@@ -369,7 +370,9 @@ the Folders tab, mark them with `Shift` and the arrows, press `gm`, type
 - To take a folder out of the library, select it at the top of the
   Folders tab (on a phone, hold your finger on it) and press `gA`, or
   click **Take out of the library (the files stay)** in its details.
-  Your comics are not touched.
+  Your comics are not touched, and the notice that says so has an
+  **Undo** (`u`): the folder is in the library again and its comics are
+  found as before, with their positions, bookmarks and collections.
 - Comics kept elsewhere, on a NAS or another disk, can be linked in: a
   link (a symlink, made in your file manager or with `ln -s`) to a comic
   or to a folder of comics inside a library folder is listed like the

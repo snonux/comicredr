@@ -44,12 +44,22 @@ class KeyHints extends InheritedWidget {
 /// changes for touch, and a keyboard plugged into one works the same.
 ///
 /// Tab and Shift+Tab stop at every control of the dialog, in the order
-/// they are written. The letters are taken from the keyboard itself, for
-/// the dialog whose route is on top, not from the focus: they work before
-/// anything in the dialog has the focus, and the wrapper never takes the
-/// focus, which would keep a field that shows only once the dialog has
-/// loaded (the S3 settings) from getting its `autofocus`. A dialog still
-/// gives its default button or first field `autofocus`, for Enter.
+/// they are written. The letters are taken by an early key handler of the
+/// [FocusManager], for the dialog whose route is on top, not by a node of
+/// the focus tree: they work before anything in the dialog has the focus,
+/// and the wrapper never takes the focus, which would keep a field that
+/// shows only once the dialog has loaded (the S3 settings) from getting
+/// its `autofocus`. A dialog still gives its default button or first field
+/// `autofocus`, for Enter.
+///
+/// An early handler, and not one of [HardwareKeyboard]: Flutter hands a
+/// key to the hardware handlers and to the focus tree both, whatever the
+/// first answer, so a `Shortcuts` in the dialog acted on the very press a
+/// label had taken (Alt+R in the comic's details popped two routes, the
+/// second one the app's own). What an early handler takes, the focus tree
+/// never sees. This is the one place a dialog's Alt+letter is handled: a
+/// dialog adds none of its own, and one whose button is not always built
+/// names its key with [DialogKey].
 class DialogHotkeys extends StatefulWidget {
   const DialogHotkeys({super.key, required this.child});
 
@@ -67,7 +77,8 @@ class DialogHotkeys extends StatefulWidget {
 }
 
 class _DialogHotkeysState extends State<DialogHotkeys> {
-  final _labels = <_MnemonicState>{};
+  /// The labels and [DialogKey]s under the dialog that are built now.
+  final _keys = <_Lettered>{};
   bool _alt = HardwareKeyboard.instance.isAltPressed;
 
   /// The route the dialog is in; its keys are only its own while that
@@ -78,10 +89,14 @@ class _DialogHotkeysState extends State<DialogHotkeys> {
   /// Flutter sort the controls anew each time.
   late final _order = _WrittenOrderPolicy(() => context);
 
+  /// The key press a letter was last taken for, by any dialog: one press
+  /// of a key is one press of a button, whoever else is asked about it.
+  static KeyEvent? _taken;
+
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_onKey);
+    FocusManager.instance.addEarlyKeyEventHandler(_onKey);
   }
 
   @override
@@ -92,38 +107,42 @@ class _DialogHotkeysState extends State<DialogHotkeys> {
 
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onKey);
+    FocusManager.instance.removeEarlyKeyEventHandler(_onKey);
     super.dispose();
   }
 
-  /// The mounted label for [letter], if a button has it.
-  _MnemonicState? _labelFor(String letter) {
+  /// What Alt and [letter] presses, if anything of the dialog has it.
+  _Lettered? _keyFor(String letter) {
     final hits = [
-      for (final l in _labels)
+      for (final l in _keys)
         if (l.mounted && l.letter == letter) l,
     ];
-    assert(hits.length < 2, 'Two buttons of one dialog share Alt+$letter: ${hits.map((l) => l.widget.text).toList()}');
+    assert(hits.length < 2, 'Two buttons of one dialog share Alt+$letter: ${hits.map((l) => l.name).toList()}');
     return hits.firstOrNull;
   }
 
-  /// Every key press, before the focus gets it: follows Alt for the
+  /// Every key press, before the focus tree is asked: follows Alt for the
   /// underlines of a phone's dialogs, and takes Alt with a button's
-  /// letter. True when the key was a button's, so nothing else sees it.
-  bool _onKey(KeyEvent event) {
-    if (!mounted) return false;
+  /// letter. Handled when the key was a button's, and then no node of the
+  /// focus tree (a field, a `Shortcuts`, a focused button) gets it.
+  KeyEventResult _onKey(KeyEvent event) {
+    if (!mounted) return KeyEventResult.ignored;
     final keys = HardwareKeyboard.instance;
     if (keys.isAltPressed != _alt) setState(() => _alt = keys.isAltPressed);
-    if (!(_route?.isCurrent ?? true)) return false;
+    if (!(_route?.isCurrent ?? true)) return KeyEventResult.ignored;
     // AltGr is not Alt: on many layouts it types @ and the like.
-    if (!keys.isAltPressed || keys.isControlPressed || keys.isMetaPressed) return false;
+    if (!keys.isAltPressed || keys.isControlPressed || keys.isMetaPressed) return KeyEventResult.ignored;
     final label = event.logicalKey.keyLabel;
-    if (label.length != 1) return false;
-    final hit = _labelFor(label.toLowerCase());
-    if (hit == null) return false;
+    if (label.length != 1) return KeyEventResult.ignored;
+    final hit = _keyFor(label.toLowerCase());
+    if (hit == null) return KeyEventResult.ignored;
     // A held key presses once; its repeats and its release are still the
     // dialog's, not a letter for a text field.
-    if (event is KeyDownEvent) hit.press();
-    return true;
+    if (event is KeyDownEvent && !identical(event, _taken)) {
+      _taken = event;
+      hit.press();
+    }
+    return KeyEventResult.handled;
   }
 
   @override
@@ -183,6 +202,35 @@ class _HotkeyScope extends InheritedWidget {
   bool updateShouldNotify(_HotkeyScope old) => old.show != show || old.state != state;
 }
 
+/// Something of a dialog that Alt and a letter presses: a [Mnemonic]
+/// label or a [DialogKey].
+mixin _Lettered<T extends StatefulWidget> on State<T> {
+  _DialogHotkeysState? _scope;
+
+  /// Lower case, as [DialogHotkeys] looks it up; null takes no key.
+  String? get letter;
+
+  /// For the message when two share a letter.
+  String get name;
+
+  void press();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final scope = context.dependOnInheritedWidgetOfExactType<_HotkeyScope>()?.state;
+    if (scope == _scope) return;
+    _scope?._keys.remove(this);
+    _scope = scope?.._keys.add(this);
+  }
+
+  @override
+  void dispose() {
+    _scope?._keys.remove(this);
+    super.dispose();
+  }
+}
+
 /// A dialog button's label: [text] with its hotkey letter underlined, and
 /// Alt with that letter presses the button the label is in (any Material
 /// button; a disabled one does nothing). The letter is the first of
@@ -190,40 +238,40 @@ class _HotkeyScope extends InheritedWidget {
 /// when two labels start alike (Cancel and Clear). For a control that is
 /// no button, [onPressed] says what the key does.
 ///
+/// [Mnemonic.shown] only underlines: for a button that is not always
+/// built (a row of a lazy list), whose key a [DialogKey] holds.
+///
 /// Outside a [DialogHotkeys] it is plain text and no key.
 class Mnemonic extends StatefulWidget {
-  const Mnemonic(this.text, {super.key, this.letter, this.onPressed});
+  const Mnemonic(this.text, {super.key, this.letter, this.onPressed}) : pressed = true;
+
+  const Mnemonic.shown(this.text, {super.key, this.letter}) : onPressed = null, pressed = false;
 
   final String text;
   final String? letter;
   final VoidCallback? onPressed;
 
+  /// Whether the key presses through this label; false for [Mnemonic.shown].
+  final bool pressed;
+
+  /// The letter Alt takes for a label of [text], lower case.
+  static String letterOf(String text, String? letter) => (letter ?? text.characters.first).toLowerCase();
+
   @override
   State<Mnemonic> createState() => _MnemonicState();
 }
 
-class _MnemonicState extends State<Mnemonic> {
-  _DialogHotkeysState? _scope;
-
-  /// Lower case, as [DialogHotkeys] looks it up.
-  String get letter => (widget.letter ?? widget.text.characters.first).toLowerCase();
+class _MnemonicState extends State<Mnemonic> with _Lettered<Mnemonic> {
+  String get _letter => Mnemonic.letterOf(widget.text, widget.letter);
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final scope = context.dependOnInheritedWidgetOfExactType<_HotkeyScope>()?.state;
-    if (scope == _scope) return;
-    _scope?._labels.remove(this);
-    _scope = scope?.._labels.add(this);
-  }
+  String? get letter => widget.pressed ? _letter : null;
 
   @override
-  void dispose() {
-    _scope?._labels.remove(this);
-    super.dispose();
-  }
+  String get name => widget.text;
 
   /// Presses the button this label is in, as a click would.
+  @override
   void press() {
     if (widget.onPressed case final own?) {
       own();
@@ -241,7 +289,7 @@ class _MnemonicState extends State<Mnemonic> {
   Widget build(BuildContext context) {
     final show = context.dependOnInheritedWidgetOfExactType<_HotkeyScope>()?.show ?? false;
     final text = widget.text;
-    final at = show ? text.toLowerCase().indexOf(letter) : -1;
+    final at = show ? text.toLowerCase().indexOf(_letter) : -1;
     if (at < 0) return Text(text);
     return Text.rich(
       TextSpan(
@@ -256,6 +304,37 @@ class _MnemonicState extends State<Mnemonic> {
       ),
     );
   }
+}
+
+/// Alt and [letter] does [onPressed] for as long as this is built, with
+/// nothing to see: for a dialog's button that is a row of a lazily built
+/// list and so is not there until scrolled to (Redo panels in the comic's
+/// details). Put it around something of the dialog that is always built
+/// and label the button with [Mnemonic.shown], which underlines the
+/// letter and leaves the key to this. Null [onPressed] takes no key.
+class DialogKey extends StatefulWidget {
+  const DialogKey({super.key, required this.letter, required this.onPressed, required this.child});
+
+  final String letter;
+  final VoidCallback? onPressed;
+  final Widget child;
+
+  @override
+  State<DialogKey> createState() => _DialogKeyState();
+}
+
+class _DialogKeyState extends State<DialogKey> with _Lettered<DialogKey> {
+  @override
+  String? get letter => widget.onPressed == null ? null : widget.letter.toLowerCase();
+
+  @override
+  String get name => 'DialogKey ${widget.letter}';
+
+  @override
+  void press() => widget.onPressed?.call();
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// [theme] with a ring around whatever has the keyboard focus, so Tab and

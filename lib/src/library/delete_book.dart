@@ -199,7 +199,7 @@ Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts
                     Text(
                       'They are deleted for good with their sidecars, bookmarks, positions and panels. '
                       'They do not go to the trash, so they cannot be restored.'
-                      '${links == 0 ? '' : ' Of ${links == 1 ? 'the one that is a link' : 'the $links that are links'}, only the link goes.'}',
+                      '${links == 0 ? '' : ' Of ${_theLinks(links)}, only the link goes.'}',
                     ),
                   if (onS3) ...[
                     const SizedBox(height: 12),
@@ -309,3 +309,6 @@ Future<List<String>> deleteComic({
 /// The notice after a delete.
 String deletedNotice(String name, List<String> stuck) =>
     stuck.isEmpty ? '$name deleted' : '$name deleted, but its sidecar ${stuck.first} could not be removed';
+
+/// The [links] among the comics to delete, as the question names them.
+String _theLinks(int links) => links == 1 ? 'the one that is a link' : 'the $links that are links';

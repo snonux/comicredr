@@ -32,9 +32,12 @@ Future<bool> addDefaultFolder(LibraryStore library, SettingsStore settings, Stri
   return true;
 }
 
-/// Takes library folder [id] at [path] out of the library. Taking out the
-/// default folder is remembered, so the next start doesn't put it back.
-Future<void> removeLibraryFolder(
+/// Takes library folder [id] at [path] out of the library: its rows in
+/// the index go, nothing on disk is touched. Taking out the default folder
+/// is remembered, so the next start doesn't put it back. True when this
+/// call is what made it remembered, which [restoreLibraryFolder] takes
+/// back.
+Future<bool> removeLibraryFolder(
   LibraryStore library,
   SettingsStore settings,
   int id,
@@ -42,8 +45,25 @@ Future<void> removeLibraryFolder(
   String? defaultFolder,
 }) async {
   final folder = defaultFolder ?? defaultComicsFolder();
+  var remembered = false;
   if (folder != null && p.equals(p.normalize(p.absolute(folder)), path)) {
+    remembered = !(await settings.loadBool(SettingsStore.defaultFolderRemoved) ?? false);
     await settings.saveBool(SettingsStore.defaultFolderRemoved, true);
   }
   await library.removeRoot(id);
+  return remembered;
+}
+
+/// Puts the library folder [path] back after [removeLibraryFolder] (the
+/// notice's Undo); [forget] is what that call answered, so the default
+/// folder is the default again and not one that was taken out. The caller
+/// scans: the folder's comics are found as on any first scan.
+Future<void> restoreLibraryFolder(
+  LibraryStore library,
+  SettingsStore settings,
+  String path, {
+  required bool forget,
+}) async {
+  await library.addRoot(path);
+  if (forget) await settings.saveBool(SettingsStore.defaultFolderRemoved, false);
 }

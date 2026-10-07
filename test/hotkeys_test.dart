@@ -2,18 +2,24 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
-import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/app_database.dart' hide Override;
+import 'package:comicredr/src/data/data_dirs.dart';
+import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/data/settings_store.dart';
+import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/hotkeys.dart';
+import 'package:comicredr/src/library/default_folder.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/settings_dialog.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/scroll_speed.dart';
+import 'package:comicredr/src/undo_notice.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reader_input/reader_input.dart';
 
@@ -29,8 +35,10 @@ void main() {
   late Directory tmp;
   late Directory root;
   late AppDatabase db;
+  late _Routes routes;
 
   setUp(() {
+    routes = _Routes();
     tmp = Directory.systemTemp.createTempSync('hotkeys_test');
     root = Directory('${tmp.path}/Comics')..createSync();
     db = AppDatabase(NativeDatabase.memory());
@@ -48,7 +56,7 @@ void main() {
     tmp.deleteSync(recursive: true);
   });
 
-  Future<ProviderContainer> pumpApp(WidgetTester tester, {Keymap? keymap}) async {
+  Future<ProviderContainer> pumpApp(WidgetTester tester, {Keymap? keymap, Override? sidecars}) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -58,10 +66,10 @@ void main() {
           databaseProvider.overrideWithValue(db),
           coverDirProvider.overrideWithValue('${tmp.path}/covers'),
           classicCvOnly,
-          noSidecars(db),
+          sidecars ?? noSidecars(db),
           if (keymap != null) keymapProvider.overrideWithValue(keymap),
         ],
-        child: const ComicRedrApp(),
+        child: ComicRedrApp(navigatorObservers: [routes]),
       ),
     );
     await tester.pump();
@@ -109,8 +117,16 @@ void main() {
 
   /// The app with the four comics scanned, on the Folders tab inside the
   /// library folder, the first comic selected.
-  Future<ProviderContainer> inFolder(WidgetTester tester, {Keymap? keymap}) async {
-    final c = await pumpApp(tester, keymap: keymap);
+  ///
+  /// With [remapped] the arrows and Enter are no keys of [keymap], and the
+  /// way in is typed with the keys it has for them.
+  Future<ProviderContainer> inFolder(
+    WidgetTester tester, {
+    Keymap? keymap,
+    bool remapped = false,
+    Override? sidecars,
+  }) async {
+    final c = await pumpApp(tester, keymap: keymap, sidecars: sidecars);
     await tester.runAsync(() async {
       await c.read(libraryStoreProvider).addRoot(root.path);
       await c.read(scannerProvider).scan();
@@ -118,8 +134,13 @@ void main() {
     await settle(tester);
     await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
     await settle(tester);
-    await press(tester, LogicalKeyboardKey.arrowRight);
-    await press(tester, LogicalKeyboardKey.enter);
+    if (remapped) {
+      await type(tester, keymap!.hint(ReaderIntent.nextStep)!);
+      await type(tester, keymap.hint(ReaderIntent.activate)!);
+    } else {
+      await press(tester, LogicalKeyboardKey.arrowRight);
+      await press(tester, LogicalKeyboardKey.enter);
+    }
     expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
     // Entering the folder selects its first comic.
     expect(find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Akira')), findsOneWidget);
@@ -136,6 +157,15 @@ void main() {
     }
     expect(c.read(readerProvider).book, isNotNull);
     expect(c.read(readerProvider).pageCount, greaterThan(0));
+  }
+
+  /// Esc out of the open comic, so its work in the background (finding
+  /// panels ahead, with a rest between pages) is stopped before the test ends.
+  Future<void> closeComic(WidgetTester tester, ProviderContainer c) async {
+    for (var i = 0; i < 5 && c.read(readerProvider).book != null; i++) {
+      await press(tester, LogicalKeyboardKey.escape);
+    }
+    expect(c.read(readerProvider).book, isNull);
   }
 
   /// Whether the control labelled [text] has the keyboard focus.
@@ -592,6 +622,326 @@ void main() {
       await type(tester, 'q');
       expect(find.byType(SettingsDialog), findsOneWidget);
     });
+
+    /// The letter of Redo panels in the comic's details.
+    const redoKey = 'p';
+
+    /// `I`, and the details' rows once the comic's report is read.
+    Future<void> openDetails(WidgetTester tester) async {
+      await type(tester, 'I');
+      for (var i = 0; i < 20 && find.byKey(const Key('detailsList')).evaluate().isEmpty; i++) {
+        await settle(tester);
+      }
+      expect(find.byKey(const Key('detailsList')), findsOneWidget);
+    }
+
+    /// Scrolls the details to their end, where Redo panels is built.
+    Future<void> toTheEnd(WidgetTester tester) async {
+      for (var i = 0; i < 20 && find.byKey(const Key('detailsRedoPanels')).evaluate().isEmpty; i++) {
+        await press(tester, LogicalKeyboardKey.end);
+      }
+      expect(find.byKey(const Key('detailsRedoPanels')), findsOneWidget);
+    }
+
+    // Alt and Redo panels' letter closes the details and nothing else,
+    // whether the button, a row far down a lazy list, is built or not.
+    // When the button's label and a Shortcuts of the view both took the
+    // key, the second pop took the app's own route away: a dead window.
+    for (final atEnd in [false, true]) {
+      final where = atEnd ? 'scrolled to the button' : 'from the top of the list';
+      testWidgets('Alt+$redoKey in the reader\'s details, $where: one route popped, the panels redone', (tester) async {
+        // A short window: the button is below what the top of the list builds.
+        final c = await inFolder(tester);
+        tester.view.physicalSize = const Size(1280, 420);
+        await open(tester, c, 'Dredd');
+        await type(tester, 'l');
+        final page = c.read(readerProvider).page;
+        await openDetails(tester);
+        if (atEnd) {
+          await toTheEnd(tester);
+        } else {
+          expect(find.byKey(const Key('detailsRedoPanels')), findsNothing);
+        }
+        final before = routes.pops;
+        await alt(tester, redoKey);
+        for (var i = 0; i < 20 && c.read(readerProvider).pageCount == 0; i++) {
+          await settle(tester);
+        }
+        expect(routes.pops - before, 1, reason: 'routes popped by one Alt+$redoKey');
+        expect(find.byKey(const Key('comicDetails')), findsNothing);
+        expect(find.byType(HomeScreen), findsOneWidget);
+        // The panels are redone: the comic is open again where it was.
+        expect(c.read(readerProvider).message, anyOf(contains('Panels forgotten'), contains('Finding the panels')));
+        expect(c.read(readerProvider).page, page);
+        // And the app still answers keys.
+        await type(tester, 'l');
+        expect(c.read(readerProvider).page, isNot(page));
+        await closeComic(tester, c);
+      });
+
+      testWidgets('Alt+$redoKey in the details from the library, $where: one route popped, the panels redone', (
+        tester,
+      ) async {
+        await inFolder(tester);
+        tester.view.physicalSize = const Size(1280, 420);
+        await openDetails(tester);
+        if (atEnd) {
+          await toTheEnd(tester);
+        } else {
+          expect(find.byKey(const Key('detailsRedoPanels')), findsNothing);
+        }
+        final before = routes.pops;
+        await alt(tester, redoKey);
+        await settle(tester);
+        expect(routes.pops - before, 1, reason: 'routes popped by one Alt+$redoKey');
+        expect(find.byKey(const Key('comicDetails')), findsNothing);
+        expect(find.byType(HomeScreen), findsOneWidget);
+        expect(find.text("Akira's panels will be found again"), findsOneWidget);
+        await type(tester, 'l');
+        expect(find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Blacksad')), findsOneWidget);
+      });
+    }
+
+    testWidgets('u presses the notice\'s Undo over an open comic too', (tester) async {
+      final c = await inFolder(tester);
+      final store = c.read(libraryStoreProvider);
+      Future<bool> favourite() async =>
+          (await tester.runAsync(store.books))!.firstWhere((b) => b.name == 'Akira').favourite;
+      // In the favourites and out again: the notice offers it back.
+      await type(tester, '*');
+      await type(tester, '*');
+      expect(await favourite(), isFalse);
+      expect(find.text('Akira taken out of Favourites'), findsOneWidget);
+      // The notice is still there over the comic, and names the key.
+      await open(tester, c, 'Dredd');
+      expect(find.text('Undo (u)'), findsOneWidget);
+      await type(tester, 'u');
+      expect(await favourite(), isTrue);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(c.read(readerProvider).book, isNotNull);
+      await closeComic(tester, c);
+    });
+
+    testWidgets('with no notice that offers an Undo, u does nothing and says nothing', (tester) async {
+      final c = await inFolder(tester);
+      final store = c.read(libraryStoreProvider);
+      Future<List<String>> favourites() async => [
+        for (final b in (await tester.runAsync(store.books))!)
+          if (b.favourite) b.name,
+      ];
+      // A notice without an Undo is nothing to undo.
+      await type(tester, '*');
+      expect(find.text('Akira added to Favourites'), findsOneWidget);
+      await type(tester, 'u');
+      expect(await favourites(), ['Akira']);
+      expect(find.text('Akira added to Favourites'), findsOneWidget);
+      // Nor is there anything over a comic.
+      await open(tester, c, 'Dredd');
+      final was = c.read(readerProvider);
+      await type(tester, 'u');
+      expect(c.read(readerProvider).message, was.message);
+      expect(c.read(readerProvider).page, was.page);
+      expect(await favourites(), ['Akira']);
+      await closeComic(tester, c);
+    });
+
+    /// The library folder is out, its comics still on disk, and the notice
+    /// offers it back.
+    Future<void> expectTakenOut(WidgetTester tester, ProviderContainer c) async {
+      expect((await tester.runAsync(c.read(libraryStoreProvider).roots))!, isEmpty);
+      expect(find.text('Comics taken out of the library; its comics stay on disk'), findsOneWidget);
+      expect(find.text('Undo (u)'), findsOneWidget);
+      for (final n in ['Akira', 'Dredd', 'Zot 2']) {
+        expect(File('${root.path}/$n.cbz').existsSync(), isTrue);
+      }
+    }
+
+    /// The library folder is back with every comic it had.
+    Future<void> expectBack(WidgetTester tester, ProviderContainer c) async {
+      final store = c.read(libraryStoreProvider);
+      for (var i = 0; i < 40 && (await tester.runAsync(store.books))!.length < 6; i++) {
+        await settle(tester);
+      }
+      expect([for (final r in (await tester.runAsync(store.roots))!) r.path], [root.path]);
+      expect((await tester.runAsync(store.books))!, hasLength(6));
+      expect(find.text('Comics taken out of the library; its comics stay on disk'), findsNothing);
+    }
+
+    testWidgets('gA says what it did and offers the folder back: u puts it in the library again', (tester) async {
+      final c = await inFolder(tester);
+      await press(tester, LogicalKeyboardKey.backspace);
+      await type(tester, 'gA');
+      await expectTakenOut(tester, c);
+      await type(tester, 'u');
+      await expectBack(tester, c);
+    });
+
+    testWidgets('the button of gA goes the same way: a notice, and its Undo', (tester) async {
+      final c = await inFolder(tester);
+      await press(tester, LogicalKeyboardKey.backspace);
+      await tester.tap(find.byKey(const Key('removeRoot')));
+      await settle(tester);
+      await expectTakenOut(tester, c);
+      await tester.tap(find.text('Undo (u)'));
+      await settle(tester);
+      await expectBack(tester, c);
+    });
+
+    testWidgets('undoing gA on ~/Comics makes it the default folder again', (tester) async {
+      final comics = Directory('${appEnvironment['HOME']}/Comics')..createSync();
+      addTearDown(() => comics.deleteSync(recursive: true));
+      writeBook(comics, 'Solo.cbz', 3);
+      final c = await pumpApp(tester);
+      final store = c.read(libraryStoreProvider), settings = SettingsStore(db);
+      Future<bool?> remembered() => tester.runAsync<bool?>(() => settings.loadBool(SettingsStore.defaultFolderRemoved));
+      await tester.runAsync(() async {
+        await store.addRoot(comics.path);
+        await c.read(scannerProvider).scan();
+      });
+      await settle(tester);
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
+      await settle(tester);
+      await press(tester, LogicalKeyboardKey.arrowRight);
+      await type(tester, 'gA');
+      expect((await tester.runAsync(store.roots))!, isEmpty);
+      expect(await remembered(), isTrue);
+      await type(tester, 'u');
+      expect([for (final r in (await tester.runAsync(store.roots))!) r.path], [comics.path]);
+      expect(await remembered(), isFalse);
+      // Taken out again and left out, it stays out at the next start.
+      await settle(tester);
+      await press(tester, LogicalKeyboardKey.arrowRight);
+      await type(tester, 'gA');
+      expect(await remembered(), isTrue);
+      expect(await tester.runAsync(() => addDefaultFolder(store, settings, comics.path)), isFalse);
+    });
+
+    /// Akira, Blacksad and Corto in the collection Noir, which is open on
+    /// the Collections tab with Akira selected.
+    Future<Future<List<String>> Function()> inNoir(WidgetTester tester, ProviderContainer c) async {
+      final store = c.read(libraryStoreProvider);
+      await tester.runAsync(() async {
+        for (final b in await store.books()) {
+          if (const {'Akira', 'Blacksad', 'Corto'}.contains(b.name)) await store.addToCollection(b.key, 'Noir');
+        }
+      });
+      await settle(tester);
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Collections')));
+      await settle(tester);
+      await press(tester, LogicalKeyboardKey.arrowRight);
+      await press(tester, LogicalKeyboardKey.enter);
+      await press(tester, LogicalKeyboardKey.home);
+      return () async => [
+        for (final b in (await tester.runAsync(store.books))!)
+          if (b.collections.contains('Noir')) b.name,
+      ]..sort();
+    }
+
+    testWidgets('x in an open collection takes out the marked comics, and u puts them all back', (tester) async {
+      final c = await inFolder(tester);
+      final noir = await inNoir(tester, c);
+      await type(tester, 'VV');
+      expect(find.text('2 selected'), findsOneWidget);
+      await type(tester, 'x');
+      expect(await noir(), ['Corto']);
+      expect(find.text('2 comics taken out of Noir'), findsOneWidget);
+      // It went ahead, so the marks are gone.
+      expect(find.byKey(const Key('marksBar')), findsNothing);
+      await type(tester, 'u');
+      expect(await noir(), ['Akira', 'Blacksad', 'Corto']);
+    });
+
+    testWidgets('x: a sidecar that cannot be written is no failure, the comic is out all the same', (tester) async {
+      final c = await inFolder(
+        tester,
+        sidecars: sidecarSyncProvider.overrideWith((ref) => _NoWrites(db, ref.watch(progressStoreProvider))),
+      );
+      final noir = await inNoir(tester, c);
+      await type(tester, 'x');
+      expect(await noir(), ['Blacksad', 'Corto']);
+      expect(find.text('Akira taken out of Noir'), findsOneWidget);
+      expect(find.textContaining('Could not'), findsNothing);
+      await type(tester, 'u');
+      expect(await noir(), ['Akira', 'Blacksad', 'Corto']);
+    });
+
+    testWidgets('Alt with an arrow is the arrow; Alt with a letter is no command', (tester) async {
+      await inFolder(tester);
+      Finder inPane(String name) => find.descendant(of: find.byKey(const Key('detail')), matching: find.text(name));
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await settle(tester);
+      expect(inPane('Blacksad'), findsOneWidget);
+      await alt(tester, 'l');
+      expect(inPane('Blacksad'), findsOneWidget);
+      await type(tester, 'l');
+      expect(inPane('Corto'), findsOneWidget);
+    });
+
+    testWidgets('Settings: Alt+M and Alt+B are the cover size buttons', (tester) async {
+      await inFolder(tester);
+      await type(tester, 'g,');
+      int aRow() {
+        final text = tester.widget<Text>(find.byKey(const Key('setting-coverSize'))).data!;
+        return int.parse(RegExp(r'(\d+) a row').firstMatch(text)!.group(1)!);
+      }
+
+      final usual = aRow();
+      await alt(tester, 'm');
+      expect(aRow(), usual + 1);
+      await alt(tester, 'b');
+      expect(aRow(), usual);
+      await alt(tester, 'b');
+      expect(aRow(), usual - 1);
+      // Their tooltips name the letters.
+      expect(find.byTooltip('Smaller covers (Alt+M; - in the library)'), findsOneWidget);
+      expect(find.byTooltip('Bigger covers (Alt+B; + in the library)'), findsOneWidget);
+    });
+  });
+
+  group('the notice with an Undo', () {
+    Future<(UndoNotice, ScaffoldMessengerState)> pumpNotice(WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox.expand())));
+      return (UndoNotice(), tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger)));
+    }
+
+    testWidgets('the key and then the button, still on its way out, undo once', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      var undone = 0;
+      notice.show(messenger, 'Taken out', label: 'Undo', undo: () async => undone++);
+      await tester.pumpAndSettle();
+      expect(notice.press(), isTrue);
+      // A frame later the notice is leaving, and its button still there.
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.text('Undo'), findsOneWidget);
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(undone, 1);
+      expect(notice.press(), isFalse);
+      expect(undone, 1);
+    });
+
+    testWidgets('the button and then the key undo once; a new notice has its own Undo', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      final undone = <String>[];
+      notice.show(messenger, 'First', label: 'Undo', undo: () async => undone.add('first'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Undo'));
+      expect(notice.press(), isFalse);
+      await tester.pumpAndSettle();
+      expect(undone, ['first']);
+      // The one that shows is the one the key presses, not the one before.
+      notice.show(messenger, 'Second', label: 'Undo', undo: () async => undone.add('second'));
+      notice.show(messenger, 'Third', label: 'Undo', undo: () async => undone.add('third'));
+      await tester.pumpAndSettle();
+      expect(find.text('Third'), findsOneWidget);
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, ['first', 'third']);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(notice.press(), isFalse);
+    });
   });
 
   group('for the buttons and dialogs still to come', () {
@@ -603,11 +953,15 @@ void main() {
       return keymap.bindings.map(Keymap.spoken).any((k) => inner == k || inner.startsWith('$k '));
     }
 
-    /// What a button says: its tooltip, else its label.
+    /// What a control says: its tooltip, else its label.
     String said(WidgetTester tester, Element button) {
       final w = button.widget;
       if (w is IconButton) return w.tooltip ?? '';
+      if (w is RawChip) return w.tooltip ?? '';
       if (w is ActionChip) return w.tooltip ?? '';
+      if (w is InputChip) return w.tooltip ?? '';
+      if (w is FilterChip) return w.tooltip ?? '';
+      if (w is ChoiceChip) return w.tooltip ?? '';
       String? tip;
       button.visitAncestorElements((e) {
         if (e.widget case Tooltip(:final message?)) tip = message;
@@ -619,97 +973,255 @@ void main() {
       return [for (final t in tester.widgetList<Text>(label)) t.data ?? t.textSpan?.toPlainText() ?? ''].join(' ');
     }
 
-    /// Every enabled button on screen, but a segment of a segmented
-    /// button, which is a choice among the buttons beside it.
+    /// Whether [w] is something to press: a button of any kind, a chip, a
+    /// row or switch that answers a tap, or a bare InkWell or
+    /// GestureDetector with an `onTap`, which is how a button is made by
+    /// hand.
+    bool pressable(Widget w) => switch (w) {
+      IconButton() => w.onPressed != null,
+      ButtonStyleButton() => w.onPressed != null,
+      ActionChip() => w.onPressed != null,
+      InputChip() => w.onPressed != null || w.onSelected != null,
+      FilterChip() => w.onSelected != null,
+      ChoiceChip() => w.onSelected != null,
+      ListTile() => w.onTap != null,
+      SwitchListTile() => w.onChanged != null,
+      Switch() => w.onChanged != null,
+      Checkbox() => w.onChanged != null,
+      InkResponse() => w.onTap != null,
+      GestureDetector() => w.onTap != null,
+      _ => false,
+    };
+
+    /// A bare tap handler, which is what the other controls are made of.
+    bool bare(Widget w) => w is InkResponse || w is GestureDetector;
+
+    /// Whether [inner], found under [outer], is part of it and no control
+    /// of its own. A button, a chip or a switch is made of smaller
+    /// controls (the InkWell in a button, the ListTile and Switch of a
+    /// SwitchListTile); a segment of a segmented button is a choice among
+    /// those beside it; and a bare tap handler under any control, or in
+    /// Flutter's own navigation, text fields and scrollbars, is that
+    /// widget's business. But a button in a row that answers a tap (Note
+    /// and Remove on a bookmark's row) is a button.
+    bool partOf(Widget outer, Widget inner) {
+      if (outer is SegmentedButton) return true;
+      if (pressable(outer) && !bare(outer) && outer is! ListTile) return true;
+      if (!bare(inner)) return false;
+      return pressable(outer) ||
+          outer is NavigationRail ||
+          outer is NavigationBar ||
+          outer is TextField ||
+          outer is Scrollbar ||
+          outer is ModalBarrier;
+    }
+
+    /// The nearest key with a name at or above [e], to tell a control by.
+    String keyOf(Element e) {
+      String? name;
+      bool look(Element x) {
+        if (x.widget.key case ValueKey<String>(:final value)) name = value;
+        return name == null;
+      }
+
+      if (look(e)) e.visitAncestorElements(look);
+      return name ?? '';
+    }
+
+    /// Every enabled control on screen that a tap presses, each once: not
+    /// what a counted control is made of.
     List<Element> buttons(WidgetTester tester) => [
-      for (final e in find.byWidgetPredicate((w) {
-        if (w is IconButton) return w.onPressed != null;
-        if (w is ActionChip) return w.onPressed != null;
-        return w is ButtonStyleButton && w.onPressed != null;
-      }).evaluate())
-        if (find
-                .ancestor(of: find.byElementPredicate((x) => x == e), matching: find.byType(IconButton))
-                .evaluate()
-                .isEmpty &&
-            find
-                .ancestor(of: find.byElementPredicate((x) => x == e), matching: find.byType(SegmentedButton<Object?>))
-                .evaluate()
-                .isEmpty &&
-            find
-                .ancestor(
-                  of: find.byElementPredicate((x) => x == e),
-                  matching: find.byWidgetPredicate((w) => w is SegmentedButton),
-                )
-                .evaluate()
-                .isEmpty)
+      for (final e in find.byWidgetPredicate(pressable).evaluate())
+        if (() {
+          var inside = false;
+          e.visitAncestorElements((x) {
+            inside = partOf(x.widget, e.widget);
+            return !inside;
+          });
+          return !inside;
+        }())
           e,
     ];
 
-    /// Buttons that name no key, each for a reason AGENTS.md lists: they
-    /// are shortcuts to something the arrows and Enter reach.
-    const noKey = {'readNext', 'continueInFolder'};
+    /// Controls that name no key, each for a reason AGENTS.md lists under
+    /// "Buttons left without a key of their own": told by the name of the
+    /// nearest key at or above them, whole or its start. A new control of
+    /// any kind that is not here has to name a key.
+    const noKey = <String, String>{
+      'readNext': 'a shortcut: Enter on the series, then Enter on the comic',
+      'continueInFolder': 'a shortcut: Enter on the folder, then Enter on the comic',
+      'b:': 'a comic\'s cover: the arrows select it and Enter opens it',
+      'f:': 'a folder\'s cover: the arrows and Enter',
+      's:': 'a series\' or a collection\'s cover: the arrows and Enter',
+      'bookmarkItem-': 'a row of the Bookmarks tab: the arrows and Enter',
+      'detailBookmark-': 'a bookmark in a comic\'s details: the Bookmarks tab and M reach it with the arrows and Enter',
+      'seriesBook-': 'a comic in a series\' details: Enter shows the books, the arrows and Enter read one',
+      'history-': 'a sitting on the History tab: the arrows and Enter',
+      'pageTile-': 'a page of the page grid: the arrows and Enter',
+      'bookmarkRow-': 'a row of the reader\'s bookmark list: the arrows and Enter',
+      'bookmarkRibbon': 'the bookmark ribbon: pointer only (M shows the list)',
+      'partsPicker': 'the parts picker\'s backdrop, a tap beside the card: Esc; and the card, which only keeps taps',
+    };
+
+    String? excused(String key) {
+      for (final MapEntry(key: name, value: why) in noKey.entries) {
+        if (_named(name, key)) return why;
+      }
+      return null;
+    }
+
+    /// The exceptions met on the walk, so a name nothing has any more is
+    /// taken off the list.
+    final met = <String>{};
+
+    /// The controls without a key that a walk found, all told at its end.
+    final problems = <String>[];
 
     void expectKeysNamed(WidgetTester tester, Keymap keymap, {required String where, int atLeast = 1}) {
       final found = buttons(tester);
       expect(found.length, greaterThanOrEqualTo(atLeast), reason: 'buttons on $where');
       for (final b in found) {
-        final key = b.widget.key;
-        if (key is ValueKey<String> && noKey.contains(key.value)) continue;
         final text = said(tester, b);
-        expect(namesKey(text, keymap), isTrue, reason: 'On $where the button "$text" (${b.widget.key}) names no key');
+        if (namesKey(text, keymap)) continue;
+        final key = keyOf(b);
+        if (excused(key) != null) {
+          met.add(noKey.keys.firstWhere((n) => _named(n, key)));
+          continue;
+        }
+        problems.add('On $where the ${b.widget.runtimeType} "$text" (under the key "$key") names no key of the keymap');
       }
     }
 
-    testWidgets('every button of the library and the reader names a live key', (tester) async {
-      final keymap = Keymap.defaults();
-      final c = await inFolder(tester);
+    /// A keymap with no key of the default one: every action is two
+    /// letters, Za Zb … Ya …, but the ones that take a mark's letter.
+    Keymap remapped() {
+      const first = ['Z', 'Y', 'Q', 'W', 'K', 'J', 'U'];
+      final intents = <ReaderIntent>[];
+      final keys = <Binding>[];
+      for (final b in Keymap.defaults().bindings) {
+        if (b.hasLetterSlot) {
+          keys.add(b);
+        } else if (!intents.contains(b.intent)) {
+          final n = intents.length;
+          intents.add(b.intent);
+          keys.add(Binding([first[n ~/ 26], String.fromCharCode(0x61 + n % 26)], b.intent, layer: b.layer));
+        }
+      }
+      return Keymap(keys);
+    }
+
+    /// Walks the library and the reader and has every button name a key
+    /// of [keymap]. With [remap] the keys typed on the way are that
+    /// keymap's own, and a tooltip with a key written into its text, which
+    /// passes under the default keys, names a key that is none.
+    Future<void> walk(WidgetTester tester, {required bool remap}) async {
+      final keymap = remap ? remapped() : Keymap.defaults();
+      // What the walk types by default; remapped, the keymap's own keys.
+      const usual = <ReaderIntent, Object>{
+        ReaderIntent.markBook: 'V',
+        ReaderIntent.filterFolders: 'F',
+        ReaderIntent.bookmark: 'mm',
+        ReaderIntent.pageGrid: 'p',
+        ReaderIntent.bookmarkList: 'M',
+        ReaderIntent.pickPart: 'gp',
+        ReaderIntent.nextStep: 'l',
+        ReaderIntent.activate: LogicalKeyboardKey.enter,
+        ReaderIntent.removeRoot: 'gA',
+        ReaderIntent.back: LogicalKeyboardKey.escape,
+        ReaderIntent.up: LogicalKeyboardKey.backspace,
+        ReaderIntent.lastPage: LogicalKeyboardKey.end,
+        ReaderIntent.firstPage: LogicalKeyboardKey.home,
+      };
+      Future<void> key(ReaderIntent intent) async {
+        final how = remap ? keymap.hint(intent)! : usual[intent]!;
+        how is String ? await type(tester, how) : await press(tester, how as LogicalKeyboardKey);
+      }
+
+      final c = await inFolder(tester, keymap: remap ? keymap : null, remapped: remap);
       // The header, the filter line, the details pane of a comic.
       expectKeysNamed(tester, keymap, where: 'the Folders tab with a comic selected', atLeast: 12);
       // The marks bar.
-      await type(tester, 'V');
+      await key(ReaderIntent.markBook);
       expect(find.byKey(const Key('marksBar')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the library with a comic marked', atLeast: 16);
-      await press(tester, LogicalKeyboardKey.escape);
-      // A filter on: its line's chips and Clear.
-      await type(tester, 'F');
+      await key(ReaderIntent.back);
+      // A filter on: its line's chips and Clear. (A dialog's keys are its
+      // own, whatever the keymap.)
+      await key(ReaderIntent.filterFolders);
       await press(tester, LogicalKeyboardKey.space);
       await alt(tester, 'd');
       expect(find.byKey(const Key('filterBarClear')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the Folders tab with a filter', atLeast: 10);
-      await type(tester, 'F');
+      await key(ReaderIntent.filterFolders);
       await alt(tester, 'c');
       await alt(tester, 'd');
       // A library folder selected: its details.
-      await press(tester, LogicalKeyboardKey.backspace);
+      await key(ReaderIntent.up);
       expect(find.byKey(const Key('removeRoot')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the Folders tab with a library folder selected', atLeast: 8);
       // The reader and what lies over it, with a bookmark made there.
       await open(tester, c, 'Dredd');
-      await type(tester, 'mm');
+      await key(ReaderIntent.nextStep);
+      await key(ReaderIntent.bookmark);
       expectKeysNamed(tester, keymap, where: 'the reader', atLeast: 7);
-      await type(tester, 'p');
+      await key(ReaderIntent.pageGrid);
       expect(find.byKey(const Key('pageGridClose')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the page grid', atLeast: 10);
-      await type(tester, 'p');
-      await type(tester, 'M');
+      await key(ReaderIntent.pageGrid);
+      await key(ReaderIntent.bookmarkList);
       expect(find.byKey(const Key('bookmarkList')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the bookmark list', atLeast: 10);
-      await type(tester, 'M');
-      await type(tester, 'gp');
+      await key(ReaderIntent.bookmarkList);
+      await key(ReaderIntent.pickPart);
       expect(find.byKey(const Key('partsClose')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the parts picker', atLeast: 8);
-      await press(tester, LogicalKeyboardKey.escape);
-      await press(tester, LogicalKeyboardKey.escape);
+      await key(ReaderIntent.back);
+      await key(ReaderIntent.back);
       expect(c.read(readerProvider).book, isNull);
-      await type(tester, 'M');
+      await key(ReaderIntent.bookmarkList);
       expect(find.byKey(const Key('bookmarksTab')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the Bookmarks tab', atLeast: 7);
+      // The History tab: the sitting just had.
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('History')));
+      await settle(tester);
+      expectKeysNamed(tester, keymap, where: 'the History tab', atLeast: 4);
       // A series selected: Rename has a key, Read is a shortcut (noKey).
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Series')));
       await settle(tester);
-      await press(tester, LogicalKeyboardKey.end);
+      await key(ReaderIntent.lastPage);
       expect(find.byKey(const Key('readNext')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the Series tab with a series selected', atLeast: 6);
+      // A notice with an Undo: its button names the key too.
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
+      await settle(tester);
+      await key(ReaderIntent.firstPage);
+      // The library folder again, now with a comic begun: Continue.
+      expect(find.byKey(const Key('continueInFolder')), findsOneWidget);
+      expectKeysNamed(tester, keymap, where: 'a library folder with a comic begun', atLeast: 8);
+      // In it, the comic with the bookmark: further down its details the
+      // bookmark has a row.
+      await key(ReaderIntent.activate);
+      for (var i = 0; i < 3; i++) {
+        await key(ReaderIntent.nextStep);
+      }
+      await tester.drag(find.byKey(const Key('detail')), const Offset(0, -600));
+      await settle(tester);
+      expectKeysNamed(tester, keymap, where: 'the details of a comic with a bookmark', atLeast: 8);
+      await key(ReaderIntent.up);
+      await key(ReaderIntent.removeRoot);
+      expect(find.byType(SnackBarAction), findsOneWidget);
+      expectKeysNamed(tester, keymap, where: 'the library with a notice that offers an Undo', atLeast: 3);
+      expect(problems, isEmpty, reason: problems.join('\n'));
+    }
+
+    testWidgets('every button of the library and the reader names a live key', (tester) async {
+      await walk(tester, remap: false);
+      // Every exception is one the walk still meets.
+      expect(noKey.keys.toSet().difference(met), isEmpty, reason: 'exceptions no control needs any more');
+    });
+
+    testWidgets('and names the key of a keymap that has none of the default keys', (tester) async {
+      await walk(tester, remap: true);
     });
 
     /// The dialog that is up: it is under [DialogHotkeys], a control of
@@ -784,13 +1296,46 @@ void main() {
 
     testWidgets('every dialog can be worked by keys alone', (tester) async {
       final c = await inFolder(tester);
+
+      /// The letter of the button that leaves the dialog on top with
+      /// nothing done, if it has one.
+      String? leaveLetter() {
+        final labels = tester.widgetList<Mnemonic>(
+          find.descendant(of: find.byType(DialogHotkeys).last, matching: find.byType(Mnemonic)),
+        );
+        for (final m in labels) {
+          if (const {'Cancel', 'Close', 'Done'}.contains(m.text)) return Mnemonic.letterOf(m.text, m.letter);
+        }
+        return null;
+      }
+
+      // Each dialog is opened twice. Esc closes it, and then the Alt+letter
+      // of its Cancel, Close or Done does: one key, one route popped, the
+      // dialog's own and not the one under it.
       Future<void> check(String name, {required Future<void> Function() open, int close = 1}) async {
         await open();
         await expectKeyboardDialog(tester, name);
-        for (var i = 0; i < close; i++) {
+        var before = routes.pops;
+        await press(tester, LogicalKeyboardKey.escape);
+        expect(routes.pops - before, 1, reason: 'routes popped by Esc in $name');
+        for (var i = 1; i < close; i++) {
           await press(tester, LogicalKeyboardKey.escape);
         }
         expect(find.byType(DialogHotkeys), findsNothing, reason: 'Esc does not close $name');
+
+        await open();
+        final dialogs = find.byType(DialogHotkeys).evaluate().length;
+        final letter = leaveLetter();
+        expect(letter, isNotNull, reason: '$name has no Cancel, Close or Done with a letter');
+        before = routes.pops;
+        await alt(tester, letter!);
+        expect(routes.pops - before, 1, reason: 'routes popped by Alt+$letter in $name');
+        expect(find.byType(DialogHotkeys).evaluate().length, dialogs - 1, reason: 'Alt+$letter does not leave $name');
+        expect(find.byType(HomeScreen), findsOneWidget);
+        for (var i = 1; i < close; i++) {
+          await press(tester, LogicalKeyboardKey.escape);
+        }
+        expect(find.byType(DialogHotkeys), findsNothing);
       }
 
       await check('Settings', open: () => type(tester, 'g,'));
@@ -818,17 +1363,17 @@ void main() {
       );
       // The reader's: the details, and a bookmark's note.
       await open(tester, c, 'Dredd');
-      await check(
-        'Details',
-        open: () async {
-          await type(tester, 'I');
-          // Its rows come once the comic's report is read, and Redo
-          // panels, far down the list, once End has scrolled there.
-          for (var i = 0; i < 20 && find.byKey(const Key('detailsRedoPanels')).evaluate().isEmpty; i++) {
-            await press(tester, LogicalKeyboardKey.end);
-          }
-        },
-      );
+      // The details have no Cancel: their one lettered button, Redo
+      // panels, has tests of its own above.
+      await type(tester, 'I');
+      // Its rows come once the comic's report is read, and Redo
+      // panels, far down the list, once End has scrolled there.
+      for (var i = 0; i < 20 && find.byKey(const Key('detailsRedoPanels')).evaluate().isEmpty; i++) {
+        await press(tester, LogicalKeyboardKey.end);
+      }
+      await expectKeyboardDialog(tester, 'Details');
+      await press(tester, LogicalKeyboardKey.escape);
+      expect(find.byType(DialogHotkeys), findsNothing, reason: 'Esc does not close Details');
       await type(tester, 'mm');
       await type(tester, 'M');
       await check('Bookmark note', open: () => type(tester, 'e'));
@@ -842,12 +1387,67 @@ void main() {
       expect(find.byKey(const Key('readNext')), findsOneWidget);
     });
 
+    /// What opens something over the screen that is no AlertDialog,
+    /// SimpleDialog or Dialog: a sheet, a menu, a route made by hand.
+    /// Each takes the focus, or the pointer alone, and so needs keys of
+    /// its own thought through.
+    final otherOverlays = RegExp(
+      r'(?<![A-Za-z_])(showModalBottomSheet|showBottomSheet|showMenu|PopupMenuButton|DropdownButton|'
+      r'DropdownButtonFormField|DropdownMenu|MenuAnchor|showGeneralDialog|RawDialogRoute|DialogRoute|'
+      r'PageRouteBuilder|MaterialPageRoute|CupertinoPageRoute|ModalBottomSheetRoute|PopupRoute|OverlayEntry|'
+      r'showDatePicker|showTimePicker|showDateRangePicker|showSearch|showAboutDialog|showLicensePage)\b',
+    );
+
+    /// The ones there are, each with the reason it is all right.
+    const knownOverlays = {
+      // The collection question's route, pushed in the asker's own call
+      // so that keys typed at once are its; what it shows is the
+      // CollectionDialog, which is wrapped and found by the scan below.
+      'lib/src/library/collection_dialog.dart': {'DialogRoute'},
+    };
+
+    /// [code] without its comments, the line count kept.
+    String uncommented(String code) => code.replaceAll(RegExp(r'^\s*//.*$', multiLine: true), '');
+
+    List<String> overlayProblems(String path, String code) => [
+      for (final m in otherOverlays.allMatches(uncommented(code)))
+        if (!(knownOverlays[path]?.contains(m.group(1)) ?? false))
+          '$path: ${m.group(1)} opens something over the screen that the scan for dialogs does not know; '
+              'give it keys (DialogHotkeys) and list it in knownOverlays with the reason',
+    ];
+
+    test('the scan knows a sheet, a menu, a dropdown and a route made by hand', () {
+      for (final code in [
+        'showModalBottomSheet<void>(context: context, builder: (_) => x);',
+        'await showMenu(context: context, items: []);',
+        'PopupMenuButton<int>(itemBuilder: (_) => [])',
+        'DropdownButton<int>(items: const [], onChanged: null)',
+        'showGeneralDialog(context: context, pageBuilder: (_, _, _) => x);',
+        'Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => x));',
+        'navigator.push(DialogRoute<void>(context: context, builder: (_) => x));',
+        'Overlay.of(context).insert(OverlayEntry(builder: (_) => x));',
+      ]) {
+        expect(overlayProblems('lib/x.dart', code), hasLength(1), reason: code);
+      }
+      // A comment about one is none, nor a name that only contains one.
+      expect(
+        overlayProblems('lib/x.dart', '  // like showMenu(…)\n  final myShowMenu = 1; _showMenuLater();'),
+        isEmpty,
+      );
+      // The known one is excused in its own file only.
+      expect(overlayProblems('lib/src/library/collection_dialog.dart', 'DialogRoute<String>('), isEmpty);
+      expect(overlayProblems('lib/src/library/collection_dialog.dart', 'showMenu('), hasLength(1));
+    });
+
     test('no dialog in lib/ is built without DialogHotkeys, and none labels a button with plain Text', () {
       final problems = <String>[];
       final files = Directory('lib').listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart'));
+      final overlaysMet = <String>{};
       for (final file in files) {
         if (file.path.endsWith('.g.dart') || file.path.endsWith('hotkeys.dart')) continue;
         final code = file.readAsStringSync();
+        problems.addAll(overlayProblems(file.path, code));
+        if (otherOverlays.hasMatch(uncommented(code))) overlaysMet.add(file.path);
         // Every dialog there is: AlertDialog, Dialog and Dialog.fullscreen.
         for (final m in RegExp(r'(?<![A-Za-z_.])(AlertDialog|SimpleDialog|Dialog(\.fullscreen)?)\(').allMatches(code)) {
           final line = code.substring(code.lastIndexOf('\n', m.start) + 1, m.start);
@@ -873,8 +1473,45 @@ void main() {
             problems.add('${file.path}: a dialog button labelled with Text, not Mnemonic');
           }
         }
+        // Alt and a letter is taken in one place, DialogHotkeys: a second
+        // handler in a dialog acts on the same press (two routes popped).
+        if (RegExp(r'alt:\s*true').hasMatch(uncommented(code))) {
+          problems.add('${file.path}: a shortcut with Alt of its own; use Mnemonic or DialogKey');
+        }
       }
-      expect(problems, isEmpty);
+      expect(problems, isEmpty, reason: problems.join('\n'));
+      expect(overlaysMet, knownOverlays.keys.toSet(), reason: 'knownOverlays lists a file that has none any more');
     });
   });
 }
+
+/// Counts the routes popped: a dialog's key closes its dialog and nothing
+/// under it.
+class _Routes extends NavigatorObserver {
+  int pops = 0;
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) => pops++;
+}
+
+/// Sidecars on a shelf that cannot be written: every write throws.
+class _NoWrites extends SidecarSync {
+  _NoWrites(super.db, ProgressStore progress) : super(progress: progress);
+
+  @override
+  Future<SidecarImport> attach(String path, String contentKey, {required bool folder, bool whole = false}) async =>
+      SidecarImport.none;
+
+  @override
+  void touch(String contentKey) {}
+
+  @override
+  Future<bool> write(String contentKey) => throw FileSystemException('Read-only file system', contentKey);
+
+  @override
+  Future<void> flush() => progress.flush();
+}
+
+/// Whether [key] is the exception [name]: the same, or, for a name that
+/// ends in `:` or `-`, one that starts with it.
+bool _named(String name, String key) => name.endsWith(':') || name.endsWith('-') ? key.startsWith(name) : key == name;

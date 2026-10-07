@@ -192,6 +192,54 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
   return true;
 }
 
+/// `x` in an open collection, on the selected comic or the marked ones:
+/// every one of [books] that is in [collection] goes out of it, and a
+/// notice offers them back (Undo, `u`). True when it went ahead. A
+/// sidecar that can't be written is no failure, as for a favourite: the
+/// index has the change and the sidecar catches up with the next one.
+Future<bool> takeOutOfCollection(
+  BuildContext context,
+  WidgetRef ref,
+  List<LibraryBook> books,
+  String collection,
+) async {
+  final todo = books.where((b) => b.collections.contains(collection)).toList();
+  if (todo.isEmpty) return false;
+  final what = todo.length == 1 ? todo.single.name : comicsCount(todo.length);
+  final messenger = ScaffoldMessenger.of(context);
+  final undoNotice = ref.read(undoNoticeProvider);
+  final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
+  final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
+  final out = <LibraryBook>[];
+  try {
+    for (final b in todo) {
+      await store.removeFromCollection(b.key, collection);
+      out.add(b);
+    }
+  } catch (e) {
+    debugPrint('Could not take $what out of $collection: $e');
+    // Those taken out before the index failed still get their sidecars.
+    await _writeSidecars(sidecars, out);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('Could not take $what out of $collection')));
+    return false;
+  }
+  await _writeSidecars(sidecars, out);
+  undoNotice.show(
+    messenger,
+    '$what taken out of $collection',
+    label: undoLabel,
+    undo: () async {
+      for (final b in out) {
+        await store.addToCollection(b.key, collection);
+      }
+      await _writeSidecars(sidecars, out);
+    },
+  );
+  return true;
+}
+
 /// `gc` in the library, on the selected cover or the marked comics, and
 /// Collection in the marks bar: asks for a collection, then puts every one
 /// of [books] that is here in it ([collectBooks]). Comics only on S3 are

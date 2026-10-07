@@ -5,9 +5,7 @@ import 'package:reader_input/reader_input.dart';
 import '../hotkeys.dart';
 
 import '../reader/guided.dart';
-import '../reader/reader_notifier.dart';
 import 'cover_card.dart';
-import 'default_folder.dart';
 import 'edit_dialog.dart';
 import 'library_store.dart';
 import 'providers.dart';
@@ -133,8 +131,10 @@ class SeriesDetail extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         Text('Enter or a tap shows the books', style: theme.textTheme.bodySmall),
+        // No keys of their own: Enter shows the books, the arrows and Enter read one.
         for (final b in series.books)
           ListTile(
+            key: Key('seriesBook-${b.key}'),
             dense: true,
             contentPadding: EdgeInsets.zero,
             title: Text(b.name),
@@ -160,7 +160,17 @@ String folderCount(LibraryFolder folder) {
 /// A folder's page: what is in it, a way in, and for a library folder a way
 /// to take it out of the library.
 class FolderDetail extends ConsumerWidget {
-  const FolderDetail({super.key, required this.folder, required this.onOpen, required this.onRead, this.onBack});
+  const FolderDetail({
+    super.key,
+    required this.folder,
+    required this.onOpen,
+    required this.onRead,
+    required this.onRemoveRoot,
+    this.onBack,
+  });
+
+  /// Takes the library folder with this id and path out of the library.
+  final void Function(int id, String path) onRemoveRoot;
 
   final LibraryFolder folder;
   final VoidCallback onOpen;
@@ -241,12 +251,8 @@ class FolderDetail extends ConsumerWidget {
               message: KeyHints.tip(context, 'Take this folder out of the library', ReaderIntent.removeRoot),
               child: OutlinedButton.icon(
                 key: const Key('removeRoot'),
-                onPressed: () => removeLibraryFolder(
-                  ref.read(libraryStoreProvider),
-                  ref.read(settingsStoreProvider),
-                  root.id,
-                  root.path,
-                ),
+                // The same way as the key: a notice, with Undo.
+                onPressed: () => onRemoveRoot(root.id, root.path),
                 icon: const Icon(Icons.remove_circle_outline),
                 label: const Text('Take out of the library (the files stay)'),
               ),
