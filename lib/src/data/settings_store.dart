@@ -46,9 +46,18 @@ class SettingsStore {
   /// Per install, so the laptop and the phone each name their own folder.
   static const sidecarDir = 'sidecars.dir';
 
-  /// How big the page grid's (`p`) thumbnails are: an index into its zoom
-  /// levels, kept across openings and restarts.
+  /// How big the page grid's (`p`) thumbnails are: the width a tile aims
+  /// for in logical pixels, as a string; kept across openings and restarts.
+  /// Unset for the default.
   static const gridZoom = 'grid.zoom';
+
+  /// How big the library's covers are (`+` `-`, a pinch), one size for
+  /// every tab of covers: the width a cover aims for in logical pixels, as
+  /// a string. Unset for the default.
+  static const coverSize = 'library.coverSize';
+
+  /// The settings that hold a tile width: a file's value must be a number.
+  static const sizes = {gridZoom, coverSize};
 
   /// Shuffle on the library's Folders tab (`S`): random pages instead of
   /// covers. Off by default.
@@ -102,6 +111,7 @@ class SettingsStore {
     writeSidecars: true,
     sidecarDir: false,
     gridZoom: false,
+    coverSize: false,
     shuffle: true,
     folderFilter: false,
     touchPreset: false,

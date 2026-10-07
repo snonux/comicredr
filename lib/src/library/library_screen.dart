@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
 import '../data/settings_store.dart';
+import '../grid_zoom.dart';
 import '../reader/bookmark_list.dart';
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
@@ -140,9 +141,29 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
   /// restarts.
   FolderFilter _filter = FolderFilter.none;
 
+  /// How wide a cover aims to be, in logical pixels: the cover grids' zoom
+  /// (`+` `-`, Ctrl and the wheel, a pinch), one size for every tab of
+  /// covers, kept across restarts. Null for the default.
+  double? _coverTarget;
+
+  /// The default cover width, and the steps and limits of the zoom: from
+  /// covers just wide enough for a few letters of the title up to 480 px,
+  /// about what the 512 px cover files are good for.
+  static const _defaultCover = 160.0;
+  static const _coverGap = 12.0;
+  static const _coverPad = 12.0;
+  static const _coverZoom = GridZoom(gap: _coverGap, smallest: 72, largest: 480);
+
+  /// The cover grid's width inside its padding at the last layout.
+  double _inner = 0;
+
+  /// Ctrl and the wheel and the pinch; it knows when a touch was a pinch.
+  final _zoomArea = GlobalKey<GridZoomAreaState>();
+
   @override
   void initState() {
     super.initState();
+    unawaited(_loadCoverSize());
     unawaited(
       ref
           .read(settingsStoreProvider)
@@ -162,6 +183,63 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
           .catchError((Object e) => debugPrint('Could not read the folder filter: $e')),
     );
     _reshuffle();
+  }
+
+  /// Takes up the saved cover size; unset or not a number is the default.
+  Future<void> _loadCoverSize() async {
+    try {
+      final target = double.tryParse(await ref.read(settingsStoreProvider).loadString(SettingsStore.coverSize) ?? '');
+      if (mounted && target != _coverTarget) setState(() => _coverTarget = target);
+    } catch (e) {
+      debugPrint('Could not read the cover size: $e');
+    }
+  }
+
+  /// Bigger covers (fewer columns) for [by] > 0, smaller for [by] < 0.
+  void zoomCovers(int by) => _setCoverColumns(_cols - by);
+
+  /// Shows [columns] covers a row, within what the width allows; [reset]
+  /// goes back to the default size. What is kept is the cover width that
+  /// gives, so a wider window later fits more covers of that size. At the
+  /// smallest or biggest already, nothing changes and nothing is saved.
+  void _setCoverColumns(int columns, {bool reset = false}) {
+    if (!_coverTab || _items.isEmpty || _inner <= 0) return;
+    final next = _coverZoom.clamp(_inner, columns);
+    if (reset ? _coverTarget == null : next == _cols) return;
+    final target = reset ? null : _coverZoom.tileWidth(_inner, next);
+    final keep = _keptInView();
+    setState(() => _coverTarget = target);
+    unawaited(
+      ref
+          .read(settingsStoreProvider)
+          .saveString(SettingsStore.coverSize, target?.toStringAsFixed(1))
+          .catchError((Object e) => debugPrint('Could not save the cover size: $e')),
+    );
+    // The rows moved: back to the cover that was looked at.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showAgain(keep);
+    });
+  }
+
+  /// The cover a zoom must leave in view: the selected one when it shows,
+  /// else the first of the row along the top.
+  int _keptInView() {
+    if (!_scroll.hasClients) return 0;
+    final at = _scroll.position.pixels;
+    final first = (at ~/ _rowExtent) * _cols;
+    final i = _items.indexWhere((it) => it.id == _selected);
+    final shown = i >= first && (i ~/ _cols) * _rowExtent < at + _scroll.position.viewportDimension;
+    return shown ? i : first;
+  }
+
+  /// After a zoom: the row of cover [i] in view again, along the top when
+  /// it is not the selected one (whose row only has to show).
+  void _showAgain(int i) {
+    if (!_scroll.hasClients || _items.isEmpty) return;
+    final selected = _items.indexWhere((it) => it.id == _selected);
+    if (i == selected) return _reveal();
+    final top = (i.clamp(0, _items.length - 1) ~/ _cols) * _rowExtent;
+    _scroll.jumpTo(top.clamp(0.0, _scroll.position.maxScrollExtent));
   }
 
   bool get shuffle => _shuffle;
@@ -202,8 +280,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     onImportSettings: widget.onImportSettings,
   );
 
-  /// Takes up the saved shuffle setting again, after an import changed it.
+  /// Takes up the saved cover size, filter and shuffle setting again,
+  /// after an import changed them.
   Future<void> reloadSettings() async {
+    await _loadCoverSize();
     try {
       final filter = FolderFilter.decode(await ref.read(settingsStoreProvider).loadString(SettingsStore.folderFilter));
       if (mounted) setState(() => _filter = filter);
@@ -360,6 +440,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
         return back();
       case ReaderIntent.up:
         _folderUp();
+      // The page's zoom keys size the covers here, as in the page grid.
+      case ReaderIntent.zoomIn when _coverTab:
+        zoomCovers(c.times);
+      case ReaderIntent.zoomOut when _coverTab:
+        zoomCovers(-c.times);
+      case ReaderIntent.zoomReset when _coverTab:
+        _setCoverColumns(_cols, reset: true);
       case ReaderIntent.toggleShuffle when _coverTab:
         setShuffle(!_shuffle);
       case ReaderIntent.reshuffle when _coverTab && _shuffle:
@@ -578,8 +665,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     final top = (i ~/ _cols) * _rowExtent;
     final pos = _scroll.position;
     double? to;
-    if (top < pos.pixels) to = top;
-    if (top + _rowExtent > pos.pixels + pos.viewportDimension) to = top + _rowExtent - pos.viewportDimension + 16;
+    if (top < pos.pixels || _rowExtent > pos.viewportDimension) {
+      // Above the screen, or a row taller than the screen (covers zoomed
+      // right in, in a low window): it shows from its top.
+      to = top;
+    } else if (top + _rowExtent > pos.pixels + pos.viewportDimension) {
+      to = top + _rowExtent - pos.viewportDimension + 16;
+    }
     if (to != null) _scroll.jumpTo(to.clamp(0, pos.maxScrollExtent));
   }
 
@@ -1549,49 +1641,81 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
     return LayoutBuilder(
       builder: (context, box) {
-        const pad = 12.0, gap = 12.0;
-        _cols = math.max(2, (box.maxWidth - pad * 2 + gap) ~/ (160 + gap));
-        final itemW = (box.maxWidth - pad * 2 - gap * (_cols - 1)) / _cols;
+        const pad = _coverPad, gap = _coverGap;
+        final inner = _inner = box.maxWidth - pad * 2;
+        final target = _coverTarget;
+        // The default never shows one cover a row, however narrow the
+        // window; zoomed, the size asked for decides.
+        _cols = target == null
+            ? math.max(2, _coverZoom.columns(inner, _defaultCover))
+            : _coverZoom.columns(inner, target);
+        final itemW = _coverZoom.tileWidth(inner, _cols);
         final extent = itemW * 1.5 + 48;
         _rowExtent = extent + gap;
         _viewport = box.maxHeight;
-        final shuffle = _shuffle && _coverTab;
-        return GridView.builder(
-          key: const Key('grid'),
-          controller: _scroll,
-          padding: const EdgeInsets.all(pad),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: _cols,
-            mainAxisExtent: extent,
-            mainAxisSpacing: gap,
-            crossAxisSpacing: gap,
-          ),
-          itemCount: _items.length,
-          itemBuilder: (context, i) {
-            final item = _items[i];
-            // A folder or series shuffles too: a random page of a random comic in it.
-            final from = !shuffle
-                ? null
-                : switch (item) {
-                    BookItem(:final book) => book,
-                    FolderItem(:final folder) => shuffleBook(item.id, folder.books, _seed),
-                    SeriesItem(:final series) => shuffleBook(item.id, series.books, _seed),
-                    _ => null,
-                  };
-            return CoverCard(
-              item: item,
-              marked: item is BookItem && _marked.contains(item.book.key),
-              shufflePage: from == null ? null : shufflePage(from.key, from.pageCount, _seed),
-              shuffleBook: item is BookItem ? null : from,
-              selected: item.id == _selected,
-              onTap: () => _tap(item, wide: wide),
-              onLongPress: () => setState(() {
-                _selected = item.id;
-                _detail = item is BookItem || item is FolderItem;
-              }),
-            );
-          },
+        return GridZoomArea(
+          key: _zoomArea,
+          columns: _cols,
+          onColumns: _setCoverColumns,
+          builder: (context, physics) => _covers(physics, wide: wide, extent: extent, itemW: itemW),
         );
+      },
+    );
+  }
+
+  /// The grid of covers, [_cols] a row, each [itemW] wide in rows [extent]
+  /// high, scrolling with [physics] (null for the usual ones).
+  Widget _covers(ScrollPhysics? physics, {required bool wide, required double extent, required double itemW}) {
+    final shuffle = _shuffle && _coverTab;
+    // Sharp enough for a zoomed-in cover, up to the 512 px the files have;
+    // never under the 400 px of the default size, already decoded.
+    final coverWidth = (itemW * MediaQuery.devicePixelRatioOf(context)).round().clamp(400, 512).toInt();
+    return GridView.builder(
+      key: const Key('grid'),
+      controller: _scroll,
+      physics: physics,
+      padding: const EdgeInsets.all(_coverPad),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: _cols,
+        mainAxisExtent: extent,
+        mainAxisSpacing: _coverGap,
+        crossAxisSpacing: _coverGap,
+      ),
+      itemCount: _items.length,
+      itemBuilder: (context, i) => _cover(_items[i], wide: wide, shuffle: shuffle, coverWidth: coverWidth),
+    );
+  }
+
+  /// One cover of the grid: [item]'s, or with [shuffle] a random page from
+  /// it, decoded [coverWidth] pixels wide.
+  Widget _cover(LibraryItem item, {required bool wide, required bool shuffle, required int coverWidth}) {
+    // The fingers of a pinch open nothing as they rest or lift.
+    bool pinched() => _zoomArea.currentState?.pinched ?? false;
+    // A folder or series shuffles too: a random page of a random comic in it.
+    final from = !shuffle
+        ? null
+        : switch (item) {
+            BookItem(:final book) => book,
+            FolderItem(:final folder) => shuffleBook(item.id, folder.books, _seed),
+            SeriesItem(:final series) => shuffleBook(item.id, series.books, _seed),
+            _ => null,
+          };
+    return CoverCard(
+      item: item,
+      marked: item is BookItem && _marked.contains(item.book.key),
+      shufflePage: from == null ? null : shufflePage(from.key, from.pageCount, _seed),
+      shuffleBook: item is BookItem ? null : from,
+      selected: item.id == _selected,
+      coverWidth: coverWidth,
+      onTap: () {
+        if (!pinched()) _tap(item, wide: wide);
+      },
+      onLongPress: () {
+        if (pinched()) return;
+        setState(() {
+          _selected = item.id;
+          _detail = item is BookItem || item is FolderItem;
+        });
       },
     );
   }

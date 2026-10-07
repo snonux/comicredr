@@ -21,6 +21,7 @@ own gestures are the same on all of them.
 | Tap with two fingers | [Enlarge a part of the page](04-reading.md#by-touch): pick a half, third, strip or quarter, then tap the edges to go part by part |
 | Drag along the progress bar | Preview pages, and let go to jump |
 | Pinch the page grid | Bigger or smaller pages; drag to scroll, tap one to go there |
+| Pinch the covers in the library | [Bigger or smaller covers](03-library.md#bigger-and-smaller-covers) |
 
 The buttons on the status line do the rest: guided view, balloons (in
 guided view), the page grid, a bookmark here, the list of bookmarks and
@@ -34,7 +35,9 @@ In the library, on a wide screen, tap a cover to pick it and tap it
 again to open it. On a narrower one (a phone, a tablet held upright, a
 small window) the first tap shows its details on a page of their own,
 with a **Read** button. A
-long press shows a cover's details, and a finger scrolls the covers.
+long press shows a cover's details, a finger scrolls the covers, and two
+fingers spread apart or pinched together make them
+[bigger or smaller](03-library.md#bigger-and-smaller-covers).
 
 ## The tap zones
 

@@ -51,7 +51,11 @@ class CoverCard extends StatelessWidget {
     this.shufflePage,
     this.shuffleBook,
     this.marked = false,
+    this.coverWidth = 400,
   });
+
+  /// How many pixels wide the cover is decoded: more for a zoomed-in grid.
+  final int coverWidth;
 
   /// Marked with the others for an action on several (`V`, Ctrl+click).
   final bool marked;
@@ -112,12 +116,15 @@ class CoverCard extends StatelessWidget {
                       ShuffledPage(
                         book: from,
                         page: page,
-                        cover: CoverImage(bookKey: book?.key),
+                        cover: CoverImage(bookKey: book?.key, width: coverWidth),
                       )
                     else if (onlyBook?.remoteOnly ?? false)
-                      Opacity(opacity: 0.45, child: CoverImage(bookKey: book?.key))
+                      Opacity(
+                        opacity: 0.45,
+                        child: CoverImage(bookKey: book?.key, width: coverWidth),
+                      )
                     else
-                      CoverImage(bookKey: book?.key),
+                      CoverImage(bookKey: book?.key, width: coverWidth),
                     if (item is FolderItem)
                       Positioned(
                         left: 6,

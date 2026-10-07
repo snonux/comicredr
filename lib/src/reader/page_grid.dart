@@ -2,13 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
 import '../data/settings_store.dart';
+import '../grid_zoom.dart';
 import 'reader_notifier.dart';
 import 'thumbnails.dart';
 
@@ -54,17 +53,12 @@ class PageGridState extends ConsumerState<PageGrid> {
   /// the default, about three columns on a phone and more on the laptop.
   late double? _target = ref.read(_lastZoom).target;
 
-  /// Ctrl is held: the wheel zooms, so the grid must not scroll with it.
-  bool _ctrl = false;
+  /// The grid's zoom steps and limits: from tiles too small to say
+  /// anything up to one page a row.
+  static const _zoom = GridZoom(gap: _gap, smallest: 56);
 
-  /// The most columns: tiles narrower than this say nothing.
-  int _maxColumns = 2;
-  static const _smallest = 56.0;
-
-  /// Two fingers on the grid: their first spread, and the columns then.
-  final _fingers = <int, Offset>{};
-  double? _pinchFrom;
-  int _pinchColumns = 1;
+  /// Ctrl and the wheel and the pinch; it knows when a touch was a pinch.
+  final _area = GlobalKey<GridZoomAreaState>();
 
   static const _pad = 12.0;
   static const _gap = 8.0;
@@ -72,7 +66,6 @@ class PageGridState extends ConsumerState<PageGrid> {
   @override
   void initState() {
     super.initState();
-    HardwareKeyboard.instance.addHandler(_onKey);
     unawaited(
       ref
           .read(settingsStoreProvider)
@@ -97,10 +90,9 @@ class PageGridState extends ConsumerState<PageGrid> {
   /// Zooms to [columns] a row. What is kept is the tile width that gives,
   /// so a wider window later fits more of them.
   void _setColumns(int columns, {bool reset = false}) {
-    final next = columns.clamp(1, _maxColumns);
+    final next = _zoom.clamp(_inner, columns);
     if (next == _columns && !reset) return;
-    final inner = _inner;
-    final target = reset ? null : (inner - (next - 1) * _gap) / next;
+    final target = reset ? null : _zoom.tileWidth(_inner, next);
     setState(() => _target = ref.read(_lastZoom).target = target);
     unawaited(
       ref
@@ -116,60 +108,8 @@ class PageGridState extends ConsumerState<PageGrid> {
 
   double _inner = 0;
 
-  /// Ctrl and the wheel zooms; the wheel alone scrolls as usual.
-  void _onSignal(PointerSignalEvent e) {
-    if (e is PointerScrollEvent && HardwareKeyboard.instance.isControlPressed) {
-      GestureBinding.instance.pointerSignalResolver.register(e, (_) => zoom(e.scrollDelta.dy < 0 ? 1 : -1));
-    } else if (e is PointerScaleEvent) {
-      GestureBinding.instance.pointerSignalResolver.register(e, (_) => zoom(e.scale > 1 ? 1 : -1));
-    }
-  }
-
-  /// A pinch takes a column off each time the fingers spread by a quarter,
-  /// and adds one each time they close by as much; a touchpad pinch
-  /// (pan-zoom events) the same way.
-  void _pinch(double scale) {
-    final steps = (math.log(scale) / math.log(1.25)).truncate();
-    _setColumns(_pinchColumns - steps);
-  }
-
-  void _fingerDown(PointerDownEvent e) {
-    if (e.kind != PointerDeviceKind.touch) return;
-    _fingers[e.pointer] = e.position;
-    if (_fingers.length == 2) {
-      setState(() {
-        _pinchFrom = _spread;
-        _pinchColumns = _columns;
-      });
-    }
-  }
-
-  void _fingerMove(PointerMoveEvent e) {
-    if (!_fingers.containsKey(e.pointer)) return;
-    _fingers[e.pointer] = e.position;
-    final from = _pinchFrom;
-    if (from != null && from > 0 && _fingers.length == 2) _pinch(_spread / from);
-  }
-
-  void _fingerUp(PointerEvent e) {
-    _fingers.remove(e.pointer);
-    if (_fingers.length < 2 && _pinchFrom != null) setState(() => _pinchFrom = null);
-  }
-
-  double get _spread {
-    final [a, b] = _fingers.values.take(2).toList();
-    return (a - b).distance;
-  }
-
-  bool _onKey(KeyEvent e) {
-    final ctrl = HardwareKeyboard.instance.isControlPressed;
-    if (ctrl != _ctrl && mounted) setState(() => _ctrl = ctrl);
-    return false;
-  }
-
   @override
   void dispose() {
-    HardwareKeyboard.instance.removeHandler(_onKey);
     _scroll.dispose();
     super.dispose();
   }
@@ -289,13 +229,13 @@ class PageGridState extends ConsumerState<PageGrid> {
                   key: const Key('pageGridZoomOut'),
                   icon: const Icon(Icons.zoom_out),
                   tooltip: 'Smaller pages (-)',
-                  onPressed: _columns < _maxColumns ? () => zoom(-1) : null,
+                  onPressed: _columns < _zoom.most(_inner) ? () => zoom(-1) : null,
                 ),
                 IconButton(
                   key: const Key('pageGridZoomIn'),
                   icon: const Icon(Icons.zoom_in),
                   tooltip: 'Bigger pages (+)',
-                  onPressed: _columns > 1 ? () => zoom(1) : null,
+                  onPressed: _columns > _zoom.fewest(_inner) ? () => zoom(1) : null,
                 ),
                 if (widget.onDetails != null)
                   IconButton(
@@ -318,11 +258,8 @@ class PageGridState extends ConsumerState<PageGrid> {
               builder: (context, constraints) {
                 final target = _target ?? _defaultTarget(context);
                 final inner = _inner = constraints.maxWidth - 2 * _pad;
-                _maxColumns = math.max(2, ((inner + _gap) / (_smallest + _gap)).floor());
-                // A hair over, so a width saved from this very column count
-                // gives it back despite rounding.
-                _columns = ((inner + _gap) / (target + _gap) + 0.01).floor().clamp(1, _maxColumns);
-                _tileWidth = (inner - (_columns - 1) * _gap) / _columns;
+                _columns = _zoom.columns(inner, target);
+                _tileWidth = _zoom.tileWidth(inner, _columns);
                 _rowExtent = _tileWidth * 1.5 + _labelHeight + _gap;
                 if (!_placed) {
                   _placed = true;
@@ -331,21 +268,15 @@ class PageGridState extends ConsumerState<PageGrid> {
                   });
                 }
                 final size = Thumbnails.sizeFor(_tileWidth * MediaQuery.devicePixelRatioOf(context));
-                return Listener(
-                  onPointerSignal: _onSignal,
-                  onPointerDown: _fingerDown,
-                  onPointerMove: _fingerMove,
-                  onPointerUp: _fingerUp,
-                  onPointerCancel: _fingerUp,
-                  onPointerPanZoomStart: (_) => _pinchColumns = _columns,
-                  onPointerPanZoomUpdate: (e) => _pinch(e.scale),
-                  child: Directionality(
+                return GridZoomArea(
+                  key: _area,
+                  columns: _columns,
+                  onColumns: _setColumns,
+                  builder: (context, physics) => Directionality(
                     textDirection: s.rightToLeft ? TextDirection.rtl : TextDirection.ltr,
                     child: GridView.builder(
                       controller: _scroll,
-                      // Two fingers pinch; they do not scroll meanwhile.
-                      // Nor does the wheel while Ctrl makes it zoom.
-                      physics: _pinchFrom != null || _ctrl ? const NeverScrollableScrollPhysics() : null,
+                      physics: physics,
                       padding: const EdgeInsets.all(_pad),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: _columns,
@@ -365,7 +296,10 @@ class PageGridState extends ConsumerState<PageGrid> {
                         selected: i == _selected,
                         bookmarked: bookmarked.contains(i),
                         marks: marks[i] ?? const [],
-                        onTap: () => widget.onPick(i),
+                        // The fingers of a pinch pick no page as they lift.
+                        onTap: () {
+                          if (!(_area.currentState?.pinched ?? false)) widget.onPick(i);
+                        },
                       ),
                     ),
                   ),

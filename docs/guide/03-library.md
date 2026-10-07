@@ -48,6 +48,27 @@ Small marks on the covers tell you where you are:
 - a **tick**: it is [marked](#several-comics-at-once);
 - a **cloud**: it is [on S3](13-s3-sync.md#the-cloud-on-a-cover).
 
+## Bigger and smaller covers
+
+`+` makes the covers bigger and `-` makes them smaller, a column fewer
+or more with each press; `=` puts them back to the usual size. `Ctrl`
+and the mouse wheel do the same, and so does a pinch on a touchpad or a
+touchscreen: spread two fingers for bigger covers, pinch them together
+for smaller ones. On the phone that is the way to do it.
+
+Say a folder holds two hundred comics and you want to see more of them
+at once: press `-` a few times until the covers are small. To look at
+the covers properly, press `+` until they are big. The smallest covers
+are just wide enough for the start of a title, the biggest about twice
+the usual width (one cover a row on a phone).
+
+The cover you selected stays in view while the size changes. The size
+is the same on every tab of covers (Reading, Series, Books, Collections
+and Folders) and is remembered across restarts. The History and
+Bookmarks tabs are lists and have no size to change. While the cursor
+is in the search box, `+` and `-` are typed into it like any other
+character.
+
 ## The tabs
 
 | Tab | What it shows |

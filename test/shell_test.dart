@@ -396,7 +396,7 @@ void main() {
     await tester.pump();
     expect(find.text('Fit width'), findsOneWidget);
     expect(find.text('Fit height'), findsOneWidget);
-    expect(find.text('Zoom in'), findsNothing);
+    expect(find.textContaining('Zoom in;'), findsNothing);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump();

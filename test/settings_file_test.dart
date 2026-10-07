@@ -58,6 +58,7 @@ void main() {
     SettingsStore.writeSidecars: false,
     SettingsStore.sidecarDir: (await dir('Stash')).path,
     SettingsStore.gridZoom: '212.5',
+    SettingsStore.coverSize: '240.0',
     SettingsStore.shuffle: true,
     SettingsStore.folderFilter: '{"formats":["pdf"],"size":"any","date":"week"}',
     SettingsStore.touchPreset: 'oneThumb',
@@ -168,7 +169,7 @@ void main() {
     expect(done.books, {'a', 'b'});
     expect(
       importNotice(done),
-      'Imported 20 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
+      'Imported 21 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
       'and 2 history entries.',
     );
 
@@ -252,6 +253,7 @@ void main() {
         'reader.hologram': true, // A setting from later.
         SettingsStore.cleanUp: 'yes', // The wrong kind.
         SettingsStore.gridZoom: 'big', // Not a size.
+        SettingsStore.coverSize: 'huge', // Nor is this.
       },
       'libraryFolders': [(await dir('Comics')).path, 42, ''],
       'positions': [
@@ -269,7 +271,7 @@ void main() {
       'keysToml': 12,
     });
     final file = SettingsFile.decode(text);
-    expect(file.skipped, 3 + 2 + 2 + 1 + 1 + 1, reason: 'settings, folders, positions, bookmarks, history, keys');
+    expect(file.skipped, 4 + 2 + 2 + 1 + 1 + 1, reason: 'settings, folders, positions, bookmarks, history, keys');
     final done = await import(text);
     expect(await settingsOf(to), {SettingsStore.night: true, SettingsStore.shuffle: true});
     expect(done.foldersAdded, 1);
@@ -279,7 +281,7 @@ void main() {
     expect((await to.select(to.collectionBooks).getSingle()).name, 'Favourites');
     expect(await to.select(to.bookmarks).get(), isEmpty);
     expect(await to.select(to.readLog).get(), isEmpty);
-    expect(importNotice(done), endsWith('10 entries this version does not know skipped.'));
+    expect(importNotice(done), endsWith('11 entries this version does not know skipped.'));
   });
 
   test('an import merges with what is here, and twice is the same as once', () async {
@@ -334,7 +336,7 @@ void main() {
     expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], ['Comics']);
     expect(done.foldersMissing, [p.join(tmp.path, 'Manga')]);
     expect(done.sidecarDirMissing, here);
-    expect(done.settings, 19);
+    expect(done.settings, 20);
     expect(importNotice(done), contains('1 library folder not on this device: ${p.join(tmp.path, 'Manga')}.'));
     expect(importNotice(done), contains("The sidecar folder $here is not on this device; kept this one's."));
   });

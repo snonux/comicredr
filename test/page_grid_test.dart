@@ -196,6 +196,22 @@ void main() {
     expect(width(), lessThan(spread), reason: 'pinch: smaller');
     expect(find.byKey(const Key('pageGrid')), findsOneWidget, reason: 'a pinch does not pick a page');
     expect(c.read(readerProvider).page, 19);
+
+    // Nor does a finger that rests on a page while the other one spreads.
+    final small = width();
+    final on = tester.getCenter(find.byKey(const Key('pageTile-19')));
+    final rest = await tester.startGesture(on, kind: PointerDeviceKind.touch);
+    final move = await tester.startGesture(on + const Offset(60, 0), kind: PointerDeviceKind.touch);
+    await move.moveBy(const Offset(60, 0));
+    await rest.up();
+    await move.up();
+    await settle(tester);
+    expect(width(), greaterThan(small), reason: 'the pinch zoomed');
+    expect(find.byKey(const Key('pageGrid')), findsOneWidget, reason: 'the resting finger picked no page');
+    // The next tap is a tap again.
+    await tester.tap(find.byKey(const Key('pageTile-19')), kind: PointerDeviceKind.touch);
+    await settle(tester);
+    expect(find.byKey(const Key('pageGrid')), findsNothing);
   });
 
   testWidgets('gg and Home in the grid select the first page, and Enter jumps there', (tester) async {

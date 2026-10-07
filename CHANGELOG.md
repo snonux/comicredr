@@ -7,6 +7,17 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Bigger and smaller covers in the library:** `+` and `-` now size the
+  covers on the Folders tab and every other tab of covers (Reading,
+  Series, Books, Collections), a column fewer or more a press, and `=`
+  puts the usual size back. `Ctrl` and the mouse wheel and a pinch on a
+  touchpad do the same, and on a phone or any touchscreen two fingers
+  spread apart or pinched together on the covers. The selected cover
+  stays in view, the size is one for all those tabs, it is remembered
+  across restarts and goes into a settings export. Typing `+` or `-` in
+  the search box still types. In the page grid (`p`), a finger
+  resting on a page during a pinch no longer opens that page when it
+  lifts.
 - **Collections and favourites from inside a comic:** `gc` now works
   with a comic open, asking which collection to put it in (new or one you
   have) without going back to the library, also for a comic opened from

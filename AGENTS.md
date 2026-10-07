@@ -375,6 +375,34 @@ refreshes right away instead of within six hours.
   by Flutter's decoder, JPEG-encoded on a short isolate and kept in
   `<cache>/covers/pages/<content key>/<page>.jpg`. Newest request first,
   two at a time; tiles evict their images when they scroll away.
+- Cover size (`+` `-` `=`, Ctrl+wheel, a pinch; snonux, task 063): the
+  reader's `zoomIn`/`zoomOut`/`zoomReset` intents, which
+  `LibraryScreenState.handle` takes on a tab of covers (`_coverTab`; the
+  History and Bookmarks lists ignore them). `GridZoom`
+  (`lib/src/grid_zoom.dart`) is the arithmetic the page grid (`p`) and
+  the cover grids share: a step is one column, what is kept is the tile
+  width that gives (`tileWidth`), and `columns` brings a kept width back
+  to a column count within `fewest`..`most`. The page grid is
+  `GridZoom(gap: 8, smallest: 56)` (down to one page a row), the covers
+  `GridZoom(gap: 12, smallest: 72, largest: 480)`; unzoomed, the covers
+  aim for 160 px and never fewer than two a row, as before.
+  `GridZoomArea` (same file) wraps either grid in a `Listener`: Ctrl and
+  the wheel, a touchpad pinch (pan-zoom events) and two touch pointers
+  (a step per quarter the fingers spread or close, `pinchSteps`) call
+  `onColumns`, and the grid is built with the physics it hands over
+  (`NeverScrollableScrollPhysics` while two fingers are down or Ctrl is
+  held). Its `pinched` stays true from the second finger down until the
+  next touch starts; while it is, the cover grid drops taps and long
+  presses and the page grid taps, so a finger resting during a pinch
+  opens nothing. The covers' width
+  is `_coverTarget`, one for every tab, saved as `library.coverSize` (a
+  number as a string, unset for the default; in `SettingsStore.backedUp`
+  and `SettingsStore.sizes`, which a settings file must give as numbers)
+  and reloaded by `reloadSettings` after an import. After a zoom
+  `_showAgain` reveals the selected cover if it was on screen, else puts
+  the row that was along the top back there. Covers decode at the tile's
+  width, 400 to 512 px (`CoverCard.coverWidth`). There is no button for
+  it: the phone's header has no room, so there it is the pinch.
 - Shuffle (`S` on the Folders tab, `gs` picks again; setting
   `library.shuffle`): each book tile shows page `shufflePage(key, pages,
   seed)` instead of its cover, never page 1, from a seed made anew when
@@ -580,7 +608,7 @@ refreshes right away instead of within six hours.
   all in one transaction; it never removes a library folder. Then it
   writes `keys.toml`, keeping a differing one as `keys.toml.bak` (a failure
   there is reported, the rest stands), and
-  `_takeUpImport` reloads the reader, touch preset, shuffle, grid size and
+  `_takeUpImport` reloads the reader, touch preset, shuffle, cover size, grid size and
   keymap (`reloadedKeymapProvider`) and rescans. Linux uses
   file_selector's save and open dialogs; Android `MainActivity`'s
   `pickFolder` (a new `comicredr-settings-DATE.json` in it, never
@@ -755,6 +783,7 @@ tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slo
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
+tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, + typed in the search box, the size kept across a restart; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
 python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot
