@@ -123,6 +123,11 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     }
     if (widget.typeAhead?.call(event) ?? false) return KeyEventResult.handled;
     final keys = HardwareKeyboard.instance;
+    // Alt and a letter is a dialog's key (DialogHotkeys), never a command:
+    // no binding has Alt, and Alt+C pressed once too often after a dialog
+    // closed would otherwise be c on the comic behind it. F-keys keep
+    // working (Alt+F4 is the window manager's anyway). AltGr is not Alt.
+    if (keys.isAltPressed && !_functionKeys.contains(event.logicalKey)) return KeyEventResult.ignored;
     final token = keyToken(event, ctrl: keys.isControlPressed, shift: keys.isShiftPressed);
     if (token == null) return KeyEventResult.ignored;
     final now = DateTime.now();

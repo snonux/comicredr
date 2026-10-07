@@ -1138,6 +1138,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.deleteBook:
       case ReaderIntent.uploadToS3:
       case ReaderIntent.removeFromS3:
+      // The library's own, with nothing to do on an open comic.
+      case ReaderIntent.downloadFromS3:
+      case ReaderIntent.removeRoot:
+      case ReaderIntent.showScanFailures:
+      case ReaderIntent.showSettings:
+      case ReaderIntent.undo:
       case ReaderIntent.moveBooks:
       case ReaderIntent.addToCollection:
       case ReaderIntent.markBook:

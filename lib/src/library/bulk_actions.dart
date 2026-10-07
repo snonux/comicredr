@@ -2,10 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:reader_input/reader_input.dart';
 
 import '../data/sidecar_sync.dart';
+import '../hotkeys.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/reset_dialog.dart';
+import '../undo_notice.dart';
 import 'book_detail.dart';
 import 'collection_dialog.dart';
 import 'delete_book.dart';
@@ -148,6 +151,8 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
   final todo = books.where((b) => !b.remoteOnly).toList();
   if (todo.isEmpty) return false;
   final messenger = ScaffoldMessenger.of(context);
+  final undoNotice = ref.read(undoNoticeProvider);
+  final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
   final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
   final on = !todo.every((b) => b.favourite);
   final changed = todo.where((b) => b.favourite != on).toList();
@@ -163,28 +168,27 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
     return false;
   }
   await _writeSidecars(sidecars, changed);
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        content: Text(
-          on
-              ? '${comicsCount(changed.length)} added to Favourites'
-              : '${comicsCount(changed.length)} taken out of Favourites',
-        ),
-        action: on
-            ? null
-            : SnackBarAction(
-                label: 'Undo',
-                onPressed: () async {
-                  for (final b in changed) {
-                    await store.setFavourite(b.key, true);
-                  }
-                  await _writeSidecars(sidecars, changed);
-                },
-              ),
-      ),
-    );
+  final text = on
+      ? '${comicsCount(changed.length)} added to Favourites'
+      : '${comicsCount(changed.length)} taken out of Favourites';
+  if (on) {
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+    return true;
+  }
+  // With the undo key (u) as well as the button.
+  undoNotice.show(
+    messenger,
+    text,
+    label: undoLabel,
+    undo: () async {
+      for (final b in changed) {
+        await store.setFavourite(b.key, true);
+      }
+      await _writeSidecars(sidecars, changed);
+    },
+  );
   return true;
 }
 

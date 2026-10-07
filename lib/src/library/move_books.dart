@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../data/sidecar_sync.dart';
+import '../hotkeys.dart';
 import '../reader/reader_notifier.dart';
 import 'bulk_actions.dart' show comicsCount;
 import 'delete_book.dart';
@@ -251,52 +252,55 @@ Future<MoveClash> askMoveClash(BuildContext context, List<String> names, String 
         final theme = Theme.of(context);
         const shown = 6;
         final one = names.length == 1;
-        return AlertDialog(
-          key: const Key('moveClashDialog'),
-          title: Text(one ? '${names.single} is in ${p.basename(dir)} already' : '${names.length} names are taken'),
-          content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!one) ...[
-                  Text('In ${p.basename(dir)} there are already:', style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 4),
-                  for (final n in names.take(shown)) Text(n, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  if (names.length > shown) Text('and ${names.length - shown} more', style: theme.textTheme.bodySmall),
-                  const SizedBox(height: 16),
+        return DialogHotkeys(
+          child: AlertDialog(
+            key: const Key('moveClashDialog'),
+            title: Text(one ? '${names.single} is in ${p.basename(dir)} already' : '${names.length} names are taken'),
+            content: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!one) ...[
+                    Text('In ${p.basename(dir)} there are already:', style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    for (final n in names.take(shown)) Text(n, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (names.length > shown)
+                      Text('and ${names.length - shown} more', style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 16),
+                  ],
+                  Text(
+                    'Replace deletes ${one ? 'the one' : 'those'} in ${p.basename(dir)} for good, with '
+                    '${one ? 'its' : 'their'} sidecars, and moves yours in. Skip leaves '
+                    '${one ? 'yours where it is' : 'yours of those names where they are and moves the rest'}.',
+                  ),
                 ],
-                Text(
-                  'Replace deletes ${one ? 'the one' : 'those'} in ${p.basename(dir)} for good, with '
-                  '${one ? 'its' : 'their'} sidecars, and moves yours in. Skip leaves '
-                  '${one ? 'yours where it is' : 'yours of those names where they are and moves the rest'}.',
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              key: const Key('moveClashCancel'),
-              autofocus: true,
-              onPressed: () => Navigator.pop(context, MoveClash.cancel),
-              child: const Text('Cancel'),
-            ),
-            OutlinedButton(
-              key: const Key('moveClashSkip'),
-              onPressed: () => Navigator.pop(context, MoveClash.skip),
-              child: Text(one ? 'Skip it' : 'Skip those'),
-            ),
-            FilledButton(
-              key: const Key('moveClashReplace'),
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
               ),
-              onPressed: () => Navigator.pop(context, MoveClash.replace),
-              child: const Text('Replace'),
             ),
-          ],
+            actions: [
+              TextButton(
+                key: const Key('moveClashCancel'),
+                autofocus: true,
+                onPressed: () => Navigator.pop(context, MoveClash.cancel),
+                child: const Mnemonic('Cancel'),
+              ),
+              OutlinedButton(
+                key: const Key('moveClashSkip'),
+                onPressed: () => Navigator.pop(context, MoveClash.skip),
+                child: Mnemonic(one ? 'Skip it' : 'Skip those'),
+              ),
+              FilledButton(
+                key: const Key('moveClashReplace'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                ),
+                onPressed: () => Navigator.pop(context, MoveClash.replace),
+                child: const Mnemonic('Replace'),
+              ),
+            ],
+          ),
         );
       },
     ) ??
@@ -403,64 +407,66 @@ class _MoveDialogState extends State<MoveDialog> {
         const SingleActivator(LogicalKeyboardKey.pageUp): () => _step(-8),
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): _newFolder,
       },
-      child: AlertDialog(
-        key: const Key('moveDialog'),
-        title: Text('Move ${widget.what} to'),
-        content: SizedBox(
-          width: 480,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                key: const Key('moveFilter'),
-                controller: _field,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Type to find a folder, ↑ ↓ to pick, Enter to move',
+      child: DialogHotkeys(
+        child: AlertDialog(
+          key: const Key('moveDialog'),
+          title: Text('Move ${widget.what} to'),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  key: const Key('moveFilter'),
+                  controller: _field,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Type to find a folder, ↑ ↓ to pick, Enter to move',
+                  ),
+                  onChanged: _filter,
+                  onSubmitted: (_) => _move(),
                 ),
-                onChanged: _filter,
-                onSubmitted: (_) => _move(),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: _rowHeight * 8,
-                child: _shown.isEmpty
-                    ? Center(child: Text('No folder matches', style: theme.textTheme.bodyMedium))
-                    : ListView.builder(
-                        key: const Key('moveTargets'),
-                        controller: _scroll,
-                        itemExtent: _rowHeight,
-                        itemCount: _shown.length,
-                        itemBuilder: (context, i) => ListTile(
-                          key: Key('moveTarget-${_shown[i].label}'),
-                          dense: true,
-                          selected: i == _at,
-                          selectedTileColor: theme.colorScheme.secondaryContainer,
-                          leading: const Icon(Icons.folder_outlined),
-                          title: Text(_shown[i].label, maxLines: 1, overflow: TextOverflow.ellipsis),
-                          onTap: () => setState(() => _at = i),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: _rowHeight * 8,
+                  child: _shown.isEmpty
+                      ? Center(child: Text('No folder matches', style: theme.textTheme.bodyMedium))
+                      : ListView.builder(
+                          key: const Key('moveTargets'),
+                          controller: _scroll,
+                          itemExtent: _rowHeight,
+                          itemCount: _shown.length,
+                          itemBuilder: (context, i) => ListTile(
+                            key: Key('moveTarget-${_shown[i].label}'),
+                            dense: true,
+                            selected: i == _at,
+                            selectedTileColor: theme.colorScheme.secondaryContainer,
+                            leading: const Icon(Icons.folder_outlined),
+                            title: Text(_shown[i].label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            onTap: () => setState(() => _at = i),
+                          ),
                         ),
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton.icon(
+              key: const Key('moveNewFolder'),
+              onPressed: picked == null ? null : _newFolder,
+              icon: const Icon(Icons.create_new_folder_outlined),
+              label: const Mnemonic('New folder (Ctrl+N)'),
+            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+            FilledButton(
+              key: const Key('moveHere'),
+              onPressed: picked == null ? null : _move,
+              child: Mnemonic(picked == null ? 'Move' : 'Move to ${p.basename(picked.path)}'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton.icon(
-            key: const Key('moveNewFolder'),
-            onPressed: picked == null ? null : _newFolder,
-            icon: const Icon(Icons.create_new_folder_outlined),
-            label: const Text('New folder (Ctrl+N)'),
-          ),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            key: const Key('moveHere'),
-            onPressed: picked == null ? null : _move,
-            child: Text(picked == null ? 'Move' : 'Move to ${p.basename(picked.path)}'),
-          ),
-        ],
       ),
     );
   }
@@ -503,22 +509,28 @@ class _NewFolderDialogState extends State<_NewFolderDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    key: const Key('newFolderDialog'),
-    title: Text('New folder in ${widget.parent.label}'),
-    content: SizedBox(
-      width: 400,
-      child: TextField(
-        key: const Key('newFolderName'),
-        controller: _field,
-        autofocus: true,
-        decoration: InputDecoration(labelText: 'Name', errorText: _error),
-        onSubmitted: (_) => _done(),
+  Widget build(BuildContext context) => DialogHotkeys(
+    child: AlertDialog(
+      key: const Key('newFolderDialog'),
+      title: Text('New folder in ${widget.parent.label}'),
+      content: SizedBox(
+        width: 400,
+        child: TextField(
+          key: const Key('newFolderName'),
+          controller: _field,
+          autofocus: true,
+          decoration: InputDecoration(labelText: 'Name', errorText: _error),
+          onSubmitted: (_) => _done(),
+        ),
       ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+        FilledButton(
+          key: const Key('newFolderMake'),
+          onPressed: _done,
+          child: const Mnemonic('Make it and move there'),
+        ),
+      ],
     ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-      FilledButton(key: const Key('newFolderMake'), onPressed: _done, child: const Text('Make it and move there')),
-    ],
   );
 }

@@ -152,8 +152,8 @@ the search box, to show only some of your comics:
   last 24 hours, 7 days, 30 days or 12 months, or over a year ago.
 
 The covers behind the window update as you pick. From the keyboard,
-`Tab` moves between the choices and `Space` picks one; `Esc` or **Done**
-closes the window. The three combine,
+`Tab` moves between the choices and `Space` picks one; `Alt+C` is
+**Clear all**, and `Esc`, `Alt+D` or **Done** closes the window. The three combine,
 and they combine with the search too: PDFs from the last week with
 "love" in the title is `F`, PDF, Last 7 days, then `/` and `love`.
 
@@ -218,7 +218,7 @@ the line at the bottom says which way it went.
 `gf`, or the star at the top of the library, shows your Favourites (from
 inside a comic, `gf` closes it first). There
 `x` takes the selected comic out again, with an **Undo** in case it was a
-slip.
+slip: click it, or press `u` while the notice shows.
 
 ![The Favourites](images/favourites.webp)
 
@@ -269,7 +269,8 @@ them.
   name is not given to the wrong comic: nothing is added, and a line says
   so.
 - The **x** on a collection's chip in the book's details takes the book
-  out.
+  out. So does `x` on the comic inside the open collection on the
+  Collections tab, with an **Undo** (`u`) as in the Favourites.
 - The Collections tab shows each collection as a cover; open one to see
   its books.
 
@@ -366,9 +367,9 @@ the Folders tab, mark them with `Shift` and the arrows, press `gm`, type
   library folders. You rarely need it: ComicRedr notices new, changed and
   deleted comics by itself.
 - To take a folder out of the library, select it at the top of the
-  Folders tab (on a phone, hold your finger on it) and click **Take out
-  of the library (the files stay)** in its details. Your comics are not
-  touched.
+  Folders tab (on a phone, hold your finger on it) and press `gA`, or
+  click **Take out of the library (the files stay)** in its details.
+  Your comics are not touched.
 - Comics kept elsewhere, on a NAS or another disk, can be linked in: a
   link (a symlink, made in your file manager or with `ln -s`) to a comic
   or to a folder of comics inside a library folder is listed like the
@@ -377,8 +378,8 @@ the Folders tab, mark them with `Shift` and the arrows, press `gm`, type
 The first scan reads each comic once, about a third of a second a book.
 After that, starting the app only checks what changed. The line at the
 bottom shows the scan's progress. When a file can't be read (a broken
-download, a text-only ebook), it says how many; click that to see each
-file and why. Panels are only looked for in the
+download, a text-only ebook), it says how many; click that, or press
+`g!`, to see each file and why. Panels are only looked for in the
 comic you have open, never across the whole library (see
 [how panels are found](05-guided-view.md#how-panels-are-found)).
 

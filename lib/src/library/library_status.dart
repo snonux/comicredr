@@ -4,6 +4,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:reader_input/reader_input.dart';
+
+import '../hotkeys.dart';
 import '../reader/reader_notifier.dart';
 import '../version.dart';
 import 'library_store.dart';
@@ -36,11 +39,15 @@ class EmptyLibrary extends StatelessWidget {
           children: [
             Text('ComicRedr', style: theme.textTheme.displaySmall),
             const SizedBox(height: 24),
-            FilledButton.icon(
-              key: const Key('addRootEmpty'),
-              onPressed: onAddRoot,
-              icon: const Icon(Icons.create_new_folder),
-              label: const Text('Add your comics folder'),
+            // The labels stay as short as a phone needs; the tooltips name the keys.
+            Tooltip(
+              message: KeyHints.tip(context, 'Add a folder to the library', ReaderIntent.addRoot),
+              child: FilledButton.icon(
+                key: const Key('addRootEmpty'),
+                onPressed: onAddRoot,
+                icon: const Icon(Icons.create_new_folder),
+                label: const Text('Add your comics folder'),
+              ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -48,21 +55,30 @@ class EmptyLibrary extends StatelessWidget {
               runSpacing: 12,
               alignment: WrapAlignment.center,
               children: [
-                OutlinedButton.icon(
-                  onPressed: onOpenFile,
-                  icon: const Icon(Icons.menu_book),
-                  label: const Text('Open a comic'),
+                Tooltip(
+                  message: KeyHints.tip(context, 'Open a comic without adding it', ReaderIntent.openFile),
+                  child: OutlinedButton.icon(
+                    onPressed: onOpenFile,
+                    icon: const Icon(Icons.menu_book),
+                    label: const Text('Open a comic'),
+                  ),
                 ),
-                OutlinedButton.icon(
-                  onPressed: onOpenFolder,
-                  icon: const Icon(Icons.folder_open),
-                  label: const Text('Open a folder'),
+                Tooltip(
+                  message: KeyHints.tip(context, 'Open a folder of pages as a book', ReaderIntent.openFolder),
+                  child: OutlinedButton.icon(
+                    onPressed: onOpenFolder,
+                    icon: const Icon(Icons.folder_open),
+                    label: const Text('Open a folder'),
+                  ),
                 ),
-                OutlinedButton.icon(
-                  key: const Key('settingsEmpty'),
-                  onPressed: onSettings,
-                  icon: const Icon(Icons.settings_outlined),
-                  label: const Text('Settings'),
+                Tooltip(
+                  message: KeyHints.tip(context, 'Settings', ReaderIntent.showSettings),
+                  child: OutlinedButton.icon(
+                    key: const Key('settingsEmpty'),
+                    onPressed: onSettings,
+                    icon: const Icon(Icons.settings_outlined),
+                    label: const Text('Settings'),
+                  ),
                 ),
               ],
             ),
@@ -112,23 +128,29 @@ class LibraryStatus extends ConsumerWidget {
         children: [
           if (reader.loading || (scan.running && scan.total > 0))
             LinearProgressIndicator(minHeight: 2, value: reader.loading ? null : scan.done / math.max(1, scan.total)),
+          // A tap on the count of unread files lists them; so does its key.
           InkWell(
             onTap: scan.failed.isEmpty ? null : onFailures,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(text, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  Text(
-                    pending,
-                    key: const Key('pending'),
-                    style: const TextStyle(fontFamily: 'monospace'),
-                  ),
-                  const SizedBox(width: 12),
-                  Text('ComicRedr $appVersion', key: const Key('version'), style: theme.textTheme.bodySmall),
-                ],
+            child: Tooltip(
+              message: scan.failed.isEmpty
+                  ? ''
+                  : KeyHints.tip(context, 'Which comics could not be read, and why', ReaderIntent.showScanFailures),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(text, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    Text(
+                      pending,
+                      key: const Key('pending'),
+                      style: const TextStyle(fontFamily: 'monospace'),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('ComicRedr $appVersion', key: const Key('version'), style: theme.textTheme.bodySmall),
+                  ],
+                ),
               ),
             ),
           ),

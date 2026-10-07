@@ -85,6 +85,7 @@ come back here for a key you forgot.
    - [`?` shows every key](09-keyboard.md#-shows-every-key)
      - [Bigger and smaller text](09-keyboard.md#bigger-and-smaller-text)
    - [The keys you'll use most](09-keyboard.md#the-keys-youll-use-most)
+   - [A key for every button](09-keyboard.md#a-key-for-every-button)
    - [Sequences and counts](09-keyboard.md#sequences-and-counts)
    - [Your own keys](09-keyboard.md#your-own-keys)
 10. [On a phone or tablet](10-phone.md)

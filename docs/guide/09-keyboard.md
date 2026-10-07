@@ -85,10 +85,65 @@ keep what you found and get the keys back, and then they size the text.
 | `I` | [Details](07-managing-comics.md#details-of-a-comic) | Details of the selected book |
 | `f` | [Fullscreen](04-reading.md#fullscreen) | Fullscreen |
 | `/` | | [Search](03-library.md#search) |
+| `g,` | [Settings](12-settings.md), over the comic | Settings |
+| `u` | | Undo what the notice along the bottom offers to undo |
 | `?` | Every key (`+` `-` `=` in it: [bigger and smaller text](#bigger-and-smaller-text)) | Every key |
 
 The full list, with every key and a line on what it does, is
 [docs/keys.toml](../keys.toml).
+
+## A key for every button
+
+Everything you can click has a key, so the mouse can stay where it is.
+
+**On the library and in a comic** every button belongs to an action of
+the keymap. Rest the pointer on a button and its tooltip names the key:
+*Settings (g,)*, *Favourites (gf)*, *Rescan the library folders (R)*.
+The tooltip reads the keymap as it is now, so after you change a key in
+your [`keys.toml`](#your-own-keys) the button names your key. `?` lists
+them all. The buttons that had no key before have one now:
+
+| Key | Button |
+|---|---|
+| `g,` | The gear at the top of the library: [Settings](12-settings.md). It works in a comic too, and the comic keeps its page. |
+| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections). Only while the notice shows. |
+| `x` | In an open collection: takes the selected comic out of it (the **x** on its chip in the details). |
+| `gA` | **Take out of the library** in a library folder's details: select the folder at the top of the Folders tab first. Its comics stay on disk. |
+| `gD` | **Download** on a comic that is [only on S3](13-s3-sync.md#on-the-other-device), or on the marked ones. |
+| `g!` | The count of comics that could not be read, in the line at the bottom: which ones, and why. |
+
+A few buttons are shortcuts to something the keys reach in two steps,
+and have no key of their own: the names along the top of the Folders
+tab (`Backspace` goes up a folder at a time), **Read** in a series'
+details (`Enter` shows its books, `Enter` on one reads it), the **x** on
+a part of the [filter](03-library.md#filter-by-type-size-and-date)
+(`F`, then pick it off there), and **Note** and **Remove** on a bookmark
+in a book's details (`e` and `x` on the Bookmarks tab). The tabs are
+`Tab` and `Shift+Tab`, covers and pages the arrows and `Enter`.
+
+**In a dialog** (Settings, a question before deleting, the filter, a
+name to type) the keys are the ones of any Linux desktop:
+
+| Key | In a dialog |
+|---|---|
+| `Alt` + the underlined letter | Presses that button: `Alt+C` is **Cancel**, `Alt+D` **Delete for good**, `Alt+S` **Save**. `Alt`, so that a letter typed into a name stays a letter. |
+| `Enter` | The button with the ring around it. A dialog starts on its safe button: **Cancel** where something would be lost. In a field you type in, `Enter` is the dialog's main button. |
+| `Esc` | Closes the dialog and changes nothing. |
+| `Tab` `Shift+Tab` | To the next and the previous control, every one of them in turn, also in a dialog that scrolls. A ring shows where you are. |
+| Arrows | To the control in that direction; on a slider, a notch left or right. |
+| `Space` | Switches a switch, picks a choice, presses a button. |
+
+![The question before deleting: the letters to press with Alt are underlined, and Cancel has the ring](images/delete.webp)
+
+For example, to switch on **Clean up old scans** without the mouse:
+`g,` opens Settings, `Tab` goes to the first switch, `Space` switches
+it, and `Alt+C` (or `Esc`) closes Settings. Or to delete the comic you
+are on: `gd`, look at what it says, then `Alt+D`; a stray `Enter` only
+presses **Cancel**. While a dialog is open no key reaches the comic or
+the library behind it.
+
+On a phone or tablet the letters are underlined only while `Alt` is
+held on a keyboard you have plugged in; the keys work the same.
 
 ## Sequences and counts
 

@@ -141,7 +141,9 @@ class Keymap {
       Binding(['Enter'], ReaderIntent.activate, layer: s),
       Binding(['Backspace'], ReaderIntent.up, layer: s),
       Binding(['A'], ReaderIntent.addRoot),
+      Binding(['g', 'A'], ReaderIntent.removeRoot),
       Binding(['R'], ReaderIntent.rescan),
+      Binding(['g', '!'], ReaderIntent.showScanFailures),
       Binding(['S'], ReaderIntent.toggleShuffle),
       Binding(['g', 's'], ReaderIntent.reshuffle),
       Binding(['F'], ReaderIntent.filterFolders),
@@ -151,6 +153,7 @@ class Keymap {
       Binding(['S-Delete'], ReaderIntent.deleteBook, layer: s),
       Binding(['g', 'u'], ReaderIntent.uploadToS3),
       Binding(['g', 'U'], ReaderIntent.removeFromS3),
+      Binding(['g', 'D'], ReaderIntent.downloadFromS3),
       Binding(['g', 'm'], ReaderIntent.moveBooks),
       Binding(['g', 'c'], ReaderIntent.addToCollection),
       Binding(['V'], ReaderIntent.markBook),
@@ -161,10 +164,44 @@ class Keymap {
       Binding(['S-Home'], ReaderIntent.markToFirst, layer: s),
       Binding(['S-End'], ReaderIntent.markToLast, layer: s),
       Binding(['C-a'], ReaderIntent.markAll, layer: s),
+      // Every button on screen has a key (t263): these had none.
+      Binding(['u'], ReaderIntent.undo),
+      Binding(['g', ','], ReaderIntent.showSettings),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
       Binding(['g', 't'], ReaderIntent.showTouchZones),
       Binding(['T'], ReaderIntent.showTime),
     ]);
+  }
+
+  /// The first key bound to [intent], spelled for a person ([spoken]); null
+  /// when it has none (unbound in keys.toml). What a button's tooltip names.
+  String? hint(ReaderIntent intent) {
+    for (final b in bindings) {
+      if (b.intent == intent) return spoken(b);
+    }
+    return null;
+  }
+
+  /// [text] with [intent]'s key after it in brackets, `Favourites (gf)`:
+  /// a button's tooltip or label. [text] alone when the intent has no key.
+  String tip(String text, ReaderIntent intent) {
+    final key = hint(intent);
+    return key == null ? text : '$text ($key)';
+  }
+
+  /// A binding as a tooltip says it: [describe], but with Ctrl and Shift
+  /// written out (`Ctrl+A`, `Shift+Delete`), since `C-a` is keys.toml's
+  /// spelling and means nothing on a button.
+  static String spoken(Binding b) {
+    String one(String k) {
+      if (k == letterSlot) return '<a-z>';
+      if (k.startsWith('C-S-')) return 'Ctrl+Shift+${k.substring(4)}';
+      if (k.startsWith('C-')) return 'Ctrl+${k.length == 3 ? k.substring(2).toUpperCase() : k.substring(2)}';
+      if (k.startsWith('S-') && k.length > 2) return 'Shift+${k.substring(2)}';
+      return k;
+    }
+
+    return b.keys.map(one).join(b.keys.every((k) => k.length == 1 || k == letterSlot) ? '' : ' ');
   }
 
   /// Human-readable key spelling for the `?` overlay, e.g. `gg`, `m<a-z>`.

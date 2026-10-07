@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
+import '../hotkeys.dart';
 import 'reader_notifier.dart';
 import 'region.dart';
 import 'thumbnails.dart';
@@ -182,21 +183,31 @@ class _PartsPickerState extends ConsumerState<PartsPicker> {
                             spacing: 8,
                             children: [
                               if (s.parts != null) ...[
-                                TextButton(
-                                  key: const Key('partsWhole'),
-                                  onPressed: () => widget.onPick(ReaderIntent.regionWhole),
-                                  child: const Text('Whole page'),
+                                // Tooltips, so the labels a finger aims at stay as they are.
+                                Tooltip(
+                                  message: KeyHints.tip(context, 'Whole page', ReaderIntent.regionWhole),
+                                  child: TextButton(
+                                    key: const Key('partsWhole'),
+                                    onPressed: () => widget.onPick(ReaderIntent.regionWhole),
+                                    child: const Text('Whole page'),
+                                  ),
                                 ),
-                                TextButton(
-                                  key: const Key('partsStop'),
-                                  onPressed: () => widget.onPick(ReaderIntent.regionPrevious),
-                                  child: const Text('Stop parts'),
+                                Tooltip(
+                                  message: KeyHints.tip(context, 'Stop parts', ReaderIntent.regionPrevious),
+                                  child: TextButton(
+                                    key: const Key('partsStop'),
+                                    onPressed: () => widget.onPick(ReaderIntent.regionPrevious),
+                                    child: const Text('Stop parts'),
+                                  ),
                                 ),
                               ],
-                              TextButton(
-                                key: const Key('partsClose'),
-                                onPressed: widget.onClose,
-                                child: const Text('Close'),
+                              Tooltip(
+                                message: KeyHints.tip(context, 'Close', ReaderIntent.back),
+                                child: TextButton(
+                                  key: const Key('partsClose'),
+                                  onPressed: widget.onClose,
+                                  child: const Text('Close'),
+                                ),
                               ),
                             ],
                           ),

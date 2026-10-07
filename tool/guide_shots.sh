@@ -8,8 +8,8 @@
 #   python3 spike/fetch_corpus.py --skip-model   # once, for test/corpus/
 #   tool/guide_shots.sh [section...]             # all sections by default
 #
-# Sections: library marks reader guided guided-more parts keys touch bookmarks
-# details dialogs history empty. They run in that order and later ones
+# Sections: library filter marks reader guided guided-more parts keys touch
+# bookmarks details dialogs history s3 empty. They run in that order and later ones
 # lean on what earlier ones did (a started book, a bookmark), so run a
 # single section only after a full run. E2E_SKIP_BUILD=1 reuses the build.
 #
@@ -41,7 +41,7 @@ comics="$home/Comics"
 db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
 sections=("$@")
-[[ ${#sections[@]} -gt 0 ]] || sections=(library marks reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
+[[ ${#sections[@]} -gt 0 ]] || sections=(library filter marks reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
 mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
@@ -155,7 +155,17 @@ library)
   key Return; sleep 1.5; still folders-inside
   key Return; sleep 1.5; key shift+s; sleep 10; park; still shuffle
   key shift+s
-  # The filter: PDFs only (the chips are CBZ, Image folder, PDF).
+  key BackSpace; key BackSpace
+  ;;
+
+filter)
+  # A section of its own, with stills only, so it can be retaken where
+  # the GIFs of the library section cannot be made. The Golden age folder
+  # on the Folders tab, filtered to PDFs (the chips are CBZ, Image
+  # folder, PDF).
+  # Folders clicked twice: once shows the tab where it was left, again its top.
+  key Escape; key Escape; tab Folders; tab Folders; key Home; key Return; sleep 1.5
+  key Home; key Return; sleep 1.5
   key shift+f; sleep 1; key Tab; key Tab; key space; sleep 1.5; park; still filter-dialog
   key Escape; sleep 1; park; still filter
   key shift+f; sleep 1; key Tab; key Tab; key space; key Escape
@@ -243,7 +253,7 @@ touch)
   open "all top"
   key g t; sleep 0.8; still touch-zones; sleep 4
   key Escape; key Escape; key Escape
-  tab History; click 1252 28 2; still settings
+  tab History; key g comma; sleep 2; still settings
   xdotool mousemove 640 400; for _ in $(seq 1 15); do xdotool click 5; done; sleep 1; still settings-touch
   key Escape
   ;;
@@ -309,9 +319,11 @@ marks)
 s3)
   # Settings → S3 sync, filled in with a made-up home Garage: no server
   # needed, and no real keys in a picture.
-  key Escape; key Escape; tab History; click 1252 28 2
-  xdotool mousemove 640 400; for _ in $(seq 1 15); do xdotool click 5; done; sleep 1
-  click 471 568 1.5
+  # By keys: g, opens Settings and Alt+S its S3 button, wherever the
+  # dialog is scrolled to (a click at a fixed place missed the button once
+  # Settings had grown).
+  key Escape; key Escape; tab History; key g comma; sleep 2
+  key alt+s; sleep 1.5
   typ "http://garage.lan:3900"; key Tab; key Tab
   typ "comics"; key Tab; key Tab
   typ "GK31c2f218a2e44f485b94239e"; key Tab

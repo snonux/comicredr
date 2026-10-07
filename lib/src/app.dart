@@ -14,6 +14,7 @@ import 'package:reader_input/reader_input.dart';
 import 'android_storage.dart';
 import 'data/settings_file.dart';
 import 'help_zoom.dart';
+import 'hotkeys.dart';
 import 'input/keys_file.dart';
 import 'input/reader_keyboard.dart';
 import 'input/reader_touch.dart';
@@ -58,9 +59,16 @@ class ComicRedrApp extends StatelessWidget {
     return MaterialApp(
       title: 'ComicRedr',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(colorSchemeSeed: const Color(0xFF0B6FB4), useMaterial3: true),
-      darkTheme: ThemeData(colorSchemeSeed: const Color(0xFF0B6FB4), brightness: Brightness.dark, useMaterial3: true),
+      // A ring around what has the keyboard focus, to follow Tab by.
+      theme: withFocusRing(ThemeData(colorSchemeSeed: const Color(0xFF0B6FB4), useMaterial3: true)),
+      darkTheme: withFocusRing(
+        ThemeData(colorSchemeSeed: const Color(0xFF0B6FB4), brightness: Brightness.dark, useMaterial3: true),
+      ),
       themeMode: ThemeMode.dark,
+      // Above the Navigator, so dialogs too name the keys of the live keymap.
+      builder: (context, child) => Consumer(
+        builder: (context, ref, _) => KeyHints(keymap: ref.watch(keymapProvider), child: child!),
+      ),
       home: HomeScreen(initialPath: initialPath, addRoots: addRoots),
     );
   }
@@ -383,17 +391,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final field = TextEditingController(text: '/storage/emulated/0/Comics');
     final dir = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: field,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Folder'),
+      builder: (context) => DialogHotkeys(
+        child: AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: field,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Folder'),
+            // Enter in the field is the dialog's button.
+            onSubmitted: (text) => Navigator.pop(context, text.trim()),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, field.text.trim()), child: Mnemonic(action)),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, field.text.trim()), child: Text(action)),
-        ],
       ),
     );
     field.dispose();
@@ -513,30 +525,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
     final go = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Import settings from $name?'),
-        content: SizedBox(
-          width: 520,
-          child: Text(
-            '${from.isEmpty ? '' : 'Exported from ${from.join(' ')}. '}It holds ${holds.join(', ')}.\n\n'
-            'Your settings become the file\'s, except that where this device keeps its sidecars only changes when the '
-            'file says. Positions, bookmarks, collections, edits and history are merged '
-            'with what is here. Its library folders that are on this device are added; none is taken out.',
+      builder: (context) => DialogHotkeys(
+        child: AlertDialog(
+          title: Text('Import settings from $name?'),
+          content: SizedBox(
+            width: 520,
+            child: Text(
+              '${from.isEmpty ? '' : 'Exported from ${from.join(' ')}. '}It holds ${holds.join(', ')}.\n\n'
+              'Your settings become the file\'s, except that where this device keeps its sidecars only changes when the '
+              'file says. Positions, bookmarks, collections, edits and history are merged '
+              'with what is here. Its library folders that are on this device are added; none is taken out.',
+            ),
           ),
+          actions: [
+            TextButton(
+              key: const Key('importSettings-cancel'),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Mnemonic('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('importSettings-go'),
+              autofocus: true,
+              onPressed: () => Navigator.pop(context, true),
+              child: const Mnemonic('Import'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            key: const Key('importSettings-cancel'),
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            key: const Key('importSettings-go'),
-            autofocus: true,
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Import'),
-          ),
-        ],
       ),
     );
     return go == true;
@@ -733,22 +747,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final where = 'page ${at.page + 1}${at.panel != null && at.panel! > 0 ? ', panel ${at.panel! + 1}' : ''}';
     final go = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Read further on ${at.deviceName}'),
-        content: Text('This comic was last read on ${at.deviceName}, up to $where. Go there?'),
-        actions: [
-          TextButton(
-            key: const Key('offerStay'),
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Stay here'),
-          ),
-          FilledButton(
-            key: const Key('offerGo'),
-            autofocus: true,
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Go to $where'),
-          ),
-        ],
+      builder: (context) => DialogHotkeys(
+        child: AlertDialog(
+          title: Text('Read further on ${at.deviceName}'),
+          content: Text('This comic was last read on ${at.deviceName}, up to $where. Go there?'),
+          actions: [
+            TextButton(
+              key: const Key('offerStay'),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Mnemonic('Stay here'),
+            ),
+            FilledButton(
+              key: const Key('offerGo'),
+              autofocus: true,
+              onPressed: () => Navigator.pop(context, true),
+              child: Mnemonic('Go to $where'),
+            ),
+          ],
+        ),
       ),
     );
     _keys.requestFocus();
@@ -912,6 +928,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     if (_helpTook(c)) return;
+    // Settings are the library's, and open over a comic as well.
+    if (c.intent == ReaderIntent.showSettings) {
+      _library.currentState?.handle(c);
+      return;
+    }
     // Shift+arrows mark covers in the library; in a comic they move as the
     // arrows alone do.
     if (ref.read(readerProvider).book != null) {

@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../data/book_paths.dart';
 import '../data/sidecar_sync.dart';
+import '../hotkeys.dart';
 import 'library_store.dart';
 
 /// What the delete dialog says about a comic before it goes.
@@ -87,69 +88,71 @@ Future<DeleteChoice> askDelete(BuildContext context, DeleteFacts f) async =>
         final what = f.folder
             ? 'The folder ${p.basename(f.path)} (${f.pages} ${f.pages == 1 ? 'page' : 'pages'}, ${describeBytes(f.bytes)})'
             : '${p.basename(f.path)} (${describeBytes(f.bytes)})';
-        return AlertDialog(
-          key: const Key('deleteDialog'),
-          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-          title: Text('Delete ${f.name}?'),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(what, style: theme.textTheme.titleSmall),
-                const SizedBox(height: 4),
-                SelectableText(p.dirname(f.path), style: theme.textTheme.bodySmall),
-                const SizedBox(height: 16),
-                Text(
-                  f.link
-                      ? 'It is a link: the link is deleted with its sidecar, its bookmarks, position and panels. '
-                            'The comic it points to stays where it is.'
-                      : 'It is deleted for good with its sidecar, its bookmarks, position and panels. '
-                            'It does not go to the trash, so it cannot be restored.',
-                ),
-                if (f.onS3) ...[
-                  const SizedBox(height: 12),
-                  const Text(
-                    'It is on S3 too. Delete only here keeps the copy in the bucket, and the comic stays in the '
-                    'library to download again; the other device keeps its own copy either way.',
+        return DialogHotkeys(
+          child: AlertDialog(
+            key: const Key('deleteDialog'),
+            icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+            title: Text('Delete ${f.name}?'),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(what, style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 4),
+                  SelectableText(p.dirname(f.path), style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 16),
+                  Text(
+                    f.link
+                        ? 'It is a link: the link is deleted with its sidecar, its bookmarks, position and panels. '
+                              'The comic it points to stays where it is.'
+                        : 'It is deleted for good with its sidecar, its bookmarks, position and panels. '
+                              'It does not go to the trash, so it cannot be restored.',
                   ),
+                  if (f.onS3) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'It is on S3 too. Delete only here keeps the copy in the bucket, and the comic stays in the '
+                      'library to download again; the other device keeps its own copy either way.',
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
+            actions: [
+              TextButton(
+                key: const Key('deleteCancel'),
+                autofocus: true,
+                onPressed: () => Navigator.pop(context, DeleteChoice.cancel),
+                child: const Mnemonic('Cancel'),
+              ),
+              if (f.onS3)
+                OutlinedButton.icon(
+                  key: const Key('deleteHere'),
+                  style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.error),
+                  onPressed: () => Navigator.pop(context, DeleteChoice.here),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Mnemonic('Delete only here', letter: 'o'),
+                ),
+              FilledButton.icon(
+                key: Key(f.onS3 ? 'deleteEverywhere' : 'deleteConfirm'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                ),
+                onPressed: () => Navigator.pop(context, f.onS3 ? DeleteChoice.everywhere : DeleteChoice.here),
+                icon: Icon(f.onS3 ? Icons.cloud_off : Icons.delete_outline),
+                label: Mnemonic(
+                  f.onS3
+                      ? 'Delete here and from S3'
+                      : f.link
+                      ? 'Delete the link'
+                      : 'Delete for good',
+                ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              key: const Key('deleteCancel'),
-              autofocus: true,
-              onPressed: () => Navigator.pop(context, DeleteChoice.cancel),
-              child: const Text('Cancel'),
-            ),
-            if (f.onS3)
-              OutlinedButton.icon(
-                key: const Key('deleteHere'),
-                style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.error),
-                onPressed: () => Navigator.pop(context, DeleteChoice.here),
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Delete only here'),
-              ),
-            FilledButton.icon(
-              key: Key(f.onS3 ? 'deleteEverywhere' : 'deleteConfirm'),
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
-              ),
-              onPressed: () => Navigator.pop(context, f.onS3 ? DeleteChoice.everywhere : DeleteChoice.here),
-              icon: Icon(f.onS3 ? Icons.cloud_off : Icons.delete_outline),
-              label: Text(
-                f.onS3
-                    ? 'Delete here and from S3'
-                    : f.link
-                    ? 'Delete the link'
-                    : 'Delete for good',
-              ),
-            ),
-          ],
         );
       },
     ) ??
@@ -170,76 +173,78 @@ Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts
         final bytes = facts.fold<int>(0, (sum, f) => sum + f.bytes);
         final n = facts.length + remoteOnly;
         const shown = 8;
-        return AlertDialog(
-          key: const Key('deleteDialog'),
-          icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-          title: Text('Delete $n comics?'),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (facts.isNotEmpty)
-                  Text(
-                    '${facts.length} on this device, ${describeBytes(bytes)} together',
-                    key: const Key('deleteManyTotal'),
-                    style: theme.textTheme.titleSmall,
-                  ),
-                const SizedBox(height: 4),
-                for (final f in facts.take(shown))
-                  Text('${f.name}  ·  ${p.basename(f.path)}', maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (facts.length > shown) Text('and ${facts.length - shown} more', style: theme.textTheme.bodySmall),
-                const SizedBox(height: 16),
-                if (facts.isNotEmpty)
-                  Text(
-                    'They are deleted for good with their sidecars, bookmarks, positions and panels. '
-                    'They do not go to the trash, so they cannot be restored.'
-                    '${links == 0 ? '' : ' Of ${links == 1 ? 'the one that is a link' : 'the $links that are links'}, only the link goes.'}',
-                  ),
-                if (onS3) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    [
-                      if (facts.any((f) => f.onS3))
-                        'Some are on S3 too. Delete only here keeps their copies in the bucket, and they stay in the '
-                            'library to download again.',
-                      if (remoteOnly > 0)
-                        '$remoteOnly ${remoteOnly == 1 ? 'is' : 'are'} only on S3: only Delete here and from S3 '
-                            'takes ${remoteOnly == 1 ? 'it' : 'them'} away.',
-                      'The other device keeps its own copies either way.',
-                    ].join(' '),
-                  ),
+        return DialogHotkeys(
+          child: AlertDialog(
+            key: const Key('deleteDialog'),
+            icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+            title: Text('Delete $n comics?'),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (facts.isNotEmpty)
+                    Text(
+                      '${facts.length} on this device, ${describeBytes(bytes)} together',
+                      key: const Key('deleteManyTotal'),
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  const SizedBox(height: 4),
+                  for (final f in facts.take(shown))
+                    Text('${f.name}  ·  ${p.basename(f.path)}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                  if (facts.length > shown) Text('and ${facts.length - shown} more', style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 16),
+                  if (facts.isNotEmpty)
+                    Text(
+                      'They are deleted for good with their sidecars, bookmarks, positions and panels. '
+                      'They do not go to the trash, so they cannot be restored.'
+                      '${links == 0 ? '' : ' Of ${links == 1 ? 'the one that is a link' : 'the $links that are links'}, only the link goes.'}',
+                    ),
+                  if (onS3) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      [
+                        if (facts.any((f) => f.onS3))
+                          'Some are on S3 too. Delete only here keeps their copies in the bucket, and they stay in the '
+                              'library to download again.',
+                        if (remoteOnly > 0)
+                          '$remoteOnly ${remoteOnly == 1 ? 'is' : 'are'} only on S3: only Delete here and from S3 '
+                              'takes ${remoteOnly == 1 ? 'it' : 'them'} away.',
+                        'The other device keeps its own copies either way.',
+                      ].join(' '),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
+            actions: [
+              TextButton(
+                key: const Key('deleteCancel'),
+                autofocus: true,
+                onPressed: () => Navigator.pop(context, DeleteChoice.cancel),
+                child: const Mnemonic('Cancel'),
+              ),
+              if (onS3 && facts.isNotEmpty)
+                OutlinedButton.icon(
+                  key: const Key('deleteHere'),
+                  style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.error),
+                  onPressed: () => Navigator.pop(context, DeleteChoice.here),
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Mnemonic('Delete only here', letter: 'o'),
+                ),
+              FilledButton.icon(
+                key: Key(onS3 ? 'deleteEverywhere' : 'deleteConfirm'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                ),
+                onPressed: () => Navigator.pop(context, onS3 ? DeleteChoice.everywhere : DeleteChoice.here),
+                icon: Icon(onS3 ? Icons.cloud_off : Icons.delete_outline),
+                label: Mnemonic(onS3 ? 'Delete here and from S3' : 'Delete $n for good'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              key: const Key('deleteCancel'),
-              autofocus: true,
-              onPressed: () => Navigator.pop(context, DeleteChoice.cancel),
-              child: const Text('Cancel'),
-            ),
-            if (onS3 && facts.isNotEmpty)
-              OutlinedButton.icon(
-                key: const Key('deleteHere'),
-                style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.error),
-                onPressed: () => Navigator.pop(context, DeleteChoice.here),
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('Delete only here'),
-              ),
-            FilledButton.icon(
-              key: Key(onS3 ? 'deleteEverywhere' : 'deleteConfirm'),
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError,
-              ),
-              onPressed: () => Navigator.pop(context, onS3 ? DeleteChoice.everywhere : DeleteChoice.here),
-              icon: Icon(onS3 ? Icons.cloud_off : Icons.delete_outline),
-              label: Text(onS3 ? 'Delete here and from S3' : 'Delete $n for good'),
-            ),
-          ],
         );
       },
     ) ??

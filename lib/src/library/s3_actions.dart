@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/s3_sync.dart';
+import '../hotkeys.dart';
 import '../reader/reader_notifier.dart';
 import 'delete_book.dart';
 import 'library_store.dart';
@@ -83,35 +84,37 @@ Future<bool> removeBooksFromS3(BuildContext context, WidgetRef ref, List<Library
   final local = todo.where((b) => !b.remoteOnly).length;
   final ok = await showDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      key: const Key('s3RemoveDialog'),
-      icon: const Icon(Icons.cloud_off),
-      title: Text('Remove $what from S3?'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 480),
-        child: Text(
-          [
-            'The copy in the bucket and its sidecar there are deleted.',
-            if (local > 0) 'The comic and its sidecar on this device stay.',
-            if (local < todo.length) 'A comic that is only on S3 disappears from this library.',
-            "The other device keeps its own copy, if it downloaded one.",
-          ].join(' '),
+    builder: (context) => DialogHotkeys(
+      child: AlertDialog(
+        key: const Key('s3RemoveDialog'),
+        icon: const Icon(Icons.cloud_off),
+        title: Text('Remove $what from S3?'),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Text(
+            [
+              'The copy in the bucket and its sidecar there are deleted.',
+              if (local > 0) 'The comic and its sidecar on this device stay.',
+              if (local < todo.length) 'A comic that is only on S3 disappears from this library.',
+              "The other device keeps its own copy, if it downloaded one.",
+            ].join(' '),
+          ),
         ),
+        actions: [
+          TextButton(
+            key: const Key('s3RemoveCancel'),
+            autofocus: true,
+            onPressed: () => Navigator.pop(context, false),
+            child: const Mnemonic('Cancel'),
+          ),
+          FilledButton.icon(
+            key: const Key('s3RemoveConfirm'),
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.cloud_off),
+            label: const Mnemonic('Remove from S3'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          key: const Key('s3RemoveCancel'),
-          autofocus: true,
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton.icon(
-          key: const Key('s3RemoveConfirm'),
-          onPressed: () => Navigator.pop(context, true),
-          icon: const Icon(Icons.cloud_off),
-          label: const Text('Remove from S3'),
-        ),
-      ],
     ),
   );
   if (ok != true) return false;

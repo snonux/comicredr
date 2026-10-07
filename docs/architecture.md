@@ -124,6 +124,29 @@ a phone's touchscreen and a laptop touchscreen all do the same things, and
 the `?` help and `docs/keys.toml` are generated from the one keymap. Pinch
 zoom and panning are the only gestures handled directly by the view.
 
+That covers every button too. A button on a screen (the library, the
+reader and what lies over it: the page grid, the bookmark list, the parts
+picker) sends an intent, and its tooltip or label names that intent's key
+as the live keymap has it (`KeyHints`, an inherited widget above the
+Navigator, in `lib/src/hotkeys.dart`). A dialog is a route of its own and
+has the focus, so `ReaderKeyboard` never sees its keys: nothing typed in
+a dialog acts on what is behind it. There the keys are Flutter's (Esc,
+Enter, Tab, arrows, Space) plus one wrapper, `DialogHotkeys`, under which
+a button labelled with `Mnemonic` is pressed by Alt and its underlined
+letter, and Tab goes through the controls in the order they are written
+(the default, by position on screen, loses its way in a dialog that
+scrolls).
+
+```mermaid
+flowchart LR
+  key["Key press"] --> where{"Focus"}
+  where -- "the screen" --> rk["ReaderKeyboard<br/>keymap, sequences"] --> intent(("ReaderIntent"))
+  key -- "Alt+letter, the dialog on top" --> dh["DialogHotkeys<br/>Mnemonic's button"]
+  where -- "a dialog's route" --> fl["Flutter: Esc, Enter,<br/>Tab, arrows, Space"]
+  button["A screen's button"] --> intent
+  keymap["Keymap"] -. "KeyHints: tooltip names the key" .-> button
+```
+
 While the `?` help is open the app keeps every intent from the library and
 the reader behind it. It acts on a few itself: search, back, and the zoom
 intents (`+` `-` `=`), which size the help's text in fixed steps

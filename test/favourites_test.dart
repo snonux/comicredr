@@ -150,7 +150,7 @@ void main() {
       expect(await tester.runAsync(() => favourites(store)), ['Preacher #1']);
       expect(find.text('Daredevil #181'), findsNothing);
       expect(find.textContaining('taken out of Favourites'), findsOneWidget);
-      await tester.tap(find.text('Undo'));
+      await tester.tap(find.text('Undo (u)'));
       await settle(tester);
       expect(await tester.runAsync(() => favourites(store)), ['Daredevil #181', 'Preacher #1']);
 

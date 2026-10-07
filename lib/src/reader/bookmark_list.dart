@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
+import '../hotkeys.dart';
 import '../library/library_store.dart';
 import 'reader_notifier.dart';
 import 'thumbnails.dart';
@@ -158,7 +159,7 @@ class BookmarkListState extends ConsumerState<BookmarkList> {
                 IconButton(
                   key: const Key('bookmarkListClose'),
                   icon: const Icon(Icons.close),
-                  tooltip: 'Close (Esc)',
+                  tooltip: KeyHints.tip(context, 'Close', ReaderIntent.back),
                   onPressed: widget.onClose,
                 ),
               ],
@@ -330,13 +331,13 @@ class _RowState extends State<_Row> {
             IconButton(
               key: Key('bookmarkNote-$i'),
               icon: const Icon(Icons.edit_note),
-              tooltip: 'Note (e)',
+              tooltip: KeyHints.tip(context, 'Note', ReaderIntent.editBook),
               onPressed: widget.onNote,
             ),
             IconButton(
               key: Key('bookmarkRemove-$i'),
               icon: const Icon(Icons.delete_outline),
-              tooltip: 'Remove (x)',
+              tooltip: KeyHints.tip(context, 'Remove', ReaderIntent.remove),
               onPressed: widget.onRemove,
             ),
           ],
@@ -373,23 +374,25 @@ class _NoteDialogState extends State<_NoteDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text('Note on ${describePlace(widget.bookmark)}'),
-    content: TextField(
-      key: const Key('bookmarkNoteField'),
-      controller: _field,
-      autofocus: true,
-      maxLength: 80,
-      decoration: const InputDecoration(hintText: 'A few words to find it by'),
-      onSubmitted: (text) => Navigator.pop(context, text),
-    ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-      FilledButton(
-        key: const Key('bookmarkNoteSave'),
-        onPressed: () => Navigator.pop(context, _field.text),
-        child: const Text('Save'),
+  Widget build(BuildContext context) => DialogHotkeys(
+    child: AlertDialog(
+      title: Text('Note on ${describePlace(widget.bookmark)}'),
+      content: TextField(
+        key: const Key('bookmarkNoteField'),
+        controller: _field,
+        autofocus: true,
+        maxLength: 80,
+        decoration: const InputDecoration(hintText: 'A few words to find it by'),
+        onSubmitted: (text) => Navigator.pop(context, text),
       ),
-    ],
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+        FilledButton(
+          key: const Key('bookmarkNoteSave'),
+          onPressed: () => Navigator.pop(context, _field.text),
+          child: const Mnemonic('Save'),
+        ),
+      ],
+    ),
   );
 }

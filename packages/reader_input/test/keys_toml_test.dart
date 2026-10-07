@@ -116,12 +116,16 @@ setMark = "M"
         contains('hides gr'),
         contains('hides gp'),
         contains('hides gf'),
+        contains('hides gA'),
+        contains('hides g!'),
         contains('hides gs'),
         contains('hides gd'),
         contains('hides gu'),
         contains('hides gU'),
+        contains('hides gD'),
         contains('hides gm'),
         contains('hides gc'),
+        contains('hides g,'),
         contains('hides gt'),
       ]);
     });

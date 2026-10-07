@@ -66,6 +66,10 @@ With comics [marked in the library](03-library.md#several-comics-at-once),
 `X` (or **Reset** in the bar over the covers) asks once and resets every
 one of them the same way.
 
+**Redo panels** has the ring, so `Enter` takes it; `Alt+P` does too,
+`Alt+R` is **Reset everything** and `Alt+C` or `Esc` leaves the comic as
+it is.
+
 ![Resetting a comic](images/reset.webp)
 
 ## Delete a comic
@@ -76,6 +80,9 @@ comic** in its details) deletes it, after asking.
 ![Deleting a comic asks first](images/delete.webp)
 
 - **Cancel** is selected, so a stray `Enter` or `Esc` deletes nothing.
+  From the keyboard, `Alt+D` is the delete button and `Alt+C` is
+  **Cancel**: `Alt` with the underlined letter, as in
+  [every dialog](09-keyboard.md#a-key-for-every-button).
 - The comic and its sidecar are deleted for good. They do **not** go to
   the trash, so they can't be restored.
 - A comic that is a link (symlink) loses only the link (the button says

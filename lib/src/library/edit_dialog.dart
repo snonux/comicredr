@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/meta_edits.dart';
 import '../data/sidecar_sync.dart';
+import '../hotkeys.dart';
 import '../reader/reader_notifier.dart';
 import 'library_store.dart';
 import 'providers.dart';
@@ -158,46 +159,52 @@ class _EditBookDialogState extends State<EditBookDialog> {
   @override
   Widget build(BuildContext context) {
     final edited = widget.book.fromFile.isNotEmpty;
-    return AlertDialog(
-      key: const Key('editDialog'),
-      title: Text('Edit ${widget.book.name}'),
-      content: SizedBox(
-        width: 480,
-        child: Form(
-          key: _form,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _field(MetaField.series, autofocus: true),
-                Row(
-                  children: [
-                    Expanded(child: _field(MetaField.number)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _field(MetaField.volume)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _field(MetaField.year)),
-                  ],
-                ),
-                _field(MetaField.title),
-                _field(MetaField.writers),
-                _field(MetaField.artists),
-                _field(MetaField.summary),
-                const SizedBox(height: 12),
-                Text(
-                  'Changes are kept in the file beside the comic and travel with it. '
-                  'The comic itself is not changed.${edited ? ' Undo puts back what the comic says.' : ''}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+    return DialogHotkeys(
+      child: AlertDialog(
+        key: const Key('editDialog'),
+        title: Text('Edit ${widget.book.name}'),
+        content: SizedBox(
+          width: 480,
+          child: Form(
+            key: _form,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _field(MetaField.series, autofocus: true),
+                  Row(
+                    children: [
+                      Expanded(child: _field(MetaField.number)),
+                      const SizedBox(width: 12),
+                      Expanded(child: _field(MetaField.volume)),
+                      const SizedBox(width: 12),
+                      Expanded(child: _field(MetaField.year)),
+                    ],
+                  ),
+                  _field(MetaField.title),
+                  _field(MetaField.writers),
+                  _field(MetaField.artists),
+                  _field(MetaField.summary),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Changes are kept in the file beside the comic and travel with it. '
+                    'The comic itself is not changed.${edited ? ' Undo puts back what the comic says.' : ''}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
+        actions: [
+          TextButton(
+            key: const Key('editCancel'),
+            onPressed: () => Navigator.pop(context),
+            child: const Mnemonic('Cancel'),
+          ),
+          FilledButton(key: const Key('editSave'), onPressed: _save, child: const Mnemonic('Save')),
+        ],
       ),
-      actions: [
-        TextButton(key: const Key('editCancel'), onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(key: const Key('editSave'), onPressed: _save, child: const Text('Save')),
-      ],
     );
   }
 }
@@ -228,35 +235,37 @@ class _RenameSeriesDialogState extends State<_RenameSeriesDialog> {
   @override
   Widget build(BuildContext context) {
     final n = widget.series.books.length;
-    return AlertDialog(
-      key: const Key('renameSeriesDialog'),
-      title: Text('Rename ${widget.series.name}'),
-      content: SizedBox(
-        width: 400,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              key: const Key('seriesName'),
-              controller: _field,
-              autofocus: true,
-              decoration: const InputDecoration(labelText: 'Series'),
-              onSubmitted: (_) => _done(),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Sets the series of all $n ${n == 1 ? 'book' : 'books'} in it. A name another series has '
-              'already puts them together.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+    return DialogHotkeys(
+      child: AlertDialog(
+        key: const Key('renameSeriesDialog'),
+        title: Text('Rename ${widget.series.name}'),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                key: const Key('seriesName'),
+                controller: _field,
+                autofocus: true,
+                decoration: const InputDecoration(labelText: 'Series'),
+                onSubmitted: (_) => _done(),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Sets the series of all $n ${n == 1 ? 'book' : 'books'} in it. A name another series has '
+                'already puts them together.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+          FilledButton(key: const Key('renameSave'), onPressed: _done, child: const Mnemonic('Rename')),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(key: const Key('renameSave'), onPressed: _done, child: const Text('Rename')),
-      ],
     );
   }
 }

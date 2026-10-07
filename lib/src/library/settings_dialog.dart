@@ -8,6 +8,7 @@ import 'package:reader_input/reader_input.dart';
 
 import '../data/s3_settings.dart';
 import '../data/settings_store.dart';
+import '../hotkeys.dart';
 import '../input/touch_providers.dart';
 import '../input/touch_zones.dart';
 import '../providers.dart';
@@ -106,18 +107,22 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final field = TextEditingController(text: _sidecarDir ?? '/storage/emulated/0/ComicRedr');
     final dir = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Keep comic data in'),
-        content: TextField(
-          key: const Key('sidecarDir-field'),
-          controller: field,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Folder'),
+      builder: (context) => DialogHotkeys(
+        child: AlertDialog(
+          title: const Text('Keep comic data in'),
+          content: TextField(
+            key: const Key('sidecarDir-field'),
+            controller: field,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Folder'),
+            // Enter in the field is the dialog's button.
+            onSubmitted: (text) => Navigator.pop(context, text.trim()),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(context, field.text.trim()), child: const Mnemonic('Use')),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, field.text.trim()), child: const Text('Use')),
-        ],
       ),
     );
     field.dispose();
@@ -141,26 +146,28 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       final files = '$n comic data file${n == 1 ? '' : 's'}';
       final move = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Move $files?'),
-          content: Text(
-            '${old == null ? 'They are beside your comics' : 'They are in $old'}. '
-            'Move them ${dir == null ? 'beside each comic' : 'to $dir'}? '
-            'Files you leave are still read.',
+        builder: (context) => DialogHotkeys(
+          child: AlertDialog(
+            title: Text('Move $files?'),
+            content: Text(
+              '${old == null ? 'They are beside your comics' : 'They are in $old'}. '
+              'Move them ${dir == null ? 'beside each comic' : 'to $dir'}? '
+              'Files you leave are still read.',
+            ),
+            actions: [
+              TextButton(
+                key: const Key('sidecarMove-leave'),
+                onPressed: () => Navigator.pop(context, false),
+                child: const Mnemonic('Leave them'),
+              ),
+              FilledButton(
+                key: const Key('sidecarMove-move'),
+                autofocus: true,
+                onPressed: () => Navigator.pop(context, true),
+                child: const Mnemonic('Move'),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              key: const Key('sidecarMove-leave'),
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Leave them'),
-            ),
-            FilledButton(
-              key: const Key('sidecarMove-move'),
-              autofocus: true,
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Move'),
-            ),
-          ],
         ),
       );
       if (move != true) return;
@@ -184,13 +191,25 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   Future<void> _clearHistory() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear reading history?'),
-        content: const Text('Your positions, bookmarks and collections stay.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Clear')),
-        ],
+      builder: (context) => DialogHotkeys(
+        child: AlertDialog(
+          title: const Text('Clear reading history?'),
+          content: const Text('Your positions, bookmarks and collections stay.'),
+          actions: [
+            // Cancel has the focus, so Enter clears nothing by accident.
+            TextButton(
+              key: const Key('clearHistory-cancel'),
+              autofocus: true,
+              onPressed: () => Navigator.pop(context, false),
+              child: const Mnemonic('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('clearHistory-clear'),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Mnemonic('Clear', letter: 'l'),
+            ),
+          ],
+        ),
       ),
     );
     if (ok != true) return;
@@ -206,213 +225,219 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
       child: Text(text, style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
     );
-    return AlertDialog(
-      title: const Text('Settings'),
-      content: SizedBox(
-        width: 520,
-        child: _wholePage == null
-            ? const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))
-            : SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    heading('Pages'),
-                    SwitchListTile(
-                      key: const Key('setting-cleanUp'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Clean up old scans'),
-                      subtitle: const Text(
-                        'Whitens yellowed paper, darkens faded ink, and enlarges and sharpens pages smaller than the '
-                        'screen. c switches it while reading.',
+    return DialogHotkeys(
+      child: AlertDialog(
+        title: const Text('Settings'),
+        content: SizedBox(
+          width: 520,
+          child: _wholePage == null
+              ? const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      heading('Pages'),
+                      SwitchListTile(
+                        key: const Key('setting-cleanUp'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Clean up old scans'),
+                        subtitle: const Text(
+                          'Whitens yellowed paper, darkens faded ink, and enlarges and sharpens pages smaller than the '
+                          'screen. c switches it while reading.',
+                        ),
+                        value: _cleanUp!,
+                        onChanged: (v) => _set(SettingsStore.cleanUp, v),
                       ),
-                      value: _cleanUp!,
-                      onChanged: (v) => _set(SettingsStore.cleanUp, v),
-                    ),
-                    _ScrollSpeedPicker(),
-                    heading('Guided view'),
-                    SwitchListTile(
-                      key: const Key('setting-wholePage'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Show each page whole before and after its panels'),
-                      subtitle: const Text('w switches it while reading'),
-                      value: _wholePage!,
-                      onChanged: (v) => _set(SettingsStore.wholePageSteps, v),
-                    ),
-                    SwitchListTile(
-                      key: const Key('setting-pauseWhole'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('On a page without panels, a quick step stays'),
-                      subtitle: const Text(
-                        'The background turns wine red. A step within the time below zooms the page out and back '
-                        'and stays; the next one turns. After it a step turns at once. W switches it while reading.',
+                      _ScrollSpeedPicker(),
+                      heading('Guided view'),
+                      SwitchListTile(
+                        key: const Key('setting-wholePage'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Show each page whole before and after its panels'),
+                        subtitle: const Text('w switches it while reading'),
+                        value: _wholePage!,
+                        onChanged: (v) => _set(SettingsStore.wholePageSteps, v),
                       ),
-                      value: _pauseWhole!,
-                      onChanged: (v) => _set(SettingsStore.pauseWhole, v),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4, bottom: 12),
-                      child: SegmentedButton<double>(
-                        key: const Key('setting-pauseSeconds'),
-                        showSelectedIcon: _roomForTicks(context),
-                        segments: [
-                          for (final s in pauseSecondsChoices) ButtonSegment(value: s, label: Text('${_seconds(s)} s')),
-                        ],
-                        // A value set by hand in another build shows no segment.
-                        selected: {if (pauseSecondsChoices.contains(_pauseSeconds)) _pauseSeconds!},
-                        emptySelectionAllowed: true,
-                        onSelectionChanged: _pauseWhole!
-                            ? (v) async {
-                                if (v.isEmpty) return;
-                                await ref
-                                    .read(settingsStoreProvider)
-                                    .saveString(SettingsStore.pauseSeconds, _seconds(v.first));
-                                await _load();
-                              }
-                            : null,
+                      SwitchListTile(
+                        key: const Key('setting-pauseWhole'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('On a page without panels, a quick step stays'),
+                        subtitle: const Text(
+                          'The background turns wine red. A step within the time below zooms the page out and back '
+                          'and stays; the next one turns. After it a step turns at once. W switches it while reading.',
+                        ),
+                        value: _pauseWhole!,
+                        onChanged: (v) => _set(SettingsStore.pauseWhole, v),
                       ),
-                    ),
-                    Text('Panel detector', style: theme.textTheme.bodyMedium),
-                    Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),
-                    if (widget.covers case final covers?) ...[heading('Library'), _CoverSizePicker(covers: covers)],
-                    heading('Sidecars'),
-                    SwitchListTile(
-                      key: const Key('setting-sidecars'),
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Save panels, bookmarks and position in a file for each comic'),
-                      subtitle: const Text(
-                        'Hidden files, like .book.cbz.crdb. Sidecars already there are always read.',
-                      ),
-                      value: _sidecars!,
-                      onChanged: (v) => _set(SettingsStore.writeSidecars, v),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4, bottom: 4),
-                      child: SegmentedButton<bool>(
-                        key: const Key('setting-sidecarPlace'),
-                        showSelectedIcon: _roomForTicks(context),
-                        segments: const [
-                          ButtonSegment(value: false, label: Text('Beside each comic')),
-                          ButtonSegment(value: true, label: Text('In one folder')),
-                        ],
-                        selected: {_sidecarDir != null},
-                        onSelectionChanged: _moving
-                            ? null
-                            : (v) => v.first ? _chooseSidecarDir() : _setSidecarDir(null),
-                      ),
-                    ),
-                    if (_sidecarDir case final dir?)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(dir, key: const Key('setting-sidecarDir'), style: theme.textTheme.bodySmall),
-                          ),
-                          TextButton(
-                            key: const Key('setting-sidecarDir-change'),
-                            onPressed: _moving ? null : _chooseSidecarDir,
-                            child: const Text('Change…'),
-                          ),
-                        ],
-                      )
-                    else
                       Padding(
-                        padding: const EdgeInsets.only(top: 2, bottom: 6),
-                        child: Text('So they travel when you copy the comic.', style: theme.textTheme.bodySmall),
+                        padding: const EdgeInsets.only(top: 4, bottom: 12),
+                        child: SegmentedButton<double>(
+                          key: const Key('setting-pauseSeconds'),
+                          showSelectedIcon: _roomForTicks(context),
+                          segments: [
+                            for (final s in pauseSecondsChoices)
+                              ButtonSegment(value: s, label: Text('${_seconds(s)} s')),
+                          ],
+                          // A value set by hand in another build shows no segment.
+                          selected: {if (pauseSecondsChoices.contains(_pauseSeconds)) _pauseSeconds!},
+                          emptySelectionAllowed: true,
+                          onSelectionChanged: _pauseWhole!
+                              ? (v) async {
+                                  if (v.isEmpty) return;
+                                  await ref
+                                      .read(settingsStoreProvider)
+                                      .saveString(SettingsStore.pauseSeconds, _seconds(v.first));
+                                  await _load();
+                                }
+                              : null,
+                        ),
                       ),
-                    if (widget.onExportSidecars case final export?)
+                      Text('Panel detector', style: theme.textTheme.bodyMedium),
+                      Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),
+                      if (widget.covers case final covers?) ...[heading('Library'), _CoverSizePicker(covers: covers)],
+                      heading('Sidecars'),
+                      SwitchListTile(
+                        key: const Key('setting-sidecars'),
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Save panels, bookmarks and position in a file for each comic'),
+                        subtitle: const Text(
+                          'Hidden files, like .book.cbz.crdb. Sidecars already there are always read.',
+                        ),
+                        value: _sidecars!,
+                        onChanged: (v) => _set(SettingsStore.writeSidecars, v),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 4),
+                        child: SegmentedButton<bool>(
+                          key: const Key('setting-sidecarPlace'),
+                          showSelectedIcon: _roomForTicks(context),
+                          segments: const [
+                            ButtonSegment(value: false, label: Text('Beside each comic')),
+                            ButtonSegment(value: true, label: Text('In one folder')),
+                          ],
+                          selected: {_sidecarDir != null},
+                          onSelectionChanged: _moving
+                              ? null
+                              : (v) => v.first ? _chooseSidecarDir() : _setSidecarDir(null),
+                        ),
+                      ),
+                      if (_sidecarDir case final dir?)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(dir, key: const Key('setting-sidecarDir'), style: theme.textTheme.bodySmall),
+                            ),
+                            TextButton(
+                              key: const Key('setting-sidecarDir-change'),
+                              onPressed: _moving ? null : _chooseSidecarDir,
+                              child: const Mnemonic('Change…', letter: 'g'),
+                            ),
+                          ],
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2, bottom: 6),
+                          child: Text('So they travel when you copy the comic.', style: theme.textTheme.bodySmall),
+                        ),
+                      if (widget.onExportSidecars case final export?)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton.icon(
+                            key: const Key('setting-export'),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              export();
+                            },
+                            icon: const Icon(Icons.drive_file_move_outline),
+                            label: const Mnemonic('Export sidecars to a folder…', letter: 'x'),
+                          ),
+                        ),
+                      heading('Touch'),
+                      _TouchPicker(),
+                      heading('Reading history'),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: OutlinedButton.icon(
-                          key: const Key('setting-export'),
-                          onPressed: () {
-                            Navigator.pop(context);
-                            export();
-                          },
-                          icon: const Icon(Icons.drive_file_move_outline),
-                          label: const Text('Export sidecars to a folder…'),
+                          key: const Key('setting-clearHistory'),
+                          onPressed: _clearHistory,
+                          icon: const Icon(Icons.delete_sweep_outlined),
+                          label: const Mnemonic('Clear reading history', letter: 'h'),
                         ),
                       ),
-                    heading('Touch'),
-                    _TouchPicker(),
-                    heading('Reading history'),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: OutlinedButton.icon(
-                        key: const Key('setting-clearHistory'),
-                        onPressed: _clearHistory,
-                        icon: const Icon(Icons.delete_sweep_outlined),
-                        label: const Text('Clear reading history'),
-                      ),
-                    ),
-                    if (widget.onExportSettings != null || widget.onImportSettings != null) ...[
-                      heading('Back up'),
+                      if (widget.onExportSettings != null || widget.onImportSettings != null) ...[
+                        heading('Back up'),
+                        Text(
+                          'Settings, library folders, keys.toml, positions, bookmarks, collections, edits and '
+                          'reading history in one file, to bring back after a reinstall or on another device.',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            if (widget.onExportSettings case final export?)
+                              OutlinedButton.icon(
+                                key: const Key('setting-exportSettings'),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  export();
+                                },
+                                icon: const Icon(Icons.upload_file),
+                                label: const Mnemonic('Export settings…'),
+                              ),
+                            if (widget.onImportSettings case final import?)
+                              OutlinedButton.icon(
+                                key: const Key('setting-importSettings'),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  import();
+                                },
+                                icon: const Icon(Icons.download),
+                                label: const Mnemonic('Import settings…'),
+                              ),
+                          ],
+                        ),
+                      ],
+                      heading('S3 sync'),
                       Text(
-                        'Settings, library folders, keys.toml, positions, bookmarks, collections, edits and '
-                        'reading history in one file, to bring back after a reinstall or on another device.',
+                        _s3?.isSet == true
+                            ? 'On: ${_s3!.bucket} on ${Uri.tryParse(_s3!.endpoint)?.host ?? _s3!.endpoint}'
+                            : 'Off. Upload comics and their sidecars to your own S3 bucket to read on where you left '
+                                  'off on another device.',
+                        key: const Key('setting-s3'),
                         style: theme.textTheme.bodySmall,
                       ),
                       const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (widget.onExportSettings case final export?)
-                            OutlinedButton.icon(
-                              key: const Key('setting-exportSettings'),
-                              onPressed: () {
-                                Navigator.pop(context);
-                                export();
-                              },
-                              icon: const Icon(Icons.upload_file),
-                              label: const Text('Export settings…'),
-                            ),
-                          if (widget.onImportSettings case final import?)
-                            OutlinedButton.icon(
-                              key: const Key('setting-importSettings'),
-                              onPressed: () {
-                                Navigator.pop(context);
-                                import();
-                              },
-                              icon: const Icon(Icons.download),
-                              label: const Text('Import settings…'),
-                            ),
-                        ],
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          key: const Key('setting-s3-setUp'),
+                          onPressed: () async {
+                            if (await showS3Settings(context) == true) await _load();
+                          },
+                          icon: const Icon(Icons.cloud_outlined),
+                          label: Mnemonic(_s3?.isSet == true ? 'Change S3 sync…' : 'Set up S3 sync…', letter: 's'),
+                        ),
                       ),
+                      const SizedBox(height: 16),
+                      Text('ComicRedr $appVersion', style: theme.textTheme.bodySmall),
                     ],
-                    heading('S3 sync'),
-                    Text(
-                      _s3?.isSet == true
-                          ? 'On: ${_s3!.bucket} on ${Uri.tryParse(_s3!.endpoint)?.host ?? _s3!.endpoint}'
-                          : 'Off. Upload comics and their sidecars to your own S3 bucket to read on where you left '
-                                'off on another device.',
-                      key: const Key('setting-s3'),
-                      style: theme.textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: OutlinedButton.icon(
-                        key: const Key('setting-s3-setUp'),
-                        onPressed: () async {
-                          if (await showS3Settings(context) == true) await _load();
-                        },
-                        icon: const Icon(Icons.cloud_outlined),
-                        label: Text(_s3?.isSet == true ? 'Change S3 sync…' : 'Set up S3 sync…'),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('ComicRedr $appVersion', style: theme.textTheme.bodySmall),
-                  ],
+                  ),
                 ),
-              ),
-      ),
-      actions: [
-        TextButton(
-          key: const Key('setting-close'),
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
         ),
-      ],
+        actions: [
+          TextButton(
+            key: const Key('setting-close'),
+            // The focus starts here: Enter closes, Tab goes on to the first
+            // setting, Shift+Tab to the last.
+            autofocus: true,
+            onPressed: () => Navigator.pop(context),
+            child: const Mnemonic('Close'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -469,7 +494,7 @@ class _CoverSizePicker extends StatelessWidget {
             key: const Key('setting-coverSize'),
             style: theme.textTheme.bodyLarge,
           ),
-          _buttons(n),
+          _buttons(context, n),
           Text(
             n == null
                 ? 'No covers show behind Settings now (a list, an empty tab, a search that found nothing), so '
@@ -487,26 +512,27 @@ class _CoverSizePicker extends StatelessWidget {
   /// Smaller, bigger and Usual size, each off when it would change
   /// nothing; on a second line when the window or big letters leave no
   /// room for all three.
-  Widget _buttons(int? n) => Wrap(
+  Widget _buttons(BuildContext context, int? n) => Wrap(
     crossAxisAlignment: WrapCrossAlignment.center,
     spacing: 4,
     children: [
       IconButton(
         key: const Key('setting-coverSize-smaller'),
         icon: const Icon(Icons.zoom_out),
-        tooltip: 'Smaller covers (-)',
+        // The library's own keys; behind the dialog they do not arrive.
+        tooltip: 'Smaller covers (${KeyHints.of(context).hint(ReaderIntent.zoomOut) ?? '-'} in the library)',
         onPressed: covers.canShrinkCovers ? () => covers.zoomCovers(-1) : null,
       ),
       IconButton(
         key: const Key('setting-coverSize-bigger'),
         icon: const Icon(Icons.zoom_in),
-        tooltip: 'Bigger covers (+)',
+        tooltip: 'Bigger covers (${KeyHints.of(context).hint(ReaderIntent.zoomIn) ?? '+'} in the library)',
         onPressed: covers.canGrowCovers ? () => covers.zoomCovers(1) : null,
       ),
       TextButton(
         key: const Key('setting-coverSize-usual'),
         onPressed: n != null && covers.coversZoomed ? covers.resetCovers : null,
-        child: const Text('Usual size'),
+        child: const Mnemonic('Usual size'),
       ),
     ],
   );

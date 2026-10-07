@@ -101,7 +101,9 @@ enum ReaderIntent {
   up('Up to the folder above in the library'),
   activate('Open the selected book, series or folder in the library'),
   addRoot('Add a folder to the library (~/Comics is in it by default, if it exists)'),
+  removeRoot('Library: take the selected library folder out of the library; its comics stay on disk'),
   rescan('Rescan the library folders'),
+  showScanFailures('Library: the comics the last scan could not read, and why'),
   toggleShuffle(
     "Shuffle in the library's tabs of covers: each comic, series and folder shows a random page instead of its cover, on and off",
   ),
@@ -115,6 +117,9 @@ enum ReaderIntent {
     'Upload this comic to your S3 bucket, or sync its sidecar if it is there; in the library the selected book, or every marked one',
   ),
   removeFromS3('Take this comic off S3, after asking; the copy on this device stays; in the library every marked one'),
+  downloadFromS3(
+    'Library: download the selected comic that is only on S3 to this device, or every marked one that is only there',
+  ),
   moveBooks(
     'Library: move the selected comic, or every marked one, to another folder, picked from a list you can type into',
   ),
@@ -132,6 +137,8 @@ enum ReaderIntent {
   markToLast('Library: mark from where marking started to the last cover'),
   markAll('Library: mark every comic shown, or unmark them all when they are marked already'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),
+  undo('Undo what the notice along the bottom offers to undo: a comic taken out of the Favourites or a collection'),
+  showSettings('Settings: pages, guided view, cover size, sidecars, touch, back-up and S3 sync'),
   showKeymap('Show the keymap'),
   showTouchZones('Show the touch zones for a moment'),
   showTime('The time, large, for two seconds, then it fades');

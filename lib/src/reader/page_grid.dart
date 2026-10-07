@@ -8,6 +8,7 @@ import 'package:reader_input/reader_input.dart';
 
 import '../data/settings_store.dart';
 import '../grid_zoom.dart';
+import '../hotkeys.dart';
 import 'reader_notifier.dart';
 import 'thumbnails.dart';
 
@@ -247,26 +248,26 @@ class PageGridState extends ConsumerState<PageGrid> {
                 IconButton(
                   key: const Key('pageGridZoomOut'),
                   icon: const Icon(Icons.zoom_out),
-                  tooltip: 'Smaller pages (-)',
+                  tooltip: KeyHints.tip(context, 'Smaller pages', ReaderIntent.zoomOut),
                   onPressed: _columns < _zoom.most(_inner) ? () => zoom(-1) : null,
                 ),
                 IconButton(
                   key: const Key('pageGridZoomIn'),
                   icon: const Icon(Icons.zoom_in),
-                  tooltip: 'Bigger pages (+)',
+                  tooltip: KeyHints.tip(context, 'Bigger pages', ReaderIntent.zoomIn),
                   onPressed: _columns > _zoom.fewest(_inner) ? () => zoom(1) : null,
                 ),
                 if (widget.onDetails != null)
                   IconButton(
                     key: const Key('pageGridDetails'),
                     icon: const Icon(Icons.info_outline),
-                    tooltip: 'Details (I)',
+                    tooltip: KeyHints.tip(context, 'Details', ReaderIntent.showDetails),
                     onPressed: widget.onDetails,
                   ),
                 IconButton(
                   key: const Key('pageGridClose'),
                   icon: const Icon(Icons.close),
-                  tooltip: 'Close (Esc)',
+                  tooltip: KeyHints.tip(context, 'Close', ReaderIntent.back),
                   onPressed: widget.onClose,
                 ),
               ],

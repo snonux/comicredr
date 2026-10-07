@@ -117,11 +117,12 @@ bucket when it starts, when it comes back to the front, on `R` and every
 five minutes.
 
 Open such a comic (a tap on a phone, Enter on the laptop) and its page
-has a **Download** button with the size. The comic goes into the same
+has a **Download** button with the size; `gD` on its cover is the same
+button. The comic goes into the same
 folder under your first library folder (for example `~/Comics`), with
 its sidecar, so it opens with its
 panels found and at the place you left it on the other device. Marked
-comics are downloaded together with **Download** in the bar.
+comics are downloaded together with **Download** in the bar, or `gD`.
 
 A comic that is already on the device, under any name, is recognised
 and simply gets its cloud; nothing is downloaded twice.
@@ -183,6 +184,7 @@ If the bucket is off, the removal waits and happens when it is back.
 |---|---|
 | `gu` | Upload the selected comic, the marked ones, or the open one to S3; for one there already, bring its sidecar in step |
 | `gU` | Remove the selected, marked or open comic from S3, after asking |
+| `gD` | Download the selected comic that is only on S3, or the marked ones that are |
 | `V` | Mark or unmark the selected cover and move on |
 | `Shift`+arrows, `Ctrl+A` | Mark a run of covers, every cover shown |
 | Ctrl+click, Shift+click | Mark or unmark a cover, mark up to a cover |

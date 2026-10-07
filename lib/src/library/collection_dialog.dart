@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../hotkeys.dart';
 import 'library_store.dart';
 import 'providers.dart';
 
@@ -216,39 +217,45 @@ class _CollectionDialogState extends State<CollectionDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    key: const Key('collectionDialog'),
-    title: Text('Add ${widget.what} to a collection'),
-    content: SizedBox(
-      width: 400,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            key: const Key('collectionName'),
-            controller: _field,
-            autofocus: true,
-            decoration: const InputDecoration(labelText: 'New collection'),
-            onSubmitted: _done,
-          ),
-          if (_failed case final e?) ...[
-            const SizedBox(height: 12),
-            Text('Could not list your collections: $e', key: const Key('collectionsFailed')),
-          ] else if (_names.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [for (final n in _names) ActionChip(label: Text(n), onPressed: () => _done(n))],
+  Widget build(BuildContext context) => DialogHotkeys(
+    child: AlertDialog(
+      key: const Key('collectionDialog'),
+      title: Text('Add ${widget.what} to a collection'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const Key('collectionName'),
+              controller: _field,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'New collection'),
+              onSubmitted: _done,
             ),
+            if (_failed case final e?) ...[
+              const SizedBox(height: 12),
+              Text('Could not list your collections: $e', key: const Key('collectionsFailed')),
+            ] else if (_names.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [for (final n in _names) ActionChip(label: Text(n), onPressed: () => _done(n))],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+        FilledButton(
+          key: const Key('collectionAdd'),
+          onPressed: () => _done(_field.text),
+          child: const Mnemonic('Add'),
+        ),
+      ],
     ),
-    actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-      FilledButton(key: const Key('collectionAdd'), onPressed: () => _done(_field.text), child: const Text('Add')),
-    ],
   );
 }

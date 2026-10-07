@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:reader_input/reader_input.dart';
+
+import '../hotkeys.dart';
 
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
@@ -112,7 +115,9 @@ class SeriesDetail extends ConsumerWidget {
           spacing: 8,
           runSpacing: 8,
           children: [
+            // No key of its own: Enter shows the books, Enter on one reads it.
             FilledButton.icon(
+              key: const Key('readNext'),
               onPressed: () => onRead(next),
               icon: const Icon(Icons.chrome_reader_mode),
               label: Text('${next.inProgress ? 'Continue' : 'Read'} ${next.name}'),
@@ -122,7 +127,7 @@ class SeriesDetail extends ConsumerWidget {
                 key: const Key('renameSeries'),
                 onPressed: () => renameSeries(context, ref, series),
                 icon: const Icon(Icons.edit),
-                label: const Text('Rename (e)'),
+                label: Text(KeyHints.tip(context, 'Rename', ReaderIntent.editBook)),
               ),
           ],
         ),
@@ -174,7 +179,11 @@ class FolderDetail extends ConsumerWidget {
         if (onBack != null)
           Align(
             alignment: Alignment.centerLeft,
-            child: IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back (Esc)', onPressed: onBack),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: KeyHints.tip(context, 'Back', ReaderIntent.back),
+              onPressed: onBack,
+            ),
           ),
         Center(
           child: ClipRRect(
@@ -201,14 +210,19 @@ class FolderDetail extends ConsumerWidget {
           spacing: 12,
           runSpacing: 8,
           children: [
-            FilledButton.icon(
-              key: const Key('openFolder'),
-              onPressed: onOpen,
-              icon: const Icon(Icons.folder_open),
-              label: const Text('Open the folder'),
+            Tooltip(
+              message: KeyHints.tip(context, 'Open the folder', ReaderIntent.activate),
+              child: FilledButton.icon(
+                key: const Key('openFolder'),
+                onPressed: onOpen,
+                icon: const Icon(Icons.folder_open),
+                label: const Text('Open the folder'),
+              ),
             ),
             if (next != null)
+              // No key of its own: Enter opens the folder, Enter on the comic reads it.
               OutlinedButton.icon(
+                key: const Key('continueInFolder'),
                 onPressed: () => onRead(next),
                 icon: const Icon(Icons.chrome_reader_mode),
                 label: Text('Continue ${next.name}'),
@@ -223,16 +237,19 @@ class FolderDetail extends ConsumerWidget {
           const SizedBox(height: 6),
           Align(
             alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              key: const Key('removeRoot'),
-              onPressed: () => removeLibraryFolder(
-                ref.read(libraryStoreProvider),
-                ref.read(settingsStoreProvider),
-                root.id,
-                root.path,
+            child: Tooltip(
+              message: KeyHints.tip(context, 'Take this folder out of the library', ReaderIntent.removeRoot),
+              child: OutlinedButton.icon(
+                key: const Key('removeRoot'),
+                onPressed: () => removeLibraryFolder(
+                  ref.read(libraryStoreProvider),
+                  ref.read(settingsStoreProvider),
+                  root.id,
+                  root.path,
+                ),
+                icon: const Icon(Icons.remove_circle_outline),
+                label: const Text('Take out of the library (the files stay)'),
               ),
-              icon: const Icon(Icons.remove_circle_outline),
-              label: const Text('Take out of the library (the files stay)'),
             ),
           ),
         ],

@@ -10,13 +10,16 @@ import 'package:reader_input/reader_input.dart';
 
 import '../data/settings_store.dart';
 import '../grid_zoom.dart';
+import '../hotkeys.dart';
 import '../reader/bookmark_list.dart';
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/recent_books.dart';
+import '../undo_notice.dart';
 import 'book_detail.dart';
 import 'bulk_actions.dart';
 import 'cover_card.dart';
+import 'default_folder.dart';
 import 'edit_dialog.dart';
 import 'folder_filter.dart';
 import 'folder_filter_dialog.dart';
@@ -359,13 +362,25 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     widget.keysFocus?.requestFocus();
   }
 
-  void _showSettings() => showSettings(
-    context,
-    covers: this,
-    onExportSidecars: widget.onExportSidecars,
-    onExportSettings: widget.onExportSettings,
-    onImportSettings: widget.onImportSettings,
-  );
+  /// `g,`, the header's cog or the empty library's button. One at a time:
+  /// the key still reaches the library while the dialog is on its way.
+  Future<void> _showSettings() async {
+    if (_settingsOpen) return;
+    _settingsOpen = true;
+    try {
+      await showSettings(
+        context,
+        covers: this,
+        onExportSidecars: widget.onExportSidecars,
+        onExportSettings: widget.onExportSettings,
+        onImportSettings: widget.onImportSettings,
+      );
+    } finally {
+      _settingsOpen = false;
+    }
+  }
+
+  bool _settingsOpen = false;
 
   /// Takes up the saved cover size, filter and shuffle setting again,
   /// after an import changed them.
@@ -516,6 +531,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         if (_selectedItem case BookItem(:final book)) {
           unawaited(_toggleFavourite(book));
         }
+      case ReaderIntent.remove when tab == LibraryTab.collections && _series != null:
+        final books = ref.read(booksProvider).value ?? const <LibraryBook>[];
+        final collection = _groups(books).where((s) => s.id == _series).firstOrNull;
+        if (_selectedItem case BookItem(:final book) when collection != null) {
+          unawaited(_takeOutOfCollection(book, collection.name));
+        }
       case ReaderIntent.remove:
         if (_selectedItem case BookmarkItem(:final bookmark, :final book)) {
           final i = index()!;
@@ -580,6 +601,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       case ReaderIntent.removeFromS3:
         final books = _actOn();
         if (books.isNotEmpty) unawaited(_s3Action(() => removeBooksFromS3(context, ref, books)));
+      case ReaderIntent.downloadFromS3:
+        final books = _actOn().where((b) => b.remoteOnly).toList();
+        if (books.isNotEmpty) unawaited(_s3Action(() => downloadBooks(context, ref, books)));
+      case ReaderIntent.removeRoot:
+        if (_selectedItem case FolderItem(:final folder)) {
+          if (folder.root case final root?) unawaited(_removeRoot(root.id, root.path));
+        }
+      case ReaderIntent.showScanFailures:
+        _showFailures(context);
+      case ReaderIntent.showSettings:
+        unawaited(_showSettings());
+      case ReaderIntent.undo:
+        ref.read(undoNoticeProvider).press();
       case ReaderIntent.showDetails:
         if (_selectedItem case BookItem(:final book) when !book.remoteOnly) {
           unawaited(showBookDetails(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
@@ -623,6 +657,17 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       return false;
     }
     return true;
+  }
+
+  /// `gA`, or the button in a library folder's details: out of the
+  /// library, its files left alone, and said in a notice, since by key
+  /// nothing else shows that it happened but a cover gone.
+  Future<void> _removeRoot(int id, String path) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await removeLibraryFolder(ref.read(libraryStoreProvider), ref.read(settingsStoreProvider), id, path);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('${p.basename(path)} taken out of the library; its comics stay on disk')));
   }
 
   /// Backspace, and Esc once nothing else is open: up to the folder above
@@ -670,6 +715,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       }
     }
     final messenger = ScaffoldMessenger.of(context);
+    final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
     final done = await setFavourite(ref, book, on);
     if (!done) {
       messenger
@@ -677,14 +723,58 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         ..showSnackBar(SnackBar(content: Text('Could not change the favourites for ${book.name}')));
       return;
     }
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(on ? '${book.name} added to Favourites' : '${book.name} taken out of Favourites'),
-          action: on ? null : SnackBarAction(label: 'Undo', onPressed: () => setFavourite(ref, book, true)),
-        ),
-      );
+    if (on) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('${book.name} added to Favourites')));
+      return;
+    }
+    // With the undo key (u) as well as the button.
+    ref
+        .read(undoNoticeProvider)
+        .show(
+          messenger,
+          '${book.name} taken out of Favourites',
+          label: undoLabel,
+          undo: () => setFavourite(ref, book, true),
+        );
+  }
+
+  /// `x` on a comic in an open collection (the Favourites have their own
+  /// rule above): out of the collection, the next comic selected, and a
+  /// notice that offers it back. Before task 263 only the x on the chip in
+  /// the comic's details did this, which no key reached.
+  Future<void> _takeOutOfCollection(LibraryBook book, String collection) async {
+    final i = _items.indexWhere((it) => it.id == _selected);
+    if (i >= 0) {
+      final next = i + 1 < _items.length ? _items[i + 1] : (i > 0 ? _items[i - 1] : null);
+      setState(() => _selected = next?.id);
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
+    final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
+    Future<void> write() => sidecars.writeBeside(book.path, book.key, folder: book.isFolder);
+    try {
+      await store.removeFromCollection(book.key, collection);
+      await write();
+    } catch (e) {
+      debugPrint('Could not take ${book.path} out of $collection: $e');
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Could not take ${book.name} out of $collection')));
+      return;
+    }
+    ref
+        .read(undoNoticeProvider)
+        .show(
+          messenger,
+          '${book.name} taken out of $collection',
+          label: undoLabel,
+          undo: () async {
+            await store.addToCollection(book.key, collection);
+            await write();
+          },
+        );
   }
 
   /// Shows [dir], under the library folder [root], on the Folders tab: for a
@@ -987,12 +1077,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final local = marked.where((b) => !b.remoteOnly).toList();
     final s3 = ref.watch(s3StatusProvider).value?.on ?? false;
     final narrow = MediaQuery.sizeOf(context).width < 600;
-    Widget button(String key, IconData icon, String label, String keys, VoidCallback onPressed) => TextButton.icon(
-      key: Key(key),
-      onPressed: onPressed,
-      icon: Icon(icon),
-      label: Text(narrow || keys.isEmpty ? label : '$label ($keys)'),
-    );
+    // Each names its key as the keymap has it now; a phone has no room.
+    Widget button(String key, IconData icon, String label, ReaderIntent intent, VoidCallback onPressed) =>
+        TextButton.icon(
+          key: Key(key),
+          onPressed: onPressed,
+          icon: Icon(icon),
+          label: Text(narrow ? label : KeyHints.tip(context, label, intent)),
+        );
     return Material(
       key: const Key('marksBar'),
       color: theme.colorScheme.secondaryContainer,
@@ -1010,39 +1102,51 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
               style: theme.textTheme.titleSmall,
             ),
             const SizedBox(width: 4),
-            button('marksAll', Icons.select_all, 'All', 'Ctrl+A', _markAll),
+            button('marksAll', Icons.select_all, 'All', ReaderIntent.markAll, _markAll),
             if (local.isNotEmpty) ...[
               button(
                 'marksFavourite',
                 local.every((b) => b.favourite) ? Icons.star : Icons.star_outline,
                 local.every((b) => b.favourite) ? 'Unfavourite' : 'Favourite',
-                '*',
+                ReaderIntent.toggleFavourite,
                 () => _bulk(() => toggleFavourites(context, ref, marked)),
               ),
-              button('marksMove', Icons.drive_file_move_outline, 'Move', 'gm', () => _bulk(() => _moveBooks(local))),
+              button(
+                'marksMove',
+                Icons.drive_file_move_outline,
+                'Move',
+                ReaderIntent.moveBooks,
+                () => _bulk(() => _moveBooks(local)),
+              ),
               button(
                 'marksCollection',
                 Icons.label_outline,
                 'Collection',
-                'gc',
+                ReaderIntent.addToCollection,
                 () => _bulk(() => addBooksToCollection(context, ref, marked)),
               ),
               button(
                 'marksReset',
                 Icons.restart_alt,
                 'Reset',
-                'X',
+                ReaderIntent.resetBook,
                 () => _bulk(() => resetBooks(context, ref, marked)),
               ),
             ],
             if (marked.isNotEmpty)
-              button('marksDelete', Icons.delete_outline, 'Delete', 'gd', () => _bulk(() => _deleteMarked(marked))),
+              button(
+                'marksDelete',
+                Icons.delete_outline,
+                'Delete',
+                ReaderIntent.deleteBook,
+                () => _bulk(() => _deleteMarked(marked)),
+              ),
             if (s3 && marked.any((b) => b.s3 == null))
               button(
                 'marksUpload',
                 Icons.cloud_upload,
                 'Upload to S3',
-                'gu',
+                ReaderIntent.uploadToS3,
                 () => _s3Action(() => uploadBooks(context, ref, marked)),
               ),
             if (s3 && marked.any((b) => b.remoteOnly))
@@ -1050,7 +1154,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                 'marksDownload',
                 Icons.cloud_download,
                 'Download',
-                '',
+                ReaderIntent.downloadFromS3,
                 () => _s3Action(() => downloadBooks(context, ref, marked)),
               ),
             if (s3 && marked.any((b) => b.s3 != null))
@@ -1058,13 +1162,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                 'marksRemove',
                 Icons.cloud_off,
                 'Remove from S3',
-                'gU',
+                ReaderIntent.removeFromS3,
                 () => _s3Action(() => removeBooksFromS3(context, ref, marked)),
               ),
             TextButton(
               key: const Key('marksClear'),
               onPressed: _clearMarks,
-              child: Text(narrow ? 'Clear' : 'Clear (Esc)'),
+              child: Text(narrow ? 'Clear' : KeyHints.tip(context, 'Clear', ReaderIntent.back)),
             ),
           ],
         ),
@@ -1082,6 +1186,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       key: Key(key),
       label: Text(label),
       visualDensity: VisualDensity.compact,
+      // By key the filter is changed in its dialog; the x has none of its own.
+      tooltip: KeyHints.tip(context, 'Change the filter', ReaderIntent.filterFolders),
       onPressed: _openFilter,
       onDeleted: () => setFilter(without),
       deleteButtonTooltipMessage: 'Take this off the filter',
@@ -1095,12 +1201,20 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          TextButton.icon(
-            key: const Key('filter'),
-            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-            icon: Icon(f.isActive ? Icons.filter_alt : Icons.filter_alt_outlined),
-            label: Text(f.isActive ? 'Filtered:' : 'Filter by type, size, date (F)'),
-            onPressed: _openFilter,
+          // The tooltip names the key also while the label says what is filtered.
+          Tooltip(
+            message: KeyHints.tip(context, 'Filter by type, size, date', ReaderIntent.filterFolders),
+            child: TextButton.icon(
+              key: const Key('filter'),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              icon: Icon(f.isActive ? Icons.filter_alt : Icons.filter_alt_outlined),
+              label: Text(
+                f.isActive
+                    ? 'Filtered:'
+                    : KeyHints.tip(context, 'Filter by type, size, date', ReaderIntent.filterFolders),
+              ),
+              onPressed: _openFilter,
+            ),
           ),
           if (f.formats.isNotEmpty)
             part(
@@ -1112,11 +1226,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           if (f.date != DateRange.any)
             part('filterBarDate', 'Modified: ${f.date.label.toLowerCase()}', f.copyWith(date: DateRange.any)),
           if (f.isActive)
-            TextButton(
-              key: const Key('filterBarClear'),
-              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-              onPressed: () => setFilter(FolderFilter.none),
-              child: const Text('Clear filter'),
+            Tooltip(
+              message: KeyHints.tip(context, 'By key: Clear all in the filter', ReaderIntent.filterFolders),
+              child: TextButton(
+                key: const Key('filterBarClear'),
+                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                onPressed: () => setFilter(FolderFilter.none),
+                child: const Text('Clear filter'),
+              ),
             ),
         ],
       ),
@@ -1430,7 +1547,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           if (series != null) ...[
             IconButton(
               icon: const Icon(Icons.arrow_back),
-              tooltip: tab == LibraryTab.collections ? 'Back to collections' : 'Back to series',
+              tooltip: KeyHints.tip(
+                context,
+                tab == LibraryTab.collections ? 'Back to collections' : 'Back to series',
+                ReaderIntent.back,
+              ),
               onPressed: back,
             ),
             Flexible(
@@ -1438,7 +1559,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
             ),
             const SizedBox(width: 12),
           ] else if (tab == LibraryTab.collections && _favourites) ...[
-            IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back to collections', onPressed: back),
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: KeyHints.tip(context, 'Back to collections', ReaderIntent.back),
+              onPressed: back,
+            ),
             Flexible(
               child: Text(favouritesCollection, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
             ),
@@ -1447,7 +1572,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
             IconButton(
               key: const Key('folderUp'),
               icon: const Icon(Icons.arrow_upward),
-              tooltip: 'Up a folder (Esc)',
+              tooltip: KeyHints.tip(context, 'Up a folder', ReaderIntent.back),
               onPressed: back,
             ),
             Flexible(flex: 3, child: _breadcrumb(theme)),
@@ -1465,19 +1590,19 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
             IconButton(
               key: const Key('continue'),
               icon: const Icon(Icons.play_circle_outline),
-              tooltip: 'Continue ${last.title} (C)',
+              tooltip: KeyHints.tip(context, 'Continue ${last.title}', ReaderIntent.continueReading),
               onPressed: widget.onContinue,
             ),
           IconButton(
             key: const Key('favourites'),
             icon: Icon(_favourites && tab == LibraryTab.collections ? Icons.star : Icons.star_outline),
-            tooltip: 'Favourites (gf)',
+            tooltip: KeyHints.tip(context, 'Favourites', ReaderIntent.showFavourites),
             onPressed: showFavourites,
           ),
           IconButton(
             key: const Key('addRoot'),
             icon: const Icon(Icons.create_new_folder_outlined),
-            tooltip: 'Add a folder to the library (A)',
+            tooltip: KeyHints.tip(context, 'Add a folder to the library', ReaderIntent.addRoot),
             onPressed: widget.onAddRoot,
           ),
           if (_coverTab) ...[
@@ -1485,14 +1610,18 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
               key: const Key('shuffle'),
               icon: Icon(_shuffle ? Icons.shuffle_on_outlined : Icons.shuffle),
               isSelected: _shuffle,
-              tooltip: _shuffle ? 'Show covers again (S)' : 'Shuffle: a random page of each comic (S)',
+              tooltip: KeyHints.tip(
+                context,
+                _shuffle ? 'Show covers again' : 'Shuffle: a random page of each comic',
+                ReaderIntent.toggleShuffle,
+              ),
               onPressed: () => setShuffle(!_shuffle),
             ),
             if (_shuffle && !narrow)
               IconButton(
                 key: const Key('reshuffle'),
                 icon: const Icon(Icons.casino_outlined),
-                tooltip: 'Other random pages (gs)',
+                tooltip: KeyHints.tip(context, 'Other random pages', ReaderIntent.reshuffle),
                 onPressed: () => setState(_reshuffle),
               ),
           ],
@@ -1500,12 +1629,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
             IconButton(
               key: const Key('rescan'),
               icon: const Icon(Icons.refresh),
-              tooltip: 'Rescan the library folders (R)',
+              tooltip: KeyHints.tip(context, 'Rescan the library folders', ReaderIntent.rescan),
               onPressed: () => ref.read(scannerProvider).scan(),
             ),
           IconButton(
             icon: const Icon(Icons.file_open_outlined),
-            tooltip: 'Open a comic without adding it (o)',
+            tooltip: KeyHints.tip(context, 'Open a comic without adding it', ReaderIntent.openFile),
             onPressed: widget.onOpenFile,
           ),
           // Wider screens have Shift and Ctrl, and Mark in the details pane or page.
@@ -1515,14 +1644,18 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
               icon: Icon(_selecting ? Icons.checklist_rtl : Icons.checklist),
               isSelected: _selecting,
               tooltip: _selecting
-                  ? 'Stop marking'
-                  : 'Mark comics to delete, reset, favourite or sync together (V, Shift+arrows)',
+                  ? KeyHints.tip(context, 'Stop marking', ReaderIntent.back)
+                  : KeyHints.tip(
+                      context,
+                      'Mark comics to delete, reset, favourite or sync together',
+                      ReaderIntent.markBook,
+                    ),
               onPressed: () => _selecting ? _clearMarks() : setState(() => _selecting = true),
             ),
           IconButton(
             key: const Key('settings'),
             icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
+            tooltip: KeyHints.tip(context, 'Settings', ReaderIntent.showSettings),
             onPressed: () => _showSettings(),
           ),
         ],
@@ -1542,9 +1675,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     decoration: InputDecoration(
       isDense: true,
       prefixIcon: const Icon(Icons.search),
-      hintText: 'Search titles, series, creators (/)',
+      hintText: KeyHints.tip(context, 'Search titles, series, creators', ReaderIntent.search),
       border: const OutlineInputBorder(),
-      suffixIcon: _query.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () => back()),
+      suffixIcon: _query.isEmpty
+          ? null
+          : IconButton(
+              icon: const Icon(Icons.clear),
+              tooltip: KeyHints.tip(context, 'Clear the search', ReaderIntent.back),
+              onPressed: () => back(),
+            ),
     ),
     onChanged: (q) => setState(() {
       _query = q;
@@ -1575,7 +1714,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       reverse: true, // The folder you are in stays in view.
       child: Row(
         children: [
-          TextButton(onPressed: () => _openFolder(null), child: const Text('Folders')),
+          // No key of their own: Backspace goes up a folder at a time.
+          Tooltip(
+            message: KeyHints.tip(context, 'All library folders: up, a folder at a time', ReaderIntent.up),
+            child: TextButton(onPressed: () => _openFolder(null), child: const Text('Folders')),
+          ),
           for (final (i, path) in paths.indexed) ...[
             const Icon(Icons.chevron_right, size: 18),
             i == paths.length - 1
@@ -1583,7 +1726,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Text(p.basename(path), style: theme.textTheme.titleLarge),
                   )
-                : TextButton(onPressed: () => _upTo(path), child: Text(p.basename(path))),
+                : Tooltip(
+                    message: KeyHints.tip(context, 'Up to ${p.basename(path)}, a folder at a time', ReaderIntent.up),
+                    child: TextButton(onPressed: () => _upTo(path), child: Text(p.basename(path))),
+                  ),
           ],
         ],
       ),
@@ -1599,25 +1745,39 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
   }
 
-  /// The files the last scan could not read, and why.
+  /// The files the last scan could not read, and why: `g!` or a tap on
+  /// the status line's count. With none, a notice says so.
   void _showFailures(BuildContext context) {
     final failed = ref.read(scanStatusProvider).value?.failed ?? const [];
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Could not read'),
-        content: SizedBox(
-          width: 520,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              for (final (path, why) in failed)
-                ListTile(dense: true, title: Text(p.basename(path)), subtitle: Text('$why\n$path')),
+    if (failed.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('The last scan could read every comic')));
+      return;
+    }
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (context) => DialogHotkeys(
+          child: AlertDialog(
+            key: const Key('failuresDialog'),
+            title: const Text('Could not read'),
+            content: SizedBox(
+              width: 520,
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final (path, why) in failed)
+                    ListTile(dense: true, title: Text(p.basename(path)), subtitle: Text('$why\n$path')),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(autofocus: true, onPressed: () => Navigator.pop(context), child: const Mnemonic('Close')),
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
-      ),
+      ).whenComplete(() => widget.keysFocus?.requestFocus()),
     );
   }
 
@@ -1686,12 +1846,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit_note),
-                      tooltip: 'Note (e)',
+                      tooltip: KeyHints.tip(context, 'Note', ReaderIntent.editBook),
                       onPressed: () => _editNote(item.book, m),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline),
-                      tooltip: 'Remove (x)',
+                      tooltip: KeyHints.tip(context, 'Remove', ReaderIntent.remove),
                       onPressed: () =>
                           _bookmarkChanged(item.book, () => ref.read(libraryStoreProvider).deleteBookmark(m.id)),
                     ),

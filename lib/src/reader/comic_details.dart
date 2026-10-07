@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:reader_input/reader_input.dart';
+
 import '../data/meta_edits.dart';
+import '../hotkeys.dart';
 import 'comic_report.dart';
 import 'open_book.dart';
 
@@ -34,12 +37,15 @@ Future<void> showComicDetails(
         canRedo: onRedoPanels != null,
         closeKeys: closeKeys,
       );
-      return narrow
-          ? Dialog.fullscreen(child: details)
-          : Dialog(
-              insetPadding: const EdgeInsets.all(24),
-              child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 820), child: details),
-            );
+      // Alt+R is Redo panels; Tab reaches it and the pages of the list.
+      return DialogHotkeys(
+        child: narrow
+            ? Dialog.fullscreen(child: details)
+            : Dialog(
+                insetPadding: const EdgeInsets.all(24),
+                child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 820), child: details),
+              ),
+      );
     },
   );
   switch (picked) {
@@ -114,6 +120,11 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
     return CallbackShortcuts(
       bindings: {
         for (final k in widget.closeKeys) CharacterActivator(k): close,
+        // Redo panels' Alt+R is taken here and not left to its label: the
+        // button is a row of the list, built only once it scrolls into
+        // view, and the key works from the top of the list too.
+        if (widget.canRedo)
+          const SingleActivator(LogicalKeyboardKey.keyR, alt: true): () => Navigator.pop(context, const _RedoPanels()),
         const CharacterActivator('j'): () => _scrollBy(0.15),
         const CharacterActivator('k'): () => _scrollBy(-0.15),
         const SingleActivator(LogicalKeyboardKey.arrowDown): () => _scrollBy(0.15),
@@ -429,7 +440,7 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
               key: const Key('detailsRedoPanels'),
               onPressed: () => Navigator.pop(context, const _RedoPanels()),
               icon: const Icon(Icons.refresh),
-              label: const Text('Redo panels'),
+              label: const Mnemonic('Redo panels'),
             ),
           ),
         ),
@@ -549,7 +560,7 @@ class _TitleBar extends StatelessWidget {
         IconButton(
           key: const Key('detailsClose'),
           icon: const Icon(Icons.close),
-          tooltip: 'Close (Esc)',
+          tooltip: KeyHints.tip(context, 'Close', ReaderIntent.back),
           onPressed: onClose,
         ),
       ],

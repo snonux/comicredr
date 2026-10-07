@@ -2,9 +2,16 @@
 
 [Contents](README.md) · Previous: [Your data](11-your-data.md) · Next: [Syncing through S3](13-s3-sync.md)
 
-Open Settings with the gear button at the top of the library. Most
-settings can also be switched while reading, with the key named in
-brackets.
+Open Settings with `g,` or the gear button at the top of the library;
+`g,` works in a comic too. Most settings can also be switched while
+reading, with the key named in brackets.
+
+Settings can be worked without the mouse: `Tab` and `Shift+Tab` go from
+one control to the next, with a ring around the one you are on, `Space`
+switches a switch or picks a choice, the left and right arrows move a
+slider, and `Alt` with an underlined letter presses that button (`Alt+H`
+for **Clear reading history**, `Alt+S` for the S3 sync, `Alt+C` to
+close). See [a key for every button](09-keyboard.md#a-key-for-every-button).
 
 ![The Settings dialog](images/settings.webp)
 

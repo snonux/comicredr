@@ -49,6 +49,14 @@ it in step when the architecture or the model changes.
   the credits (David Revoy, CC BY 4.0).
 - Test comics are fetched from free sources through the manifests in
   `test/`, never committed. Tag each book with its `style` in the manifest.
+- **Every button and dialog has a key** (snonux, task 263). A new
+  button on a screen gets a `ReaderIntent` with a default key (reuse the
+  intent when the action has one) and names it through `KeyHints.tip`,
+  never as fixed text. A new dialog is wrapped in `DialogHotkeys`, its
+  buttons are labelled with `Mnemonic` (a letter no other button of the
+  dialog has), and one control has `autofocus`: Cancel when something
+  would be lost. `test/hotkeys_test.dart` fails otherwise; see "Keys for
+  buttons and dialogs" below for the rule and its exceptions.
 - `docs/keys.toml` is generated: after changing intents or default keys run
   `dart run packages/reader_input/tool/write_keys_toml.dart` from the repo
   root (`packages/reader_input/test/keys_toml_test.dart` fails otherwise).
@@ -346,6 +354,96 @@ refreshes right away instead of within six hours.
   time), and wins. `*` never adds a favourite twice (on one it takes it
   out), so the Favourites behave as before. The merge rule itself is
   unchanged; `test/collections_history_test.dart` holds both outcomes.
+- Keys for buttons and dialogs (task 263, `lib/src/hotkeys.dart`). Two
+  rules, by where a button is, since that decides who gets the keys.
+  **On a screen** (the library, the reader, and the overlays that are
+  part of it: page grid, bookmark list, parts picker, `?`) the keys go to
+  ReaderKeyboard, so Tab is `cycleModeForward` and no button can be
+  walked to: each button sends a `ReaderIntent` that has a key, and its
+  tooltip, or its label where it has one, names that key from the live
+  keymap: `KeyHints.tip(context, 'Favourites', ReaderIntent.showFavourites)`
+  gives `Favourites (gf)`, the first binding of the intent as
+  `Keymap.spoken` writes it (`Ctrl+A`, `Shift+Delete`), and no brackets
+  when keys.toml left the intent without a key. `KeyHints` is an
+  inherited widget put above the Navigator by `MaterialApp.builder`
+  (app.dart), so dialogs read it too; without one (a widget pumped alone
+  in a test) the default keys are named. Where a wider label would move
+  what a finger or an e2e script aims at (the empty library's buttons,
+  the parts picker's, the details' Read and Download), the key is in a
+  `Tooltip` around the button instead. Intents added for buttons that had
+  no key: `showSettings` (`g,`; app.dart sends it to the library also
+  with a comic open, and `LibraryScreenState._settingsOpen` keeps a
+  second `g,`, typed before the dialog has the focus, from stacking a
+  second dialog), `undo` (`u`), `downloadFromS3` (`gD`), `removeRoot`
+  (`gA`, says what it did in a notice), `showScanFailures` (`g!`, a
+  notice when nothing failed), and `remove` (`x`) now also takes the
+  selected comic out of an open collection
+  (`_takeOutOfCollection`). `u` presses the Undo of the notice that
+  shows: a SnackBar's action is out of the keyboard's reach, so the
+  notices with an Undo go through `UndoNotice` (`undoNoticeProvider`,
+  `lib/src/undo_notice.dart`), which keeps what the button does until
+  the notice has gone and runs it once, by button or by key.
+  Buttons left without a key of their own, each a shortcut to something
+  the keys reach in two steps (the walk in `test/hotkeys_test.dart`
+  lists the two it meets as `noKey`): the breadcrumb's folder names
+  (`Backspace`, a folder at a time; their tooltips say so), **Read** /
+  **Continue** in a series' or a folder's details (`readNext`,
+  `continueInFolder`: Enter, then Enter on the comic), the x on a part
+  of the filter line and its Clear filter (`F`, then the chips and
+  Alt+C; the tooltips name `F`), Note and Remove on a bookmark and the x
+  of a collection chip in a book's details (tooltips name `e` and `x`
+  and where they work), the parts picker's choice of split (the part's
+  own key picks it), tabs (Tab, Shift+Tab), and rows and covers (arrows
+  and Enter). Pointer-only by nature: the progress bar, the bookmark
+  ribbon (`M`), the text field's clear button (Esc). Help texts that
+  spell keys in a sentence (Settings' subtitles, the empty library's
+  paragraph, empty tabs) are still fixed text.
+  **In a dialog** (a route, which has the focus, so ReaderKeyboard sees
+  none of its keys and nothing typed acts on what is behind) Esc, Enter,
+  Tab, the arrows and Space are Flutter's. `DialogHotkeys` around the
+  dialog adds three things. (1) Alt and a letter presses the button
+  whose `Mnemonic` label has that letter (the first of the text unless
+  `letter:` names another; the label finds its button by walking up to
+  the nearest `ButtonStyleButton` and calls its `onPressed`, so a
+  disabled button does nothing and `.icon` buttons work). Alt, not the
+  bare letter, so a letter typed into a dialog's field is text; Ctrl+Alt
+  and AltGr are not Alt. ReaderKeyboard in turn drops every key pressed
+  with Alt (function keys apart): no binding has Alt, and an Alt+C too
+  many after a dialog closed must not be `c` on the comic. Two labels
+  with one letter trip an assert when
+  the key is pressed. The letters are underlined on Linux, macOS and
+  Windows; on Android and iOS only while Alt is held
+  (`DialogHotkeys.debugTouchFirst` for tests), so touch sees no change.
+  (2) Tab order is the order the controls are written in
+  (`_WrittenOrderPolicy`, a walk of the dialog's widgets): Flutter's
+  default orders by position on screen, which in Settings, whose content
+  scrolls, changed as Tab scrolled it, so Tab went round eight controls
+  and never reached the switches or sliders; its
+  `WidgetOrderTraversalPolicy` is the order the controls were made in,
+  which put the collection question's chips (read from the index, so
+  made after the buttons) behind Cancel and Add. (3) The letters are taken by a `HardwareKeyboard` handler, for the
+  dialog whose route is on top, not through the focus: they work before
+  anything in the dialog has the focus, and the wrapper holds no focus
+  node of its own (one that took the focus when nothing else had it kept
+  the S3 settings' first field, which shows only once the settings are
+  read, from getting its autofocus). A dialog still autofocuses a
+  control, for Enter. `ComicDetails` takes Alt+R (Redo
+  panels) in its own `CallbackShortcuts`, since that button is a row of
+  a lazily built list and its label is not there until scrolled to.
+  The ring around the focused control is `withFocusRing` on both themes:
+  a 2 px `side` for the focused state of the button, chip and
+  segmented-button themes and a stronger `focusColor`; Flutter reports
+  the focused state only in `FocusHighlightMode.traditional`, i.e. while
+  keys or a mouse are in use.
+  Not done, for follow-up tasks: Settings' rows have no letters of their
+  own (Tab and Space; only its buttons have); the collection chips of the
+  collection question and the pages of the details list are reached by
+  Tab only; the dialogs only Android shows (storage access, the folder
+  paths) and the ones that need another device or a bucket (position
+  offer, import confirmation, S3 settings and its Turn off, Remove from
+  S3, the move clash, failures) are wrapped and lettered, but the
+  keyboard walk in `test/hotkeys_test.dart` does not open them (its scan
+  of the sources covers their wrapping and labels); the system's file pickers are GTK's own.
 - Continue (`C`, the library header's play button, widget key `continue`):
   `RecentBooks` (`lib/src/reader/recent_books.dart`) keeps the last five
   comics opened, path, content key and title, newest first, in the
@@ -949,6 +1047,7 @@ tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
 tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
+tool/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), d without Alt and Enter delete nothing, Alt+C cancels, Alt+D deletes; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out; checks the index with sqlite3 and the comics on disk; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
 python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot; the app's HOME is /tmp/comicredr-guide/home (GUIDE_HOME), never under the checkout, since the ? help and Settings show the data folder's path and with it the name of whoever took the pictures

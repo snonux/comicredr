@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
 import '../data/s3_sync.dart';
+import '../hotkeys.dart';
 import '../providers.dart';
 import '../reader/bookmark_list.dart';
 import '../reader/comic_details.dart';
@@ -65,7 +66,11 @@ class BookDetail extends ConsumerWidget {
         if (onBack != null)
           Align(
             alignment: Alignment.centerLeft,
-            child: IconButton(icon: const Icon(Icons.arrow_back), tooltip: 'Back (Esc)', onPressed: onBack),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              tooltip: KeyHints.tip(context, 'Back', ReaderIntent.back),
+              onPressed: onBack,
+            ),
           ),
         Center(
           child: ClipRRect(
@@ -96,31 +101,41 @@ class BookDetail extends ConsumerWidget {
           runSpacing: 8,
           children: [
             if (remote)
-              FilledButton.icon(
-                key: const Key('download'),
-                onPressed: transfer != null ? null : () => downloadBooks(context, ref, [book]),
-                icon: const Icon(Icons.cloud_download),
-                label: Text('Download ${describeBytes(book.s3?.size ?? 0)}'),
+              Tooltip(
+                message: KeyHints.tip(context, 'Download from S3', ReaderIntent.downloadFromS3),
+                child: FilledButton.icon(
+                  key: const Key('download'),
+                  onPressed: transfer != null ? null : () => downloadBooks(context, ref, [book]),
+                  icon: const Icon(Icons.cloud_download),
+                  label: Text('Download ${describeBytes(book.s3?.size ?? 0)}'),
+                ),
               )
             else
-              FilledButton.icon(
-                key: const Key('read'),
-                onPressed: () => onRead(book),
-                icon: const Icon(Icons.chrome_reader_mode),
-                label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
+              Tooltip(
+                message: KeyHints.tip(context, 'Open this comic', ReaderIntent.activate),
+                child: FilledButton.icon(
+                  key: const Key('read'),
+                  onPressed: () => onRead(book),
+                  icon: const Icon(Icons.chrome_reader_mode),
+                  label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
+                ),
               ),
             IconButton.outlined(
               key: const Key('favourite'),
               onPressed: () => setFavourite(ref, book, !book.favourite),
               icon: Icon(book.favourite ? Icons.star : Icons.star_outline, color: book.favourite ? Colors.amber : null),
-              tooltip: book.favourite ? 'Take out of Favourites (*)' : 'Add to Favourites (*)',
+              tooltip: KeyHints.tip(
+                context,
+                book.favourite ? 'Take out of Favourites' : 'Add to Favourites',
+                ReaderIntent.toggleFavourite,
+              ),
             ),
             if (!remote)
               OutlinedButton.icon(
                 key: const Key('editBook'),
                 onPressed: () => editBook(context, ref, book),
                 icon: const Icon(Icons.edit),
-                label: const Text('Edit (e)'),
+                label: Text(KeyHints.tip(context, 'Edit', ReaderIntent.editBook)),
               ),
           ],
         ),
@@ -144,7 +159,7 @@ class BookDetail extends ConsumerWidget {
                   key: const Key('uploadS3'),
                   onPressed: () => uploadBooks(context, ref, [book]),
                   icon: const Icon(Icons.cloud_upload),
-                  label: const Text('Upload to S3 (gu)'),
+                  label: Text(KeyHints.tip(context, 'Upload to S3', ReaderIntent.uploadToS3)),
                 )
               else ...[
                 if (!book.remoteOnly)
@@ -152,13 +167,13 @@ class BookDetail extends ConsumerWidget {
                     key: const Key('syncS3'),
                     onPressed: () => uploadBooks(context, ref, [book]),
                     icon: const Icon(Icons.sync),
-                    label: const Text('Sync with S3 (gu)'),
+                    label: Text(KeyHints.tip(context, 'Sync with S3', ReaderIntent.uploadToS3)),
                   ),
                 OutlinedButton.icon(
                   key: const Key('removeS3'),
                   onPressed: () => removeBooksFromS3(context, ref, [book]),
                   icon: const Icon(Icons.cloud_off),
-                  label: const Text('Remove from S3… (gU)'),
+                  label: Text(KeyHints.tip(context, 'Remove from S3…', ReaderIntent.removeFromS3)),
                 ),
               ],
             ],
@@ -176,12 +191,19 @@ class BookDetail extends ConsumerWidget {
               InputChip(
                 label: Text(c),
                 onDeleted: () => _changed(ref, () => ref.read(libraryStoreProvider).removeFromCollection(book.key, c)),
-                deleteButtonTooltipMessage: 'Take out of $c',
+                // By key: x on the comic in the open collection.
+                deleteButtonTooltipMessage: _elsewhere(
+                  context,
+                  'Take out of $c',
+                  ReaderIntent.remove,
+                  'in the collection',
+                ),
               ),
             ActionChip(
               key: const Key('addToCollection'),
               avatar: const Icon(Icons.add, size: 18),
               label: const Text('Add to a collection'),
+              tooltip: KeyHints.tip(context, 'Add to a collection', ReaderIntent.addToCollection),
               // The question, the rule for a collection it is in already
               // and the notice are gc's (also for a comic only on S3, which
               // gc leaves out: its row is in the index, with no sidecar).
@@ -215,7 +237,8 @@ class BookDetail extends ConsumerWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.edit_note),
-                  tooltip: 'Note',
+                  // By key: e and x on the Bookmarks tab, or in the reader's list (M).
+                  tooltip: _elsewhere(context, 'Note', ReaderIntent.editBook, 'on the Bookmarks tab'),
                   onPressed: () async {
                     final note = await askBookmarkNote(context, m);
                     if (note != null) await _changed(ref, () => ref.read(libraryStoreProvider).setNote(m.id, note));
@@ -223,7 +246,7 @@ class BookDetail extends ConsumerWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete_outline),
-                  tooltip: 'Remove',
+                  tooltip: _elsewhere(context, 'Remove', ReaderIntent.remove, 'on the Bookmarks tab'),
                   onPressed: () => _changed(ref, () => ref.read(libraryStoreProvider).deleteBookmark(m.id)),
                 ),
               ],
@@ -241,32 +264,41 @@ class BookDetail extends ConsumerWidget {
                 key: const Key('bookDetails'),
                 onPressed: () => showBookDetails(context, ref, book),
                 icon: const Icon(Icons.info_outline),
-                label: const Text('Details (I)'),
+                label: Text(KeyHints.tip(context, 'Details', ReaderIntent.showDetails)),
               ),
               OutlinedButton.icon(
                 key: const Key('resetBook'),
                 onPressed: () => resetBook(context, ref, book),
                 icon: const Icon(Icons.restart_alt),
-                label: const Text('Reset this comic… (X)'),
+                label: Text(KeyHints.tip(context, 'Reset this comic…', ReaderIntent.resetBook)),
               ),
               OutlinedButton.icon(
                 key: const Key('deleteBook'),
                 onPressed: () => deleteLibraryBook(context, ref, book, beforeDelete: () => onBeforeDelete?.call()),
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('Delete this comic… (gd)'),
+                label: Text(KeyHints.tip(context, 'Delete this comic…', ReaderIntent.deleteBook)),
               ),
               if (onMark != null)
                 OutlinedButton.icon(
                   key: const Key('markBook'),
                   onPressed: onMark,
                   icon: Icon(marked ? Icons.check_box : Icons.check_box_outline_blank),
-                  label: Text(marked ? 'Marked (V)' : 'Mark to act on several (V)'),
+                  label: Text(
+                    KeyHints.tip(context, marked ? 'Marked' : 'Mark to act on several', ReaderIntent.markBook),
+                  ),
                 ),
             ],
           ),
       ],
     );
   }
+}
+
+/// A tooltip for a button whose key works somewhere else: `Note (e on the
+/// Bookmarks tab)`. Just [text] when [intent] has no key.
+String _elsewhere(BuildContext context, String text, ReaderIntent intent, String where) {
+  final key = KeyHints.of(context).hint(intent);
+  return key == null ? text : '$text ($key $where)';
 }
 
 extension on BookDetail {
