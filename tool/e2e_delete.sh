@@ -46,6 +46,10 @@ Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
+# Xvfb takes a moment to listen, and with GDK_BACKEND=x11 the app dies on
+# a display that is not there yet ("cannot open display").
+for _ in $(seq 1 100); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+xdotool getdisplaygeometry >/dev/null 2>&1 || { echo "FAIL  Xvfb did not come up on $DISPLAY"; exit 1; }
 
 failed=0
 check() {
@@ -57,7 +61,16 @@ q() { sqlite3 -batch -noheader -cmd ".timeout 10000" "$db" "$1"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 1; }
 shot() { import -window root "$out/$1.png"; }
 start() {
-  HOME="$home" build/linux/x64/release/bundle/comicredr --add-root "$comics" "$@" >>"$out/app.log" 2>&1 &
+  # GDK_BACKEND: on a desktop running Wayland GTK would otherwise open the
+  # window there instead of in Xvfb, where the keys and clicks go. No
+  # session bus and no XDG folders of whoever runs this: the app then
+  # cannot reach their keyring or their own data. The bus address names a
+  # socket that is not there, rather than being unset: unset, D-Bus falls
+  # back to $XDG_RUNTIME_DIR/bus, which on a desktop is the real session's.
+  env -u XDG_DATA_HOME -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+    DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/comicredr-no-session-bus \
+    HOME="$home" GDK_BACKEND=x11 build/linux/x64/release/bundle/comicredr \
+    --add-root "$comics" "$@" >>"$out/app.log" 2>&1 &
   app=$!
   sleep 8
   win=$(xdotool search --name '^ComicRedr$' | tail -1)

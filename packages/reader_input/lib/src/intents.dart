@@ -137,7 +137,7 @@ enum ReaderIntent {
   markToLast('Library: mark from where marking started to the last cover'),
   markAll('Library: mark every comic shown, or unmark them all when they are marked already'),
   editBook("Edit the selected book's title, series, issue and creators in the library; on a series, rename it"),
-  undo('Undo what the notice along the bottom offers to undo: a comic taken out of the Favourites or a collection'),
+  undo('Undo whatever the notice along the bottom offers to undo, for as long as that notice shows'),
   showSettings('Settings: pages, guided view, cover size, sidecars, touch, back-up and S3 sync'),
   showKeymap('Show the keymap'),
   showTouchZones('Show the touch zones for a moment'),

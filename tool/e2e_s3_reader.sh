@@ -122,7 +122,13 @@ db() { echo "$home/Comics/.comicredr/comicredr.sqlite"; }
 sql() { sqlite3 -batch -noheader "$(db)" "$1"; }
 use() { home="$top/$out/$1"; }
 start() {
-  HOME="$home" "$top/build/linux/x64/release/bundle/comicredr" >>"$top/$out/app.log" 2>&1 &
+  # GDK_BACKEND: on a desktop running Wayland GTK would otherwise open the
+  # window there instead of in Xvfb, where the keys and clicks go. No XDG
+  # folders of whoever runs this, so the app reads and writes only under
+  # the home given; the session bus is the dead one exported above.
+  env -u XDG_DATA_HOME -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+    HOME="$home" GDK_BACKEND=x11 "$top/build/linux/x64/release/bundle/comicredr" \
+    >>"$top/$out/app.log" 2>&1 &
   app=$!
   sleep 7
 }

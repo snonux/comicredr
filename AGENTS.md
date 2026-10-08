@@ -400,11 +400,27 @@ refreshes right away instead of within six hours.
   none it does nothing and says nothing. So `u` is taken by
   `HomeScreen._buttonKey`, before the help, the reader or the library
   see the command: the notice of something done in the library is still
-  up over a comic opened after it. It stays up, too: in this Flutter a
-  SnackBar with an action does not time out (`persist` defaults to
-  whether it has an action), as it did before task 263; another notice
-  (`hideCurrentSnackBar`) or its Undo takes it away, and then `u` is
-  nothing again.
+  up over a comic opened straight after it, and `u` works with the help
+  up. What the Undo throws is caught and said in a notice
+  (`UndoNotice.show(failed:)`), since nobody awaits a button or a key.
+  Notices, one rule (second review of t263): every notice of the app is
+  shown through `showNotice(messenger, text)` or `UndoNotice.show`, both
+  in `lib/src/undo_notice.dart`, and each takes the place of whatever
+  notice is up, at once (`clearSnackBars` and `removeCurrentSnackBar`,
+  no slide out), so there is never a queue: before, a notice shown with
+  a plain `showSnackBar` waited unseen behind an Undo notice, and `u`
+  could run the undo of a notice not yet on screen, which then showed a
+  dead button. A notice with an Undo goes by itself after
+  `undoNoticeTime` (10 s; `persist: false`, since in this Flutter a
+  SnackBar with an action otherwise stays until hidden), a plain one
+  after `noticeTime` (4 s) unless its caller says; once it has gone,
+  however, `u` is nothing again. `test/hotkeys_test.dart` fails on a
+  `showSnackBar` anywhere else in lib/.
+  `x` in an open collection (`takeOutOfCollection`): with marks of
+  which none is in it, a notice says so (`notInCollectionNotice`); when
+  the index fails part of the way the comics taken out before still get
+  their notice with an Undo, which counts the ones not taken out
+  (`takenOutNotice`), and the marks stay.
   Controls left without a key of their own, each a shortcut to something
   the keys reach in two steps. The walk in `test/hotkeys_test.dart`
   looks at every button, chip, ListTile, switch and bare
@@ -459,9 +475,10 @@ refreshes right away instead of within six hours.
   and never reached the switches or sliders; its
   `WidgetOrderTraversalPolicy` is the order the controls were made in,
   which put the collection question's chips (read from the index, so
-  made after the buttons) behind Cancel and Add. (3) The letters are taken in one place, an
-  early key handler of the `FocusManager`
-  (`addEarlyKeyEventHandler`), for the dialog whose route is on top, not
+  made after the buttons) behind Cancel and Add. (3) The letters are
+  taken in one place, an early key handler of the `FocusManager`
+  (`addEarlyKeyEventHandler`), for the dialog whose route is on top
+  (`isCurrent`: Settings under a question it asked has no letters), not
   by a node of the focus tree: they work before anything in the dialog
   has the focus, and the wrapper holds no focus node of its own (one
   that took the focus when nothing else had it kept the S3 settings'
@@ -514,7 +531,8 @@ refreshes right away instead of within six hours.
   else that opens over the screen, a sheet, a menu, a dropdown, a route
   made by hand, unless it is in `knownOverlays` with its reason); the
   system's file pickers are GTK's own.
-  `tool/guide_shots.sh` and `tool/e2e_hotkeys.sh` start the app with
+  `tool/guide_shots.sh`, `tool/e2e_hotkeys.sh`, `e2e_favourites`,
+  `e2e_folder_filter` and `e2e_delete` start the app with
   the XDG data, config and cache folders unset, `GDK_BACKEND=x11` and
   `DBUS_SESSION_BUS_ADDRESS` set to a socket that is not there: with the
   session bus in reach the S3 dialog reads the real keyring of whoever
@@ -523,8 +541,13 @@ refreshes right away instead of within six hours.
   not enough on a desktop: D-Bus then looks at `$XDG_RUNTIME_DIR/bus`,
   the real session's (seen 2026-10-07: the picture still said "saved").
   The S3 e2e scripts (`e2e_s3_settings`, `e2e_s3_reader`,
-  `e2e_s3_android`), which save a test secret, set the same dead
-  address in place of their `unset`.
+  `e2e_s3_android`), which save a test secret, export the same dead
+  address for the whole script and start the app with the XDG folders
+  unset and `GDK_BACKEND=x11` as well. The older e2e scripts still set
+  only HOME: export the three by hand on a desktop. A script that
+  starts the app right after Xvfb waits for the display first
+  (`xdotool getdisplaygeometry`; `e2e_delete`, `e2e_reset` and
+  `e2e_m8_library` died with "cannot open display" without it).
 - Continue (`C`, the library header's play button, widget key `continue`):
   `RecentBooks` (`lib/src/reader/recent_books.dart`) keeps the last five
   comics opened, path, content key and title, newest first, in the

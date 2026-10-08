@@ -132,23 +132,25 @@ class SeriesDetail extends ConsumerWidget {
         const SizedBox(height: 12),
         Text('Enter or a tap shows the books', style: theme.textTheme.bodySmall),
         // No keys of their own: Enter shows the books, the arrows and Enter read one.
-        for (final b in series.books)
-          ListTile(
-            key: Key('seriesBook-${b.key}'),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(b.name),
-            subtitle: b.subtitle == null ? null : Text(b.subtitle!),
-            trailing: b.finished
-                ? const Icon(Icons.check_circle, color: Colors.greenAccent)
-                : b.inProgress
-                ? Text('${((b.percent ?? 0) * 100).round()}%')
-                : null,
-            onTap: () => onRead(b),
-          ),
+        for (final b in series.books) _bookRow(b),
       ],
     );
   }
+
+  /// One comic of the series: its name, how far it is read, a tap reads it.
+  Widget _bookRow(LibraryBook b) => ListTile(
+    key: Key('seriesBook-${b.key}'),
+    dense: true,
+    contentPadding: EdgeInsets.zero,
+    title: Text(b.name),
+    subtitle: b.subtitle == null ? null : Text(b.subtitle!),
+    trailing: b.finished
+        ? const Icon(Icons.check_circle, color: Colors.greenAccent)
+        : b.inProgress
+        ? Text('${((b.percent ?? 0) * 100).round()}%')
+        : null,
+    onTap: () => onRead(b),
+  );
 }
 
 /// `12 books · 3 read` for a folder's cover.
@@ -241,27 +243,31 @@ class FolderDetail extends ConsumerWidget {
         ),
         const SizedBox(height: 12),
         Text('Enter or a tap opens the folder', style: theme.textTheme.bodySmall),
-        if (root != null) ...[
-          const SizedBox(height: 20),
-          Text('A library folder', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Tooltip(
-              message: KeyHints.tip(context, 'Take this folder out of the library', ReaderIntent.removeRoot),
-              child: OutlinedButton.icon(
-                key: const Key('removeRoot'),
-                // The same way as the key: a notice, with Undo.
-                onPressed: () => onRemoveRoot(root.id, root.path),
-                icon: const Icon(Icons.remove_circle_outline),
-                label: const Text('Take out of the library (the files stay)'),
-              ),
-            ),
-          ),
-        ],
+        if (root != null) ..._libraryFolderPart(context, theme, root),
         const SizedBox(height: 16),
         SelectableText(folder.path, style: theme.textTheme.bodySmall),
       ],
     );
   }
+
+  /// What only a library folder's page has: the button that takes it out
+  /// of the library, whose tooltip names the key (`gA`).
+  List<Widget> _libraryFolderPart(BuildContext context, ThemeData theme, RootInfo root) => [
+    const SizedBox(height: 20),
+    Text('A library folder', style: theme.textTheme.titleMedium),
+    const SizedBox(height: 6),
+    Align(
+      alignment: Alignment.centerLeft,
+      child: Tooltip(
+        message: KeyHints.tip(context, 'Take this folder out of the library', ReaderIntent.removeRoot),
+        child: OutlinedButton.icon(
+          key: const Key('removeRoot'),
+          // The same way as the key: a notice, with Undo.
+          onPressed: () => onRemoveRoot(root.id, root.path),
+          icon: const Icon(Icons.remove_circle_outline),
+          label: const Text('Take out of the library (the files stay)'),
+        ),
+      ),
+    ),
+  ];
 }

@@ -120,43 +120,52 @@ Future<DeleteChoice> askDelete(BuildContext context, DeleteFacts f) async =>
                 ],
               ),
             ),
-            actions: [
-              TextButton(
-                key: const Key('deleteCancel'),
-                autofocus: true,
-                onPressed: () => Navigator.pop(context, DeleteChoice.cancel),
-                child: const Mnemonic('Cancel'),
-              ),
-              if (f.onS3)
-                OutlinedButton.icon(
-                  key: const Key('deleteHere'),
-                  style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.error),
-                  onPressed: () => Navigator.pop(context, DeleteChoice.here),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Mnemonic('Delete only here', letter: 'o'),
-                ),
-              FilledButton.icon(
-                key: Key(f.onS3 ? 'deleteEverywhere' : 'deleteConfirm'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.error,
-                  foregroundColor: theme.colorScheme.onError,
-                ),
-                onPressed: () => Navigator.pop(context, f.onS3 ? DeleteChoice.everywhere : DeleteChoice.here),
-                icon: Icon(f.onS3 ? Icons.cloud_off : Icons.delete_outline),
-                label: Mnemonic(
-                  f.onS3
-                      ? 'Delete here and from S3'
-                      : f.link
-                      ? 'Delete the link'
-                      : 'Delete for good',
-                ),
-              ),
-            ],
+            actions: _deleteButtons(
+              context,
+              onS3: f.onS3,
+              onlyHere: f.onS3,
+              label: f.onS3
+                  ? 'Delete here and from S3'
+                  : f.link
+                  ? 'Delete the link'
+                  : 'Delete for good',
+            ),
           ),
         );
       },
     ) ??
     DeleteChoice.cancel;
+
+/// The buttons of both delete questions: Cancel (Alt+C), which has the
+/// focus so that Enter deletes nothing, then with [onlyHere] Delete only
+/// here (Alt+O), then the red button [label] (Alt+D), which with [onS3]
+/// deletes from the bucket too.
+List<Widget> _deleteButtons(BuildContext context, {required bool onS3, required bool onlyHere, required String label}) {
+  final scheme = Theme.of(context).colorScheme;
+  return [
+    TextButton(
+      key: const Key('deleteCancel'),
+      autofocus: true,
+      onPressed: () => Navigator.pop(context, DeleteChoice.cancel),
+      child: const Mnemonic('Cancel'),
+    ),
+    if (onlyHere)
+      OutlinedButton.icon(
+        key: const Key('deleteHere'),
+        style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
+        onPressed: () => Navigator.pop(context, DeleteChoice.here),
+        icon: const Icon(Icons.delete_outline),
+        label: const Mnemonic('Delete only here', letter: 'o'),
+      ),
+    FilledButton.icon(
+      key: Key(onS3 ? 'deleteEverywhere' : 'deleteConfirm'),
+      style: FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError),
+      onPressed: () => Navigator.pop(context, onS3 ? DeleteChoice.everywhere : DeleteChoice.here),
+      icon: Icon(onS3 ? Icons.cloud_off : Icons.delete_outline),
+      label: Mnemonic(label),
+    ),
+  ];
+}
 
 /// Asks once before deleting several marked comics (`gd`, Shift+Delete or
 /// Delete in the marks bar): their names, how much they take, and, when
@@ -218,32 +227,12 @@ Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts
                 ],
               ),
             ),
-            actions: [
-              TextButton(
-                key: const Key('deleteCancel'),
-                autofocus: true,
-                onPressed: () => Navigator.pop(context, DeleteChoice.cancel),
-                child: const Mnemonic('Cancel'),
-              ),
-              if (onS3 && facts.isNotEmpty)
-                OutlinedButton.icon(
-                  key: const Key('deleteHere'),
-                  style: OutlinedButton.styleFrom(foregroundColor: theme.colorScheme.error),
-                  onPressed: () => Navigator.pop(context, DeleteChoice.here),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Mnemonic('Delete only here', letter: 'o'),
-                ),
-              FilledButton.icon(
-                key: Key(onS3 ? 'deleteEverywhere' : 'deleteConfirm'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.error,
-                  foregroundColor: theme.colorScheme.onError,
-                ),
-                onPressed: () => Navigator.pop(context, onS3 ? DeleteChoice.everywhere : DeleteChoice.here),
-                icon: Icon(onS3 ? Icons.cloud_off : Icons.delete_outline),
-                label: Mnemonic(onS3 ? 'Delete here and from S3' : 'Delete $n for good'),
-              ),
-            ],
+            actions: _deleteButtons(
+              context,
+              onS3: onS3,
+              onlyHere: onS3 && facts.isNotEmpty,
+              label: onS3 ? 'Delete here and from S3' : 'Delete $n for good',
+            ),
           ),
         );
       },

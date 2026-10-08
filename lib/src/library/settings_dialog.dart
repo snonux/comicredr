@@ -14,6 +14,7 @@ import '../input/touch_zones.dart';
 import '../providers.dart';
 import '../reader/reader_notifier.dart';
 import '../reader/scroll_speed.dart';
+import '../undo_notice.dart';
 import '../version.dart';
 import 's3_settings_dialog.dart';
 
@@ -172,11 +173,9 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       );
       if (move != true) return;
       final moved = await sync.moveAll(from: old, to: dir);
-      messenger.showSnackBar(
-        SnackBar(content: Text('Moved $moved of $files${moved < n ? '; the rest could not be moved' : ''}')),
-      );
+      showNotice(messenger, 'Moved $moved of $files${moved < n ? '; the rest could not be moved' : ''}');
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not change where comic data is kept: $e')));
+      showNotice(messenger, 'Could not change where comic data is kept: $e');
     } finally {
       if (mounted) setState(() => _moving = false);
     }
@@ -215,16 +214,12 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     if (ok != true) return;
     final db = ref.read(databaseProvider);
     await db.delete(db.readLog).go();
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reading history cleared')));
+    if (mounted) showNotice(ScaffoldMessenger.of(context), 'Reading history cleared');
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Widget heading(String text) => Padding(
-      padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
-      child: Text(text, style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
-    );
     return DialogHotkeys(
       child: AlertDialog(
         title: const Text('Settings'),
@@ -237,190 +232,17 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      heading('Pages'),
-                      SwitchListTile(
-                        key: const Key('setting-cleanUp'),
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Clean up old scans'),
-                        subtitle: const Text(
-                          'Whitens yellowed paper, darkens faded ink, and enlarges and sharpens pages smaller than the '
-                          'screen. c switches it while reading.',
-                        ),
-                        value: _cleanUp!,
-                        onChanged: (v) => _set(SettingsStore.cleanUp, v),
-                      ),
-                      _ScrollSpeedPicker(),
-                      heading('Guided view'),
-                      SwitchListTile(
-                        key: const Key('setting-wholePage'),
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Show each page whole before and after its panels'),
-                        subtitle: const Text('w switches it while reading'),
-                        value: _wholePage!,
-                        onChanged: (v) => _set(SettingsStore.wholePageSteps, v),
-                      ),
-                      SwitchListTile(
-                        key: const Key('setting-pauseWhole'),
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('On a page without panels, a quick step stays'),
-                        subtitle: const Text(
-                          'The background turns wine red. A step within the time below zooms the page out and back '
-                          'and stays; the next one turns. After it a step turns at once. W switches it while reading.',
-                        ),
-                        value: _pauseWhole!,
-                        onChanged: (v) => _set(SettingsStore.pauseWhole, v),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4, bottom: 12),
-                        child: SegmentedButton<double>(
-                          key: const Key('setting-pauseSeconds'),
-                          showSelectedIcon: _roomForTicks(context),
-                          segments: [
-                            for (final s in pauseSecondsChoices)
-                              ButtonSegment(value: s, label: Text('${_seconds(s)} s')),
-                          ],
-                          // A value set by hand in another build shows no segment.
-                          selected: {if (pauseSecondsChoices.contains(_pauseSeconds)) _pauseSeconds!},
-                          emptySelectionAllowed: true,
-                          onSelectionChanged: _pauseWhole!
-                              ? (v) async {
-                                  if (v.isEmpty) return;
-                                  await ref
-                                      .read(settingsStoreProvider)
-                                      .saveString(SettingsStore.pauseSeconds, _seconds(v.first));
-                                  await _load();
-                                }
-                              : null,
-                        ),
-                      ),
-                      Text('Panel detector', style: theme.textTheme.bodyMedium),
-                      Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),
-                      if (widget.covers case final covers?) ...[heading('Library'), _CoverSizePicker(covers: covers)],
-                      heading('Sidecars'),
-                      SwitchListTile(
-                        key: const Key('setting-sidecars'),
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Save panels, bookmarks and position in a file for each comic'),
-                        subtitle: const Text(
-                          'Hidden files, like .book.cbz.crdb. Sidecars already there are always read.',
-                        ),
-                        value: _sidecars!,
-                        onChanged: (v) => _set(SettingsStore.writeSidecars, v),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4, bottom: 4),
-                        child: SegmentedButton<bool>(
-                          key: const Key('setting-sidecarPlace'),
-                          showSelectedIcon: _roomForTicks(context),
-                          segments: const [
-                            ButtonSegment(value: false, label: Text('Beside each comic')),
-                            ButtonSegment(value: true, label: Text('In one folder')),
-                          ],
-                          selected: {_sidecarDir != null},
-                          onSelectionChanged: _moving
-                              ? null
-                              : (v) => v.first ? _chooseSidecarDir() : _setSidecarDir(null),
-                        ),
-                      ),
-                      if (_sidecarDir case final dir?)
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(dir, key: const Key('setting-sidecarDir'), style: theme.textTheme.bodySmall),
-                            ),
-                            TextButton(
-                              key: const Key('setting-sidecarDir-change'),
-                              onPressed: _moving ? null : _chooseSidecarDir,
-                              child: const Mnemonic('Change…', letter: 'g'),
-                            ),
-                          ],
-                        )
-                      else
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2, bottom: 6),
-                          child: Text('So they travel when you copy the comic.', style: theme.textTheme.bodySmall),
-                        ),
-                      if (widget.onExportSidecars case final export?)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: OutlinedButton.icon(
-                            key: const Key('setting-export'),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              export();
-                            },
-                            icon: const Icon(Icons.drive_file_move_outline),
-                            label: const Mnemonic('Export sidecars to a folder…', letter: 'x'),
-                          ),
-                        ),
-                      heading('Touch'),
-                      _TouchPicker(),
-                      heading('Reading history'),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          key: const Key('setting-clearHistory'),
-                          onPressed: _clearHistory,
-                          icon: const Icon(Icons.delete_sweep_outlined),
-                          label: const Mnemonic('Clear reading history', letter: 'h'),
-                        ),
-                      ),
-                      if (widget.onExportSettings != null || widget.onImportSettings != null) ...[
-                        heading('Back up'),
-                        Text(
-                          'Settings, library folders, keys.toml, positions, bookmarks, collections, edits and '
-                          'reading history in one file, to bring back after a reinstall or on another device.',
-                          style: theme.textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            if (widget.onExportSettings case final export?)
-                              OutlinedButton.icon(
-                                key: const Key('setting-exportSettings'),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  export();
-                                },
-                                icon: const Icon(Icons.upload_file),
-                                label: const Mnemonic('Export settings…'),
-                              ),
-                            if (widget.onImportSettings case final import?)
-                              OutlinedButton.icon(
-                                key: const Key('setting-importSettings'),
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                  import();
-                                },
-                                icon: const Icon(Icons.download),
-                                label: const Mnemonic('Import settings…'),
-                              ),
-                          ],
-                        ),
+                      ..._pagesPart(context, theme),
+                      ..._guidedPart(context, theme),
+                      if (widget.covers case final covers?) ...[
+                        _heading(theme, 'Library'),
+                        _CoverSizePicker(covers: covers),
                       ],
-                      heading('S3 sync'),
-                      Text(
-                        _s3?.isSet == true
-                            ? 'On: ${_s3!.bucket} on ${Uri.tryParse(_s3!.endpoint)?.host ?? _s3!.endpoint}'
-                            : 'Off. Upload comics and their sidecars to your own S3 bucket to read on where you left '
-                                  'off on another device.',
-                        key: const Key('setting-s3'),
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 6),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          key: const Key('setting-s3-setUp'),
-                          onPressed: () async {
-                            if (await showS3Settings(context) == true) await _load();
-                          },
-                          icon: const Icon(Icons.cloud_outlined),
-                          label: Mnemonic(_s3?.isSet == true ? 'Change S3 sync…' : 'Set up S3 sync…', letter: 's'),
-                        ),
-                      ),
+                      ..._sidecarsPart(context, theme),
+                      ..._sidecarPlacePart(context, theme),
+                      ..._touchAndHistoryPart(context, theme),
+                      ..._backUpPart(context, theme),
+                      ..._s3Part(context, theme),
                       const SizedBox(height: 16),
                       Text('ComicRedr $appVersion', style: theme.textTheme.bodySmall),
                     ],
@@ -440,6 +262,216 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       ),
     );
   }
+
+  /// A section's title.
+  Widget _heading(ThemeData theme, String text) => Padding(
+    padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
+    child: Text(text, style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
+  );
+
+  /// Clean up and the scroll pickers.
+  List<Widget> _pagesPart(BuildContext context, ThemeData theme) => [
+    _heading(theme, 'Pages'),
+    SwitchListTile(
+      key: const Key('setting-cleanUp'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Clean up old scans'),
+      subtitle: const Text(
+        'Whitens yellowed paper, darkens faded ink, and enlarges and sharpens pages smaller than the '
+        'screen. c switches it while reading.',
+      ),
+      value: _cleanUp!,
+      onChanged: (v) => _set(SettingsStore.cleanUp, v),
+    ),
+    _ScrollSpeedPicker(),
+  ];
+
+  /// Guided view: the whole page before and after its panels, the quick step that
+  /// stays and how quick, and the detector in use.
+  List<Widget> _guidedPart(BuildContext context, ThemeData theme) => [
+    _heading(theme, 'Guided view'),
+    SwitchListTile(
+      key: const Key('setting-wholePage'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Show each page whole before and after its panels'),
+      subtitle: const Text('w switches it while reading'),
+      value: _wholePage!,
+      onChanged: (v) => _set(SettingsStore.wholePageSteps, v),
+    ),
+    SwitchListTile(
+      key: const Key('setting-pauseWhole'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('On a page without panels, a quick step stays'),
+      subtitle: const Text(
+        'The background turns wine red. A step within the time below zooms the page out and back '
+        'and stays; the next one turns. After it a step turns at once. W switches it while reading.',
+      ),
+      value: _pauseWhole!,
+      onChanged: (v) => _set(SettingsStore.pauseWhole, v),
+    ),
+    Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 12),
+      child: SegmentedButton<double>(
+        key: const Key('setting-pauseSeconds'),
+        showSelectedIcon: _roomForTicks(context),
+        segments: [for (final s in pauseSecondsChoices) ButtonSegment(value: s, label: Text('${_seconds(s)} s'))],
+        // A value set by hand in another build shows no segment.
+        selected: {if (pauseSecondsChoices.contains(_pauseSeconds)) _pauseSeconds!},
+        emptySelectionAllowed: true,
+        onSelectionChanged: _pauseWhole!
+            ? (v) async {
+                if (v.isEmpty) return;
+                await ref.read(settingsStoreProvider).saveString(SettingsStore.pauseSeconds, _seconds(v.first));
+                await _load();
+              }
+            : null,
+      ),
+    ),
+    Text('Panel detector', style: theme.textTheme.bodyMedium),
+    Text(_detector ?? '', key: const Key('setting-detector'), style: theme.textTheme.bodySmall),
+  ];
+
+  /// Sidecars: whether they are written, and beside the comics or in one folder.
+  List<Widget> _sidecarsPart(BuildContext context, ThemeData theme) => [
+    _heading(theme, 'Sidecars'),
+    SwitchListTile(
+      key: const Key('setting-sidecars'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Save panels, bookmarks and position in a file for each comic'),
+      subtitle: const Text('Hidden files, like .book.cbz.crdb. Sidecars already there are always read.'),
+      value: _sidecars!,
+      onChanged: (v) => _set(SettingsStore.writeSidecars, v),
+    ),
+    Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: SegmentedButton<bool>(
+        key: const Key('setting-sidecarPlace'),
+        showSelectedIcon: _roomForTicks(context),
+        segments: const [
+          ButtonSegment(value: false, label: Text('Beside each comic')),
+          ButtonSegment(value: true, label: Text('In one folder')),
+        ],
+        selected: {_sidecarDir != null},
+        onSelectionChanged: _moving ? null : (v) => v.first ? _chooseSidecarDir() : _setSidecarDir(null),
+      ),
+    ),
+  ];
+
+  /// Where the sidecar folder is (Change…, Alt+G), and the export of them all
+  /// (Alt+X).
+  List<Widget> _sidecarPlacePart(BuildContext context, ThemeData theme) => [
+    if (_sidecarDir case final dir?)
+      Row(
+        children: [
+          Expanded(
+            child: Text(dir, key: const Key('setting-sidecarDir'), style: theme.textTheme.bodySmall),
+          ),
+          TextButton(
+            key: const Key('setting-sidecarDir-change'),
+            onPressed: _moving ? null : _chooseSidecarDir,
+            child: const Mnemonic('Change…', letter: 'g'),
+          ),
+        ],
+      )
+    else
+      Padding(
+        padding: const EdgeInsets.only(top: 2, bottom: 6),
+        child: Text('So they travel when you copy the comic.', style: theme.textTheme.bodySmall),
+      ),
+    if (widget.onExportSidecars case final export?)
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          key: const Key('setting-export'),
+          onPressed: () {
+            Navigator.pop(context);
+            export();
+          },
+          icon: const Icon(Icons.drive_file_move_outline),
+          label: const Mnemonic('Export sidecars to a folder…', letter: 'x'),
+        ),
+      ),
+  ];
+
+  /// The touch preset, and Clear reading history (Alt+H).
+  List<Widget> _touchAndHistoryPart(BuildContext context, ThemeData theme) => [
+    _heading(theme, 'Touch'),
+    _TouchPicker(),
+    _heading(theme, 'Reading history'),
+    Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        key: const Key('setting-clearHistory'),
+        onPressed: _clearHistory,
+        icon: const Icon(Icons.delete_sweep_outlined),
+        label: const Mnemonic('Clear reading history', letter: 'h'),
+      ),
+    ),
+  ];
+
+  /// Export and Import settings, where the app can do them.
+  List<Widget> _backUpPart(BuildContext context, ThemeData theme) => [
+    if (widget.onExportSettings != null || widget.onImportSettings != null) ...[
+      _heading(theme, 'Back up'),
+      Text(
+        'Settings, library folders, keys.toml, positions, bookmarks, collections, edits and '
+        'reading history in one file, to bring back after a reinstall or on another device.',
+        style: theme.textTheme.bodySmall,
+      ),
+      const SizedBox(height: 6),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          if (widget.onExportSettings case final export?)
+            OutlinedButton.icon(
+              key: const Key('setting-exportSettings'),
+              onPressed: () {
+                Navigator.pop(context);
+                export();
+              },
+              icon: const Icon(Icons.upload_file),
+              label: const Mnemonic('Export settings…'),
+            ),
+          if (widget.onImportSettings case final import?)
+            OutlinedButton.icon(
+              key: const Key('setting-importSettings'),
+              onPressed: () {
+                Navigator.pop(context);
+                import();
+              },
+              icon: const Icon(Icons.download),
+              label: const Mnemonic('Import settings…'),
+            ),
+        ],
+      ),
+    ],
+  ];
+
+  /// S3 sync: whether it is on, and its own dialog (Alt+S).
+  List<Widget> _s3Part(BuildContext context, ThemeData theme) => [
+    _heading(theme, 'S3 sync'),
+    Text(
+      _s3?.isSet == true
+          ? 'On: ${_s3!.bucket} on ${Uri.tryParse(_s3!.endpoint)?.host ?? _s3!.endpoint}'
+          : 'Off. Upload comics and their sidecars to your own S3 bucket to read on where you left '
+                'off on another device.',
+      key: const Key('setting-s3'),
+      style: theme.textTheme.bodySmall,
+    ),
+    const SizedBox(height: 6),
+    Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        key: const Key('setting-s3-setUp'),
+        onPressed: () async {
+          if (await showS3Settings(context) == true) await _load();
+        },
+        icon: const Icon(Icons.cloud_outlined),
+        label: Mnemonic(_s3?.isSet == true ? 'Change S3 sync…' : 'Set up S3 sync…', letter: 's'),
+      ),
+    ),
+  ];
 }
 
 /// What Settings' Cover size buttons need of the library: the steps `+`

@@ -58,65 +58,55 @@ class _FolderFilterDialogState extends State<_FolderFilterDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 heading('Type (none picked: every type)'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    for (final (i, f) in formats.indexed)
-                      FilterChip(
-                        key: Key('filterType-$f'),
-                        autofocus: i == 0,
-                        label: Text(formatLabel(f)),
-                        selected: _filter.formats.contains(f),
-                        onSelected: (_) => _set(_filter.toggle(f)),
-                      ),
-                  ],
-                ),
+                _chips([
+                  for (final (i, f) in formats.indexed)
+                    FilterChip(
+                      key: Key('filterType-$f'),
+                      autofocus: i == 0,
+                      label: Text(formatLabel(f)),
+                      selected: _filter.formats.contains(f),
+                      onSelected: (_) => _set(_filter.toggle(f)),
+                    ),
+                ]),
                 heading('Size'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    for (final s in SizeRange.values)
-                      ChoiceChip(
-                        key: Key('filterSize-${s.name}'),
-                        label: Text(s.label),
-                        selected: _filter.size == s,
-                        onSelected: (_) => _set(_filter.copyWith(size: s)),
-                      ),
-                  ],
-                ),
+                _chips([
+                  for (final s in SizeRange.values)
+                    ChoiceChip(
+                      key: Key('filterSize-${s.name}'),
+                      label: Text(s.label),
+                      selected: _filter.size == s,
+                      onSelected: (_) => _set(_filter.copyWith(size: s)),
+                    ),
+                ]),
                 heading('Modified (the file\'s date)'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    for (final d in DateRange.values)
-                      ChoiceChip(
-                        key: Key('filterDate-${d.name}'),
-                        label: Text(d.label),
-                        selected: _filter.date == d,
-                        onSelected: (_) => _set(_filter.copyWith(date: d)),
-                      ),
-                  ],
-                ),
+                _chips([
+                  for (final d in DateRange.values)
+                    ChoiceChip(
+                      key: Key('filterDate-${d.name}'),
+                      label: Text(d.label),
+                      selected: _filter.date == d,
+                      onSelected: (_) => _set(_filter.copyWith(date: d)),
+                    ),
+                ]),
               ],
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            key: const Key('filterClear'),
-            onPressed: _filter.isActive ? () => _set(FolderFilter.none) : null,
-            child: const Mnemonic('Clear all'),
-          ),
-          FilledButton(
-            key: const Key('filterDone'),
-            onPressed: () => Navigator.pop(context),
-            child: const Mnemonic('Done'),
-          ),
-        ],
+        actions: _actions(context),
       ),
     );
   }
+
+  /// A line of chips that wraps.
+  Widget _chips(List<Widget> chips) => Wrap(spacing: 8, runSpacing: 4, children: chips);
+
+  /// Clear all (Alt+C; off while no filter is on) and Done (Alt+D).
+  List<Widget> _actions(BuildContext context) => [
+    TextButton(
+      key: const Key('filterClear'),
+      onPressed: _filter.isActive ? () => _set(FolderFilter.none) : null,
+      child: const Mnemonic('Clear all'),
+    ),
+    FilledButton(key: const Key('filterDone'), onPressed: () => Navigator.pop(context), child: const Mnemonic('Done')),
+  ];
 }

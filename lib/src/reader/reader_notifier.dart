@@ -934,6 +934,18 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
+  /// `c`: scan clean-up on or off, said in the status line and kept.
+  void _toggleCleanUp() {
+    final on = !state.cleanUp;
+    state = state.copyWith(
+      cleanUp: on,
+      message: on
+          ? 'Clean-up on: paper whitened, ink darkened, small pages sharpened'
+          : 'Clean-up off: pages as scanned',
+    );
+    _saveSetting(SettingsStore.cleanUp, on);
+  }
+
   /// Page-level intents. The reader screen handles zoom and pan itself and
   /// passes everything else here.
   Future<void> handle(ReaderCommand c) async {
@@ -1102,14 +1114,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         state = state.copyWith(trim: on, message: on ? 'Auto-trim: margins cut' : 'Auto-trim off: whole pages');
         _saveSetting(SettingsStore.autoTrim, on);
       case ReaderIntent.cleanUp:
-        final on = !state.cleanUp;
-        state = state.copyWith(
-          cleanUp: on,
-          message: on
-              ? 'Clean-up on: paper whitened, ink darkened, small pages sharpened'
-              : 'Clean-up off: pages as scanned',
-        );
-        _saveSetting(SettingsStore.cleanUp, on);
+        _toggleCleanUp();
       case ReaderIntent.panDown:
       case ReaderIntent.panUp:
       case ReaderIntent.scrollFaster:

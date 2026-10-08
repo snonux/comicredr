@@ -68,7 +68,13 @@ type_() { xdotool type --delay 15 "$1" 2>/dev/null; sleep 0.3; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1.2; }
 shot() { import -window root "$out/$1.png"; }
 start() {
-  HOME="$home" build/linux/x64/release/bundle/comicredr >>"$out/app.log" 2>&1 &
+  # GDK_BACKEND: on a desktop running Wayland GTK would otherwise open the
+  # window there instead of in Xvfb, where the keys and clicks go. No XDG
+  # folders of whoever runs this, so the app reads and writes only under
+  # the home given; the session bus is the dead one exported above.
+  env -u XDG_DATA_HOME -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+    HOME="$home" GDK_BACKEND=x11 build/linux/x64/release/bundle/comicredr \
+    >>"$out/app.log" 2>&1 &
   app=$!
   sleep 7
   win=$(xdotool search --name "^ComicRedr$" | tail -1)

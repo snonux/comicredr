@@ -29,6 +29,10 @@ Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
+# Xvfb takes a moment to listen, and with GDK_BACKEND=x11 the app dies on
+# a display that is not there yet ("cannot open display").
+for _ in $(seq 1 100); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+xdotool getdisplaygeometry >/dev/null 2>&1 || { echo "FAIL  Xvfb did not come up on $DISPLAY"; exit 1; }
 
 failed=0
 check() {

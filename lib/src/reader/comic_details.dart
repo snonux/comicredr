@@ -117,9 +117,18 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
     );
   }
 
-  /// Closes the view with what was [picked] in it, once: whatever asks a
-  /// second time while it is on its way out (a key and a click together)
-  /// must not pop the route under it, which is the app's own.
+  /// Closes the view with what was [picked] in it, once: a second pop
+  /// would take the route under it, which is the app's own, and leave a
+  /// dead window.
+  ///
+  /// The guard is defensive: nothing reaches it today. Alt+P is taken by
+  /// DialogHotkeys alone (the double dispatch that popped twice is gone),
+  /// and Flutter itself keeps a second closer away once the first has
+  /// popped: the Navigator absorbs pointers for the rest of the frame and
+  /// the focus has left the view before the next key event is dispatched
+  /// (two taps on Close, and I typed twice, with no frame between, both
+  /// popped one route without the guard). It stays for a closer that
+  /// calls this twice in one go.
   void _leave([_Picked? picked]) {
     if (_left) return;
     _left = true;
@@ -447,22 +456,25 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
                 'detection looked at the page without them, and auto-trim (t) cuts them off on screen',
           ),
       ],
-      if (widget.canRedo)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              key: const Key('detailsRedoPanels'),
-              onPressed: _redo,
-              icon: const Icon(Icons.refresh),
-              // Underlined only: the key is the DialogKey's in build.
-              label: const Mnemonic.shown('Redo panels', letter: 'p'),
-            ),
-          ),
-        ),
+      if (widget.canRedo) _redoButton(),
     ];
   }
+
+  /// Redo panels, a row of the list. Its letter is underlined only: the
+  /// key (Alt+P) is the DialogKey's in build, which is there before the
+  /// list has scrolled this far.
+  Widget _redoButton() => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        key: const Key('detailsRedoPanels'),
+        onPressed: _redo,
+        icon: const Icon(Icons.refresh),
+        label: const Mnemonic.shown('Redo panels', letter: 'p'),
+      ),
+    ),
+  );
 
   Widget _pageRow(ThemeData theme, int page, PageFacts f, PageDetection? d) {
     final image = [

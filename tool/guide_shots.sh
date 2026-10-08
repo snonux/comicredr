@@ -41,7 +41,8 @@ comics="$home/Comics"
 db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
 sections=("$@")
-[[ ${#sections[@]} -gt 0 ]] || sections=(library filter marks reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
+[[ ${#sections[@]} -gt 0 ]] ||
+  sections=(library filter marks reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
 mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release

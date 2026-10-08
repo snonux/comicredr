@@ -153,9 +153,10 @@ the search box, to show only some of your comics:
 
 The covers behind the window update as you pick. From the keyboard,
 `Tab` moves between the choices and `Space` picks one; `Alt+C` is
-**Clear all**, and `Esc`, `Alt+D` or **Done** closes the window. The three combine,
-and they combine with the search too: PDFs from the last week with
-"love" in the title is `F`, PDF, Last 7 days, then `/` and `love`.
+**Clear all**, and `Esc`, `Alt+D` or **Done** closes the window. The
+three combine, and they combine with the search too: PDFs from the last
+week with "love" in the title is `F`, PDF, Last 7 days, then `/` and
+`love`.
 
 A subfolder with nothing that passes is hidden, and a folder's count is
 of the comics that pass. While a filter is on, the line under the search
@@ -218,7 +219,9 @@ the line at the bottom says which way it went.
 `gf`, or the star at the top of the library, shows your Favourites (from
 inside a comic, `gf` closes it first). There
 `x` takes the selected comic out again, with an **Undo** in case it was a
-slip: click it, or press `u` while the notice shows.
+slip: click it, or press `u` while the notice shows. The notice goes by
+itself after about ten seconds, or as soon as another notice comes; from
+then on `*` on the comic is the way back.
 
 ![The Favourites](images/favourites.webp)
 
@@ -271,7 +274,8 @@ them.
 - The **x** on a collection's chip in the book's details takes the book
   out. So does `x` on the comic inside the open collection on the
   Collections tab, with an **Undo** (`u`) as in the Favourites; with
-  comics marked there, `x` takes all of them out.
+  comics marked there, `x` takes all of them out, and says so when none
+  of the marked ones is in that collection.
 - The Collections tab shows each collection as a cover; open one to see
   its books.
 

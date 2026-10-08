@@ -102,7 +102,7 @@ Future<bool> deleteLibraryBooks(
       'could not delete ${failed.first}${failed.length > 1 ? ' and ${failed.length - 1} more' : ''}',
     if (stuck.isNotEmpty) '${stuck.length == 1 ? 'a sidecar' : '${stuck.length} sidecars'} could not be removed',
   ];
-  messenger.showSnackBar(SnackBar(content: Text(parts.isEmpty ? 'Nothing deleted' : parts.join('; '))));
+  showNotice(messenger, parts.isEmpty ? 'Nothing deleted' : parts.join('; '));
   return true;
 }
 
@@ -128,18 +128,15 @@ Future<bool> resetBooks(BuildContext context, WidgetRef ref, List<LibraryBook> b
     }
   }
   final done = todo.length - failed.length;
-  messenger.showSnackBar(
-    SnackBar(
-      content: Text(
-        [
-          scope == ResetScope.everything
-              ? '${comicsCount(done)} start from scratch'
-              : "${comicsCount(done)}' panels will be found again",
-          if (stuck > 0) "the files beside ${comicsCount(stuck)} can't be changed, so it may come back",
-          if (failed.isNotEmpty) 'could not reset ${failed.first}',
-        ].join('; '),
-      ),
-    ),
+  showNotice(
+    messenger,
+    [
+      scope == ResetScope.everything
+          ? '${comicsCount(done)} start from scratch'
+          : "${comicsCount(done)}' panels will be found again",
+      if (stuck > 0) "the files beside ${comicsCount(stuck)} can't be changed, so it may come back",
+      if (failed.isNotEmpty) 'could not reset ${failed.first}',
+    ].join('; '),
   );
   return true;
 }
@@ -162,9 +159,7 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
     }
   } catch (e) {
     debugPrint('Could not change the favourites: $e');
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Could not change the favourites')));
+    showNotice(messenger, 'Could not change the favourites');
     return false;
   }
   await _writeSidecars(sidecars, changed);
@@ -172,9 +167,7 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
       ? '${comicsCount(changed.length)} added to Favourites'
       : '${comicsCount(changed.length)} taken out of Favourites';
   if (on) {
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+    showNotice(messenger, text);
     return true;
   }
   // With the undo key (u) as well as the button.
@@ -182,6 +175,7 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
     messenger,
     text,
     label: undoLabel,
+    failed: 'Could not put ${comicsCount(changed.length)} back in Favourites',
     undo: () async {
       for (final b in changed) {
         await store.setFavourite(b.key, true);
@@ -197,6 +191,12 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
 /// notice offers them back (Undo, `u`). True when it went ahead. A
 /// sidecar that can't be written is no failure, as for a favourite: the
 /// index has the change and the sidecar catches up with the next one.
+///
+/// With none of [books] in the collection (comics marked on another tab)
+/// a notice says so, since `x` would else do nothing and say nothing.
+/// When the index fails part of the way, false (the marks stay), and the
+/// comics taken out before that are named in the notice and still get
+/// their Undo ([takenOutNotice]).
 Future<bool> takeOutOfCollection(
   BuildContext context,
   WidgetRef ref,
@@ -204,9 +204,11 @@ Future<bool> takeOutOfCollection(
   String collection,
 ) async {
   final todo = books.where((b) => b.collections.contains(collection)).toList();
-  if (todo.isEmpty) return false;
-  final what = todo.length == 1 ? todo.single.name : comicsCount(todo.length);
   final messenger = ScaffoldMessenger.of(context);
+  if (todo.isEmpty) {
+    if (books.isNotEmpty) showNotice(messenger, notInCollectionNotice(books, collection));
+    return false;
+  }
   final undoNotice = ref.read(undoNoticeProvider);
   final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
   final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
@@ -217,19 +219,20 @@ Future<bool> takeOutOfCollection(
       out.add(b);
     }
   } catch (e) {
-    debugPrint('Could not take $what out of $collection: $e');
-    // Those taken out before the index failed still get their sidecars.
-    await _writeSidecars(sidecars, out);
-    messenger
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('Could not take $what out of $collection')));
+    debugPrint('Could not take ${todo[out.length].path} out of $collection: $e');
+  }
+  // Also after a failure part of the way: the ones taken out are in the index.
+  await _writeSidecars(sidecars, out);
+  final text = takenOutNotice(out, todo, collection);
+  if (out.isEmpty) {
+    showNotice(messenger, text);
     return false;
   }
-  await _writeSidecars(sidecars, out);
   undoNotice.show(
     messenger,
-    '$what taken out of $collection',
+    text,
     label: undoLabel,
+    failed: 'Could not put ${_named(out)} back in $collection',
     undo: () async {
       for (final b in out) {
         await store.addToCollection(b.key, collection);
@@ -237,7 +240,25 @@ Future<bool> takeOutOfCollection(
       await _writeSidecars(sidecars, out);
     },
   );
-  return true;
+  return out.length == todo.length;
+}
+
+/// One comic by its name, several by their number.
+String _named(List<LibraryBook> books) => books.length == 1 ? books.single.name : comicsCount(books.length);
+
+/// What `x` says when none of [books] is in the open [collection].
+String notInCollectionNotice(List<LibraryBook> books, String collection) => books.length == 1
+    ? '${books.single.name} is not in $collection'
+    : 'None of the ${comicsCount(books.length)} is in $collection';
+
+/// What [takeOutOfCollection] says once [out] of the [asked] comics have
+/// left [collection]: all of them, none (the index refused the first), or
+/// some, with the count of those it did not get to.
+String takenOutNotice(List<LibraryBook> out, List<LibraryBook> asked, String collection) {
+  if (out.length == asked.length) return '${_named(out)} taken out of $collection';
+  const why = 'the library could not be updated';
+  if (out.isEmpty) return 'Could not take ${_named(asked)} out of $collection: $why';
+  return '${_named(out)} taken out of $collection; ${asked.length - out.length} not taken out: $why';
 }
 
 /// `gc` in the library, on the selected cover or the marked comics, and
@@ -296,9 +317,7 @@ Future<bool> collectBooks(BuildContext context, WidgetRef ref, List<LibraryBook>
         );
   // In place of a notice still up (the one of the gc before this one), not
   // queued behind it.
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(said)));
+  showNotice(messenger, said);
   return notAdded == 0;
 }
 

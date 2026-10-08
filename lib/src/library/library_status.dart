@@ -50,52 +50,60 @@ class EmptyLibrary extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: [
-                Tooltip(
-                  message: KeyHints.tip(context, 'Open a comic without adding it', ReaderIntent.openFile),
-                  child: OutlinedButton.icon(
-                    onPressed: onOpenFile,
-                    icon: const Icon(Icons.menu_book),
-                    label: const Text('Open a comic'),
-                  ),
-                ),
-                Tooltip(
-                  message: KeyHints.tip(context, 'Open a folder of pages as a book', ReaderIntent.openFolder),
-                  child: OutlinedButton.icon(
-                    onPressed: onOpenFolder,
-                    icon: const Icon(Icons.folder_open),
-                    label: const Text('Open a folder'),
-                  ),
-                ),
-                Tooltip(
-                  message: KeyHints.tip(context, 'Settings', ReaderIntent.showSettings),
-                  child: OutlinedButton.icon(
-                    key: const Key('settingsEmpty'),
-                    onPressed: onSettings,
-                    icon: const Icon(Icons.settings_outlined),
-                    label: const Text('Settings'),
-                  ),
-                ),
-              ],
-            ),
+            _otherWays(context),
             const SizedBox(height: 12),
-            Text(
-              '${Platform.isAndroid ? 'A Comics folder in the device\'s storage' : 'A Comics folder in your home'} '
-              'joins the library by itself when ComicRedr starts. '
-              'A adds any other folder of comics. o opens a CBZ or PDF and O a folder of pages '
-              'without adding them. Or drop either here. ? shows the keymap.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium,
-            ),
+            _help(theme),
           ],
         ),
       ),
     );
   }
+
+  /// The ways in besides adding a library folder, and Settings. Their
+  /// labels stay short for a phone, so each key is in a tooltip.
+  Widget _otherWays(BuildContext context) => Wrap(
+    spacing: 12,
+    runSpacing: 12,
+    alignment: WrapAlignment.center,
+    children: [
+      Tooltip(
+        message: KeyHints.tip(context, 'Open a comic without adding it', ReaderIntent.openFile),
+        child: OutlinedButton.icon(
+          onPressed: onOpenFile,
+          icon: const Icon(Icons.menu_book),
+          label: const Text('Open a comic'),
+        ),
+      ),
+      Tooltip(
+        message: KeyHints.tip(context, 'Open a folder of pages as a book', ReaderIntent.openFolder),
+        child: OutlinedButton.icon(
+          onPressed: onOpenFolder,
+          icon: const Icon(Icons.folder_open),
+          label: const Text('Open a folder'),
+        ),
+      ),
+      Tooltip(
+        message: KeyHints.tip(context, 'Settings', ReaderIntent.showSettings),
+        child: OutlinedButton.icon(
+          key: const Key('settingsEmpty'),
+          onPressed: onSettings,
+          icon: const Icon(Icons.settings_outlined),
+          label: const Text('Settings'),
+        ),
+      ),
+    ],
+  );
+
+  /// The paragraph under the buttons: what joins the library by itself,
+  /// and the keys (fixed text, not read from the keymap).
+  Widget _help(ThemeData theme) => Text(
+    '${Platform.isAndroid ? 'A Comics folder in the device\'s storage' : 'A Comics folder in your home'} '
+    'joins the library by itself when ComicRedr starts. '
+    'A adds any other folder of comics. o opens a CBZ or PDF and O a folder of pages '
+    'without adding them. Or drop either here. ? shows the keymap.',
+    textAlign: TextAlign.center,
+    style: theme.textTheme.bodyMedium,
+  );
 }
 
 /// The library's status line: a notice, the scan's progress, or a count.

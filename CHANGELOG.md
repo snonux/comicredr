@@ -20,13 +20,22 @@ the `?` overlay.
     collection, or the marked ones (with Undo), as it did in the
     Favourites. They are actions like the others: `?` lists them and
     `keys.toml` can change them.
+  - A notice with an **Undo** goes by itself after about ten seconds
+    (it used to stay until something else took it away), and any new
+    notice takes the place of the one that is up at once: before, a
+    notice could wait unseen behind one with an Undo. `u` only ever
+    undoes what the notice on screen offers, also with the `?` help up,
+    and an undo that fails says so. `x` with marked comics of which none
+    is in the open collection says so.
   - A button's tooltip names its key as it is now, also after you
     changed it in `keys.toml` (*Settings (g,)*); before, the keys in
     tooltips were fixed text and some buttons named none.
   - In every dialog `Alt` with the underlined letter presses that button
     (`Alt+C` Cancel, `Alt+D` Delete for good, `Alt+S` Save …). `Alt`, so
-    a letter typed into a name stays a letter. On a phone the letters
-    are underlined only while `Alt` is held on a plugged-in keyboard.
+    a letter typed into a name stays a letter. The underline is drawn
+    in the label's own colour, so it shows on the filled buttons too. On
+    a phone the letters are underlined only while `Alt` is held on a
+    plugged-in keyboard.
   - Every dialog starts with the focus on a control: Cancel where
     something would be lost (now also before clearing the reading
     history), the main button or the first field elsewhere; Settings

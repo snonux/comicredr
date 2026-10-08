@@ -291,13 +291,20 @@ class _MnemonicState extends State<Mnemonic> with _Lettered<Mnemonic> {
     final text = widget.text;
     final at = show ? text.toLowerCase().indexOf(_letter) : -1;
     if (at < 0) return Text(text);
+    // The line in the label's own colour, whatever the button gives it
+    // (filled, tonal, outlined, disabled, either theme). Material 3's text
+    // styles name a decoration colour of their own, the surface's text
+    // colour, which on a filled button is close to the fill: the letter
+    // was underlined and nobody could see it. A button animates its label
+    // colour through the DefaultTextStyle, so this follows it.
+    final colour = DefaultTextStyle.of(context).style.color;
     return Text.rich(
       TextSpan(
         children: [
           TextSpan(text: text.substring(0, at)),
           TextSpan(
             text: text.substring(at, at + 1),
-            style: const TextStyle(decoration: TextDecoration.underline),
+            style: TextStyle(decoration: TextDecoration.underline, decorationColor: colour),
           ),
           TextSpan(text: text.substring(at + 1)),
         ],

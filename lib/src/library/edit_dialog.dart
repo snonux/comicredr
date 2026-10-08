@@ -5,6 +5,7 @@ import '../data/meta_edits.dart';
 import '../data/sidecar_sync.dart';
 import '../hotkeys.dart';
 import '../reader/reader_notifier.dart';
+import '../undo_notice.dart';
 import 'library_store.dart';
 import 'providers.dart';
 
@@ -23,9 +24,9 @@ Future<void> editBook(BuildContext context, WidgetRef ref, LibraryBook book) asy
   if (edits == null || edits.isEmpty) return;
   try {
     await save([book], edits);
-    messenger.showSnackBar(const SnackBar(content: Text('Saved')));
+    showNotice(messenger, 'Saved');
   } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not save the changes to ${book.name}: $e')));
+    showNotice(messenger, 'Could not save the changes to ${book.name}: $e');
   }
 }
 
@@ -42,9 +43,9 @@ Future<void> renameSeries(BuildContext context, WidgetRef ref, LibrarySeries ser
     final at = DateTime.now();
     await save(series.books, {MetaField.series: MetaEdit(name, at: at)});
     final n = series.books.length;
-    messenger.showSnackBar(SnackBar(content: Text('Renamed $n ${n == 1 ? 'book' : 'books'} to $name')));
+    showNotice(messenger, 'Renamed $n ${n == 1 ? 'book' : 'books'} to $name');
   } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('Could not rename ${series.name}: $e')));
+    showNotice(messenger, 'Could not rename ${series.name}: $e');
   }
 }
 
@@ -196,17 +197,16 @@ class _EditBookDialogState extends State<EditBookDialog> {
             ),
           ),
         ),
-        actions: [
-          TextButton(
-            key: const Key('editCancel'),
-            onPressed: () => Navigator.pop(context),
-            child: const Mnemonic('Cancel'),
-          ),
-          FilledButton(key: const Key('editSave'), onPressed: _save, child: const Mnemonic('Save')),
-        ],
+        actions: _actions(context),
       ),
     );
   }
+
+  /// Cancel (Alt+C) and Save (Alt+S).
+  List<Widget> _actions(BuildContext context) => [
+    TextButton(key: const Key('editCancel'), onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+    FilledButton(key: const Key('editSave'), onPressed: _save, child: const Mnemonic('Save')),
+  ];
 }
 
 class _RenameSeriesDialog extends StatefulWidget {

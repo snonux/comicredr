@@ -529,10 +529,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         _markAll();
       case ReaderIntent.toggleFavourite when marked.isNotEmpty:
         unawaited(_bulk(() => toggleFavourites(context, ref, marked)));
+      // In the Favourites x is * on the selected comic: out, with an Undo.
       case ReaderIntent.toggleFavourite:
-        if (_selectedItem case BookItem(:final book)) {
-          unawaited(_toggleFavourite(book));
-        }
       case ReaderIntent.remove when _favourites && marked.isEmpty:
         if (_selectedItem case BookItem(:final book)) {
           unawaited(_toggleFavourite(book));
@@ -708,6 +706,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           messenger,
           '${p.basename(path)} taken out of the library; its comics stay on disk',
           label: undoLabel,
+          // Said in a notice when it throws (the folder gone from the
+          // disk meanwhile, the index refusing).
+          failed: 'Could not put ${p.basename(path)} back in the library',
           undo: () async {
             await restoreLibraryFolder(store, settings, path, forget: remembered);
             // HomeScreen's rescan also watches the folder again.
@@ -764,15 +765,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
     final done = await setFavourite(ref, book, on);
     if (!done) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Could not change the favourites for ${book.name}')));
+      showNotice(messenger, 'Could not change the favourites for ${book.name}');
       return;
     }
     if (on) {
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('${book.name} added to Favourites')));
+      showNotice(messenger, '${book.name} added to Favourites');
       return;
     }
     // With the undo key (u) as well as the button.
@@ -782,7 +779,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           messenger,
           '${book.name} taken out of Favourites',
           label: undoLabel,
-          undo: () => setFavourite(ref, book, true),
+          failed: 'Could not put ${book.name} back in Favourites',
+          undo: () async {
+            // The index refusing is a failure to tell, like anything thrown.
+            if (!await setFavourite(ref, book, true)) throw StateError('the index refused');
+          },
         );
   }
 
@@ -1467,13 +1468,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                 }),
               )
             : _detail && !wide && selectedItem is FolderItem
-            ? FolderDetail(
-                folder: selectedItem.folder,
-                onOpen: () => _activate(selectedItem),
-                onRead: read,
-                onRemoveRoot: _removeRoot,
-                onBack: back,
-              )
+            ? _folderDetail(selectedItem, read, onBack: back)
             : Column(
                 children: [
                   _header(context, books),
@@ -1508,12 +1503,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                   onRead: read,
                   canRename: tab == LibraryTab.series,
                 ),
-                FolderItem(:final folder) => FolderDetail(
-                  folder: folder,
-                  onOpen: () => _activate(selectedItem),
-                  onRead: read,
-                  onRemoveRoot: _removeRoot,
-                ),
+                FolderItem() => _folderDetail(selectedItem, read),
                 BookmarkItem(:final book) => BookDetail(
                   book: book,
                   onRead: read,
@@ -1575,6 +1565,23 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     );
   }
 
+  /// A folder's details, in the pane beside the covers or, with [onBack],
+  /// as a page of its own. Its button for a library folder goes the way
+  /// of `gA` ([_removeRoot]).
+  Widget _folderDetail(FolderItem item, void Function(LibraryBook, {Place? at}) read, {VoidCallback? onBack}) =>
+      FolderDetail(
+        folder: item.folder,
+        onOpen: () => _activate(item),
+        onRead: read,
+        onRemoveRoot: _removeRoot,
+        onBack: onBack,
+      );
+
+  /// The arrow that leaves an open series or collection; [text] says
+  /// where to, and the tooltip adds the key.
+  Widget _backButton(String text) =>
+      IconButton(icon: const Icon(Icons.arrow_back), tooltip: _tip(text, ReaderIntent.back), onPressed: back);
+
   Widget _header(BuildContext context, List<LibraryBook> books) {
     final theme = Theme.of(context);
     final series = _series == null ? null : _groups(books).where((s) => s.id == _series).firstOrNull;
@@ -1589,24 +1596,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       child: Row(
         children: [
           if (series != null) ...[
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: _tip(
-                tab == LibraryTab.collections ? 'Back to collections' : 'Back to series',
-                ReaderIntent.back,
-              ),
-              onPressed: back,
-            ),
+            _backButton(tab == LibraryTab.collections ? 'Back to collections' : 'Back to series'),
             Flexible(
               child: Text(series.name, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 12),
           ] else if (tab == LibraryTab.collections && _favourites) ...[
-            IconButton(
-              icon: const Icon(Icons.arrow_back),
-              tooltip: _tip('Back to collections', ReaderIntent.back),
-              onPressed: back,
-            ),
+            _backButton('Back to collections'),
             Flexible(
               child: Text(favouritesCollection, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
             ),
@@ -1783,9 +1779,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   void _showFailures(BuildContext context) {
     final failed = ref.read(scanStatusProvider).value?.failed ?? const [];
     if (failed.isEmpty) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('The last scan could read every comic')));
+      showNotice(ScaffoldMessenger.of(context), 'The last scan could read every comic');
       return;
     }
     unawaited(

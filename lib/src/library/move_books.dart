@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import '../data/sidecar_sync.dart';
 import '../hotkeys.dart';
 import '../reader/reader_notifier.dart';
+import '../undo_notice.dart';
 import 'bulk_actions.dart' show comicsCount;
 import 'delete_book.dart';
 import 'library_store.dart';
@@ -173,7 +174,7 @@ Future<bool> moveLibraryBooks(
   // Those already there stay as they are.
   final going = todo.where((b) => !p.equals(p.dirname(b.path), dir)).toList();
   if (going.isEmpty) {
-    messenger.showSnackBar(SnackBar(content: Text('${todo.length == 1 ? 'It is' : 'They are'} there already')));
+    showNotice(messenger, '${todo.length == 1 ? 'It is' : 'They are'} there already');
     return true;
   }
   final taken = [
@@ -238,7 +239,7 @@ Future<bool> moveLibraryBooks(
     if (skipped > 0) '${comicsCount(skipped)} left where ${skipped == 1 ? 'it was' : 'they were'}',
     if (failed.isNotEmpty) 'could not move ${failed.first}${failed.length > 1 ? ' and ${failed.length - 1} more' : ''}',
   ];
-  messenger.showSnackBar(SnackBar(content: Text(parts.isEmpty ? 'Nothing moved' : parts.join('; '))));
+  showNotice(messenger, parts.isEmpty ? 'Nothing moved' : parts.join('; '));
   return true;
 }
 
@@ -278,33 +279,37 @@ Future<MoveClash> askMoveClash(BuildContext context, List<String> names, String 
                 ],
               ),
             ),
-            actions: [
-              TextButton(
-                key: const Key('moveClashCancel'),
-                autofocus: true,
-                onPressed: () => Navigator.pop(context, MoveClash.cancel),
-                child: const Mnemonic('Cancel'),
-              ),
-              OutlinedButton(
-                key: const Key('moveClashSkip'),
-                onPressed: () => Navigator.pop(context, MoveClash.skip),
-                child: Mnemonic(one ? 'Skip it' : 'Skip those'),
-              ),
-              FilledButton(
-                key: const Key('moveClashReplace'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.error,
-                  foregroundColor: theme.colorScheme.onError,
-                ),
-                onPressed: () => Navigator.pop(context, MoveClash.replace),
-                child: const Mnemonic('Replace'),
-              ),
-            ],
+            actions: _clashButtons(context, one: one),
           ),
         );
       },
     ) ??
     MoveClash.cancel;
+
+/// The buttons of [askMoveClash]: Cancel (Alt+C, and Enter), Skip (Alt+S)
+/// and Replace (Alt+R), which deletes and is coloured so.
+List<Widget> _clashButtons(BuildContext context, {required bool one}) {
+  final scheme = Theme.of(context).colorScheme;
+  return [
+    TextButton(
+      key: const Key('moveClashCancel'),
+      autofocus: true,
+      onPressed: () => Navigator.pop(context, MoveClash.cancel),
+      child: const Mnemonic('Cancel'),
+    ),
+    OutlinedButton(
+      key: const Key('moveClashSkip'),
+      onPressed: () => Navigator.pop(context, MoveClash.skip),
+      child: Mnemonic(one ? 'Skip it' : 'Skip those'),
+    ),
+    FilledButton(
+      key: const Key('moveClashReplace'),
+      style: FilledButton.styleFrom(backgroundColor: scheme.error, foregroundColor: scheme.onError),
+      onPressed: () => Navigator.pop(context, MoveClash.replace),
+      child: const Mnemonic('Replace'),
+    ),
+  ];
+}
 
 /// The folder picker for a move: type to narrow the list, `↑` `↓` to pick,
 /// Enter to move there; New folder (`Ctrl+N`) makes one in the picked
@@ -389,7 +394,7 @@ class _MoveDialogState extends State<MoveDialog> {
       await Directory(dir).create();
     } on FileSystemException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not make $name: ${e.message}')));
+      showNotice(ScaffoldMessenger.of(context), 'Could not make $name: ${e.message}');
       return;
     }
     if (mounted) Navigator.pop(context, dir);
@@ -452,24 +457,28 @@ class _MoveDialogState extends State<MoveDialog> {
               ],
             ),
           ),
-          actions: [
-            TextButton.icon(
-              key: const Key('moveNewFolder'),
-              onPressed: picked == null ? null : _newFolder,
-              icon: const Icon(Icons.create_new_folder_outlined),
-              label: const Mnemonic('New folder (Ctrl+N)'),
-            ),
-            TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
-            FilledButton(
-              key: const Key('moveHere'),
-              onPressed: picked == null ? null : _move,
-              child: Mnemonic(picked == null ? 'Move' : 'Move to ${p.basename(picked.path)}'),
-            ),
-          ],
+          actions: _buttons(context, picked),
         ),
       ),
     );
   }
+
+  /// New folder (Alt+N, Ctrl+N), Cancel (Alt+C) and Move (Alt+M); the
+  /// first and last are off while no folder is [picked].
+  List<Widget> _buttons(BuildContext context, MoveTarget? picked) => [
+    TextButton.icon(
+      key: const Key('moveNewFolder'),
+      onPressed: picked == null ? null : _newFolder,
+      icon: const Icon(Icons.create_new_folder_outlined),
+      label: const Mnemonic('New folder (Ctrl+N)'),
+    ),
+    TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
+    FilledButton(
+      key: const Key('moveHere'),
+      onPressed: picked == null ? null : _move,
+      child: Mnemonic(picked == null ? 'Move' : 'Move to ${p.basename(picked.path)}'),
+    ),
+  ];
 }
 
 /// Asks for the name of a new folder in [parent].

@@ -137,9 +137,15 @@ letter. The wrapper takes that key in an early key handler of the
 `FocusManager`, so the focus tree (a field, a `Shortcuts`, a focused
 button) never sees it and one press is one action; a dialog adds no Alt
 shortcut of its own, and a button that is not always built (a row of a
-lazy list) has its key held by a `DialogKey`. And Tab goes through the controls in the order they are written
-(the default, by position on screen, loses its way in a dialog that
-scrolls).
+lazy list) has its key held by a `DialogKey`. And Tab goes through the
+controls in the order they are written (the default, by position on
+screen, loses its way in a dialog that scrolls).
+
+Notices along the bottom all go through `lib/src/undo_notice.dart`
+(`showNotice`, and `UndoNotice` for one with an Undo button, which `u`
+presses): a notice takes the place of whatever notice is up, at once, so
+none waits unseen behind another, and one with an Undo goes by itself
+after ten seconds, the `u` key with it.
 
 ```mermaid
 flowchart LR

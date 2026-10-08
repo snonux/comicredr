@@ -237,15 +237,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     unawaited(ref.read(readerProvider.notifier).loadFullscreen());
     final warnings = ref.read(keymapLoadProvider).load.warnings;
     if (warnings.isNotEmpty && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            warnings.length == 1
-                ? '${warnings.first}. ? shows the keys in use.'
-                : '${warnings.length} problems in keys.toml; ? lists them with the keys in use.',
-          ),
-          duration: const Duration(seconds: 8),
-        ),
+      showNotice(
+        ScaffoldMessenger.of(context),
+        warnings.length == 1
+            ? '${warnings.first}. ? shows the keys in use.'
+            : '${warnings.length} problems in keys.toml; ? lists them with the keys in use.',
+        duration: const Duration(seconds: 8),
       );
     }
     final store = ref.read(libraryStoreProvider);
@@ -271,7 +268,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await _rescan();
     if (!mounted) return;
     _s3Notices = ref.read(s3SyncProvider).notices.listen((text) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      if (mounted) showNotice(ScaffoldMessenger.of(context), text);
     });
     unawaited(ref.read(s3SyncProvider).start());
   }
@@ -429,9 +426,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : await getDirectoryPath(confirmButtonText: 'Export sidecars here');
       if (dir == null || dir.isEmpty) return;
       final n = await ref.read(sidecarSyncProvider).exportAll(dir);
-      messenger.showSnackBar(SnackBar(content: Text('Wrote $n sidecar${n == 1 ? '' : 's'} to $dir')));
+      showNotice(messenger, 'Wrote $n sidecar${n == 1 ? '' : 's'} to $dir');
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not export sidecars: $e')));
+      showNotice(messenger, 'Could not export sidecars: $e');
     }
   });
 
@@ -459,9 +456,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         path = at.path;
         await File(path).writeAsString(await _settingsText(), flush: true);
       }
-      messenger.showSnackBar(SnackBar(content: Text('Settings exported to $path')));
+      showNotice(messenger, 'Settings exported to $path');
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not export settings: $e')));
+      showNotice(messenger, 'Could not export settings: $e');
     } finally {
       _keys.requestFocus();
     }
@@ -476,8 +473,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// shown and confirmed, then taken up at once.
   Future<void> _importSettings() => _whilePicking(() async {
     final messenger = ScaffoldMessenger.of(context);
-    void say(String text) =>
-        messenger.showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 8)));
+    void say(String text) => showNotice(messenger, text, duration: const Duration(seconds: 8));
     try {
       final String? path;
       if (Platform.isAndroid) {
@@ -543,24 +539,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               'with what is here. Its library folders that are on this device are added; none is taken out.',
             ),
           ),
-          actions: [
-            TextButton(
-              key: const Key('importSettings-cancel'),
-              onPressed: () => Navigator.pop(context, false),
-              child: const Mnemonic('Cancel'),
-            ),
-            FilledButton(
-              key: const Key('importSettings-go'),
-              autofocus: true,
-              onPressed: () => Navigator.pop(context, true),
-              child: const Mnemonic('Import'),
-            ),
-          ],
+          actions: _importButtons(context),
         ),
       ),
     );
     return go == true;
   }
+
+  /// Cancel (Alt+C) and Import (Alt+I, and Enter: nothing is lost by it
+  /// that the file does not say).
+  List<Widget> _importButtons(BuildContext context) => [
+    TextButton(
+      key: const Key('importSettings-cancel'),
+      onPressed: () => Navigator.pop(context, false),
+      child: const Mnemonic('Cancel'),
+    ),
+    FilledButton(
+      key: const Key('importSettings-go'),
+      autofocus: true,
+      onPressed: () => Navigator.pop(context, true),
+      child: const Mnemonic('Import'),
+    ),
+  ];
 
   /// Makes everything an import changed show at once: the reader's and
   /// the library's settings, the touch preset, the keymap, the sidecars of
@@ -590,9 +590,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (ref.read(readerProvider).book != null) {
       ref.read(readerProvider.notifier).notice(text);
     } else {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(text), duration: const Duration(seconds: 2)));
+      showNotice(ScaffoldMessenger.of(context), text, duration: const Duration(seconds: 2));
     }
   }
 
@@ -702,8 +700,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final book = books.where((b) => b.key == open.key).firstOrNull;
     if (!mounted) return;
     if (book == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Only comics in the library can go on S3: add its folder (A)')));
+      showNotice(ScaffoldMessenger.of(context), 'Only comics in the library can go on S3: add its folder (A)');
       return;
     }
     await (upload ? uploadBooks(context, ref, [book]) : removeBooksFromS3(context, ref, [book]));
@@ -740,9 +737,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         keepCover: onS3 && choice == DeleteChoice.here,
       );
       if (choice == DeleteChoice.everywhere) await ref.read(s3SyncProvider).removeFromS3([book.key]);
-      messenger.showSnackBar(SnackBar(content: Text(deletedNotice(book.title, stuck))));
+      showNotice(messenger, deletedNotice(book.title, stuck));
     } on FileSystemException catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Could not delete ${book.title}: ${e.message}')));
+      showNotice(messenger, 'Could not delete ${book.title}: ${e.message}');
       await reader.open(book.path);
     }
   }
@@ -920,9 +917,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ///
   /// `u` presses the Undo of the notice along the bottom, wherever that
   /// notice shows: over the library, an open comic, the page grid, the
-  /// help. The notice of something done in the library stays up when a
-  /// comic is opened, and its button says `Undo (u)` there too. With no
-  /// such notice `u` does nothing and says nothing.
+  /// help (so [_onCommand] asks this before [_helpTook], which keeps
+  /// every other key from what is behind the help). The notice of
+  /// something done in the library is still up when a comic is opened
+  /// straight after, and its button says `Undo (u)` there too. With no
+  /// such notice (it goes by itself after ten seconds, or when another
+  /// notice comes) `u` does nothing and says nothing.
   ///
   /// Settings are the library's, and open over a comic as well; not over
   /// the help, which keeps every key but its own from what is behind.
@@ -956,8 +956,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() => _showKeymap = !_showKeymap);
       return;
     }
-    if (_buttonKey(c)) return;
-    if (_helpTook(c)) return;
+    if (_buttonKey(c) || _helpTook(c)) return;
     // Shift+arrows mark covers in the library; in a comic they move as the
     // arrows alone do.
     if (ref.read(readerProvider).book != null) {
@@ -1179,27 +1178,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
             child: Stack(
               children: [
-                // The library stays built under the reader, so Esc comes back
-                // to the same tab, search and cover.
-                Offstage(
-                  offstage: s.book != null,
-                  child: TickerMode(
-                    enabled: s.book == null,
-                    child: LibraryScreen(
-                      key: _library,
-                      onAddRoot: _addRoot,
-                      onExportSidecars: _exportSidecars,
-                      onExportSettings: _exportSettings,
-                      onImportSettings: _importSettings,
-                      onOpenFile: _pickFile,
-                      onOpenFolder: _pickFolder,
-                      onContinue: _continueReading,
-                      onRescan: _rescan,
-                      keysFocus: _keys,
-                      pending: s.book == null ? _pending : '',
-                    ),
-                  ),
-                ),
+                _libraryUnder(s),
                 if (s.book != null) s.fullscreen ? _fullscreenReader(s) : _windowedReader(s),
                 Positioned.fill(child: ClockFlash(key: _clock)),
                 if (_showKeymap)
@@ -1223,6 +1202,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 extension on _HomeScreenState {
+  /// The library, which stays built under the reader, so Esc comes back
+  /// to the same tab, search and cover.
+  Widget _libraryUnder(ReaderState s) => Offstage(
+    offstage: s.book != null,
+    child: TickerMode(
+      enabled: s.book == null,
+      child: LibraryScreen(
+        key: _library,
+        onAddRoot: _addRoot,
+        onExportSidecars: _exportSidecars,
+        onExportSettings: _exportSettings,
+        onImportSettings: _importSettings,
+        onOpenFile: _pickFile,
+        onOpenFolder: _pickFolder,
+        onContinue: _continueReading,
+        // Also what puts a folder taken out with gA back (its Undo).
+        onRescan: _rescan,
+        keysFocus: _keys,
+        pending: s.book == null ? _pending : '',
+      ),
+    ),
+  );
+
   Widget get _page => ReaderTouch(
     onCommand: _onCommand,
     viewTransform: () => _view.currentState?.transform,

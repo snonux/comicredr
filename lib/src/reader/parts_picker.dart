@@ -48,6 +48,15 @@ class _PartsPickerState extends ConsumerState<PartsPicker> {
     );
   }
 
+  /// A button of the line under the page, [label], which sends [intent]
+  /// (or does [onPressed]). Its key is in a tooltip, so the label a finger
+  /// aims at stays as short as it was.
+  Widget _lineButton(BuildContext context, String key, String label, ReaderIntent intent, [VoidCallback? onPressed]) =>
+      Tooltip(
+        message: KeyHints.tip(context, label, intent),
+        child: TextButton(key: Key(key), onPressed: onPressed ?? () => widget.onPick(intent), child: Text(label)),
+      );
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(readerProvider);
@@ -183,32 +192,10 @@ class _PartsPickerState extends ConsumerState<PartsPicker> {
                             spacing: 8,
                             children: [
                               if (s.parts != null) ...[
-                                // Tooltips, so the labels a finger aims at stay as they are.
-                                Tooltip(
-                                  message: KeyHints.tip(context, 'Whole page', ReaderIntent.regionWhole),
-                                  child: TextButton(
-                                    key: const Key('partsWhole'),
-                                    onPressed: () => widget.onPick(ReaderIntent.regionWhole),
-                                    child: const Text('Whole page'),
-                                  ),
-                                ),
-                                Tooltip(
-                                  message: KeyHints.tip(context, 'Stop parts', ReaderIntent.regionPrevious),
-                                  child: TextButton(
-                                    key: const Key('partsStop'),
-                                    onPressed: () => widget.onPick(ReaderIntent.regionPrevious),
-                                    child: const Text('Stop parts'),
-                                  ),
-                                ),
+                                _lineButton(context, 'partsWhole', 'Whole page', ReaderIntent.regionWhole),
+                                _lineButton(context, 'partsStop', 'Stop parts', ReaderIntent.regionPrevious),
                               ],
-                              Tooltip(
-                                message: KeyHints.tip(context, 'Close', ReaderIntent.back),
-                                child: TextButton(
-                                  key: const Key('partsClose'),
-                                  onPressed: widget.onClose,
-                                  child: const Text('Close'),
-                                ),
-                              ),
+                              _lineButton(context, 'partsClose', 'Close', ReaderIntent.back, widget.onClose),
                             ],
                           ),
                         ],

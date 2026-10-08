@@ -219,7 +219,7 @@ markToLast = ["S-End"]
 markAll = ["C-a"]
 # Edit the selected book's title, series, issue and creators in the library; on a series, rename it
 editBook = ["e"]
-# Undo what the notice along the bottom offers to undo: a comic taken out of the Favourites or a collection
+# Undo whatever the notice along the bottom offers to undo, for as long as that notice shows
 undo = ["u"]
 # Settings: pages, guided view, cover size, sidecars, touch, back-up and S3 sync
 showSettings = ["g,"]

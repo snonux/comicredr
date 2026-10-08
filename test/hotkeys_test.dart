@@ -8,7 +8,10 @@ import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/hotkeys.dart';
+import 'package:comicredr/src/keymap_overlay.dart';
+import 'package:comicredr/src/library/bulk_actions.dart';
 import 'package:comicredr/src/library/default_folder.dart';
+import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/settings_dialog.dart';
 import 'package:comicredr/src/providers.dart';
@@ -39,9 +42,19 @@ void main() {
 
   setUp(() {
     routes = _Routes();
-    tmp = Directory.systemTemp.createTempSync('hotkeys_test');
+    final dir = tmp = Directory.systemTemp.createTempSync('hotkeys_test');
     root = Directory('${tmp.path}/Comics')..createSync();
-    db = AppDatabase(NativeDatabase.memory());
+    final database = db = AppDatabase(NativeDatabase.memory());
+    // Each test takes down what it made itself, not what `tmp` and `db`
+    // name by then: after a test that failed with a comic open the
+    // clean-up can come ten minutes late (the test times out), in the
+    // middle of a later test, and it then closed that test's database and
+    // deleted its comics, so one failure showed as a row of them.
+    addTearDown(() async {
+      DialogHotkeys.debugTouchFirst = null;
+      await database.close();
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
+    });
     // Each with its own number of pages: the same pages would be one comic.
     for (final n in ['Akira', 'Blacksad', 'Corto', 'Dredd']) {
       writeBook(root, '$n.cbz', n.codeUnitAt(0) - 63);
@@ -50,13 +63,8 @@ void main() {
     writeBook(root, 'Zot 1.cbz', 7);
     writeBook(root, 'Zot 2.cbz', 8);
   });
-  tearDown(() async {
-    DialogHotkeys.debugTouchFirst = null;
-    await db.close();
-    tmp.deleteSync(recursive: true);
-  });
 
-  Future<ProviderContainer> pumpApp(WidgetTester tester, {Keymap? keymap, Override? sidecars}) async {
+  Future<ProviderContainer> pumpApp(WidgetTester tester, {Keymap? keymap, Override? sidecars, Override? store}) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -68,6 +76,7 @@ void main() {
           classicCvOnly,
           sidecars ?? noSidecars(db),
           if (keymap != null) keymapProvider.overrideWithValue(keymap),
+          ?store,
         ],
         child: ComicRedrApp(navigatorObservers: [routes]),
       ),
@@ -85,9 +94,10 @@ void main() {
 
   const named = {
     ',': LogicalKeyboardKey.comma,
-    // The test keyboard has no key for ! and *: Shift+1 and Shift+8 type them.
+    // The test keyboard has no key for !, * and ?: Shift+1, Shift+8 and Shift+/ type them.
     '!': LogicalKeyboardKey.digit1,
     '*': LogicalKeyboardKey.digit8,
+    '?': LogicalKeyboardKey.slash,
   };
 
   LogicalKeyboardKey keyOf(String ch) =>
@@ -125,8 +135,9 @@ void main() {
     Keymap? keymap,
     bool remapped = false,
     Override? sidecars,
+    Override? store,
   }) async {
-    final c = await pumpApp(tester, keymap: keymap, sidecars: sidecars);
+    final c = await pumpApp(tester, keymap: keymap, sidecars: sidecars, store: store);
     await tester.runAsync(() async {
       await c.read(libraryStoreProvider).addRoot(root.path);
       await c.read(scannerProvider).scan();
@@ -337,6 +348,136 @@ void main() {
       expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasPrimaryFocus, isTrue);
       await alt(tester, 'g');
       expect(pressed, 2);
+    });
+
+    for (final brightness in Brightness.values) {
+      testWidgets('the underline has the label\'s own colour on every kind of button, ${brightness.name}', (
+        tester,
+      ) async {
+        // The app's own themes (app.dart): a filled button's label is not the surface's text colour.
+        final theme = withFocusRing(
+          ThemeData(colorSchemeSeed: const Color(0xFF0B6FB4), brightness: brightness, useMaterial3: true),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: theme,
+            home: Scaffold(
+              body: DialogHotkeys(
+                child: AlertDialog(
+                  actions: [
+                    TextButton(onPressed: () {}, child: const Mnemonic('Text')),
+                    FilledButton(onPressed: () {}, child: const Mnemonic('Filled')),
+                    FilledButton.tonal(onPressed: () {}, child: const Mnemonic('Onal')),
+                    OutlinedButton(onPressed: () {}, child: const Mnemonic('Lined')),
+                    const FilledButton(onPressed: null, child: Mnemonic('Disabled')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final seen = <String, Color>{};
+        for (final label in ['Text', 'Filled', 'Onal', 'Lined', 'Disabled']) {
+          final rich = tester.widget<RichText>(
+            find.byWidgetPredicate((w) => w is RichText && w.text.toPlainText() == label),
+          );
+          final colour = rich.text.style!.color!;
+          InlineSpan? letter;
+          rich.text.visitChildren((span) {
+            if (span.style?.decoration == TextDecoration.underline) letter = span;
+            return true;
+          });
+          expect(letter, isNotNull, reason: '$label has an underlined letter');
+          // What is painted: the span's style over the label's.
+          final painted = rich.text.style!.merge(letter!.style);
+          expect(painted.decorationColor, colour, reason: '$label: the underline is drawn in the text colour');
+          seen[label] = colour;
+        }
+        // The case that was wrong: a filled button's label is not the colour of text on the surface.
+        expect(seen['Filled'], theme.colorScheme.onPrimary);
+        expect(seen['Filled'], isNot(theme.colorScheme.onSurface));
+        expect(seen['Text'], theme.colorScheme.primary);
+      });
+    }
+
+    testWidgets('a dialog over a dialog: only the one on top has its letters', (tester) async {
+      final log = <String>[];
+      Widget question(BuildContext context) => DialogHotkeys(
+        child: AlertDialog(
+          actions: [
+            TextButton(
+              autofocus: true,
+              onPressed: () {
+                log.add('top cancel');
+                Navigator.pop(context);
+              },
+              child: const Mnemonic('Cancel'),
+            ),
+          ],
+        ),
+      );
+      Widget lower(BuildContext context) => DialogHotkeys(
+        child: AlertDialog(
+          actions: [
+            TextButton(
+              onPressed: () {
+                log.add('lower history');
+                showDialog<void>(context: context, builder: question);
+              },
+              child: const Mnemonic('History'),
+            ),
+            TextButton(onPressed: () => log.add('lower close'), child: const Mnemonic('Close')),
+            TextButton(onPressed: () => log.add('lower other'), child: const Mnemonic('Other')),
+          ],
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showDialog<void>(context: context, builder: lower),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await alt(tester, 'h');
+      await tester.pumpAndSettle();
+      expect(log, ['lower history']);
+      expect(find.byType(DialogHotkeys), findsNWidgets(2));
+      // Letters only the lower dialog has do nothing while the question is up:
+      // pressed, held (the repeats) and let go.
+      await alt(tester, 'o');
+      await alt(tester, 'h');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyO, character: 'o');
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyO, character: 'o');
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyO, character: 'o');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyO);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pumpAndSettle();
+      expect(log, ['lower history']);
+      expect(find.byType(DialogHotkeys), findsNWidgets(2));
+      // The top one's letter acts, once: its repeats and its release, which
+      // come when it has gone, press nothing of the dialog below (Close has
+      // the same letter).
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyC, character: 'c');
+      await tester.pump();
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyC, character: 'c');
+      await tester.pumpAndSettle();
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyC, character: 'c');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.keyC);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pumpAndSettle();
+      expect(log, ['lower history', 'top cancel']);
+      expect(find.byType(DialogHotkeys), findsOneWidget);
+      // And then the lower dialog has its letters again.
+      await alt(tester, 'c');
+      expect(log, ['lower history', 'top cancel', 'lower close']);
     });
 
     testWidgets('outside a dialog a label is plain text and no key', (tester) async {
@@ -745,6 +886,70 @@ void main() {
       await closeComic(tester, c);
     });
 
+    testWidgets('u presses the notice\'s Undo with the ? help up, and the help stays', (tester) async {
+      final c = await inFolder(tester);
+      final store = c.read(libraryStoreProvider);
+      Future<bool> favourite() async =>
+          (await tester.runAsync(store.books))!.firstWhere((b) => b.name == 'Akira').favourite;
+      await type(tester, '*');
+      await type(tester, '*');
+      expect(await favourite(), isFalse);
+      expect(find.text('Undo (u)'), findsOneWidget);
+      await type(tester, '?');
+      expect(find.byType(KeymapOverlay), findsOneWidget);
+      // The help keeps every other key from what is behind it, not this one.
+      await type(tester, 'u');
+      expect(await favourite(), isTrue);
+      expect(find.byType(KeymapOverlay), findsOneWidget);
+      // Another key of the library still does nothing under the help.
+      await type(tester, '*');
+      expect(await favourite(), isTrue);
+    });
+
+    testWidgets('the notice with an Undo goes by itself after ten seconds, and u is nothing then', (tester) async {
+      final c = await inFolder(tester);
+      final store = c.read(libraryStoreProvider);
+      Future<bool> favourite() async =>
+          (await tester.runAsync(store.books))!.firstWhere((b) => b.name == 'Akira').favourite;
+      await type(tester, '*');
+      await type(tester, '*');
+      expect(find.text('Akira taken out of Favourites'), findsOneWidget);
+      // Still there well after a plain notice's four seconds.
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Undo (u)'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(const Duration(seconds: 1));
+      await settle(tester);
+      expect(find.byType(SnackBar), findsNothing);
+      await type(tester, 'u');
+      expect(await favourite(), isFalse);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('a notice without an Undo takes the place of one with: it shows at once, and u is nothing', (
+      tester,
+    ) async {
+      final c = await inFolder(tester);
+      final store = c.read(libraryStoreProvider);
+      Future<bool> favourite() async =>
+          (await tester.runAsync(store.books))!.firstWhere((b) => b.name == 'Akira').favourite;
+      await type(tester, '*');
+      await type(tester, '*');
+      expect(find.text('Akira taken out of Favourites'), findsOneWidget);
+      // g! says that every comic could be read: before, that waited unseen
+      // behind the Undo notice, which never went.
+      await tester.sendKeyEvent(keyOf('g'), character: 'g');
+      await tester.sendKeyEvent(keyOf('!'), character: '!');
+      await tester.pump();
+      expect(find.text('Akira taken out of Favourites'), findsNothing);
+      expect(find.text('The last scan could read every comic'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      await type(tester, 'u');
+      expect(await favourite(), isFalse);
+      expect(find.text('The last scan could read every comic'), findsOneWidget);
+    });
+
     /// The library folder is out, its comics still on disk, and the notice
     /// offers it back.
     Future<void> expectTakenOut(WidgetTester tester, ProviderContainer c) async {
@@ -865,6 +1070,80 @@ void main() {
       expect(await noir(), ['Akira', 'Blacksad', 'Corto']);
     });
 
+    testWidgets('x with marks of which none is in the open collection says so', (tester) async {
+      final c = await inFolder(tester);
+      // The last comic of the folder, marked there, is not in Noir.
+      await press(tester, LogicalKeyboardKey.end);
+      await type(tester, 'V');
+      final noir = await inNoir(tester, c);
+      expect(find.text('1 selected'), findsOneWidget);
+      await type(tester, 'x');
+      expect(await noir(), ['Akira', 'Blacksad', 'Corto']);
+      expect(find.text('Zot #2 is not in Noir'), findsOneWidget);
+      // Nothing went ahead, so the mark stays.
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(
+        notInCollectionNotice([...(await tester.runAsync(c.read(libraryStoreProvider).books))!], 'Noir'),
+        'None of the 6 comics is in Noir',
+      );
+    });
+
+    testWidgets('x: when the index fails part of the way, the comics taken out before still get their Undo', (
+      tester,
+    ) async {
+      late _FailingOut failing;
+      final c = await inFolder(tester, store: libraryStoreProvider.overrideWith((ref) => failing = _FailingOut(db)));
+      final noir = await inNoir(tester, c);
+      await type(tester, 'VV');
+      await type(tester, 'V');
+      expect(find.text('3 selected'), findsOneWidget);
+      failing.failAt = 2;
+      await type(tester, 'x');
+      expect(await noir(), hasLength(2));
+      expect(find.text('1 comic taken out of Noir; 2 not taken out: the library could not be updated'), findsNothing);
+      final out = {'Akira', 'Blacksad', 'Corto'}.difference((await noir()).toSet()).single;
+      expect(find.text('$out taken out of Noir; 2 not taken out: the library could not be updated'), findsOneWidget);
+      expect(find.text('Undo (u)'), findsOneWidget);
+      // It did not all go ahead: the marks stay for another try.
+      expect(find.text('3 selected'), findsOneWidget);
+      failing.failAt = 0;
+      await type(tester, 'u');
+      expect(await noir(), ['Akira', 'Blacksad', 'Corto']);
+
+      // Refused at the first: nothing to undo, and it says so.
+      failing.failAt = 1;
+      await type(tester, 'x');
+      expect(await noir(), ['Akira', 'Blacksad', 'Corto']);
+      expect(find.text('Could not take 3 comics out of Noir: the library could not be updated'), findsOneWidget);
+      expect(find.text('Undo (u)'), findsNothing);
+    });
+
+    testWidgets('an Undo that fails says so in a notice and throws nothing', (tester) async {
+      late _FailingOut failing;
+      final c = await inFolder(tester, store: libraryStoreProvider.overrideWith((ref) => failing = _FailingOut(db)));
+      final noir = await inNoir(tester, c);
+      await type(tester, 'x');
+      expect(await noir(), ['Blacksad', 'Corto']);
+      failing.failAdds = true;
+      await type(tester, 'u');
+      expect(await noir(), ['Blacksad', 'Corto']);
+      expect(find.text('Could not put Akira back in Noir'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // The same for a library folder that cannot be put back.
+      failing.failAdds = false;
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
+      await settle(tester);
+      await press(tester, LogicalKeyboardKey.escape);
+      await press(tester, LogicalKeyboardKey.home);
+      await type(tester, 'gA');
+      expect(find.text('Comics taken out of the library; its comics stay on disk'), findsOneWidget);
+      failing.failRoots = true;
+      await type(tester, 'u');
+      expect(find.text('Could not put Comics back in the library'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('Alt with an arrow is the arrow; Alt with a letter is no command', (tester) async {
       await inFolder(tester);
       Finder inPane(String name) => find.descendant(of: find.byKey(const Key('detail')), matching: find.text(name));
@@ -941,6 +1220,119 @@ void main() {
       expect(undone, ['first', 'third']);
       expect(find.byType(SnackBar), findsNothing);
       expect(notice.press(), isFalse);
+    });
+
+    testWidgets('it goes by itself after ten seconds, and the key has nothing to press then', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      var undone = 0;
+      notice.show(messenger, 'Taken out', label: 'Undo', undo: () async => undone++);
+      await tester.pumpAndSettle();
+      await tester.pump(undoNoticeTime - const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text('Taken out'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+      expect(notice.press(), isFalse);
+      expect(undone, 0);
+    });
+
+    testWidgets('a plain notice replaces it at once, whatever is up, and is itself replaced', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      var undone = 0;
+      notice.show(messenger, 'First', label: 'Undo', undo: () async => undone++);
+      await tester.pumpAndSettle();
+      showNotice(messenger, 'Plain');
+      // The very next frame: nothing waits for the first to slide away.
+      await tester.pump();
+      expect(find.text('First'), findsNothing);
+      expect(find.text('Plain'), findsOneWidget);
+      expect(notice.press(), isFalse);
+      expect(undone, 0);
+      // Three in a row: only the last is there, and nothing comes after it.
+      showNotice(messenger, 'One');
+      showNotice(messenger, 'Two');
+      notice.show(messenger, 'Three', label: 'Undo', undo: () async => undone++);
+      await tester.pump();
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('Three'), findsOneWidget);
+      await tester.pumpAndSettle();
+      await tester.pump(undoNoticeTime);
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+      await tester.pump(const Duration(seconds: 30));
+      expect(find.byType(SnackBar), findsNothing);
+      expect(undone, 0);
+    });
+
+    testWidgets('the key only presses the notice on screen: a second one shown while the first leaves', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      final undone = <String>[];
+      notice.show(messenger, 'First', label: 'Undo', undo: () async => undone.add('first'));
+      await tester.pumpAndSettle();
+      // u: the first is undone and on its way out. A frame later the second.
+      expect(notice.press(), isTrue);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.text('First'), findsOneWidget);
+      notice.show(messenger, 'Second', label: 'Undo', undo: () async => undone.add('second'));
+      await tester.pump();
+      expect(find.text('First'), findsNothing);
+      expect(find.text('Second'), findsOneWidget);
+      expect(undone, ['first']);
+      // The one that is there is the one undone, and then it is gone: no
+      // notice is left with a button that does nothing.
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, ['first', 'second']);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(notice.press(), isFalse);
+
+      // A second shown over a first that is fully up: the same.
+      notice.show(messenger, 'Third', label: 'Undo', undo: () async => undone.add('third'));
+      await tester.pumpAndSettle();
+      notice.show(messenger, 'Fourth', label: 'Undo', undo: () async => undone.add('fourth'));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(find.text('Third'), findsNothing);
+      expect(find.text('Fourth'), findsOneWidget);
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, ['first', 'second', 'fourth']);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('an undo that throws is told in a notice, by key and by button', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      notice.show(messenger, 'Taken out', label: 'Undo', undo: () async => throw StateError('locked'));
+      await tester.pumpAndSettle();
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('Could not undo that'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      notice.show(
+        messenger,
+        'Taken out',
+        label: 'Undo',
+        failed: 'Could not put it back',
+        undo: () async => throw StateError('locked'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Undo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Could not put it back'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      // That notice has no Undo of its own.
+      expect(notice.press(), isFalse);
+    });
+
+    test('every notice of the app goes through showNotice or UndoNotice', () {
+      final direct = <String>[
+        for (final file in Directory('lib').listSync(recursive: true).whereType<File>())
+          if (file.path.endsWith('.dart') && !file.path.endsWith('undo_notice.dart'))
+            for (final (i, line) in file.readAsLinesSync().indexed)
+              if (RegExp(r'\b(showSnackBar|hideCurrentSnackBar|removeCurrentSnackBar|clearSnackBars)\b').hasMatch(line))
+                '${file.path}:${i + 1}',
+      ];
+      expect(direct, isEmpty, reason: 'a SnackBar shown directly can wait unseen behind another notice');
     });
   });
 
@@ -1515,3 +1907,31 @@ class _NoWrites extends SidecarSync {
 /// Whether [key] is the exception [name]: the same, or, for a name that
 /// ends in `:` or `-`, one that starts with it.
 bool _named(String name, String key) => name.endsWith(':') || name.endsWith('-') ? key.startsWith(name) : key == name;
+
+/// A library whose index can be told to refuse: the [failAt]th comic taken
+/// out of a collection (0: none), every comic put in one, or a folder
+/// added.
+class _FailingOut extends LibraryStore {
+  _FailingOut(super.db);
+
+  int failAt = 0;
+  bool failAdds = false;
+  bool failRoots = false;
+  int _taken = 0;
+
+  @override
+  Future<void> removeFromCollection(String contentKey, String name) {
+    if (failAt > 0 && ++_taken == failAt) {
+      _taken = 0;
+      throw StateError('the index is locked');
+    }
+    return super.removeFromCollection(contentKey, name);
+  }
+
+  @override
+  Future<bool> addToCollection(String contentKey, String name) =>
+      failAdds ? throw StateError('the index is locked') : super.addToCollection(contentKey, name);
+
+  @override
+  Future<int> addRoot(String path) => failRoots ? throw StateError('the index is locked') : super.addRoot(path);
+}

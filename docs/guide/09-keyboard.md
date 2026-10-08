@@ -86,7 +86,7 @@ keep what you found and get the keys back, and then they size the text.
 | `f` | [Fullscreen](04-reading.md#fullscreen) | Fullscreen |
 | `/` | | [Search](03-library.md#search) |
 | `g,` | [Settings](12-settings.md), over the comic | Settings |
-| `u` | | Undo what the notice along the bottom offers to undo |
+| `u` | Undo what the notice along the bottom offers to undo, while it shows | The same |
 | `?` | Every key (`+` `-` `=` in it: [bigger and smaller text](#bigger-and-smaller-text)) | Every key |
 
 The full list, with every key and a line on what it does, is
@@ -106,7 +106,7 @@ them all. The buttons that had no key before have one now:
 | Key | Button |
 |---|---|
 | `g,` | The gear at the top of the library: [Settings](12-settings.md). It works in a comic too, and the comic keeps its page. |
-| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections), or `gA` a folder out of the library. It works wherever the notice shows, also over a comic you opened in the meantime, and only while it shows (it stays until you undo or another notice takes its place): with no such notice `u` does nothing. |
+| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections), or `gA` a folder out of the library. It works wherever the notice shows, also over a comic you opened in the meantime or with the `?` help up, and only while it shows: the notice goes by itself after about ten seconds, or when another notice takes its place, and with no such notice `u` does nothing. |
 | `x` | In an open collection: takes the selected comic out of it (the **x** on its chip in the details), or all the [marked](03-library.md#several-comics-at-once) ones. |
 | `gA` | **Take out of the library** in a library folder's details: select the folder at the top of the Folders tab first. Its comics stay on disk, and the notice has an **Undo** (`u`) that puts the folder back. |
 | `gD` | **Download** on a comic that is [only on S3](13-s3-sync.md#on-the-other-device), or on the marked ones. |

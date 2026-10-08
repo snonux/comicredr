@@ -68,16 +68,18 @@ class StatusLine extends StatelessWidget {
   final ValueChanged<ReaderCommand> onCommand;
 
   /// A button for [intent]; its tooltip is [tip] and the key the keymap
-  /// gives the intent now.
-  Widget _button(BuildContext context, String key, IconData icon, String tip, ReaderIntent intent, {bool on = false}) =>
-      IconButton(
-        key: Key(key),
-        icon: Icon(icon),
-        tooltip: KeyHints.tip(context, tip, intent),
-        isSelected: on,
-        // Full 48 px targets: the Fedora laptop has a touchscreen too.
-        onPressed: () => onCommand(ReaderCommand(intent)),
-      );
+  /// gives the intent now, read from the KeyHints above it (hence the
+  /// Builder: the callers have many arguments as it is).
+  Widget _button(String key, IconData icon, String tip, ReaderIntent intent, {bool on = false}) => Builder(
+    builder: (context) => IconButton(
+      key: Key(key),
+      icon: Icon(icon),
+      tooltip: KeyHints.tip(context, tip, intent),
+      isSelected: on,
+      // Full 48 px targets: the Fedora laptop has a touchscreen too.
+      onPressed: () => onCommand(ReaderCommand(intent)),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -133,14 +135,13 @@ class StatusLine extends StatelessWidget {
         // Esc in a button: Android has its back gesture for this, but a
         // Linux touchscreen had no way out of guided view or the book.
         final back = book != null && showBack
-            ? _button(context, 'backButton', Icons.arrow_back, 'Back', ReaderIntent.back)
+            ? _button('backButton', Icons.arrow_back, 'Back', ReaderIntent.back)
             : null;
         final buttons = [
           if (book != null) ...[
             const SizedBox(width: 4),
             if (state.guided)
               _button(
-                context,
                 'balloonsButton',
                 state.balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
                 'Balloon by balloon',
@@ -148,7 +149,6 @@ class StatusLine extends StatelessWidget {
                 on: state.balloons,
               ),
             _button(
-              context,
               'guidedButton',
               state.guided ? Icons.view_quilt : Icons.view_quilt_outlined,
               'Guided view',
@@ -159,18 +159,16 @@ class StatusLine extends StatelessWidget {
             // keyboard no other way to them. A phone has room for neither.
             if (!narrow && !state.guided)
               _button(
-                context,
                 'spreadButton',
                 state.mode == PageMode.spread ? Icons.menu_book : Icons.menu_book_outlined,
                 state.mode == PageMode.spread ? 'One page' : 'Two pages side by side',
                 ReaderIntent.toggleSpread,
                 on: state.mode == PageMode.spread,
               ),
-            _button(context, 'pagesButton', Icons.grid_view, 'Pages', ReaderIntent.pageGrid, on: gridOpen),
+            _button('pagesButton', Icons.grid_view, 'Pages', ReaderIntent.pageGrid, on: gridOpen),
             // A phone has a two-finger tap for it and no room here.
             if (!narrow)
               _button(
-                context,
                 'partsButton',
                 Icons.crop_free,
                 'Enlarge a part of the page',
@@ -178,20 +176,12 @@ class StatusLine extends StatelessWidget {
                 on: partsOpen || state.parts != null,
               ),
             // A phone has no room for it here; the page grid has one.
-            if (!narrow) _button(context, 'detailsButton', Icons.info_outline, 'Details', ReaderIntent.showDetails),
+            if (!narrow) _button('detailsButton', Icons.info_outline, 'Details', ReaderIntent.showDetails),
             if (state.bookmarksHere.isNotEmpty)
-              _button(
-                context,
-                'bookmarkButton',
-                Icons.bookmark,
-                'Remove the bookmark here',
-                ReaderIntent.bookmark,
-                on: true,
-              )
+              _button('bookmarkButton', Icons.bookmark, 'Remove the bookmark here', ReaderIntent.bookmark, on: true)
             else
-              _button(context, 'bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here', ReaderIntent.bookmark),
+              _button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here', ReaderIntent.bookmark),
             _button(
-              context,
               'bookmarksButton',
               Icons.bookmarks_outlined,
               'Bookmarks',
@@ -199,7 +189,6 @@ class StatusLine extends StatelessWidget {
               on: bookmarksOpen,
             ),
             _button(
-              context,
               'fullscreenButton',
               state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
               state.fullscreen ? 'Leave fullscreen' : 'Fullscreen',

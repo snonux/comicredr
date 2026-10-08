@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/s3_sync.dart';
 import '../hotkeys.dart';
 import '../reader/reader_notifier.dart';
+import '../undo_notice.dart';
 import 'delete_book.dart';
 import 'library_store.dart';
 
@@ -15,7 +16,7 @@ import 'library_store.dart';
 
 bool _setUp(BuildContext context, WidgetRef ref) {
   if (ref.read(s3SyncProvider).current.on) return true;
-  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Set up S3 sync first: Settings → S3 sync')));
+  showNotice(ScaffoldMessenger.of(context), 'Set up S3 sync first: Settings → S3 sync');
   return false;
 }
 
@@ -27,27 +28,21 @@ Future<void> uploadBooks(BuildContext context, WidgetRef ref, List<LibraryBook> 
   final messenger = ScaffoldMessenger.of(context);
   final todo = books.where((b) => !b.remoteOnly).toList();
   if (todo.isEmpty) {
-    messenger.showSnackBar(
-      SnackBar(content: Text(books.length == 1 ? '${books.first.name} is on S3 only' : 'These are on S3 only')),
-    );
+    showNotice(messenger, books.length == 1 ? '${books.first.name} is on S3 only' : 'These are on S3 only');
     return;
   }
   final n = await ref.read(s3SyncProvider).upload(todo.map((b) => b.key));
   if (n == 0) {
-    messenger.showSnackBar(const SnackBar(content: Text('On its way to S3 already')));
+    showNotice(messenger, 'On its way to S3 already');
     return;
   }
   final synced = todo.every((b) => b.s3 != null);
-  messenger.showSnackBar(
-    SnackBar(
-      content: Text(switch ((n, synced)) {
-        (1, true) => 'Bringing ${todo.first.name} in step with S3',
-        (_, true) => 'Bringing $n comics in step with S3',
-        (1, false) => 'Uploading ${todo.first.name} to S3',
-        _ => 'Uploading $n comics to S3',
-      }),
-    ),
-  );
+  showNotice(messenger, switch ((n, synced)) {
+    (1, true) => 'Bringing ${todo.first.name} in step with S3',
+    (_, true) => 'Bringing $n comics in step with S3',
+    (1, false) => 'Uploading ${todo.first.name} to S3',
+    _ => 'Uploading $n comics to S3',
+  });
 }
 
 /// Downloads [books] that are on S3 only, one after the other.
@@ -56,14 +51,11 @@ Future<void> downloadBooks(BuildContext context, WidgetRef ref, List<LibraryBook
   final todo = books.where((b) => b.remoteOnly).toList();
   if (todo.isEmpty) return;
   final s3 = ref.read(s3SyncProvider);
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        todo.length == 1
-            ? 'Downloading ${todo.first.name} (${describeBytes(todo.first.s3?.size ?? 0)})'
-            : 'Downloading ${todo.length} comics',
-      ),
-    ),
+  showNotice(
+    ScaffoldMessenger.of(context),
+    todo.length == 1
+        ? 'Downloading ${todo.first.name} (${describeBytes(todo.first.s3?.size ?? 0)})'
+        : 'Downloading ${todo.length} comics',
   );
   for (final b in todo) {
     await s3.download(b.key);
@@ -75,8 +67,9 @@ Future<void> downloadBooks(BuildContext context, WidgetRef ref, List<LibraryBook
 Future<bool> removeBooksFromS3(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
   final todo = books.where((b) => b.s3 != null).toList();
   if (todo.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(books.length == 1 ? '${books.first.name} is not on S3' : 'None of these is on S3')),
+    showNotice(
+      ScaffoldMessenger.of(context),
+      books.length == 1 ? '${books.first.name} is not on S3' : 'None of these is on S3',
     );
     return false;
   }
@@ -100,20 +93,7 @@ Future<bool> removeBooksFromS3(BuildContext context, WidgetRef ref, List<Library
             ].join(' '),
           ),
         ),
-        actions: [
-          TextButton(
-            key: const Key('s3RemoveCancel'),
-            autofocus: true,
-            onPressed: () => Navigator.pop(context, false),
-            child: const Mnemonic('Cancel'),
-          ),
-          FilledButton.icon(
-            key: const Key('s3RemoveConfirm'),
-            onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Icons.cloud_off),
-            label: const Mnemonic('Remove from S3'),
-          ),
-        ],
+        actions: _removeButtons(context),
       ),
     ),
   );
@@ -121,6 +101,23 @@ Future<bool> removeBooksFromS3(BuildContext context, WidgetRef ref, List<Library
   unawaited(ref.read(s3SyncProvider).removeFromS3(todo.map((b) => b.key)));
   return true;
 }
+
+/// Cancel (Alt+C, and Enter: something would be lost) and Remove from S3
+/// (Alt+R).
+List<Widget> _removeButtons(BuildContext context) => [
+  TextButton(
+    key: const Key('s3RemoveCancel'),
+    autofocus: true,
+    onPressed: () => Navigator.pop(context, false),
+    child: const Mnemonic('Cancel'),
+  ),
+  FilledButton.icon(
+    key: const Key('s3RemoveConfirm'),
+    onPressed: () => Navigator.pop(context, true),
+    icon: const Icon(Icons.cloud_off),
+    label: const Mnemonic('Remove from S3'),
+  ),
+];
 
 /// "On S3 since 26 Sep, uploaded from ThinkPad", for the details.
 String describeShelf(LibraryBook book, S3Status status) {

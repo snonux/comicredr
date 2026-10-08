@@ -53,7 +53,8 @@ db="$home/.local/share/org.snonux.comicredr/comicredr.sqlite"
 # same bytes twice would be one comic.
 for i in 1 2 3 4 5 6; do
   for p in 1 2 3 4 5; do
-    convert -size 400x600 xc:white -fill black -pointsize 90 -annotate +60+300 "$i . $p" "$out/pages/p$p.png" 2>/dev/null
+    convert -size 400x600 xc:white -fill black -pointsize 90 -annotate +60+300 "$i . $p" \
+      "$out/pages/p$p.png" 2>/dev/null
   done
   python3 - "$out/pages" "$out/Comics/Book 0$i.cbz" <<'EOF'
 import sys, zipfile
@@ -286,7 +287,11 @@ key alt+d
 wait_q 'select count(*) from books' 5 || true
 check "Alt+D deletes: comics on disk" "$(files)" 5
 check "Alt+D deletes: comics in the index" "$(q 'select count(*) from books')" 5
-if [[ ! -e "$comics/Book 01.cbz" ]]; then ok "the selected comic, Book 01, is the one gone"; else fail "Book 01.cbz is still there"; fi
+if [[ ! -e "$comics/Book 01.cbz" ]]; then
+  ok "the selected comic, Book 01, is the one gone"
+else
+  fail "Book 01.cbz is still there"
+fi
 
 # 4. The collection question: the name typed with no pause after gc, the
 # letters of its buttons among them.

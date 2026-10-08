@@ -8,6 +8,7 @@ import '../data/s3_settings.dart';
 import '../data/secret_store.dart';
 import '../hotkeys.dart';
 import '../reader/reader_providers.dart';
+import '../undo_notice.dart';
 
 /// Sets up S3 sync (design plan section 13): the bucket, the keys, and a
 /// Test connection that writes, reads, lists and removes one small object.
@@ -135,13 +136,10 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
     final place = await ref.read(s3SettingsProvider).save(config);
     unawaited(ref.read(s3SyncProvider).settingsChanged());
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'S3 sync set up for ${config.bucket} on ${config.host}; '
-          'the secret key is ${place == SecretPlace.file ? 'in a private file (no keyring answered)' : 'in the keyring'}',
-        ),
-      ),
+    showNotice(
+      ScaffoldMessenger.of(context),
+      'S3 sync set up for ${config.bucket} on ${config.host}; '
+      'the secret key is ${place == SecretPlace.file ? 'in a private file (no keyring answered)' : 'in the keyring'}',
     );
     Navigator.pop(context, true);
   }
