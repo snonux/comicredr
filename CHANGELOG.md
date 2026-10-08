@@ -175,6 +175,18 @@ the `?` overlay.
   page cut into halves, thirds, strips or quarters; tap a part to enlarge
   it, then tap the edges to go part by part, as the arrow keys do. `gp`
   and a status-line button (on wider screens) open it too.
+- **Fixed:** a download from S3 that broke off part of the way, or was
+  refused, no longer leaves a `NAME.part` file in the library folder,
+  neither of the comic nor of its sidecar.
+- **Fixed:** with the system's text at twice its size or more on a phone,
+  the line along the bottom of the library ran off the screen. It now
+  leaves out the version number when there is no room for it (the `?`
+  help still shows it).
+- **Fixed (tests):** key sequences such as `gd` now time out by the
+  test's own clock in the app's widget tests, and the tests that read the
+  index wait for what they expect instead of for a fixed while, which
+  made them fail or hang on a busy machine. The e2e scripts count
+  differing pixels the same way on ImageMagick 6 and 7.
 
 ## 0.6.5
 
