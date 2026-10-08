@@ -826,21 +826,33 @@ class S3Sync {
   }
 
   /// Fetches [key] into [path] through a part file, renamed when complete.
+  /// The part file goes on any failure (the bucket gone part of the way, a
+  /// refusal, no such object), so nothing half fetched is left beside the
+  /// comics: the caller's clean-up knows [path], not the part file.
   static Future<void> _fetch(RemoteStore store, String key, String path, void Function(int) onProgress) async {
     await Directory(p.dirname(path)).create(recursive: true);
     final part = File('$path.part');
-    final sink = part.openWrite();
-    bool ok;
+    var fetched = false;
     try {
-      ok = await store.download(key, sink, onProgress: onProgress);
+      final sink = part.openWrite();
+      bool ok;
+      try {
+        ok = await store.download(key, sink, onProgress: onProgress);
+      } finally {
+        await sink.close();
+      }
+      if (!ok) throw RemoteException(RemoteFailure.other, 'the bucket has no $key');
+      await part.rename(path);
+      fetched = true;
     } finally {
-      await sink.close();
+      if (!fetched) _deleteQuietly(part);
     }
-    if (!ok) {
-      part.deleteSync();
-      throw RemoteException(RemoteFailure.other, 'the bucket has no $key');
-    }
-    await part.rename(path);
+  }
+
+  static void _deleteQuietly(File f) {
+    try {
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
   }
 
   // --------------------------------------------------------------- remove

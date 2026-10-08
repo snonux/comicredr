@@ -312,8 +312,9 @@ void main() {
       expect(phone.notices.where((n) => n.startsWith('Downloaded ')), hasLength(2));
       expect(phone.notices.last, 'S3 is out of reach: 2 comics can be downloaded when it is back');
       expect(phone.failures, hasLength(2));
-      // The two that came are on disk, and no third comic.
-      expect(filesUnder(phone.root).where((f) => f.endsWith('.cbz')), ['Pep 1.cbz', 'Pep 2.cbz']);
+      // The two that came are on disk with their sidecars, and nothing of
+      // the third: not even the part file it was being fetched into.
+      expect(filesUnder(phone.root), ['.Pep 1.cbz.crdb', '.Pep 2.cbz.crdb', 'Pep 1.cbz', 'Pep 2.cbz']);
     });
 
     test('a download cut off part of the way keeps nothing of the comic', () async {
@@ -344,6 +345,16 @@ void main() {
       expect(filesUnder(phone.root), isEmpty);
       await pumpEventQueue();
       expect(phone.failures.last, 'S3 is out of reach: Pep #1 can be downloaded when it is back');
+
+      // The sidecar's head answered and its download broke off: neither the
+      // comic nor the sidecar's part file is left.
+      bucket
+        ..reachable = true
+        ..offAt = null
+        ..offAtDownload = '/sidecar.crdb';
+      expect(await phone.s3.download(keys.single), isNull);
+      expect(bucket.reachable, isFalse);
+      expect(filesUnder(phone.root), isEmpty);
     });
 
     test('marked downloads without a library folder: said once', () async {
@@ -513,8 +524,13 @@ class RefusingStore extends MemoryStore {
   /// it is asked for or about; null for no such end.
   String? offAt;
 
-  void _offAt(String key) {
+  /// As [offAt], but only when the object is downloaded: its head still
+  /// answers, as when a bucket goes off between the two.
+  String? offAtDownload;
+
+  void _offAt(String key, {bool download = false}) {
     if (offAt case final part? when key.contains(part)) reachable = false;
+    if (offAtDownload case final part? when download && key.contains(part)) reachable = false;
   }
 
   void _refused() {
@@ -543,7 +559,7 @@ class RefusingStore extends MemoryStore {
   @override
   Future<bool> download(String key, IOSink sink, {void Function(int received)? onProgress}) {
     _refused();
-    _offAt(key);
+    _offAt(key, download: true);
     if (offAfter case final left? when key.contains('/comic.')) {
       if (left == 0) reachable = false;
       offAfter = left - 1;
