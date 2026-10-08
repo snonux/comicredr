@@ -73,21 +73,18 @@ swipe() {
 # Pixels that differ between a shot and a reference, status line cropped
 # off. The fuzz absorbs resampling: guided view may decode the page at
 # another resolution than single-page mode.
-differ() {
-  compare -metric AE -fuzz 10% <(convert "$out/$1.png" -crop 1280x680+0+0 png:-) \
-    <(convert "$out/$2.png" -crop 1280x680+0+0 png:-) null: 2>&1 | cut -d' ' -f1 || true
-}
+differ() { tool/differ_px.sh 10% "$out/$1.png" "$out/$2.png" 1280x680+0+0; }
 failed=0
 # whole shot ref: the shot shows the whole page, like ref.
 whole() {
   local d; d=$(differ "$1" "$2")
-  if [[ "${d%.*}" -lt 4000 ]]; then echo "ok    $1: whole page ($d px off $2)"
+  if [[ "$d" -lt 4000 ]]; then echo "ok    $1: whole page ($d px off $2)"
   else echo "FAIL  $1: expected the whole page, $d px off $2"; failed=1; fi
 }
 # zoomed shot ref: the shot frames a panel, not the whole page.
 zoomed() {
   local d; d=$(differ "$1" "$2")
-  if [[ "${d%.*}" -ge 4000 ]]; then echo "ok    $1: a panel ($d px off $2)"
+  if [[ "$d" -ge 4000 ]]; then echo "ok    $1: a panel ($d px off $2)"
   else echo "FAIL  $1: expected a panel, only $d px off $2"; failed=1; fi
 }
 

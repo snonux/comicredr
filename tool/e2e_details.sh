@@ -52,7 +52,7 @@ stop() {
   echo "FAIL the app did not quit on close"; failed=1; kill "$app"
 }
 page_of() { sleep 2; q "select page from progress order by updated_at desc limit 1"; }
-same() { [[ -n "$(compare -metric AE "$out/$1.png" "$out/$2.png" null: 2>&1 >/dev/null | grep -x 0)" ]]; }
+same() { [[ $(tool/differ_px.sh 0% "$out/$1.png" "$out/$2.png") -eq 0 ]]; }
 
 pages=$(unzip -Z1 "$cbz" | grep -ciE '\.(jpe?g|png|webp|gif|bmp)$')
 

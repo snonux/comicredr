@@ -103,7 +103,7 @@ page_of() { convert "$out/shot_$1.png" -crop 1280x660+0+0 +repage "$out/crop_$1.
 same() { # same "what" shotA shotB
   page_of "$2"; page_of "$3"
   local diff
-  diff=$(compare -metric AE "$out/crop_$2.png" "$out/crop_$3.png" /dev/null 2>&1 || true)
+  diff=$(tool/differ_px.sh 0% "$out/crop_$2.png" "$out/crop_$3.png")
   check "$1" "$diff pixels differ" "0 pixels differ"
 }
 

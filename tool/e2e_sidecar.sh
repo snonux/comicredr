@@ -71,10 +71,9 @@ index() { echo "$PWD/$out/$1-home/.local/share/org.snonux.comicredr/comicredr.sq
 # Two screenshots of the page area, the status line cropped off.
 same() {
   local diff
-  diff=$(compare -metric AE -fuzz 10% <(convert "$out/$1.png" -crop 1280x680+0+0 png:-) \
-    <(convert "$out/$2.png" -crop 1280x680+0+0 png:-) null: 2>&1 || true)
-  echo "  $1 vs $2: ${diff%% *} pixels differ"
-  [[ "${diff%% *}" -lt 3000 ]]
+  diff=$(tool/differ_px.sh 10% "$out/$1.png" "$out/$2.png" 1280x680+0+0)
+  echo "  $1 vs $2: $diff pixels differ"
+  [[ "$diff" -lt 3000 ]]
 }
 
 n=0

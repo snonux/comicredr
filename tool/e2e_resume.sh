@@ -53,10 +53,9 @@ shot() { import -window root "$out/$1.png"; }
 # one that entered guided view from the page.
 same() {
   local a="$out/$1_before.png" b="$out/$1_after.png" diff
-  diff=$(compare -metric AE -fuzz 10% <(convert "$a" -crop 1280x680+0+0 png:-) \
-    <(convert "$b" -crop 1280x680+0+0 png:-) null: 2>&1 || true)
+  diff=$(tool/differ_px.sh 10% "$a" "$b" 1280x680+0+0)
   echo "$1: $diff pixels differ"
-  [[ "${diff%% *}" -lt 2000 ]] || { echo "  resume did not restore the view"; failed=1; }
+  [[ "$diff" -lt 2000 ]] || { echo "  resume did not restore the view"; failed=1; }
 }
 close_gracefully() {
   "$out/close_window" "$win"

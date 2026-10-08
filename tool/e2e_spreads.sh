@@ -101,10 +101,8 @@ stop
 start "$book"
 shot reopened
 check "reopened on the pair after the spread" "$(page)" 5
-compare -metric AE -fuzz 10% <(convert "$out/unit4.png" -crop 1280x680+0+60 png:-) \
-  <(convert "$out/reopened.png" -crop 1280x680+0+60 png:-) null: 2>"$out/diff.txt" || true
-d=$(cut -d' ' -f1 <"$out/diff.txt")
-check "reopened view matches (${d} pixels differ)" "$([[ ${d%.*} -lt 3000 ]] && echo same || echo different)" same
+d=$(tool/differ_px.sh 10% "$out/unit4.png" "$out/reopened.png" 1280x680+0+60)
+check "reopened view matches (${d} pixels differ)" "$([[ $d -lt 3000 ]] && echo same || echo different)" same
 
 # Guided view on the spread: the camera starts on the left page.
 key h

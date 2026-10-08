@@ -6,6 +6,7 @@ import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/panel_store.dart';
 import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
+import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_providers.dart';
@@ -17,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fixtures.dart';
+import 'support/waits.dart';
 
 /// Marking several comics in the library (Shift+arrows, Shift+Home/End,
 /// Ctrl+A, Shift+click, V) and acting on all of them at once: delete,
@@ -70,6 +72,21 @@ void main() {
     await settle(tester);
   }
 
+  /// A key sequence such as `gd`, its keys back to back: the resolver
+  /// drops a sequence whose next key comes more than 600 ms of real time
+  /// after the one before, which a [settle] between them can take on a
+  /// loaded machine.
+  Future<void> sequence(WidgetTester tester, String keys) async {
+    for (final ch in keys.split('')) {
+      await tester.sendKeyEvent(LogicalKeyboardKey(ch.toLowerCase().codeUnitAt(0)), character: ch);
+      await tester.pump();
+    }
+    await settle(tester);
+  }
+
+  /// Settles until [check] passes: see [eventually].
+  Future<void> until(WidgetTester tester, void Function() check) => eventually(tester, check, settle: settle);
+
   Future<void> shifted(WidgetTester tester, LogicalKeyboardKey k) async {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await tester.sendKeyEvent(k);
@@ -77,15 +94,18 @@ void main() {
     await settle(tester);
   }
 
+  List<String> bookPaths(ProviderContainer c) =>
+      [for (final b in c.read(booksProvider).value ?? const <LibraryBook>[]) b.path]..sort();
+
   /// The Folders tab, inside the library folder, with its first comic
   /// selected.
   Future<ProviderContainer> inFolder(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
     final c = await pumpApp(tester, size: size);
-    await tester.runAsync(() async {
+    await whilePumping(tester, () async {
       await c.read(libraryStoreProvider).addRoot(root.path);
       await c.read(scannerProvider).scan();
     });
-    await settle(tester);
+    await until(tester, () => expect(bookPaths(c), containsAll(files)));
     await tester.tap(find.text('Folders'));
     await settle(tester);
     await key(tester, LogicalKeyboardKey.keyL);
@@ -187,8 +207,7 @@ void main() {
     await inFolder(tester);
     await key(tester, LogicalKeyboardKey.keyV, character: 'V');
     expect(count(), '1 selected');
-    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
-    await key(tester, LogicalKeyboardKey.keyD, character: 'd');
+    await sequence(tester, 'gd');
     expect(find.byKey(const Key('deleteDialog')), findsOneWidget);
     await key(tester, LogicalKeyboardKey.escape);
     expect(find.byKey(const Key('deleteDialog')), findsNothing);
@@ -204,8 +223,7 @@ void main() {
     await inFolder(tester);
     await key(tester, LogicalKeyboardKey.keyL); // B.
     await shifted(tester, LogicalKeyboardKey.arrowRight); // B and C.
-    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
-    await key(tester, LogicalKeyboardKey.keyD, character: 'd');
+    await sequence(tester, 'gd');
     expect(find.text('Delete 2 comics?'), findsOneWidget);
     // Cancel has the focus: Enter keeps them, and the marks.
     await key(tester, LogicalKeyboardKey.enter);
@@ -216,18 +234,17 @@ void main() {
     await tester.tap(find.byKey(const Key('marksDelete')));
     await settle(tester);
     await tester.tap(find.byKey(const Key('deleteConfirm')));
-    for (var i = 0; i < 20 && File(files[2]).existsSync(); i++) {
-      await settle(tester);
-    }
-    expect([for (final f in files) File(f).existsSync()], [true, false, false, true, true]);
-    expect(find.byKey(const Key('marksBar')), findsNothing);
-    expect(find.textContaining('2 comics deleted'), findsOneWidget);
+    await until(tester, () {
+      expect([for (final f in files) File(f).existsSync()], [true, false, false, true, true]);
+      expect(find.byKey(const Key('marksBar')), findsNothing);
+      expect(find.textContaining('2 comics deleted'), findsOneWidget);
+    });
   });
 
   testWidgets('X resets every marked comic, and * makes them favourites', (tester) async {
     final c = await inFolder(tester);
     final keys = [for (final f in files) await tester.runAsync(() => contentKey(f))];
-    await tester.runAsync(() async {
+    await whilePumping(tester, () async {
       for (final k in keys) {
         await MarkStore(db).addBookmark(k!, 1, null);
       }
@@ -237,19 +254,15 @@ void main() {
     await key(tester, LogicalKeyboardKey.keyX, character: 'X');
     expect(find.text('Reset 3 comics?'), findsOneWidget);
     await tester.tap(find.byKey(const Key('resetEverything')));
-    await settle(tester);
-    await settle(tester);
     final store = c.read(libraryStoreProvider);
-    final left = [for (final k in keys) (await tester.runAsync(() => store.watchBookmarks(k!).first))!.length];
-    expect(left, [0, 0, 0, 1, 1]);
-    await settle(tester);
-    expect(find.byKey(const Key('marksBar')), findsNothing);
+    Future<List<int>> left() async => [for (final k in keys) (await store.watchBookmarks(k!).first).length];
+    await eventuallyAsync(tester, left, (n) => expect(n, [0, 0, 0, 1, 1]), settle: settle);
+    await until(tester, () => expect(find.byKey(const Key('marksBar')), findsNothing));
 
     await shifted(tester, LogicalKeyboardKey.arrowRight); // C and D.
     await tester.sendKeyEvent(LogicalKeyboardKey.asterisk, character: '*', physicalKey: PhysicalKeyboardKey.digit8);
-    await settle(tester);
-    final favourites = [for (final k in keys) await tester.runAsync(() => store.isFavourite(k!))];
-    expect(favourites, [false, false, true, true, false]);
+    Future<List<bool>> favourites() async => [for (final k in keys) await store.isFavourite(k!)];
+    await eventuallyAsync(tester, favourites, (f) => expect(f, [false, false, true, true, false]), settle: settle);
   });
 
   /// Types [text] into the move picker's search field.
@@ -264,13 +277,13 @@ void main() {
     await settle(tester);
   }
 
+  /// Settles until [done], or some 30 s of real time and more in vain;
+  /// the expectations after it say what was missing.
   Future<void> waitFor(WidgetTester tester, bool Function() done) async {
-    for (var i = 0; i < 30 && !done(); i++) {
+    for (var i = 0; i < 80 && !done(); i++) {
       await settle(tester);
     }
   }
-
-  List<String> bookPaths(ProviderContainer c) => [for (final b in c.read(booksProvider).value!) b.path]..sort();
 
   testWidgets('gm moves the marked comics to a folder typed into the picker, sidecars and all', (tester) async {
     final done = Directory('${root.path}/Read/Done')..createSync(recursive: true);
@@ -279,7 +292,7 @@ void main() {
     // Index progress is real. The beside .crdb is planted here (SidecarSync.write
     // hangs under the test clock); move_books_test and e2e_multi_select cover
     // a SidecarSync-written sidecar surviving the move.
-    await tester.runAsync(() async {
+    await whilePumping(tester, () async {
       c.read(progressStoreProvider).save(keyA, const ReadingPosition(page: 2, panel: 1, guided: true), 4);
       await MarkStore(db).addBookmark(keyA, 2, 1);
     });
@@ -305,8 +318,7 @@ void main() {
     );
     expect(File(sidecarPath(files[0], folder: false)).existsSync(), isTrue);
     await shifted(tester, LogicalKeyboardKey.arrowRight); // A and B.
-    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
-    await key(tester, LogicalKeyboardKey.keyM, character: 'm');
+    await sequence(tester, 'gm');
     expect(find.byKey(const Key('moveDialog')), findsOneWidget);
     // The empty folder is offered, and typing narrows the list to it.
     expect(find.byKey(const Key('moveTarget-Comics/Read/Done')), findsOneWidget);
@@ -330,13 +342,13 @@ void main() {
     expect(bookPaths(c), containsAll(['${done.path}/A.cbz', '${done.path}/B.cbz']));
     expect(bookPaths(c), isNot(contains(files[0])));
     expect(
-      (await tester.runAsync(() async {
+      (await whilePumping(tester, () async {
         final at = await c.read(progressStoreProvider).load(keyA);
         return (at?.page, at?.panel, at?.guided);
-      }))!,
+      })),
       (2, 1, true),
     );
-    expect((await tester.runAsync(() => c.read(libraryStoreProvider).watchBookmarks(keyA).first))!, hasLength(1));
+    expect(await whilePumping(tester, () => c.read(libraryStoreProvider).watchBookmarks(keyA).first), hasLength(1));
     expect(find.byKey(const Key('marksBar')), findsNothing);
     expect(find.textContaining('2 comics moved to Done'), findsOneWidget);
   });
@@ -351,8 +363,7 @@ void main() {
     for (var i = 0; i < 3; i++) {
       await key(tester, LogicalKeyboardKey.keyL); // A, B, C.
     }
-    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
-    await key(tester, LogicalKeyboardKey.keyM, character: 'm');
+    await sequence(tester, 'gm');
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyN);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
@@ -394,8 +405,7 @@ void main() {
   testWidgets('gc puts the marked comics in a collection', (tester) async {
     final c = await inFolder(tester);
     await shifted(tester, LogicalKeyboardKey.arrowRight); // A and B.
-    await key(tester, LogicalKeyboardKey.keyG, character: 'g');
-    await key(tester, LogicalKeyboardKey.keyC, character: 'c');
+    await sequence(tester, 'gc');
     expect(find.byKey(const Key('collectionDialog')), findsOneWidget);
     await tester.enterText(find.byKey(const Key('collectionName')), 'Summer');
     await submit(tester);

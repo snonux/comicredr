@@ -142,10 +142,27 @@ stop
 echo "== a restart, the library's Continue button tapped"
 start
 shot 09_library_button
-# The header's buttons from the right: settings, open, add folder,
-# favourites, continue, 40 px apart, on the Reading tab; in the view's own
-# coordinates, below Openbox's title bar.
-tap 1090 28
+# Where the Continue button is, is read off a shot of the window (the
+# view's own coordinates, below Openbox's title bar): the header's buttons
+# are the pictures 14 to 28 px wide in its row, 40 px apart, and Continue is
+# the leftmost of the run at its right end, just left of the Favourites
+# star; the search box is further left. Not a fixed place: buttons were
+# added to the header since this was written, and 1090 became the star.
+# CONTINUE_X overrides.
+continue_x() {
+  import -window "$win" "$out/09_header.png"
+  convert "$out/09_header.png" -crop 1280x24+0+16 +repage -colorspace gray -threshold 45% -scale '1280x1!' \
+    -depth 8 gray:- 2>/dev/null | od -An -v -tu1 -w1 | awk '
+      { on = ($1 > 0) }
+      on && !run { start = NR - 1 }
+      !on && run { w = NR - 1 - start; if (w >= 14 && w <= 28) seg[++n] = int((start + NR - 2) / 2) }
+      { run = on }
+      END { if (!n) exit; x = seg[n]; for (i = n - 1; i >= 1 && x - seg[i] <= 56; i--) x = seg[i]; print x }'
+}
+cx=${CONTINUE_X:-$(continue_x)}
+[[ -n "$cx" ]] || { fail "the header's buttons are not on the screenshot"; cx=1052; }
+echo "the Continue button is at x=$cx"
+tap "$cx" 28
 expect 10_button_blue $blue2 "the Continue button, tapped: Blue on page 2"
 view=$(sqlite3 "$db" "select view_json from progress p join files f on f.content_key = p.content_key where f.rel_path = 'Blue 1.cbz'")
 [[ $view == *'"guided":true'* ]] && ok "Blue came back in guided view" || fail "guided view not kept: $view"
@@ -180,7 +197,7 @@ stop
 
 montage -label '%t' "$out"/[01][0-9]_*.png -tile 4x -geometry 400x250+6+6 -background '#222' -fill white \
   "$out/contact.png" 2>/dev/null || true
-if grep -iE 'exception|error' "$out/app.log" | grep -viE 'libEGL|Atk-CRITICAL|dbind|Panel detection'; then
+if grep -iE 'exception|error' "$out/app.log" | grep -viE 'libEGL|MESA-EGL|DRI3|Atk-CRITICAL|dbind|Panel detection'; then
   fail "the app logged errors"
 fi
 [[ $failed == 0 ]] && echo "PASS" || { echo "FAILED"; exit 1; }

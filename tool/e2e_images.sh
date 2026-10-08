@@ -70,7 +70,7 @@ check() { # check "what" actual expected
 page_of() { convert "$out/shot_$1.png" -crop 1280x660+0+0 +repage "$out/crop_$1.png"; }
 differ() { # pixels that differ between two shots' page areas
   page_of "$1"; page_of "$2"
-  compare -metric AE "$out/crop_$1.png" "$out/crop_$2.png" /dev/null 2>&1 || true
+  tool/differ_px.sh 0% "$out/crop_$1.png" "$out/crop_$2.png"
 }
 # Panels detected on page 1, as the sidecar beside the image has them.
 side() { echo "$(dirname "$1")/.$(basename "$1").crdb"; }

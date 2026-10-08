@@ -80,7 +80,7 @@ pinch() {
   sleep 1.5
 }
 # Pixels that differ between two shots.
-differ() { compare -metric AE -fuzz 5% "$out/$1.png" "$out/$2.png" null: 2>&1 | cut -d' ' -f1 || true; }
+differ() { tool/differ_px.sh 5% "$out/$1.png" "$out/$2.png"; }
 
 failed=0
 ok() { echo "ok   $1"; }

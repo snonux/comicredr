@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:reader_input/reader_input.dart';
@@ -140,7 +141,12 @@ class _ReaderKeyboardState extends State<ReaderKeyboard> {
     if (keys.isAltPressed && _types(event)) return KeyEventResult.ignored;
     final token = keyToken(event, ctrl: keys.isControlPressed, shift: keys.isShiftPressed);
     if (token == null) return KeyEventResult.ignored;
-    final now = DateTime.now();
+    // The key sequences' timeout goes by `clock`, which is the wall clock
+    // in the app and the test's own clock in a widget test, where the
+    // digit timer below runs too: a test that pumped between g and d then
+    // lost the sequence whenever a loaded machine made the pump take more
+    // than its 600 ms of real time (task 773).
+    final now = clock.now();
     final command = _resolver.feed(token, now);
     _armDigitTimer(now);
     widget.onPendingChanged?.call(_resolver.pendingDisplay);

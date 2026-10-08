@@ -75,21 +75,18 @@ swipe() {
 # Pixels that differ between a shot and a reference, status line cropped
 # off. The fuzz absorbs resampling: guided view may decode the page at
 # another resolution than single-page mode.
-differ() {
-  compare -metric AE -fuzz 10% <(convert "$out/$1.png" -crop 1280x680+0+0 png:-) \
-    <(convert "$out/$2.png" -crop 1280x680+0+0 png:-) null: 2>&1 | cut -d' ' -f1 || true
-}
+differ() { tool/differ_px.sh 10% "$out/$1.png" "$out/$2.png" 1280x680+0+0; }
 failed=0
 # whole shot ref: the shot shows the whole page, like ref.
 whole() {
   local d; d=$(differ "$1" "$2")
-  if [[ "${d%.*}" -lt 4000 ]]; then echo "ok    $1: whole page ($d px off $2)"
+  if [[ "$d" -lt 4000 ]]; then echo "ok    $1: whole page ($d px off $2)"
   else echo "FAIL  $1: expected the whole page, $d px off $2"; failed=1; fi
 }
 # zoomed shot ref: the shot frames a panel, not the whole page.
 zoomed() {
   local d; d=$(differ "$1" "$2")
-  if [[ "${d%.*}" -ge 4000 ]]; then echo "ok    $1: a panel ($d px off $2)"
+  if [[ "$d" -ge 4000 ]]; then echo "ok    $1: a panel ($d px off $2)"
   else echo "FAIL  $1: expected a panel, only $d px off $2"; failed=1; fi
 }
 
@@ -97,7 +94,7 @@ zoomed() {
 # moving shot ref: caught mid-cue, the page is smaller than ref.
 moving() {
   local d; d=$(differ "$1" "$2")
-  if [[ "${d%.*}" -ge 4000 ]]; then echo "ok    $1: mid-cue ($d px off $2)"
+  if [[ "$d" -ge 4000 ]]; then echo "ok    $1: mid-cue ($d px off $2)"
   else echo "FAIL  $1: expected the page mid-cue, only $d px off $2"; failed=1; fi
 }
 # background shot: the colour of the screen beside the page.
@@ -106,9 +103,8 @@ wine='srgb(58,13,22)'
 # held shot ref: still the page of ref, on a wine-red background.
 held() {
   local d bg; bg=$(background "$1")
-  d=$(compare -metric AE -fuzz 10% <(convert "$out/$1.png" -crop 300x500+490+100 png:-) \
-    <(convert "$out/$2.png" -crop 300x500+490+100 png:-) null: 2>&1 | cut -d' ' -f1 || true)
-  if [[ "${d%.*}" -lt 2000 && "$bg" == "$wine" ]]; then echo "ok    $1: held on the page, background $bg ($d px off $2)"
+  d=$(tool/differ_px.sh 10% "$out/$1.png" "$out/$2.png" 300x500+490+100)
+  if [[ "$d" -lt 2000 && "$bg" == "$wine" ]]; then echo "ok    $1: held on the page, background $bg ($d px off $2)"
   else echo "FAIL  $1: expected the page held on $wine, background $bg, $d px off $2"; failed=1; fi
 }
 # black shot: the background is black again.
@@ -120,9 +116,8 @@ black() {
 # hint shot before: the status line changed (the hint is up).
 hint() {
   local d
-  d=$(compare -metric AE <(convert "$out/$1.png" -crop 1280x220+0+680 png:-) \
-    <(convert "$out/$2.png" -crop 1280x220+0+680 png:-) null: 2>&1 | cut -d' ' -f1 || true)
-  if [[ "${d%.*}" -ge 200 ]]; then echo "ok    $1: hint on the status line ($d px)"
+  d=$(tool/differ_px.sh 0% "$out/$1.png" "$out/$2.png" 1280x220+0+680)
+  if [[ "$d" -ge 200 ]]; then echo "ok    $1: hint on the status line ($d px)"
   else echo "FAIL  $1: no hint on the status line ($d px)"; failed=1; fi
 }
 

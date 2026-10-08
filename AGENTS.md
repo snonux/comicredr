@@ -1248,6 +1248,21 @@ the developer's `~/Comics`, made a `~/Comics/.comicredr` and wrote test
 positions into its sidecars. Code that reads HOME or the XDG variables
 goes through `appEnvironment`, not `Platform.environment`.
 
+Widget tests run on the test's clock; the app's database, its streams,
+the scanner and a book's worker run in real time (`tester.runAsync`). Two
+rules keep tests from failing or hanging on a busy machine (task 773):
+check what real-time work leaves behind with `eventually` /
+`eventuallyAsync` (`test/support/waits.dart`), never after a fixed while;
+and run real-time work that touches the database through `whilePumping`,
+not one `runAsync`: the app may hold the database in work that goes on
+only when the test pumps, and a `runAsync` waiting for a query behind it
+waits for good. Key sequences time out by `clock.now()`
+(`ReaderKeyboard`), the test's clock in a widget test, so a test pumps
+(`tester.pump(Duration)`) to let one lapse, and sends a sequence's keys
+with no long pump between them. The e2e scripts count differing pixels
+with `tool/differ_px.sh FUZZ A B [CROP]`, not compare's printed AE,
+which ImageMagick 7 prints scaled and in exponent form.
+
 The e2e scripts use the detector built into the release build (and pass
 its file where they need one); `COMICREDR_MODEL=file.onnx` tries another,
 `COMICREDR_MODEL=none` forces classic CV.

@@ -45,10 +45,9 @@ shot() { import -window root -crop "$(xdotool getwindowgeometry "$win" | awk '/G
 # Compares the page area only: the status line says different things.
 same() {
   local a="$out/$1_before.png" b="$out/$1_after.png" diff
-  diff=$(compare -metric AE -fuzz 10% <(convert "$a" -crop 1280x780+0+0 png:-) \
-    <(convert "$b" -crop 1280x780+0+0 png:-) null: 2>&1 || true)
+  diff=$(tool/differ_px.sh 10% "$a" "$b" 1280x780+0+0)
   echo "$1: $diff pixels differ"
-  [[ "${diff%% *}" -lt 4000 ]] || { echo "  the view changed across the resize"; failed=1; }
+  [[ "$diff" -lt 4000 ]] || { echo "  the view changed across the resize"; failed=1; }
 }
 failed=0
 

@@ -84,9 +84,7 @@ shot 01_library_before
 key T
 sleep 0.5
 shot 02_library_time
-compare -metric AE -fuzz 5% -extract 600x240+340+280 "$out/01_library_before.png" "$out/02_library_time.png" null: \
-  >"$out/diff" 2>&1 || true
-[[ $(cut -d' ' -f1 <"$out/diff") -gt 5000 ]] && ok "T in the library: the time shows" || fail "T in the library showed nothing"
+[[ $(tool/differ_px.sh 5% "$out/01_library_before.png" "$out/02_library_time.png" 600x240+340+280) -gt 5000 ]] && ok "T in the library: the time shows" || fail "T in the library showed nothing"
 stop
 
 start "$PWD/$out/Clock.cbz"

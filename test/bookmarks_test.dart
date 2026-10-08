@@ -16,6 +16,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fixtures.dart';
+import 'support/waits.dart';
 
 /// Bookmarks: `mm` on and off, the marker on the page and the progress
 /// bar, `}` and `{`, the list (`M`) with notes, and the library's
@@ -54,6 +55,9 @@ void main() {
     }
   }
 
+  /// Settles until [check] passes: see [eventually].
+  Future<void> until(WidgetTester tester, void Function() check) => eventually(tester, check, settle: settle);
+
   Future<void> type(WidgetTester tester, String keys) async {
     for (final ch in keys.split('')) {
       final k = switch (ch) {
@@ -91,8 +95,8 @@ void main() {
   Future<(ProviderContainer, String)> openBook(WidgetTester tester, {int pages = 4}) async {
     final path = writeBookOf(tmp, 'Marked 01.cbz', [for (var i = 0; i < pages; i++) grid4Page()]);
     final c = await pumpApp(tester);
-    await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
-    await settle(tester);
+    await whilePumping(tester, () => c.read(readerProvider.notifier).open(path));
+    await until(tester, () => expect(c.read(readerProvider).book?.path, path));
     return (c, path);
   }
 
@@ -102,10 +106,10 @@ void main() {
     expect(find.byKey(const Key('bookmarkRibbon')), findsNothing);
 
     await type(tester, 'mm');
-    expect(c.read(readerProvider).bookmarksHere, hasLength(1));
+    await until(tester, () => expect(c.read(readerProvider).bookmarksHere, hasLength(1)));
     expect(find.byKey(const Key('bookmarkRibbon')), findsOneWidget);
     expect(find.byKey(const Key('bookmarkTick-1')), findsOneWidget);
-    final live = (await tester.runAsync(rows))!;
+    final live = await whilePumping(tester, rows);
     expect(live.single.page, 1);
     expect(live.single.panel, isNull);
     expect(live.single.deletedAt, isNull);
@@ -120,24 +124,24 @@ void main() {
     expect(find.byKey(const Key('bookmarkRibbon')), findsNothing);
     expect(find.byKey(const Key('bookmarkTick-1')), findsNothing);
     // Kept as a removal, so an older sidecar cannot bring it back.
-    final gone = (await tester.runAsync(rows))!;
-    expect(gone.single.deletedAt, isNotNull);
+    await eventuallyAsync(tester, rows, (gone) => expect(gone.single.deletedAt, isNotNull), settle: settle);
   });
 
   testWidgets('guided view bookmarks the panel; } and { step through bookmarks', (tester) async {
     final (c, _) = await openBook(tester);
     await type(tester, 'mm'); // page 1, whole page
+    await until(tester, () => expect(c.read(readerProvider).bookmarksHere, hasLength(1)));
     await type(tester, 'v');
     await press(tester, LogicalKeyboardKey.pageDown);
     await press(tester, LogicalKeyboardKey.pageDown); // page 3
-    for (var i = 0; i < 20 && c.read(readerProvider).stopsOn(2).isEmpty; i++) {
-      await settle(tester);
-    }
+    await until(tester, () => expect(c.read(readerProvider).stopsOn(2), isNotEmpty));
     await type(tester, 'll'); // panel 3
     expect(c.read(readerProvider).panelIndex, 2);
     await type(tester, 'mm');
-    final marks = c.read(readerProvider).bookmarks;
-    expect([for (final b in marks) (b.page, b.panel)], [(0, null), (2, 2)]);
+    await until(
+      tester,
+      () => expect([for (final b in c.read(readerProvider).bookmarks) (b.page, b.panel)], [(0, null), (2, 2)]),
+    );
 
     // Panel 2 of page 3 is not bookmarked; panel 3 is.
     await type(tester, 'h');
@@ -160,9 +164,12 @@ void main() {
   testWidgets('M lists the bookmarks: a note, a jump, and x removes', (tester) async {
     final (c, _) = await openBook(tester);
     await type(tester, 'mm');
+    await until(tester, () => expect(c.read(readerProvider).bookmarksHere, hasLength(1)));
     await press(tester, LogicalKeyboardKey.end);
     await type(tester, 'mm');
+    await until(tester, () => expect(c.read(readerProvider).bookmarksHere, hasLength(1)));
     await type(tester, 'ma');
+    await until(tester, () => expect(c.read(readerProvider).bookmarks, hasLength(3)));
 
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await type(tester, 'M');
@@ -176,17 +183,17 @@ void main() {
     expect(find.byKey(const Key('bookmarkNoteField')), findsOneWidget);
     await tester.enterText(find.byKey(const Key('bookmarkNoteField')), 'The big reveal');
     await tester.tap(find.byKey(const Key('bookmarkNoteSave')));
-    await settle(tester);
-    expect(find.text('The big reveal'), findsOneWidget);
-    final all = (await tester.runAsync(rows))!;
+    await until(tester, () => expect(find.text('The big reveal'), findsOneWidget));
     // The note replaced the bookmark with a new one; the old one is a removal.
-    expect(all.where((r) => r.deletedAt == null && r.note == 'The big reveal'), hasLength(1));
-    expect(all.where((r) => r.deletedAt != null), hasLength(1));
+    await eventuallyAsync(tester, rows, (all) {
+      expect(all.where((r) => r.deletedAt == null && r.note == 'The big reveal'), hasLength(1));
+      expect(all.where((r) => r.deletedAt != null), hasLength(1));
+    }, settle: settle);
 
     // Up to the first bookmark and remove it.
     await type(tester, 'h');
     await type(tester, 'x');
-    expect(c.read(readerProvider).bookmarks.where((b) => b.mark == null), hasLength(1));
+    await until(tester, () => expect(c.read(readerProvider).bookmarks.where((b) => b.mark == null), hasLength(1)));
 
     // Enter jumps to the one with the note, and the list closes.
     await press(tester, LogicalKeyboardKey.escape);
@@ -207,33 +214,49 @@ void main() {
     final a = writeBookOf(tmp, 'Alpha 01.cbz', [grid4Page(), grid4Page(), grid4Page()]);
     final b = writeBookOf(tmp, 'Beta 01.cbz', [grid4Page(), grid4Page()]);
     final c = await pumpApp(tester);
-    await tester.runAsync(() async {
+    await whilePumping(tester, () async {
       await c.read(libraryStoreProvider).addRoot(tmp.path);
       await c.read(scannerProvider).scan();
     });
-    await settle(tester);
+    await until(
+      tester,
+      () => expect([for (final x in c.read(booksProvider).value ?? <LibraryBook>[]) x.path], containsAll([a, b])),
+    );
     for (final (path, page) in [(a, 2), (b, 1)]) {
-      await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
-      await settle(tester);
+      await whilePumping(tester, () => c.read(readerProvider.notifier).open(path));
+      await until(tester, () => expect(c.read(readerProvider).book?.path, path));
       c.read(readerProvider.notifier).jumpTo(page);
       await type(tester, 'mm');
+      // The row is in the index before the comic is closed.
+      final key = c.read(readerProvider).book!.key;
+      await eventuallyAsync(
+        tester,
+        rows,
+        (all) => expect(
+          [
+            for (final r in all)
+              if (r.contentKey == key) r.page,
+          ],
+          [page],
+        ),
+        settle: settle,
+      );
       await press(tester, LogicalKeyboardKey.escape);
+      await until(tester, () => expect(c.read(readerProvider).book, isNull));
     }
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await type(tester, 'M');
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-    expect(find.byKey(const Key('bookmarksTab')), findsOneWidget);
+    await until(tester, () => expect(find.byKey(const Key('bookmarksTab')), findsOneWidget));
+    // The tab follows the index's rows, which come in their own time.
+    await until(tester, () => expect(find.byKey(const Key('bookmarkItem-1')), findsOneWidget));
     expect(find.byKey(const Key('bookmarkItem-0')), findsOneWidget);
-    expect(find.byKey(const Key('bookmarkItem-1')), findsOneWidget);
     expect(find.textContaining('page 3'), findsOneWidget);
 
     await type(tester, 'j'); // selects the first
     await type(tester, 'j'); // Beta's
     await press(tester, LogicalKeyboardKey.enter);
-    for (var i = 0; i < 10 && c.read(readerProvider).book == null; i++) {
-      await settle(tester);
-    }
-    expect(c.read(readerProvider).book!.path, b);
+    await until(tester, () => expect(c.read(readerProvider).book?.path, b));
     expect(c.read(readerProvider).page, 1);
   });
 

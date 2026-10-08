@@ -329,15 +329,13 @@ void main() {
     // One g only starts the sequence: alone it moves nothing.
     await key(tester, LogicalKeyboardKey.keyG);
     expect(borderOf(tester, 39)?.top.color, Colors.amber, reason: 'a lone g selects nothing');
-    // The keyboard stamps keys with the real clock and drops a pending g
-    // after 600 ms, so wait that out for real: the lone g above is gone and
-    // cannot pair with the first g below (a slow machine only waits longer).
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 700)));
-    // The pair goes back to back, nothing awaited in between but the key
-    // itself: a settle (360 ms and more of real time) between the two could
-    // outlast the 600 ms on a busy machine and gg would never fire. The pump
-    // after the first g of the pair takes no time (so no race with the
-    // 600 ms either) but rebuilds the grid, which borderOf reads: had the
+    // The keyboard stamps keys with `clock`, the test's own clock here, and
+    // drops a pending g after 600 ms of it: the lone g above is gone and
+    // cannot pair with the first g below.
+    await tester.pump(const Duration(milliseconds: 700));
+    // The pair goes back to back, nothing pumped in between but the key
+    // itself, whose pump takes no time on the test's clock but rebuilds the
+    // grid, which borderOf reads: had the
     // timed-out g combined with this one into gg, the selection would have
     // left page 40 by now. Without the pump the tree is the one from before
     // the key and the check could not fail.
