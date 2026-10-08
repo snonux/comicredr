@@ -201,6 +201,30 @@ void main() {
     expect((await store.books()).single.path, from);
   });
 
+  test('a comic is never moved onto another of the same name', () async {
+    // Two marked comics of one name, moved to one folder: the second must
+    // not replace the first (a rename would, without a word).
+    final (first, firstKey) = await bookIn(dir('Comics/A'), 'Vol 01.cbz', pages: 3);
+    final (second, secondKey) = await bookIn(dir('Comics/B'), 'Vol 01.cbz', pages: 5);
+    final target = dir('Comics/ToRead').path;
+    final moved = await moveComic(
+      from: first,
+      dir: target,
+      contentKey: firstKey,
+      folder: false,
+      sidecars: sync,
+      store: store,
+    );
+    final kept = File(moved).readAsBytesSync();
+    await expectLater(
+      () => moveComic(from: second, dir: target, contentKey: secondKey, folder: false, sidecars: sync, store: store),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(File(moved).readAsBytesSync(), kept);
+    expect(File(second).existsSync(), isTrue);
+    expect(await contentKey(moved), firstKey);
+  });
+
   test('matchesTarget wants every typed word in the label', () {
     const t = (path: '/Comics/Marvel/1980s', label: 'Comics/Marvel/1980s');
     expect(matchesTarget(t, 'marvel 1980'), isTrue);

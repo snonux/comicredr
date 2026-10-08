@@ -704,22 +704,28 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final store = ref.read(libraryStoreProvider), settings = ref.read(settingsStoreProvider);
     final scanner = ref.read(scannerProvider);
     final rescan = widget.onRescan;
-    final remembered = await removeLibraryFolder(store, settings, id, path);
-    ref
-        .read(undoNoticeProvider)
-        .show(
-          messenger,
-          '${p.basename(path)} taken out of the library; its comics stay on disk',
-          label: undoLabel,
-          // Said in a notice when it throws (the folder gone from the
-          // disk meanwhile, the index refusing).
-          failed: 'Could not put ${p.basename(path)} back in the library',
-          undo: () async {
-            await restoreLibraryFolder(store, settings, path, forget: remembered);
-            // HomeScreen's rescan also watches the folder again.
-            await (rescan?.call() ?? scanner.scan());
-          },
-        );
+    final undoNotice = ref.read(undoNoticeProvider);
+    final bool remembered;
+    try {
+      remembered = await removeLibraryFolder(store, settings, id, path);
+    } catch (e) {
+      debugPrint('Could not take $path out of the library: $e');
+      showNotice(messenger, 'Could not take ${p.basename(path)} out of the library', mustRead: true);
+      return;
+    }
+    undoNotice.show(
+      messenger,
+      '${p.basename(path)} taken out of the library; its comics stay on disk',
+      label: undoLabel,
+      // Said in a notice when it throws (the folder gone from the
+      // disk meanwhile, the index refusing).
+      failed: 'Could not put ${p.basename(path)} back in the library',
+      undo: () async {
+        await restoreLibraryFolder(store, settings, path, forget: remembered);
+        // HomeScreen's rescan also watches the folder again.
+        await (rescan?.call() ?? scanner.scan());
+      },
+    );
   }
 
   /// Backspace, and Esc once nothing else is open: up to the folder above

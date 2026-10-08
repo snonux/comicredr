@@ -160,7 +160,6 @@ class CoverCard extends StatelessWidget {
   /// or a bookmark: only such a tile has the signs that are about a comic.
   LibraryBook? get _onlyBook => switch (item) {
     BookItem(:final book) => book,
-    SeriesItem(:final series) => series.next,
     _ => null,
   };
 

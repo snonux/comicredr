@@ -1137,7 +1137,11 @@ void main() {
       expect(akira, findsOneWidget);
       expect(tester.widget<CoverCard>(akira).item, isA<SeriesItem>());
       for (final sign in const ['completedBadge', 'favouriteBadge']) {
-        expect(find.descendant(of: akira, matching: find.byKey(Key(sign))), findsNothing, reason: sign);
+        expect(
+          find.descendant(of: akira, matching: find.byKey(Key(sign))),
+          findsNothing,
+          reason: sign,
+        );
       }
       expect(find.descendant(of: akira, matching: find.byType(LinearProgressIndicator)), findsNothing);
       // The comics of the series, each a cover of its own, do have them.
