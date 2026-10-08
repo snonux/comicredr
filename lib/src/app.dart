@@ -526,7 +526,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         file.collections.where((c) => c.removedAt == null).length,
         'collection entry',
       ).replaceFirst('entrys', 'entries'),
-      n(file.edits.length, 'edit'),
+      n(file.metaEditCount, 'edit'),
+      n(file.completedMarkCount, 'completed mark'),
       n(file.history.length, 'history entry').replaceFirst('entrys', 'entries'),
     ];
     final go = await showDialog<bool>(
@@ -539,7 +540,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Text(
               '${from.isEmpty ? '' : 'Exported from ${from.join(' ')}. '}It holds ${holds.join(', ')}.\n\n'
               'Your settings become the file\'s, except that where this device keeps its sidecars only changes when '
-              'the file says. Positions, bookmarks, collections, edits and history are merged '
+              'the file says. Positions, bookmarks, collections, edits, completed marks and history are merged '
               'with what is here. Its library folders that are on this device are added; none is taken out.',
             ),
           ),

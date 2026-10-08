@@ -32,7 +32,7 @@ for **Clear reading history**, `Alt+S` for the S3 sync, `Alt+M` and
 | **Sidecars → Export sidecars to a folder…** | A copy of every sidecar, for a backup. |
 | **Touch** | **Standard**, **Left-handed** or **One thumb**, with a drawing of what each zone does. If your `keys.toml` changes gestures, it says how many. See [the tap zones](08-touch.md#the-tap-zones). |
 | **Reading history → Clear reading history** | Empties the [History tab](03-library.md#history). Positions, bookmarks and collections stay. |
-| **Back up → Export settings…** / **Import settings…** | Every setting, your library folders, `keys.toml`, positions, bookmarks, collections, edits and reading history in one file, and back. See [back up and restore](11-your-data.md#back-up-and-restore-your-settings). |
+| **Back up → Export settings…** / **Import settings…** | Every setting, your library folders, `keys.toml`, positions, bookmarks, collections, edits, completed marks and reading history in one file, and back. See [back up and restore](11-your-data.md#back-up-and-restore-your-settings). |
 | **S3 sync → Set up S3 sync…** (**Change S3 sync…** once it is on) | Your own S3 bucket, to carry comics and their sidecars between devices. See [syncing through S3](13-s3-sync.md). |
 
 The bottom of the dialog shows ComicRedr's version.

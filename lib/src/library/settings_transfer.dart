@@ -19,6 +19,7 @@ typedef SettingsImport = ({
   int bookmarks,
   int collections,
   int edits,
+  int completed,
   int history,
   int skipped,
   Set<String> books,
@@ -81,22 +82,7 @@ Future<SettingsImport> importSettings(SettingsFile file, {required LibraryStore 
     }
   });
 
-  var keysWritten = false;
-  String? keysError;
-  if ((file.keysToml, keysPath) case (final text?, final path?)) {
-    try {
-      final f = File(path);
-      final had = await f.exists() ? await f.readAsString() : null;
-      if (had != text) {
-        await f.parent.create(recursive: true);
-        if (had != null) await f.copy('$path.bak');
-        await f.writeAsString(text, flush: true);
-        keysWritten = true;
-      }
-    } on FileSystemException catch (e) {
-      keysError = '${e.message}${e.path == null ? '' : ': ${e.path}'}';
-    }
-  }
+  final (keysWritten, keysError) = await _writeKeys(file.keysToml, keysPath);
 
   return (
     settings: file.settings.length - (sidecarDirMissing == null ? 0 : 1),
@@ -108,11 +94,31 @@ Future<SettingsImport> importSettings(SettingsFile file, {required LibraryStore 
     positions: file.positions.length,
     bookmarks: file.bookmarks.where((b) => b.deletedAt == null).length,
     collections: file.collections.where((c) => c.removedAt == null).length,
-    edits: file.edits.length,
+    edits: file.metaEditCount,
+    completed: file.completedMarkCount,
     history: file.history.length,
     skipped: file.skipped,
     books: file.books,
   );
+}
+
+/// Writes the file's `keys.toml` ([text]) to [path], keeping a differing
+/// one already there as `keys.toml.bak`: whether it was written, and why
+/// not when that failed. Nothing to do without a text or a path, or when
+/// the file there says the same.
+Future<(bool, String?)> _writeKeys(String? text, String? path) async {
+  if (text == null || path == null) return (false, null);
+  try {
+    final f = File(path);
+    final had = await f.exists() ? await f.readAsString() : null;
+    if (had == text) return (false, null);
+    await f.parent.create(recursive: true);
+    if (had != null) await f.copy('$path.bak');
+    await f.writeAsString(text, flush: true);
+    return (true, null);
+  } on FileSystemException catch (e) {
+    return (false, '${e.message}${e.path == null ? '' : ': ${e.path}'}');
+  }
 }
 
 /// One or two sentences on what an import did.
@@ -126,6 +132,7 @@ String importNotice(SettingsImport r) {
     if (r.bookmarks > 0) n(r.bookmarks, 'bookmark'),
     if (r.collections > 0) n(r.collections, 'collection entry', 'collection entries'),
     if (r.edits > 0) n(r.edits, 'edit'),
+    if (r.completed > 0) n(r.completed, 'completed mark'),
     if (r.history > 0) n(r.history, 'history entry', 'history entries'),
   ];
   final notes = [

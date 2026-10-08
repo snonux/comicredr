@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../version.dart' as version;
 import 'app_database.dart';
 import 'data_dirs.dart';
+import 'meta_edits.dart';
 import 'settings_store.dart';
 import 'sidecar.dart';
 
@@ -71,7 +72,16 @@ class SettingsFile {
 
   /// Books in collections, and taken out of them (Favourites is one).
   final List<CollectionBook> collections;
+
+  /// Every overrides row: the metadata edits and the completed marks.
   final List<Override> edits;
+
+  /// The overrides rows that are edits to a comic's title, series and the
+  /// like, and the ones that are completed marks (either way, an undone one
+  /// too): told apart for the import's question and notice, where thirty
+  /// comics marked completed are not "30 edits".
+  int get metaEditCount => edits.where((o) => o.field != completedField).length;
+  int get completedMarkCount => edits.length - metaEditCount;
   final List<ReadLogData> history;
 
   /// The ComicRedr that wrote the file, and when.

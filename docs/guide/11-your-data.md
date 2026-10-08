@@ -100,7 +100,7 @@ All files access and import.
   left alone unless the file sets them: where this device keeps its
   sidecars, whether it writes them, and the S3 settings. So a file from
   the laptop never moves the phone's sidecars.
-- Positions, bookmarks, collections, edits and history are merged with what is already there, the same way
+- Positions, bookmarks, collections, edits, completed marks and history are merged with what is already there, the same way
   two sidecars are: the later position wins, and a bookmark you took off
   stays off. Importing twice is the same as importing once.
 - Comics are recognised by their content, so positions and bookmarks

@@ -162,7 +162,9 @@ four combine, and they combine with the search too: PDFs from the last
 week with "love" in the title is `F`, PDF, Last 7 days, then `/` and
 `love`. To see only what you have not read yet: `F`, `Tab` to **Not
 completed**, `Space`, `Esc`. A comic you then mark completed leaves the
-tab at once.
+tab at once and the cover next to it is selected, so `gC`, `gC`, `gC`
+ticks off one after the other, and `Enter` opens what comes next. (After
+**Undo** the comic is back and the selection stays where it is.)
 
 A subfolder with nothing that passes is hidden, and a folder's count is
 of the comics that pass. While a filter is on, the line under the search
@@ -243,9 +245,13 @@ read, and the [Folders tab's
 filter](#filter-by-type-size-date-and-completed) can show only the
 completed ones or hide them.
 
-- **Reading does it.** Turn to the last page of a comic and it is marked
-  completed; the line at the bottom says so the first time. It stays
-  completed when you read it again from the start.
+- **Reading does it.** Read on to the last page of a comic (a key, a tap
+  or a swipe that turns onto it; in two-page mode onto the last pair) and
+  it is marked completed; the line at the bottom says so. It stays
+  completed when you read it again from the start. Only reading on does
+  it: jumping to the end to have a look (`G`, the page grid, the bar
+  along the bottom, a bookmark, or taking up the place another device
+  left the comic at) marks nothing.
 - **`gC` does it by hand.** On a cover, or in a comic you are reading,
   `gC` marks the comic completed, and pressed again marks it not
   completed. Use it for a comic you read somewhere else, or to take the
@@ -256,16 +262,32 @@ completed ones or hide them.
 - With comics [marked](#several-comics-at-once), `gC` or **Completed** in
   the bar marks them all completed; when they all are, it marks them all
   not completed.
+- A comic that is [only on S3](13-s3-sync.md) is left out, and the
+  notice says so ("…; 2 are only on S3", or "Only on S3: download it
+  first"): download it, then mark it.
 
 For example, to tick off a run of issues you read on paper: on the
 Folders tab go into their folder, press `Shift+End` to mark them all,
 then `gC`.
 
 Opening a comic that is already on its last page does not mark it, so a
-mark you took off stays off until you turn to the last page again. A
-comic of a single page is only marked by `gC`. Comics you had read to
-the end before ComicRedr knew of this count as completed for as long as
-they are left on their last page.
+mark you took off stays off until you read on to the last page again;
+then it is completed again.
+
+**Without a mark, the page decides.** A comic nobody marked either way
+counts as completed while it is left on its last page: that is how the
+comics you had finished before ComicRedr knew of this got their check,
+and how a comic you jumped to the end of and left there gets one. Go
+back a page and it no longer counts. **A comic of a single page** is on
+its last page from the moment it is opened, so it counts as completed
+once you have opened it; `gC` on it marks it not completed, and that
+stays.
+
+**Completed part-way.** A comic you mark completed in the middle is done
+with: its cover loses the progress line, **Continue reading** in its
+details becomes **Read again**, the Reading tab puts it after the comics
+still being read, and it is not what a series goes on with. It still
+opens on the page you left it at.
 
 The mark is kept [with the comic](11-your-data.md), so it follows it to
 your other devices; when two devices disagree, the later change wins,

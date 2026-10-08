@@ -7,22 +7,30 @@ the `?` overlay.
 
 ## Unreleased
 
-- **Completed comics:** a comic read to the end is marked completed. The
-  last page reached in the reader does it, and `gC` does it by hand, or
+- **Completed comics:** a comic read to the end is marked completed.
+  Reading on to the last page does it (a key, a tap or a swipe that
+  turns onto it; a jump there with `G`, the page grid, the progress bar
+  or a bookmark does not, so a look at the end marks nothing), and `gC`
+  does it by hand, or
   takes the mark off: in a comic (also over its page grid and bookmark
   list), on a cover, on all the marked covers (**Completed** in the bar
   over them), and with the tick in a comic's details. In the library the
-  notice has an **Undo** (`u`). A completed comic has the green check on
+  notice has an **Undo** (`u`), and says when comics were left out
+  because they are only on S3. A completed comic has the green check on
   its cover, which used to show only while a comic was left on its last
   page; now it stays when the comic is read again. The mark is kept in
   the comic's sidecar and in a settings export, so it travels; the later
   change wins when two devices differ, taking the mark off included, and
   **Reset everything** forgets it. Comics left on their last page before
-  this count as completed as before.
+  this count as completed as before, and so does a comic of one page
+  once it has been opened; `gC` marks either not completed. A settings
+  import counts completed marks by name ("3 edits and 30 completed
+  marks").
 - **The Folders tab's filter (`F`) knows completed comics:** **Completed
   only**, **Not completed** (what is still to read) or all of them, with
   the type, size and date as before. A filter saved earlier is read as it
-  was.
+  was. A comic that leaves the tab because it was just marked hands the
+  selection to the cover next to it.
 
 - **A key for every button and dialog:** everything that can be clicked
   can now be done from the keyboard.

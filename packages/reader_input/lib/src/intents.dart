@@ -86,7 +86,8 @@ enum ReaderIntent {
   ),
   showFavourites('The Favourites collection in the library'),
   toggleCompleted(
-    'Mark this comic completed (read to the end), or take the mark off; the selected book in the library, or every marked one',
+    'Mark this comic completed (read to the end), or take the mark off; '
+    'the selected book in the library, or every marked one',
   ),
   remove('Remove the selected bookmark in a bookmark list; take the selected comic out of the Favourites'),
   setMark('Set mark a-z'),

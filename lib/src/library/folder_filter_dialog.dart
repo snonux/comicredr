@@ -36,8 +36,28 @@ class _FolderFilterDialogState extends State<_FolderFilterDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context) => DialogHotkeys(
+    child: AlertDialog(
+      key: const Key('filterDialog'),
+      title: const Text('Filter the Folders tab'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: _parts(Theme.of(context)),
+          ),
+        ),
+      ),
+      actions: _actions(context),
+    ),
+  );
+
+  /// The filter's parts, each a heading over its line of chips, in the
+  /// order Tab walks them: type, size, date, completed. A new part goes at
+  /// the end, since the e2e scripts count Tab stops from the first chip.
+  List<Widget> _parts(ThemeData theme) {
     Widget heading(String text) => Padding(
       padding: const EdgeInsets.only(top: 12, bottom: 6),
       child: Text(text, style: theme.textTheme.titleSmall),
@@ -46,66 +66,40 @@ class _FolderFilterDialogState extends State<_FolderFilterDialog> {
     // it can be taken off.
     final formats = {...widget.formats, ..._filter.formats}.toList()
       ..sort((a, b) => formatLabel(a).compareTo(formatLabel(b)));
-    return DialogHotkeys(
-      child: AlertDialog(
-        key: const Key('filterDialog'),
-        title: const Text('Filter the Folders tab'),
-        content: SizedBox(
-          width: 460,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                heading('Type (none picked: every type)'),
-                _chips([
-                  for (final (i, f) in formats.indexed)
-                    FilterChip(
-                      key: Key('filterType-$f'),
-                      autofocus: i == 0,
-                      label: Text(formatLabel(f)),
-                      selected: _filter.formats.contains(f),
-                      onSelected: (_) => _set(_filter.toggle(f)),
-                    ),
-                ]),
-                heading('Size'),
-                _chips([
-                  for (final s in SizeRange.values)
-                    ChoiceChip(
-                      key: Key('filterSize-${s.name}'),
-                      label: Text(s.label),
-                      selected: _filter.size == s,
-                      onSelected: (_) => _set(_filter.copyWith(size: s)),
-                    ),
-                ]),
-                heading('Modified (the file\'s date)'),
-                _chips([
-                  for (final d in DateRange.values)
-                    ChoiceChip(
-                      key: Key('filterDate-${d.name}'),
-                      label: Text(d.label),
-                      selected: _filter.date == d,
-                      onSelected: (_) => _set(_filter.copyWith(date: d)),
-                    ),
-                ]),
-                heading('Completed (marked so, or left on the last page)'),
-                _chips([
-                  for (final c in CompletedFilter.values)
-                    ChoiceChip(
-                      key: Key('filterCompleted-${c.name}'),
-                      label: Text(c.label),
-                      selected: _filter.completed == c,
-                      onSelected: (_) => _set(_filter.copyWith(completed: c)),
-                    ),
-                ]),
-              ],
-            ),
+    return [
+      heading('Type (none picked: every type)'),
+      _chips([
+        for (final (i, f) in formats.indexed)
+          FilterChip(
+            key: Key('filterType-$f'),
+            autofocus: i == 0,
+            label: Text(formatLabel(f)),
+            selected: _filter.formats.contains(f),
+            onSelected: (_) => _set(_filter.toggle(f)),
           ),
-        ),
-        actions: _actions(context),
-      ),
-    );
+      ]),
+      heading('Size'),
+      _chips([
+        for (final s in SizeRange.values)
+          _choice('filterSize-${s.name}', s.label, _filter.size == s, _filter.copyWith(size: s)),
+      ]),
+      heading('Modified (the file\'s date)'),
+      _chips([
+        for (final d in DateRange.values)
+          _choice('filterDate-${d.name}', d.label, _filter.date == d, _filter.copyWith(date: d)),
+      ]),
+      heading('Completed (marked so, or left on the last page)'),
+      _chips([
+        for (final c in CompletedFilter.values)
+          _choice('filterCompleted-${c.name}', c.label, _filter.completed == c, _filter.copyWith(completed: c)),
+      ]),
+    ];
   }
+
+  /// One chip of a part of which one choice holds: [selected] while it is
+  /// the one, and a press makes the filter [picked].
+  Widget _choice(String key, String label, bool selected, FolderFilter picked) =>
+      ChoiceChip(key: Key(key), label: Text(label), selected: selected, onSelected: (_) => _set(picked));
 
   /// A line of chips that wraps.
   Widget _chips(List<Widget> chips) => Wrap(spacing: 8, runSpacing: 4, children: chips);

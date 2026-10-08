@@ -331,6 +331,36 @@ Future<List<PdfImage>> pdfImagesOf(String path, String key) async {
   return found;
 }
 
+/// Where reading of the book [key] stands, from the index: the saved page,
+/// the completed mark, the sittings, its bookmarks and collections.
+Future<ReadingSummary> _readingSummary(WidgetRef ref, String key) async {
+  final db = ref.read(databaseProvider);
+  final progress = await (db.select(db.progress)..where((r) => r.contentKey.equals(key))).getSingleOrNull();
+  final log =
+      await (db.select(db.readLog)
+            ..where((r) => r.contentKey.equals(key))
+            ..orderBy([(r) => OrderingTerm(expression: r.startedAt)]))
+          .get();
+  final marks = await (db.select(db.bookmarks)..where((b) => b.contentKey.equals(key) & b.deletedAt.isNull())).get();
+  final collections = await (db.select(
+    db.collectionBooks,
+  )..where((c) => c.contentKey.equals(key) & c.removedAt.isNull())).get();
+  return ReadingSummary(
+    page: progress?.page,
+    percent: progress?.percent,
+    finished: progress?.finished ?? false,
+    completedMark: await ref.read(libraryStoreProvider).completedMarkOf(key),
+    updatedAt: progress?.updatedAt,
+    sittings: log.length,
+    time: log.fold(Duration.zero, (t, r) => t + r.endedAt.difference(r.startedAt)),
+    pagesShown: log.fold(0, (n, r) => n + r.pages),
+    firstRead: log.firstOrNull?.startedAt,
+    bookmarks: marks.where((m) => m.mark == null).length,
+    marks: marks.where((m) => m.mark != null).length,
+    collections: [for (final c in collections) c.name]..sort(),
+  );
+}
+
 /// Gathers the [ComicReport] of [book] (open in the reader, or opened for
 /// the purpose by the library). [pageFacts] reads the page headers through
 /// the book's own worker, so a PDF stays on the one PDFium isolate.
@@ -380,30 +410,7 @@ Future<ComicReport> readComicReport(WidgetRef ref, OpenBook book) async {
     // A broken ComicInfo.xml: the name it is.
   }
 
-  final progress = await (db.select(db.progress)..where((r) => r.contentKey.equals(key))).getSingleOrNull();
-  final log =
-      await (db.select(db.readLog)
-            ..where((r) => r.contentKey.equals(key))
-            ..orderBy([(r) => OrderingTerm(expression: r.startedAt)]))
-          .get();
-  final marks = await (db.select(db.bookmarks)..where((b) => b.contentKey.equals(key) & b.deletedAt.isNull())).get();
-  final collections = await (db.select(
-    db.collectionBooks,
-  )..where((c) => c.contentKey.equals(key) & c.removedAt.isNull())).get();
-  final reading = ReadingSummary(
-    page: progress?.page,
-    percent: progress?.percent,
-    finished: progress?.finished ?? false,
-    completedMark: await ref.read(libraryStoreProvider).completedMarkOf(key),
-    updatedAt: progress?.updatedAt,
-    sittings: log.length,
-    time: log.fold(Duration.zero, (t, r) => t + r.endedAt.difference(r.startedAt)),
-    pagesShown: log.fold(0, (n, r) => n + r.pages),
-    firstRead: log.firstOrNull?.startedAt,
-    bookmarks: marks.where((m) => m.mark == null).length,
-    marks: marks.where((m) => m.mark != null).length,
-    collections: [for (final c in collections) c.name]..sort(),
-  );
+  final reading = await _readingSummary(ref, key);
 
   final detector = await ref.read(panelDetectorProvider.future);
   final found = await ref.read(panelStoreProvider).load(key, source: detector.source, version: detector.version);

@@ -726,14 +726,6 @@ ORDER BY r.id, f.rel_path
     return completedMark(row?.value);
   }
 
-  /// Whether the book [contentKey] counts as completed: as marked, else
-  /// whether its saved page is the last one.
-  Future<bool> isCompleted(String contentKey) async {
-    if (await completedMarkOf(contentKey) case final mark?) return mark;
-    final at = await (db.select(db.progress)..where((r) => r.contentKey.equals(contentKey))).getSingleOrNull();
-    return at?.finished ?? false;
-  }
-
   /// Marks the book [contentKey] completed or not completed, or with null
   /// takes the mark's say away again (an undo). A dated overrides row, so
   /// the later change wins when sidecars meet, taking the mark off
@@ -768,16 +760,7 @@ ORDER BY r.id, f.rel_path
       return v == null ? null : DateTime.fromMillisecondsSinceEpoch(v * 1000);
     }
 
-    final file = {
-      MetaField.series: r.read<String>('series_name'),
-      MetaField.number: r.readNullable<String>('number'),
-      MetaField.title: r.readNullable<String>('issue_title'),
-      MetaField.volume: r.readNullable<int>('volume')?.toString(),
-      MetaField.year: r.readNullable<int>('year')?.toString(),
-      MetaField.writers: r.readNullable<String>('writers'),
-      MetaField.artists: r.readNullable<String>('artists'),
-      MetaField.summary: r.readNullable<String>('summary'),
-    };
+    final file = _fileFacts(r);
     String? get(MetaField f) {
       if (!edits.containsKey(f)) return file[f];
       final v = edits[f]?.trim();
@@ -819,6 +802,19 @@ ORDER BY r.id, f.rel_path
       },
     );
   }
+
+  /// What the comic's file says of itself in the row [r] of [_booksSql],
+  /// as the edit form's fields: what a hand edit is laid over.
+  static Map<MetaField, String?> _fileFacts(QueryRow r) => {
+    MetaField.series: r.read<String>('series_name'),
+    MetaField.number: r.readNullable<String>('number'),
+    MetaField.title: r.readNullable<String>('issue_title'),
+    MetaField.volume: r.readNullable<int>('volume')?.toString(),
+    MetaField.year: r.readNullable<int>('year')?.toString(),
+    MetaField.writers: r.readNullable<String>('writers'),
+    MetaField.artists: r.readNullable<String>('artists'),
+    MetaField.summary: r.readNullable<String>('summary'),
+  };
 
   static S3Shelf _shelf(S3Book row, S3Mark mark) {
     final m = Manifest.decode(row.manifest);

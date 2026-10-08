@@ -635,8 +635,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           unawaited(_takeOutOfCollection(book, collection));
         }
       case ReaderIntent.toggleCompleted:
-        // The marked comics, else the selected one; the marks go after.
-        final books = _markedOrSelected(marked);
+        // The marked comics, else the selected one (also one only on S3,
+        // which is told why nothing is marked); the marks go after.
+        final books = marked.isNotEmpty ? marked : [if (_selectedItem case BookItem(:final book)) book];
         if (books.isNotEmpty) unawaited(_bulk(() => toggleCompleted(context, ref, books)));
       case ReaderIntent.downloadFromS3:
         final books = _actOn().where((b) => b.remoteOnly).toList();
@@ -862,6 +863,39 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       _detail = false;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
+  }
+
+  /// The cover that takes the selection when the selected one has just left
+  /// the Folders tab because the filter goes by completed and its mark
+  /// changed (`gC`, the marks bar, the tick in its details, or the reader
+  /// reaching its last page while the library waits under it); null when
+  /// that is not what happened. Without this nothing was selected after:
+  /// the details pane closed and Enter opened nothing. The rule is the one
+  /// a delete has ([_deleteMarked]): of the covers shown [before], the
+  /// first after the last that left, else the nearest before it. An Undo
+  /// brings the comic back and leaves the selection where it is, as the
+  /// Undo of a favourite taken out does.
+  ///
+  /// A change of the filter itself never comes here: [setFilter] drops the
+  /// selection, as for any other part of the filter, since a comic the new
+  /// filter hides was not acted on. Called from build, so it sets fields
+  /// without setState.
+  String? _neighbourUnderFilter(List<LibraryItem> before, List<LibraryBook> books) {
+    if (tab != LibraryTab.folders || _filter.completed == CompletedFilter.any) return null;
+    final hidden = books.any((b) => _selectedBooks.contains(b.key) && !_filter.completed.accepts(b.completed));
+    if (!hidden) return null;
+    final shown = {for (final it in _items) it.id};
+    final last = before.lastIndexWhere((it) => !shown.contains(it.id));
+    final next = [
+      ...before.skip(last + 1),
+      ...before.take(last + 1).toList().reversed,
+    ].where((it) => shown.contains(it.id)).firstOrNull;
+    // A phone's details page of the comic that left: back to the covers.
+    _detail = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reveal();
+    });
+    return next?.id;
   }
 
   /// Scrolls the selected cover into view.
@@ -1122,13 +1156,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 4,
           children: [
-            Text(
-              marked.isEmpty
-                  ? (narrow ? 'Tap covers to mark them' : 'Tap covers, or Shift+arrows, to mark them')
-                  : '${marked.length} selected',
-              key: const Key('marksCount'),
-              style: theme.textTheme.titleSmall,
-            ),
+            _marksCount(theme, marked.length, narrow: narrow),
             const SizedBox(width: 4),
             button('marksAll', Icons.select_all, 'All', ReaderIntent.markAll, _markAll),
             if (local.isNotEmpty) ..._marksLocalButtons(marked, local, button),
@@ -1151,6 +1179,16 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       ),
     );
   }
+
+  /// The marks bar's first words: how many comics are marked, or with none
+  /// how to mark some (a phone, [narrow], has no Shift).
+  Widget _marksCount(ThemeData theme, int marked, {required bool narrow}) => Text(
+    marked == 0
+        ? (narrow ? 'Tap covers to mark them' : 'Tap covers, or Shift+arrows, to mark them')
+        : '$marked selected',
+    key: const Key('marksCount'),
+    style: theme.textTheme.titleSmall,
+  );
 
   /// The marks bar's buttons for the marked comics on this device ([local],
   /// of all the [marked]): favourite, completed, move, collection, reset.
@@ -1418,6 +1456,25 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     }
   }
 
+  /// Works out the covers or rows to show ([_items]) and keeps the selection
+  /// on one of them where it can. Called from build, so it sets fields
+  /// without setState.
+  void _takeItems(List<LibraryBook> books, List<RootInfo> roots, List<BookmarkInfo> bookmarks) {
+    final before = _items;
+    _items = _itemsFor(books, roots, bookmarks);
+    // A folder just opened: its first item, even as a scan adds more.
+    if (_autoFirst && _items.isNotEmpty) _selected = _items.first.id;
+    if (_selected != null && !_items.any((it) => it.id == _selected)) {
+      // An edit moved the book to another series, or renamed its series:
+      // the selection follows the books. Its completed mark took it off the
+      // filtered Folders tab: the cover next to it.
+      _selected =
+          _items.where((it) => _books(it).any(_selectedBooks.contains)).firstOrNull?.id ??
+          _neighbourUnderFilter(before, books);
+    }
+    _selectedBooks = _books(_selectedItem);
+  }
+
   @override
   Widget build(BuildContext context) {
     _tellSizer();
@@ -1450,15 +1507,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final bookmarks = tab == LibraryTab.bookmarks
         ? ref.watch(allBookmarksProvider).value ?? const <BookmarkInfo>[]
         : const <BookmarkInfo>[];
-    _items = _itemsFor(books, roots ?? const [], bookmarks);
-    // A folder just opened: its first item, even as a scan adds more.
-    if (_autoFirst && _items.isNotEmpty) _selected = _items.first.id;
-    if (_selected != null && !_items.any((it) => it.id == _selected)) {
-      // An edit moved the book to another series, or renamed its series:
-      // the selection follows the books.
-      _selected = _items.where((it) => _books(it).any(_selectedBooks.contains)).firstOrNull?.id;
-    }
-    _selectedBooks = _books(_selectedItem);
+    _takeItems(books, roots ?? const [], bookmarks);
 
     final empty = roots != null && roots.isEmpty && books.isEmpty;
     return LayoutBuilder(

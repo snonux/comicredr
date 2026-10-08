@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # End-to-end check of completed comics (task 273) on the Linux build, by
 # the keyboard: gC in the reader marks the open comic and takes the mark
-# off again; reading to the last page marks a comic by itself; gC on a
-# cover marks it and u undoes that; the Folders tab's filter (F) hides the
-# completed ones, then shows only them, each proved by the comic that
-# opens first, and is kept across a restart; Clear all takes it off; X
-# with Reset everything forgets the mark. A second install with nothing
-# but the comics and their sidecars then knows the marks. Checks the index
-# and the sidecars with sqlite3 and takes screenshots.
+# off again; reading on to the last page marks a comic by itself, a jump
+# there (G) does not; gC on a cover marks it and u undoes that; the Folders
+# tab's filter (F) hides the completed ones, then shows only them, each
+# proved by the comic that opens first, and is kept across a restart; a
+# comic that leaves the filtered tab on gC hands the selection to the cover
+# next to it, which Enter opens; Clear all takes the filter off; X with
+# Reset everything forgets the mark. A second install with nothing but the
+# comics and their sidecars then knows the marks. Checks the index and the
+# sidecars with sqlite3 and takes screenshots.
 #
 #   tool/e2e_completed.sh
 #
@@ -126,12 +128,18 @@ key Escape; sleep 1.5
 check "Alpha's sidecar says so" "$(sidecar Alpha)" yes
 
 # 2. Bravo read to its last page is marked by that; Charlie, opened and
-# closed on page 1, is not.
+# closed on page 1, is not. A jump to the last page (G) is a look at the
+# end, not reading to it: nothing is marked until a step arrives there.
 key l; key Return; sleep 2
+key shift+g; sleep 1
+check "G shows the last page" "$(sql "select p.page from progress p join files f on f.content_key = p.content_key
+                                     where f.rel_path = 'Bravo 1.cbz'")" 2
+check "a jump to the last page marks nothing" "$(mark Bravo)" ""
+key g g
 key l
 check "not on the way to the last page" "$(mark Bravo)" ""
 key l; sleep 1; shot 03_last_page
-check "the last page marks it" "$(mark Bravo)" yes
+check "reading on to the last page marks it" "$(mark Bravo)" yes
 key Escape; sleep 1.5
 check "Bravo's sidecar says so" "$(sidecar Bravo)" yes
 shot 04_two_ticks
@@ -155,7 +163,9 @@ check "opening Charlie marked nothing" "$(mark Charlie)" undone
 stop
 
 # 5. A restart keeps the filter. Then Completed only: Alpha and Bravo.
-# Alpha marked not completed there leaves the view, and Bravo opens first.
+# Alpha marked not completed there leaves the view and the cover next to
+# it, Bravo, is selected: Enter opens it (the comic read last before was
+# Charlie). And Bravo opens first when the folder is walked into again.
 start
 click 43 355; shot 10_restart_filtered
 check "kept across a restart" "$(filter | grep -c '"completed\\*":\\*"hide')" 1
@@ -164,6 +174,10 @@ check "Completed only is saved" "$(filter | grep -c '"completed\\*":\\*"only')" 
 key l; key Return; shot 11_completed_only
 key g C; shot 12_alpha_unmarked_gone
 check "gC on Alpha's cover takes the mark off" "$(mark Alpha)" no
+check "before Enter the comic read last is still Charlie" "$(last_read)" "Charlie 1.cbz"
+key Return; sleep 2; shot 12b_neighbour_opened
+check "Enter after gC opens the cover next to it" "$(last_read)" "Bravo 1.cbz"
+key Escape; sleep 1.5
 key BackSpace
 first_in_comics 13_read_bravo
 check "Completed only: Bravo opened first" "$(last_read)" "Bravo 1.cbz"
@@ -192,7 +206,9 @@ check "Charlie's sidecar: completed" "$(sidecar Charlie)" yes
 home="$top/$out/home2"
 start --add-root "$comics"
 wait_books
-sleep 2
+# The scan reads each sidecar after it lists the comic: wait for the last
+# mark it brings rather than a fixed time.
+for _ in $(seq 1 40); do [[ "$(mark Charlie 2>/dev/null)" == yes ]] && break; sleep 0.5; done
 click 43 355; key l; key Return; shot 16_second_install
 check "the second install: Alpha not completed" "$(mark Alpha)" no
 check "the second install: Bravo unmarked" "$(mark Bravo)" ""

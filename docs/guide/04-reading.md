@@ -45,10 +45,11 @@ ComicRedr remembers where you are in every comic: the page, the panel in
 guided view, and how far you had zoomed in. Open the comic again, even
 after renaming or copying the file, and you are right back there.
 
-Turning to the last page marks the comic
+Reading on to the last page marks the comic
 [completed](03-library.md#completed-comics): its cover in the library
-gets a green check. `gC` takes the mark off again, or puts it on a comic
-you are not going to read to the end here.
+gets a green check. Jumping there (`G`, the page grid, a bookmark) does
+not: a look at the end is no reading to it. `gC` takes the mark off
+again, or puts it on a comic you are not going to read to the end here.
 
 ## Back to the first page
 

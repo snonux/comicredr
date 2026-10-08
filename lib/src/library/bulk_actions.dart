@@ -193,42 +193,79 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
 /// the tick in a comic's details: all of [books] marked completed, or,
 /// when every one counts as completed already, all marked not completed.
 /// The notice has an Undo (`u`) either way, which gives each comic back
-/// the mark it had (none, where it had none). Comics only on S3 are left
-/// out: they have no sidecar here for the mark to travel in. True when it
-/// went ahead.
+/// the mark it had (none, where it had none). True when it went ahead.
+///
+/// Comics only on S3 are left out, since they have no sidecar here for the
+/// mark to travel in, and the notice says how many ([completedNotice]);
+/// when they are all there is, it says only that ([onlyOnS3Notice]) and
+/// nothing goes ahead. When the index fails part of the way, false (the
+/// marks stay): the comics marked before that keep their mark, have their
+/// sidecars written, are named in the notice and still get their Undo, as
+/// [takeOutOfCollection] has it.
 Future<bool> toggleCompleted(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
   final todo = books.where((b) => !b.remoteOnly).toList();
-  if (todo.isEmpty) return false;
   final messenger = ScaffoldMessenger.of(context);
+  if (todo.isEmpty) {
+    if (books.isNotEmpty) showNotice(messenger, onlyOnS3Notice(books.length));
+    return false;
+  }
   final undoNotice = ref.read(undoNoticeProvider);
   final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
   final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
   final on = !todo.every((b) => b.completed);
+  // Only these are written: the others have the mark asked for already.
   final changed = todo.where((b) => b.completed != on).toList();
+  final done = <LibraryBook>[];
   try {
     for (final b in changed) {
       await store.setCompleted(b.key, on);
+      done.add(b);
     }
   } catch (e) {
-    debugPrint('Could not change the completed mark: $e');
-    showNotice(messenger, 'Could not mark ${_named(todo)} as ${on ? '' : 'not '}completed', mustRead: true);
+    debugPrint('Could not change the completed mark of ${changed[done.length].path}: $e');
+  }
+  // Also after a failure part of the way: the ones marked are in the index.
+  await _writeSidecars(sidecars, done);
+  final text = completedNotice(done, changed, on: on, onlyOnS3: books.length - todo.length);
+  if (done.isEmpty) {
+    showNotice(messenger, text, mustRead: true);
     return false;
   }
-  await _writeSidecars(sidecars, changed);
   // With the undo key (u) as well as the button.
   undoNotice.show(
     messenger,
-    '${_named(changed)} marked as ${on ? '' : 'not '}completed',
+    text,
     label: undoLabel,
-    failed: 'Could not undo the completed mark of ${_named(changed)}',
+    failed: 'Could not undo the completed mark of ${_named(done)}',
+    // Part of the way: the notice also names what could not be marked.
+    mustRead: done.length < changed.length,
     undo: () async {
-      for (final b in changed) {
+      for (final b in done) {
         await store.setCompleted(b.key, b.completedMark);
       }
-      await _writeSidecars(sidecars, changed);
+      await _writeSidecars(sidecars, done);
     },
   );
-  return true;
+  return done.length == changed.length;
+}
+
+/// What `gC` says when every comic it was asked for ([count] of them) is
+/// only on S3, where it marks nothing.
+String onlyOnS3Notice(int count) =>
+    count == 1 ? 'Only on S3: download it first' : 'All $count comics are only on S3: download them first';
+
+/// What [toggleCompleted] says once [done] of the [asked] comics (the ones
+/// whose mark had to change) are marked completed ([on]) or not completed:
+/// all of them, none (the index refused the first), or some, with the
+/// count of those it did not get to. [onlyOnS3] counts the comics left out
+/// because they are only on S3; zero says nothing of them.
+String completedNotice(List<LibraryBook> done, List<LibraryBook> asked, {required bool on, int onlyOnS3 = 0}) {
+  final how = 'as ${on ? '' : 'not '}completed';
+  const why = 'the library could not be updated';
+  final s3 = onlyOnS3 == 0 ? '' : '; $onlyOnS3 ${onlyOnS3 == 1 ? 'is' : 'are'} only on S3';
+  if (done.isEmpty) return 'Could not mark ${_named(asked)} $how: $why$s3';
+  final rest = asked.length - done.length;
+  return '${_named(done)} marked $how${rest == 0 ? '' : '; $rest not marked: $why'}$s3';
 }
 
 /// `x` in an open collection, on the selected comic or the marked ones:

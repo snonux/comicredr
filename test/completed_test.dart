@@ -9,6 +9,7 @@ import 'package:comicredr/src/data/settings_file.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
+import 'package:comicredr/src/library/bulk_actions.dart';
 import 'package:comicredr/src/library/folder_filter.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
@@ -22,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:reader_input/reader_input.dart';
 
 import 'support/fixtures.dart';
 
@@ -36,6 +38,38 @@ class Device {
   late final ProgressStore progress;
   late final SidecarSync sync;
   LibraryStore get library => LibraryStore(db);
+}
+
+/// A library index that refuses the [failAt]th completed mark asked of it,
+/// once.
+class _FailingMarks extends LibraryStore {
+  _FailingMarks(super.db);
+
+  int failAt = 0;
+  int _asked = 0;
+
+  @override
+  Future<void> setCompleted(String contentKey, bool? on, {DateTime? at}) {
+    if (failAt > 0 && ++_asked == failAt) {
+      failAt = _asked = 0;
+      throw StateError('the index is locked');
+    }
+    return super.setCompleted(contentKey, on, at: at);
+  }
+}
+
+extension on LibraryBook {
+  /// This comic as the library lists it once it has the completed mark [on].
+  LibraryBook marked(bool on) => LibraryBook(
+    key: key,
+    series: series,
+    seriesId: seriesId,
+    pageCount: pageCount,
+    format: format,
+    path: path,
+    addedAt: addedAt,
+    completedMark: on,
+  );
 }
 
 /// Completed comics (task 273): the mark (`gC`, the tick in the details,
@@ -95,12 +129,21 @@ void main() {
       final daredevil = named(books, 'Daredevil #181').key, preacher = named(books, 'Preacher #1').key;
       expect(await completed(store), isEmpty);
       expect(await store.completedMarkOf(daredevil), isNull);
-      expect(await store.isCompleted(daredevil), isFalse);
+      expect(named(books, 'Daredevil #181').completed, isFalse);
 
+      // Begun and part-way: in progress, until it is marked completed there,
+      // which takes it out of Continue and takes its progress line away.
+      final progress = ProgressStore(db, debounce: Duration.zero);
+      progress.save(daredevil, const ReadingPosition(page: 1), 4);
+      await progress.flush();
+      expect(named(await store.books(), 'Daredevil #181').inProgress, isTrue);
       await store.setCompleted(daredevil, true);
       expect(await store.completedMarkOf(daredevil), isTrue);
       expect(await completed(store), ['Daredevil #181']);
-      expect(named(await store.books(), 'Daredevil #181').inProgress, isFalse);
+      books = await store.books();
+      expect(named(books, 'Daredevil #181').started, isTrue);
+      expect(named(books, 'Daredevil #181').finished, isFalse);
+      expect(named(books, 'Daredevil #181').inProgress, isFalse);
 
       await store.setCompleted(daredevil, false);
       expect(await store.completedMarkOf(daredevil), isFalse);
@@ -109,7 +152,6 @@ void main() {
       expect((await db.select(db.overrides).get()).where((o) => o.contentKey == daredevil), hasLength(1));
 
       // Left on the last page before there was a mark: completed.
-      final progress = ProgressStore(db, debounce: Duration.zero);
       progress.save(preacher, const ReadingPosition(page: 1), 2);
       progress.save(daredevil, const ReadingPosition(page: 3), 4);
       await progress.flush();
@@ -122,11 +164,9 @@ void main() {
       expect(named(books, 'Preacher #1').finished, isTrue);
       expect(named(books, 'Preacher #1').completedMark, isNull);
       expect(named(books, 'Preacher #1').completed, isTrue);
-      expect(await store.isCompleted(preacher), isTrue);
       // Marked not completed wins over the last page.
       expect(named(books, 'Daredevil #181').finished, isTrue);
       expect(named(books, 'Daredevil #181').completed, isFalse);
-      expect(await store.isCompleted(daredevil), isFalse);
       // Undone, the mark has no say and the last page decides again.
       await store.setCompleted(daredevil, null);
       expect(named(await store.books(), 'Daredevil #181').completed, isTrue);
@@ -143,6 +183,32 @@ void main() {
       expect(series.firstWhere((s) => s.name == 'Daredevil').read, 1);
       expect(series.firstWhere((s) => s.name == 'Preacher').read, 0);
     });
+  });
+
+  test("a series' next comic goes by completed, not by the page it was left on", () {
+    LibraryBook issue(int n, {bool? mark, bool finished = false, int? page}) => LibraryBook(
+      key: 'k$n',
+      series: 'Saga',
+      seriesId: 1,
+      number: '$n',
+      pageCount: 3,
+      format: 'cbz',
+      path: '/c/Saga $n.cbz',
+      addedAt: DateTime(2020),
+      page: page,
+      finished: finished,
+      completedMark: mark,
+    );
+    // #1 marked completed part-way, #2 marked not completed on its last page, #3 untouched.
+    final saga = LibrarySeries.group([
+      issue(1, mark: true, page: 1),
+      issue(2, mark: false, finished: true, page: 2),
+      issue(3),
+    ]).single;
+    expect(saga.read, 1);
+    expect(saga.next.number, '2', reason: '#1 is completed though not on its last page; #2 is not, though on it');
+    // All completed: back to the first.
+    expect(LibrarySeries.group([issue(1, mark: true), issue(2, finished: true, page: 2)]).single.next.number, '1');
   });
 
   group('sidecars', () {
@@ -236,6 +302,33 @@ void main() {
       expect(await phone.library.completedMarkOf('b'), isFalse);
       expect(await phone.library.completedMarkOf('c'), isFalse);
       expect(await phone.library.completedMarkOf('d'), isNull);
+    });
+
+    test('an import counts completed marks apart from edits, and leaves out what it has none of', () async {
+      await laptop.library.setCompleted('a', true, at: at(0));
+      await laptop.library.setCompleted('b', false, at: at(0));
+      await laptop.library.setCompleted('c', true, at: at(0));
+      var file = SettingsFile.decode(await exportSettings(laptop.db));
+      expect((file.metaEditCount, file.completedMarkCount), (0, 3));
+      var done = await importSettings(file, library: phone.library);
+      expect((done.edits, done.completed), (0, 3));
+      expect(importNotice(done), 'Imported the default settings and 3 completed marks.');
+
+      // With an edit of a title beside them: each under its own name.
+      await laptop.db
+          .into(laptop.db.overrides)
+          .insert(
+            OverridesCompanion.insert(
+              contentKey: 'a',
+              field: MetaField.title.name,
+              value: MetaEdit('Anatomy Lesson', at: at(1)).encode(),
+            ),
+          );
+      await (laptop.db.delete(laptop.db.overrides)..where((o) => o.contentKey.isIn(['b', 'c']))).go();
+      file = SettingsFile.decode(await exportSettings(laptop.db));
+      expect((file.metaEditCount, file.completedMarkCount), (1, 1));
+      done = await importSettings(file, library: phone.library);
+      expect(importNotice(done), 'Imported the default settings, 1 edit and 1 completed mark.');
     });
   });
 
@@ -334,6 +427,7 @@ void main() {
           'v' => LogicalKeyboardKey.keyV,
           'p' => LogicalKeyboardKey.keyP,
           'f' => LogicalKeyboardKey.keyF,
+          'd' => LogicalKeyboardKey.keyD,
           _ => throw ArgumentError(ch),
         };
         final shift = ch != ch.toLowerCase();
@@ -347,6 +441,70 @@ void main() {
 
     Future<bool?> markOf(WidgetTester tester, LibraryStore store, String key) =>
         tester.runAsync<bool?>(() => store.completedMarkOf(key));
+
+    /// The mark's row as stored, time and all.
+    Future<String?> rowOf(WidgetTester tester, String key) => tester.runAsync<String?>(
+      () async => (await (db.select(
+        db.overrides,
+      )..where((o) => o.contentKey.equals(key) & o.field.equals(completedField))).getSingleOrNull())?.value,
+    );
+
+    /// An intent sent as the page grid, the progress bar or a touch sends it.
+    Future<void> send(WidgetTester tester, ProviderContainer c, ReaderIntent intent) async {
+      await tester.runAsync(() => c.read(readerProvider.notifier).handle(ReaderCommand(intent)));
+      await settle(tester);
+    }
+
+    Future<void> press(WidgetTester tester, LogicalKeyboardKey key, {bool shift = false}) async {
+      if (shift) await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(key);
+      if (shift) await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await settle(tester);
+    }
+
+    /// A notice that must be read stays its time and whatever comes waits
+    /// behind it: lets it run out, so the next one shows.
+    Future<void> noticeOver(WidgetTester tester) async {
+      await tester.pump(const Duration(seconds: 11));
+      await settle(tester);
+    }
+
+    /// The comic the library's details pane shows, which is the selected
+    /// cover's; null with none selected.
+    String? selected(WidgetTester tester) {
+      final pane = find.byKey(const Key('detail'));
+      if (pane.evaluate().isEmpty) return null;
+      for (final name in const ['Akira #1', 'Daredevil #181', 'Preacher #1', 'Swamp Thing #21', 'Zot #2']) {
+        if (find.descendant(of: pane, matching: find.text(name)).evaluate().isNotEmpty) return name;
+      }
+      return fail('the details pane shows a comic the test does not know');
+    }
+
+    /// Five comics in one folder, the Folders tab inside it, filtered by
+    /// completed as [filter] says.
+    Future<(ProviderContainer, LibraryStore, List<LibraryBook>)> filtered(
+      WidgetTester tester,
+      CompletedFilter filter, {
+      List<String> completedFirst = const [],
+    }) async {
+      writeBook(root, 'Akira 1.cbz', 5);
+      writeBook(root, 'Zot 2.cbz', 6);
+      final store = (await tester.runAsync(shelf))!;
+      final books = (await tester.runAsync(store.books))!;
+      await tester.runAsync(() async {
+        for (final name in completedFirst) {
+          await store.setCompleted(named(books, name).key, true);
+        }
+        await SettingsStore(db).saveString(SettingsStore.folderFilter, FolderFilter(completed: filter).encode()!);
+      });
+      final c = await pumpApp(tester);
+      await settle(tester);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      await type(tester, 'l');
+      await press(tester, LogicalKeyboardKey.enter); // Into Comics.
+      return (c, store, books);
+    }
 
     testWidgets('gC in the reader marks the open comic and takes the mark off, over the page grid too', (tester) async {
       final store = (await tester.runAsync(shelf))!;
@@ -401,6 +559,7 @@ void main() {
       expect(c.read(readerProvider).page, 2);
       expect(await markOf(tester, store, book.key), isTrue);
       expect(c.read(readerProvider).message, 'Last page: marked as completed');
+      final row = await rowOf(tester, book.key);
 
       // Back to the start: still completed, which the last page alone would not be.
       await type(tester, 'h');
@@ -414,6 +573,9 @@ void main() {
       await type(tester, 'l');
       await type(tester, 'l');
       expect(await markOf(tester, store, book.key), isTrue);
+      // Marked already: the row is left as it is, time included, so arriving
+      // again is no newer change for a sidecar merge to go by.
+      expect(await rowOf(tester, book.key), row);
       await type(tester, 'gC');
       expect(await markOf(tester, store, book.key), isFalse);
       await tester.runAsync(reader.close);
@@ -423,11 +585,146 @@ void main() {
       expect(c.read(readerProvider).page, 2, reason: 'resumed on the last page');
       expect(await markOf(tester, store, book.key), isFalse, reason: 'opening there is no arrival');
       expect(await tester.runAsync(() => completed(store)), isEmpty);
-      // Away and back is one.
+      // A step on that goes nowhere is no arrival either.
+      await type(tester, 'l');
+      expect(await markOf(tester, store, book.key), isFalse);
+      // Away and back is one, also after "not completed" was said: read to
+      // the end again, it is completed again.
       await type(tester, 'h');
       expect(await markOf(tester, store, book.key), isFalse);
       await type(tester, 'l');
       expect(await markOf(tester, store, book.key), isTrue);
+    });
+
+    testWidgets(
+      'a jump to the last page marks nothing: G, the page grid, a bookmark, a mark, another device\'s place',
+      (tester) async {
+        final store = (await tester.runAsync(shelf))!;
+        final book = named((await tester.runAsync(store.books))!, 'Daredevil #181'); // Four pages.
+        final c = await pumpApp(tester);
+        await settle(tester);
+        final reader = c.read(readerProvider.notifier);
+        await tester.runAsync(() => reader.open(book.path));
+        await settle(tester);
+        Future<void> stillUnmarked(String why) async {
+          expect(c.read(readerProvider).page, 3, reason: '$why goes to the last page');
+          expect(await markOf(tester, store, book.key), isNull, reason: '$why is no reading to the end');
+          expect(c.read(readerProvider).message, isNot('Last page: marked as completed'));
+        }
+
+        await type(tester, 'G');
+        await stillUnmarked('G');
+        // A bookmark and the mark a there, for later.
+        await send(tester, c, ReaderIntent.bookmark);
+        await tester.runAsync(() => reader.handle(const ReaderCommand(ReaderIntent.setMark, register: 'a')));
+        await settle(tester);
+
+        await send(tester, c, ReaderIntent.firstPage);
+        reader.jumpTo(3); // The page grid's and the progress bar's way.
+        await settle(tester);
+        await stillUnmarked('the page grid');
+
+        await send(tester, c, ReaderIntent.firstPage);
+        await send(tester, c, ReaderIntent.nextBookmark);
+        await stillUnmarked('the next bookmark');
+
+        await send(tester, c, ReaderIntent.firstPage);
+        await tester.runAsync(() => reader.handle(const ReaderCommand(ReaderIntent.jumpMark, register: 'a')));
+        await settle(tester);
+        await stillUnmarked('a mark');
+
+        await send(tester, c, ReaderIntent.firstPage);
+        await send(tester, c, ReaderIntent.jumpBack);
+        await stillUnmarked('the jump back');
+
+        // The place another device left it at, taken up here.
+        await send(tester, c, ReaderIntent.firstPage);
+        await tester.runAsync(
+          () => reader.acceptOffer((
+            path: book.path,
+            contentKey: book.key,
+            at: SidecarProgress(
+              device: 'phone',
+              deviceName: 'Phone',
+              page: 3,
+              percent: 1,
+              finished: true,
+              updatedAt: DateTime.now(),
+            ),
+          )),
+        );
+        await settle(tester);
+        await stillUnmarked('the offered place');
+
+        // Unmarked on its last page it counts as completed all the same, so
+        // the first gC there says not completed.
+        await type(tester, 'gC');
+        expect(c.read(readerProvider).message, 'Marked as not completed');
+        expect(await markOf(tester, store, book.key), isFalse);
+
+        // Read on to it, it is marked.
+        await type(tester, 'h');
+        await type(tester, 'l');
+        expect(await markOf(tester, store, book.key), isTrue);
+      },
+    );
+
+    testWidgets('two-page mode: the step onto the last pair marks, though the page it is saved on is not the last', (
+      tester,
+    ) async {
+      final store = (await tester.runAsync(shelf))!;
+      final book = named((await tester.runAsync(store.books))!, 'Swamp Thing #21'); // Three pages: 1, then 2-3.
+      final c = await pumpApp(tester);
+      await settle(tester);
+      await tester.runAsync(() => c.read(readerProvider.notifier).open(book.path));
+      await settle(tester);
+      await type(tester, 'd');
+      expect(c.read(readerProvider).unit, [0]);
+      expect(await markOf(tester, store, book.key), isNull);
+      await type(tester, 'l');
+      expect(c.read(readerProvider).unit, [1, 2]);
+      expect(c.read(readerProvider).page, 1);
+      expect(await markOf(tester, store, book.key), isTrue);
+    });
+
+    testWidgets('guided view and right to left: the step that turns onto the last page marks', (tester) async {
+      await tester.runAsync(() => SettingsStore(db).saveBool(SettingsStore.pauseWhole, false));
+      final store = (await tester.runAsync(shelf))!;
+      final books = (await tester.runAsync(store.books))!;
+      final swamp = named(books, 'Swamp Thing #21'), preacher = named(books, 'Preacher #1');
+      final c = await pumpApp(tester);
+      await settle(tester);
+      final reader = c.read(readerProvider.notifier);
+      await tester.runAsync(() => reader.open(swamp.path));
+      await settle(tester);
+      await type(tester, 'v');
+      expect(c.read(readerProvider).guided, isTrue);
+      // G in guided view is a jump there too.
+      await type(tester, 'G');
+      expect(c.read(readerProvider).page, 2);
+      expect(await markOf(tester, store, swamp.key), isNull);
+      await send(tester, c, ReaderIntent.firstPage);
+      await type(tester, 'l');
+      expect(c.read(readerProvider).page, 1);
+      expect(await markOf(tester, store, swamp.key), isNull);
+      await type(tester, 'l');
+      expect(c.read(readerProvider).page, 2);
+      expect(await markOf(tester, store, swamp.key), isTrue);
+      await type(tester, 'v');
+      await tester.runAsync(reader.close);
+      await settle(tester);
+
+      // Right to left, h is the key that reads on, and l goes back.
+      await tester.runAsync(() => reader.open(preacher.path)); // Two pages.
+      await settle(tester);
+      await send(tester, c, ReaderIntent.toggleDirection);
+      expect(c.read(readerProvider).rightToLeft, isTrue);
+      await type(tester, 'l');
+      expect(c.read(readerProvider).page, 0);
+      expect(await markOf(tester, store, preacher.key), isNull);
+      await type(tester, 'h');
+      expect(c.read(readerProvider).page, 1);
+      expect(await markOf(tester, store, preacher.key), isTrue);
     });
 
     testWidgets('a one-page comic is not marked by being opened', (tester) async {
@@ -522,6 +819,236 @@ void main() {
       expect(await markOf(tester, store, daredevil), isFalse);
       expect(find.text('Completed'), findsNothing);
       expect(find.byKey(const Key('completedBadge')), findsNothing);
+    });
+
+    testWidgets('under Not completed a comic marked completed leaves and the cover next to it is selected', (
+      tester,
+    ) async {
+      final (c, store, books) = await filtered(tester, CompletedFilter.hide);
+      Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
+      // The first cover, selected on walking into the folder: the one after it.
+      expect(selected(tester), 'Akira #1');
+      await type(tester, 'gC');
+      expect(cover('Akira #1'), findsNothing);
+      expect(selected(tester), 'Daredevil #181');
+      // Undo brings it back and leaves the selection, as for a favourite.
+      await type(tester, 'u');
+      expect(cover('Akira #1'), findsOneWidget);
+      expect(selected(tester), 'Daredevil #181');
+
+      // One in the middle, by the tick in its details: the one after it.
+      await type(tester, 'l');
+      expect(selected(tester), 'Preacher #1');
+      await tester.tap(find.byKey(const Key('completed')));
+      await settle(tester);
+      expect(cover('Preacher #1'), findsNothing);
+      expect(selected(tester), 'Swamp Thing #21');
+
+      // The last: the one before it, and Enter opens that one.
+      await press(tester, LogicalKeyboardKey.end);
+      expect(selected(tester), 'Zot #2');
+      await type(tester, 'gC');
+      expect(cover('Zot #2'), findsNothing);
+      expect(selected(tester), 'Swamp Thing #21');
+      // The comic opens on isolates and real files, which need the real event loop.
+      await tester.runAsync(() async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      });
+      await settle(tester);
+      expect(c.read(readerProvider).book?.key, named(books, 'Swamp Thing #21').key);
+      // Read to its last page there, it leaves too: back in the library the
+      // cover before it is selected (none comes after).
+      await type(tester, 'l');
+      await type(tester, 'l');
+      expect(await markOf(tester, store, named(books, 'Swamp Thing #21').key), isTrue);
+      await tester.runAsync(c.read(readerProvider.notifier).close);
+      await settle(tester);
+      expect(cover('Swamp Thing #21'), findsNothing);
+      expect(selected(tester), 'Daredevil #181');
+
+      // With comics marked (a run of two, the cursor on the second), by the
+      // marks bar: both leave, and nothing is left to select.
+      await press(tester, LogicalKeyboardKey.home);
+      await press(tester, LogicalKeyboardKey.arrowRight, shift: true);
+      expect(find.text('2 selected'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('marksCompleted')));
+      await settle(tester);
+      expect(find.text('2 comics marked as completed'), findsOneWidget);
+      expect(await tester.runAsync(() => completed(store)), hasLength(5));
+      expect(find.byKey(const Key('grid')), findsNothing);
+      expect(selected(tester), isNull);
+    });
+
+    testWidgets('with comics marked, the cover after the last of them is selected; a changed filter selects nothing', (
+      tester,
+    ) async {
+      final all = ['Akira #1', 'Daredevil #181', 'Preacher #1', 'Swamp Thing #21', 'Zot #2'];
+      final (_, store, _) = await filtered(tester, CompletedFilter.only, completedFirst: all);
+      Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
+      // Daredevil to Preacher marked, the cursor on Preacher: marked not
+      // completed under Completed only, they leave and Swamp Thing has it.
+      await type(tester, 'l');
+      expect(selected(tester), 'Daredevil #181');
+      await press(tester, LogicalKeyboardKey.arrowRight, shift: true);
+      await type(tester, 'gC');
+      expect(find.text('2 comics marked as not completed'), findsOneWidget);
+      expect(cover('Daredevil #181'), findsNothing);
+      expect(cover('Preacher #1'), findsNothing);
+      expect(selected(tester), 'Swamp Thing #21');
+      expect(await tester.runAsync(() => completed(store)), ['Akira #1', 'Swamp Thing #21', 'Zot #2']);
+
+      // A change of the filter is nothing done to a comic: it drops the
+      // selection, as for any other part of the filter, also when the new
+      // filter hides the comic that was selected and keeps covers beside it.
+      Future<void> pick(String chip) async {
+        await type(tester, 'F');
+        await tester.ensureVisible(find.byKey(Key(chip)));
+        await settle(tester);
+        await tester.tap(find.byKey(Key(chip)));
+        await settle(tester);
+        await tester.tap(find.byKey(const Key('filterDone')));
+        await settle(tester);
+      }
+
+      await pick('filterCompleted-any');
+      expect(cover('Daredevil #181'), findsOneWidget);
+      expect(selected(tester), isNull);
+      await press(tester, LogicalKeyboardKey.end);
+      await type(tester, 'h');
+      expect(selected(tester), 'Swamp Thing #21');
+      await pick('filterCompleted-hide');
+      expect(cover('Swamp Thing #21'), findsNothing);
+      expect(cover('Daredevil #181'), findsOneWidget);
+      expect(selected(tester), isNull);
+    });
+
+    testWidgets('the Reading tab puts a comic marked completed part-way after the ones still being read', (
+      tester,
+    ) async {
+      final store = (await tester.runAsync(shelf))!;
+      final books = (await tester.runAsync(store.books))!;
+      final daredevil = named(books, 'Daredevil #181').key, swamp = named(books, 'Swamp Thing #21').key;
+      await tester.runAsync(() async {
+        // Both part-way; Swamp Thing read last, and marked completed there.
+        for (final (key, page, pages, minute) in [(daredevil, 1, 4, 0), (swamp, 1, 3, 30)]) {
+          final progress = ProgressStore(db, debounce: Duration.zero)..save(key, ReadingPosition(page: page), pages);
+          await progress.flush();
+          await (db.update(
+            db.progress,
+          )..where((r) => r.contentKey.equals(key))).write(ProgressCompanion(updatedAt: Value(at(minute))));
+        }
+        await store.setCompleted(swamp, true);
+      });
+      await pumpApp(tester);
+      await settle(tester);
+      Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
+      expect(cover('Preacher #1'), findsNothing, reason: 'the Reading tab: only comics begun');
+      // By the page alone neither is finished and the later read would be first.
+      expect(tester.getTopLeft(cover('Daredevil #181')).dx, lessThan(tester.getTopLeft(cover('Swamp Thing #21')).dx));
+      expect(tester.getTopLeft(cover('Daredevil #181')).dy, tester.getTopLeft(cover('Swamp Thing #21')).dy);
+    });
+
+    testWidgets('comics only on S3 are left out and the notice says so; a failing index names what was marked', (
+      tester,
+    ) async {
+      LibraryBook book(String name, {bool remote = false}) => LibraryBook(
+        key: name,
+        series: name,
+        seriesId: 1,
+        pageCount: 4,
+        format: 'cbz',
+        path: '${root.path}/$name.cbz',
+        addedAt: DateTime(2026),
+        s3: remote ? const S3Shelf(S3Mark.remote, size: 1000) : null,
+      );
+      final failing = _FailingMarks(db);
+      var books = <LibraryBook>[];
+      bool? went;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            databaseProvider.overrideWithValue(db),
+            coverDirProvider.overrideWithValue(covers),
+            libraryStoreProvider.overrideWithValue(failing),
+            noSidecars(db),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) => TextButton(
+                  onPressed: () async => went = await toggleCompleted(context, ref, books),
+                  child: const Text('go'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      Future<void> go(List<LibraryBook> on) async {
+        books = on;
+        went = null;
+        await tester.tap(find.text('go'));
+        await settle(tester);
+      }
+
+      final akira = book('Akira'), blacksad = book('Blacksad'), corto = book('Corto');
+      final cloud = book('Cloud', remote: true), mist = book('Mist', remote: true);
+
+      // Only on S3: nothing is marked, and it says why.
+      await go([cloud]);
+      expect(went, isFalse);
+      expect(find.text('Only on S3: download it first'), findsOneWidget);
+      expect(await markOf(tester, failing, 'Cloud'), isNull);
+      await go([cloud, mist]);
+      expect(find.text('All 2 comics are only on S3: download them first'), findsOneWidget);
+      expect(await tester.runAsync(() => db.select(db.overrides).get()), isEmpty);
+
+      // Some of them: the others are marked, and the notice counts those left out.
+      await go([akira, cloud, mist]);
+      expect(went, isTrue);
+      expect(find.text('Akira marked as completed; 2 are only on S3'), findsOneWidget);
+      expect(await markOf(tester, failing, 'Akira'), isTrue);
+      expect(await markOf(tester, failing, 'Cloud'), isNull);
+      expect(await markOf(tester, failing, 'Mist'), isNull);
+      await tester.runAsync(() => failing.setCompleted('Akira', null));
+      await go([akira, blacksad, cloud]);
+      expect(find.text('2 comics marked as completed; 1 is only on S3'), findsOneWidget);
+      await tester.runAsync(() async {
+        await failing.setCompleted('Akira', null);
+        await failing.setCompleted('Blacksad', null);
+      });
+
+      // The index refuses the second of three: the first keeps its mark and
+      // is the one named; the two after it are counted, not named as marked.
+      failing.failAt = 2;
+      await go([akira, blacksad, corto]);
+      expect(went, isFalse, reason: 'not all of it went ahead, so marks would stay');
+      expect(find.text('Akira marked as completed; 2 not marked: the library could not be updated'), findsOneWidget);
+      expect(await markOf(tester, failing, 'Akira'), isTrue);
+      expect(await markOf(tester, failing, 'Blacksad'), isNull);
+      expect(await markOf(tester, failing, 'Corto'), isNull);
+
+      // Refused at the first, with one of the three marked already: the two
+      // that were to be marked are named, not all three.
+      await noticeOver(tester);
+      failing.failAt = 1;
+      await go([book('Akira').marked(true), blacksad, corto]);
+      expect(went, isFalse);
+      expect(find.text('Could not mark 2 comics as completed: the library could not be updated'), findsOneWidget);
+      expect(find.text('Could not mark 3 comics as completed: the library could not be updated'), findsNothing);
+      expect(await markOf(tester, failing, 'Blacksad'), isNull);
+      // And one alone by its name.
+      await noticeOver(tester);
+      failing.failAt = 1;
+      await go([book('Akira').marked(true), blacksad]);
+      expect(find.text('Could not mark Blacksad as completed: the library could not be updated'), findsOneWidget);
+
+      expect(completedNotice([akira], [akira], on: false), 'Akira marked as not completed');
+      expect(
+        completedNotice([], [akira, corto], on: false, onlyOnS3: 1),
+        'Could not mark 2 comics as not completed: the library could not be updated; 1 is only on S3',
+      );
     });
 
     testWidgets('F filters the Folders tab by completed: only them, without them, all; kept across a start', (

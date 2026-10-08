@@ -51,19 +51,9 @@ class BookDetail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final marks = ref.watch(bookmarksProvider(book.key)).value ?? const [];
     final s3 = ref.watch(s3StatusProvider).value ?? const S3Status();
     final remote = book.remoteOnly;
     final transfer = s3.transfers[book.key];
-    // A comic marked completed says so, and where it is when that is not
-    // its last page (read again from the start, or marked without reading).
-    final where = book.completed
-        ? (book.started && !book.finished ? 'Completed · on page ${book.page! + 1} of ${book.pageCount}' : 'Completed')
-        : book.finished
-        ? 'On the last page · marked not completed'
-        : book.started
-        ? 'On page ${book.page! + 1} of ${book.pageCount}'
-        : 'Not started · ${book.pageCount} pages';
     return ListView(
       key: const Key('detail'),
       padding: const EdgeInsets.all(16),
@@ -84,21 +74,9 @@ class BookDetail extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Text(book.name, style: theme.textTheme.headlineSmall),
-        if (book.issueTitle != null) Text(book.issueTitle!, style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text(
-          [
-            if (book.year != null) '${book.year}',
-            if (book.volume != null) 'Vol. ${book.volume}',
-            book.format.toUpperCase(),
-          ].join(' · '),
-          style: theme.textTheme.bodyMedium,
-        ),
-        if (book.writers.isNotEmpty) Text('Written by ${book.writers.join(', ')}'),
-        if (book.artists.isNotEmpty) Text('Art by ${book.artists.join(', ')}'),
+        ..._facts(theme),
         const SizedBox(height: 12),
-        Text(where, key: const Key('where')),
+        Text(_where, key: const Key('where')),
         if (book.inProgress) ...[const SizedBox(height: 6), LinearProgressIndicator(value: book.percent ?? 0)],
         const SizedBox(height: 12),
         _mainButtons(context, ref, transfer),
@@ -109,18 +87,7 @@ class BookDetail extends ConsumerWidget {
         const SizedBox(height: 6),
         _collections(context, ref),
         const SizedBox(height: 20),
-        Text('Bookmarks', style: theme.textTheme.titleMedium),
-        if (marks.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Text(
-              'None yet. In the reader, mm or the bookmark button marks the page (the panel in guided view); ma sets mark a.',
-              style: theme.textTheme.bodySmall,
-            ),
-          ),
-        // No key of its own: the Bookmarks tab and the reader's list (M) go
-        // to a bookmark with the arrows and Enter.
-        for (final m in marks) _bookmarkRow(context, ref, m),
+        ..._bookmarks(context, ref, theme),
         const SizedBox(height: 16),
         SelectableText(remote ? 'Downloads to ${book.path}' : book.path, style: theme.textTheme.bodySmall),
         const SizedBox(height: 16),
@@ -129,9 +96,59 @@ class BookDetail extends ConsumerWidget {
     );
   }
 
+  /// Where reading stands. A comic marked completed says so, and where it
+  /// is when that is not its last page (read again from the start, or
+  /// marked without reading); one marked not completed on its last page
+  /// says both.
+  String get _where => book.completed
+      ? (book.started && !book.finished ? 'Completed · on page ${book.page! + 1} of ${book.pageCount}' : 'Completed')
+      : book.finished
+      ? 'On the last page · marked not completed'
+      : book.started
+      ? 'On page ${book.page! + 1} of ${book.pageCount}'
+      : 'Not started · ${book.pageCount} pages';
+
+  /// The comic's name, its issue title, year, volume and format, and who
+  /// made it.
+  List<Widget> _facts(ThemeData theme) => [
+    Text(book.name, style: theme.textTheme.headlineSmall),
+    if (book.issueTitle != null) Text(book.issueTitle!, style: theme.textTheme.titleMedium),
+    const SizedBox(height: 8),
+    Text(
+      [
+        if (book.year != null) '${book.year}',
+        if (book.volume != null) 'Vol. ${book.volume}',
+        book.format.toUpperCase(),
+      ].join(' · '),
+      style: theme.textTheme.bodyMedium,
+    ),
+    if (book.writers.isNotEmpty) Text('Written by ${book.writers.join(', ')}'),
+    if (book.artists.isNotEmpty) Text('Art by ${book.artists.join(', ')}'),
+  ];
+
+  /// The Bookmarks heading and the comic's bookmarks, or how to make one.
+  List<Widget> _bookmarks(BuildContext context, WidgetRef ref, ThemeData theme) {
+    final marks = ref.watch(bookmarksProvider(book.key)).value ?? const [];
+    return [
+      Text('Bookmarks', style: theme.textTheme.titleMedium),
+      if (marks.isEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            'None yet. In the reader, mm or the bookmark button marks the page (the panel in guided view); '
+            'ma sets mark a.',
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+      // No key of its own: the Bookmarks tab and the reader's list (M) go
+      // to a bookmark with the arrows and Enter.
+      for (final m in marks) _bookmarkRow(context, ref, m),
+    ];
+  }
+
   /// Read (or Download, for a comic only on S3), the star, the completed
-  /// mark and Edit. Read
-  /// and Download keep their labels, so their keys are in tooltips.
+  /// mark and Edit. Read and Download keep their labels, so their keys are
+  /// in tooltips.
   Widget _mainButtons(BuildContext context, WidgetRef ref, double? transfer) {
     final remote = book.remoteOnly;
     return Wrap(

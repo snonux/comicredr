@@ -27,10 +27,12 @@ Future<ResetScope?> askReset(BuildContext context, String title, {int count = 1}
         count == 1
             ? 'Redo panels forgets the panels and balloons found in this comic and finds them again.\n\n'
                   'Reset everything also forgets its bookmarks and marks, where you are in it on every device, '
-                  'that it is completed and its reading history, here and in the file beside the comic. Its collections stay.'
+                  'that it is completed and its reading history, here and in the file beside the comic. '
+                  'Its collections stay.'
             : 'Redo panels forgets the panels and balloons found in each of these comics and finds them again.\n\n'
                   'Reset everything also forgets their bookmarks and marks, where you are in each on every device, '
-                  'that they are completed and their reading history, here and in the files beside the comics. Their collections stay.',
+                  'that they are completed and their reading history, here and in the files beside the comics. '
+                  'Their collections stay.',
       ),
       actions: [
         TextButton(

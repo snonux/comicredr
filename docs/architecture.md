@@ -416,7 +416,9 @@ flowchart LR
   edits take the later edit per field, positions are kept per device.
   Whether a comic is completed is one more dated row beside the metadata
   edits (`overrides`, field `completed`), so the later change wins there
-  too, taking the mark off included.
+  too, taking the mark off included. The reader writes it when a step
+  onward arrives on the last page, never on a jump there; without a row
+  a comic counts as completed while its saved page is the last one.
 - **The comic file is never written.** Metadata edits live in the
   sidecar, since rewriting the comic would change its content key.
 - **A settings file** (Settings → Export settings, `SettingsFile` in

@@ -415,7 +415,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     if (widget.onExportSettings != null || widget.onImportSettings != null) ...[
       _heading(theme, 'Back up'),
       Text(
-        'Settings, library folders, keys.toml, positions, bookmarks, collections, edits and '
+        'Settings, library folders, keys.toml, positions, bookmarks, collections, edits, completed marks and '
         'reading history in one file, to bring back after a reinstall or on another device.',
         style: theme.textTheme.bodySmall,
       ),

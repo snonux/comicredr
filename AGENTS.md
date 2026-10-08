@@ -794,30 +794,86 @@ refreshes right away instead of within six hours.
   sidecar, and Reset everything clears the overrides (Redo panels keeps
   them). It is no `MetaField`: `activeEdits` skips it, so it is not in
   the edit form and an older version reading the sidecar ignores it.
-  Writing: `LibraryStore.setCompleted(key, true | false | null)`.
+  Writing: `LibraryStore.setCompleted(key, true | false | null)`;
+  reading one comic's mark: `completedMarkOf` (there is no
+  `isCompleted`: the reader's rule goes by the page on screen, the
+  library's by the saved row, and a store method by the debounced row
+  would be neither).
   In the library `toggleCompleted` (bulk_actions.dart) is the one path
-  for `gC` on a cover or with marks (`_buttonKeys`,
-  `_markedOrSelected`), **Completed** in the marks bar and the tick in
-  the details (`BookDetail._completedButton`): all completed unless
-  every one is, then all not completed; only those that change are
-  written, comics only on S3 are left out, and the notice's Undo
-  (`UndoNotice`, both ways) gives each back the mark it had, none
-  included. In the reader `gC` is taken by `HomeScreen._onOpenComic`
+  for `gC` on a cover or with marks (`_buttonKeys`), **Completed** in
+  the marks bar and the tick in the details
+  (`BookDetail._completedButton`): all completed unless every one is,
+  then all not completed; only those that change are written, and the
+  notice's Undo (`UndoNotice`, both ways) gives each back the mark it
+  had, none included. Comics only on S3 are left out (no sidecar here
+  for the mark to travel in) and said: `completedNotice` ends "; 2 are
+  only on S3", and when they are all there is, `onlyOnS3Notice` ("Only
+  on S3: download it first", "All 2 comics are only on S3: download them
+  first") and nothing goes ahead; `gC` therefore passes a selected cover
+  that is only on S3 on, where `_markedOrSelected` would drop it. When
+  the index fails part of the way it is as `takeOutOfCollection` has it:
+  the comics marked before keep the mark, their sidecars are written,
+  the notice names them with their Undo and counts the rest ("Akira
+  marked as completed; 2 not marked: the library could not be updated"),
+  the marks stay (false); refused at the first, "Could not mark 2 comics
+  as completed: …" names the comics whose mark was to change, not every
+  comic asked for.
+  Selection (first review): on the Folders tab under **Not completed**
+  or **Completed only** a comic whose mark changes leaves the tab. The
+  cover next to it then has the selection
+  (`LibraryScreenState._neighbourUnderFilter`, called from `build` when
+  the selected cover is gone, its books still exist and the filter's
+  completed part now rejects one): of the covers shown before, the first
+  after the last that left, else the nearest before, which is delete's
+  rule (`_deleteMarked`). It is in `build` and not in the key's handler
+  so that every cause has it: `gC`, the marks bar, the tick in the
+  details, and the reader marking the comic at its last page while the
+  library waits offstage under it. A change of the filter itself never
+  gets there: `setFilter` drops the selection, as for the other parts,
+  since a comic the new filter hides was not acted on. The Undo
+  brings the comic back and leaves the selection, as the Undo of a
+  favourite taken out does.
+  In the reader `gC` is taken by `HomeScreen._onOpenComic`
   like `*`, so it works over the page grid and the bookmark list, and
   goes to `ReaderNotifier._toggleCompleted` (a status-line notice, no
-  Undo: `gC` again). The reader also marks by itself:
-  `_noteLastPage`, called from `_saveProgress`, marks the comic
-  (`_completeAtEnd`) when the last page comes on screen and the save
-  before it in the same sitting was not on it (`_lastPageSeen`, cleared
-  by `close`). So opening a comic left on its last page marks nothing
-  (a mark taken off there stays off until the page is left and reached
-  again), and a one-page comic is only ever marked by hand. The notice
-  "Last page: marked as completed" shows only when the mark was really
-  written and the status line had nothing else to say. Why write a mark
-  at all when `finished` says the same: `finished` is gone when the
-  comic is read again from page 1, and positions are per device, so
-  another device would never hear of it. `ComicDetails` (`I`) has a
-  Completed row saying which of the two decided.
+  Undo: `gC` again), which goes by `completedMarkOf(key) ?? _onLastPage`,
+  so on the last page of an unmarked comic the first `gC` says not
+  completed. The reader also marks by itself, and only when reading on
+  arrives at the end (snonux, first review: "peeking at the end must not
+  mark"): `ReaderNotifier.handle` wraps `_dispatch` and, when the
+  command was a step onward (`_readsOn`: `nextStep`/`scrollRight`, which
+  right to left are `prevStep`/`scrollLeft`, and `nextPage`; taps and
+  swipes are these intents) and the last page was not on screen before
+  and is after (`_onLastPage`: the last page of the unit, so the last
+  pair in two-page mode; in guided view and page parts the step that
+  turns the page), calls `_completeAtEnd`. Nothing else does: `G`, a
+  count jump, `''`, a mark, `}` `{`, `jumpTo` (page grid, progress bar),
+  `jumpToBookmark`, `acceptOffer` (another device's place) and `open`
+  never mark, and a step on the last page that goes nowhere is no
+  arrival. `_completeAtEnd` leaves a comic already marked completed
+  alone, row and time (a rewritten time would beat another device's
+  later "not completed" in a merge), and marks one that was marked not
+  completed again: read to the end once more, it is completed once more.
+  So a mark taken off on the last page stays off until the page is left
+  and stepped onto again. A one-page comic is on its last page from the
+  start: no step arrives there and the reader never marks it, but it
+  counts as completed from its first open all the same, by the fallback
+  (`finished` is true for it as soon as a position is saved); `gC`
+  marks it not completed, which stays. The same fallback counts a comic
+  jumped to the end of and left there as completed until it is left on
+  another page: that is kept (comics finished before the mark existed
+  need it). The notice "Last page: marked as completed" shows only when
+  the mark was really written and the status line had nothing else to
+  say. Why write a mark at all when `finished` says the same: `finished`
+  is gone when the comic is read again from page 1, and positions are
+  per device, so another device would never hear of it. A comic marked
+  completed part-way is not `inProgress`: no progress line on the cover,
+  Read again in the details, out of `LibrarySeries.next`, last on the
+  Reading tab; it still opens where it was left. `ComicDetails` (`I`)
+  has a Completed row saying which of the two decided. A settings import
+  counts the mark's rows apart from the metadata edits
+  (`SettingsFile.metaEditCount`, `completedMarkCount`: "1 edit and 30
+  completed marks" in `importNotice`, both in the question before it).
 - The details view (`I`, `lib/src/reader/comic_details.dart`, gathered by
   `readComicReport` in `comic_report.dart`) reads no pixels: each page's
   format, size, bytes and JPEG quality come from `ComicDocument.pageFacts`
@@ -1231,7 +1287,7 @@ tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posin
 tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
-tool/e2e_completed.sh         # gC in the reader on and off, the last page reached marks a comic, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
+tool/e2e_completed.sh         # gC in the reader on and off, reading on to the last page marks a comic and G there does not, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, gC on a cover under the filter then Enter opens the cover next to it, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
 tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star (found by comparing two screenshots, not at a fixed place), x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books
 tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books

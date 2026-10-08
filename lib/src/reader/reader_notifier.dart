@@ -48,10 +48,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
   DateTime Function() clock = DateTime.now;
 
   ProgressStore get _progress => ref.read(progressStoreProvider);
-
-  /// The book whose position was saved last and whether its last page was
-  /// on screen then, for [_noteLastPage].
-  ({String key, bool atEnd})? _lastPageSeen;
   SidecarSync get _sidecars => ref.read(sidecarSyncProvider);
 
   /// Zoom and scroll as the reader screen last reported them, saved with the
@@ -357,7 +353,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// `gC`: marks the book completed, or not completed when it counts as
   /// completed (marked so, or unmarked and on its last page). Dated, so the
-  /// later of two devices' changes wins when their sidecars meet.
+  /// later of two devices' changes wins when their sidecars meet. The page
+  /// on screen stands in for the saved one ([LibraryBook.completed] goes by
+  /// the progress row): saves are debounced, so the row may still say the
+  /// page before.
   Future<void> _toggleCompleted() async {
     final book = state.book!;
     final store = ref.read(libraryStoreProvider);
@@ -371,11 +370,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
-  /// Marks [book] completed because reading just arrived on its last page,
-  /// unless it is marked so already: without the mark the comic would stop
-  /// counting as completed when it is read again from the start, and
-  /// another device would never hear of it (positions are per device, the
-  /// mark is not). Says so only when nothing else is on the status line.
+  /// Marks [book] completed because reading on just arrived on its last
+  /// page ([handle]), unless it is marked so already, which leaves the row
+  /// and its time alone (a rewritten time would win a sidecar merge over
+  /// another device's later "not completed"). A comic marked not completed
+  /// is marked again: read to the end once more, it is completed once more.
+  /// Why a mark at all: without it the comic would stop counting as
+  /// completed when it is read again from the start, and another device
+  /// would never hear of it (positions are per device, the mark is not).
+  /// Says so only when nothing else is on the status line.
   Future<void> _completeAtEnd(OpenBook book) async {
     final store = ref.read(libraryStoreProvider);
     try {
@@ -446,7 +449,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _wake?.complete();
     _wake = null;
     _view = _restoreView = null;
-    _lastPageSeen = null; // The next open starts where it starts, arriving nowhere.
     state = ReaderState(
       mode: state.mode,
       guided: state.guided,
@@ -544,7 +546,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   void _saveProgress(OpenBook book) {
     if (_sitting case final s? when s.key == book.key) s.pages.addAll(state.unit);
-    _noteLastPage(book);
     // The panel and balloon as asked for, not as resolved: detection may not
     // have reached the page yet, and they resolve the same way on reopen.
     _progress.save(
@@ -566,17 +567,6 @@ class ReaderNotifier extends Notifier<ReaderState> {
       lastShown: state.unit.isEmpty ? null : state.unit.last,
     );
     _sidecars.touch(book.key);
-  }
-
-  /// Marks [book] completed when its last page has just come on screen:
-  /// only on arriving there from another page of the same sitting, so not
-  /// by opening a comic left on its last page (taking the mark off there
-  /// sticks), and never a one-page comic, which is on its last page from
-  /// the start.
-  void _noteLastPage(OpenBook book) {
-    final atEnd = _onLastPage;
-    if (atEnd && _lastPageSeen?.key == book.key && _lastPageSeen?.atEnd == false) unawaited(_completeAtEnd(book));
-    _lastPageSeen = (key: book.key, atEnd: atEnd);
   }
 
   /// The reader screen's zoom and scroll changed; saved with the position.
@@ -1002,7 +992,34 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// Page-level intents. The reader screen handles zoom and pan itself and
   /// passes everything else here.
+  ///
+  /// A step onward that brings the last page on screen marks the comic
+  /// completed ([_completeAtEnd]): reading arrived there. Only such a step
+  /// does (a key, a tap, a swipe; in guided view or page parts the step
+  /// that turns onto the last page; in two-page mode the one onto the last
+  /// pair). A jump does not (`G`, the page grid, the progress bar, a
+  /// bookmark, a mark, another device's position taken up), nor does
+  /// opening the comic there: a look at the end is no reading to it. A
+  /// one-page comic is on its last page from the start, so no step ever
+  /// arrives there.
   Future<void> handle(ReaderCommand c) async {
+    final book = state.book;
+    final arrives = book != null && _readsOn(c) && !_onLastPage;
+    await _dispatch(c);
+    if (arrives && identical(state.book, book) && _onLastPage) unawaited(_completeAtEnd(book));
+  }
+
+  /// Whether [c] is a step onward through the comic: the next step or page,
+  /// which right to left is the key (or tap) pointing the other way.
+  bool _readsOn(ReaderCommand c) => switch (c.intent) {
+    ReaderIntent.nextStep || ReaderIntent.scrollRight => !state.rightToLeft,
+    ReaderIntent.prevStep || ReaderIntent.scrollLeft => state.rightToLeft,
+    ReaderIntent.nextPage => true,
+    _ => false,
+  };
+
+  /// What [handle] does with [c], last-page mark aside.
+  Future<void> _dispatch(ReaderCommand c) async {
     if (state.book == null) {
       if (c.intent != ReaderIntent.showKeymap &&
           c.intent != ReaderIntent.openFile &&
@@ -1153,10 +1170,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         _notice('Continuous scroll is not built yet');
       case ReaderIntent.bookmark:
         await _toggleBookmark();
-      case ReaderIntent.toggleFavourite:
-        await _toggleFavourite();
-      case ReaderIntent.toggleCompleted:
-        await _toggleCompleted();
+      case ReaderIntent.toggleFavourite || ReaderIntent.toggleCompleted:
+        await (c.intent == ReaderIntent.toggleFavourite ? _toggleFavourite() : _toggleCompleted());
       case ReaderIntent.nextBookmark:
         _stepBookmark(c.times);
       case ReaderIntent.prevBookmark:
