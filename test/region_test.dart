@@ -8,7 +8,6 @@ import 'package:comicredr/src/reader/guided.dart';
 import 'package:comicredr/src/reader/layout.dart';
 import 'package:comicredr/src/reader/page_painters.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
-import 'package:comicredr/src/reader/reader_providers.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
 import 'package:comicredr/src/reader/region.dart';
 import 'package:drift/native.dart';
