@@ -757,7 +757,8 @@ refreshes right away instead of within six hours.
 - The Folders tab's filter (`F`, `ReaderIntent.filterFolders`;
   `FolderFilter` in `lib/src/library/folder_filter.dart`, its window in
   `folder_filter_dialog.dart`): a set of `LibraryBook.format`s, a
-  `SizeRange` and a `DateRange`, applied to the books before
+  `SizeRange`, a `DateRange` and a `CompletedFilter` (any, only, hide;
+  by `LibraryBook.completed`, task 273), applied to the books before
   `LibraryFolder.roots`/`children` build the tab, so folder counts are of
   what passes and folders with none go. Size and date are the first
   file's `files.size` and `files.mtime` (a folder book: its pages' total
@@ -766,6 +767,57 @@ refreshes right away instead of within six hours.
   `library.folderFilter` (in `SettingsStore.backedUp`, unset when
   off). It has its own line under the header (`_filterBar`), since the
   header has no room left beside a breadcrumb on a tablet or phone.
+  A part more (task 363 wants some) is a field whose default lets
+  everything through and a line each in `isActive`, `accepts`,
+  `copyWith`, `encode`, `decode`, `==` and `hashCode`, its chips at the
+  end of the dialog (the e2e scripts count Tab stops from the first
+  chip) and a part on the filter line. `decode` reads a missing or
+  unknown part as its default and `encode` leaves `completed` out at
+  its default, so a filter saved before the part existed reads, and is
+  written, as it was.
+- Completed comics (snonux, task 273; `gC`, `ReaderIntent.toggleCompleted`).
+  Two facts make it up. `LibraryBook.finished` is the old one, a column
+  of `progress`: this device's saved page is the last. The mark is new:
+  a row of `overrides` with the field `completed` (`completedField`,
+  `completedEdit`, `completedMark` in `lib/src/data/meta_edits.dart`),
+  its value a `MetaEdit` as for a metadata edit: `"1"` completed, `"0"`
+  marked not completed, `fromFile` for no say (the undo of a first
+  mark). `LibraryBook.completed` is `completedMark ?? finished`, so
+  comics left on their last page before the mark existed count, and a
+  mark either way wins over the page. The cover's green check
+  (`completedBadge`), the read counts of series and folders,
+  `LibrarySeries.next`, the Reading tab's order and `inProgress` go by
+  `completed`. No table and no schema change: an overrides row is keyed
+  by content key and dated, `mergeEdits` lets the later one win when
+  sidecars meet (so taking the mark off travels), `SettingsFile` exports
+  and imports every overrides row by the same rule, S3 carries the
+  sidecar, and Reset everything clears the overrides (Redo panels keeps
+  them). It is no `MetaField`: `activeEdits` skips it, so it is not in
+  the edit form and an older version reading the sidecar ignores it.
+  Writing: `LibraryStore.setCompleted(key, true | false | null)`.
+  In the library `toggleCompleted` (bulk_actions.dart) is the one path
+  for `gC` on a cover or with marks (`_buttonKeys`,
+  `_markedOrSelected`), **Completed** in the marks bar and the tick in
+  the details (`BookDetail._completedButton`): all completed unless
+  every one is, then all not completed; only those that change are
+  written, comics only on S3 are left out, and the notice's Undo
+  (`UndoNotice`, both ways) gives each back the mark it had, none
+  included. In the reader `gC` is taken by `HomeScreen._onOpenComic`
+  like `*`, so it works over the page grid and the bookmark list, and
+  goes to `ReaderNotifier._toggleCompleted` (a status-line notice, no
+  Undo: `gC` again). The reader also marks by itself:
+  `_noteLastPage`, called from `_saveProgress`, marks the comic
+  (`_completeAtEnd`) when the last page comes on screen and the save
+  before it in the same sitting was not on it (`_lastPageSeen`, cleared
+  by `close`). So opening a comic left on its last page marks nothing
+  (a mark taken off there stays off until the page is left and reached
+  again), and a one-page comic is only ever marked by hand. The notice
+  "Last page: marked as completed" shows only when the mark was really
+  written and the status line had nothing else to say. Why write a mark
+  at all when `finished` says the same: `finished` is gone when the
+  comic is read again from page 1, and positions are per device, so
+  another device would never hear of it. `ComicDetails` (`I`) has a
+  Completed row saying which of the two decided.
 - The details view (`I`, `lib/src/reader/comic_details.dart`, gathered by
   `readComicReport` in `comic_report.dart`) reads no pixels: each page's
   format, size, bytes and JPEG quality come from `ComicDocument.pageFacts`
@@ -960,7 +1012,7 @@ refreshes right away instead of within six hours.
   and `getOffsetToReveal` may not be read while an ancestor is laying
   out (a debug assertion). At offset 0 the list stays at the top. For
   all this the list lays out all of its items (`scrollCacheExtent` of
-  `_wholeList`; 102 actions with the default keys plus the notes, only
+  `_wholeList`; 103 actions with the default keys plus the notes, only
   those on screen painted): laid out lazily it guessed its length and
   left the rows above the screen at the old size's offsets, and going by
   the share of its extent ended several rows off after one step. The
@@ -1179,6 +1231,7 @@ tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posin
 tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
+tool/e2e_completed.sh         # gC in the reader on and off, the last page reached marks a comic, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
 tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star (found by comparing two screenshots, not at a fixed place), x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books
 tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books

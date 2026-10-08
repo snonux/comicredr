@@ -55,8 +55,12 @@ class BookDetail extends ConsumerWidget {
     final s3 = ref.watch(s3StatusProvider).value ?? const S3Status();
     final remote = book.remoteOnly;
     final transfer = s3.transfers[book.key];
-    final where = book.finished
-        ? 'Finished'
+    // A comic marked completed says so, and where it is when that is not
+    // its last page (read again from the start, or marked without reading).
+    final where = book.completed
+        ? (book.started && !book.finished ? 'Completed · on page ${book.page! + 1} of ${book.pageCount}' : 'Completed')
+        : book.finished
+        ? 'On the last page · marked not completed'
         : book.started
         ? 'On page ${book.page! + 1} of ${book.pageCount}'
         : 'Not started · ${book.pageCount} pages';
@@ -125,7 +129,8 @@ class BookDetail extends ConsumerWidget {
     );
   }
 
-  /// Read (or Download, for a comic only on S3), the star and Edit. Read
+  /// Read (or Download, for a comic only on S3), the star, the completed
+  /// mark and Edit. Read
   /// and Download keep their labels, so their keys are in tooltips.
   Widget _mainButtons(BuildContext context, WidgetRef ref, double? transfer) {
     final remote = book.remoteOnly;
@@ -150,7 +155,7 @@ class BookDetail extends ConsumerWidget {
               key: const Key('read'),
               onPressed: () => onRead(book),
               icon: const Icon(Icons.chrome_reader_mode),
-              label: Text(book.inProgress ? 'Continue reading' : (book.finished ? 'Read again' : 'Read')),
+              label: Text(book.inProgress ? 'Continue reading' : (book.completed ? 'Read again' : 'Read')),
             ),
           ),
         IconButton.outlined(
@@ -163,6 +168,7 @@ class BookDetail extends ConsumerWidget {
             ReaderIntent.toggleFavourite,
           ),
         ),
+        if (!remote) _completedButton(context, ref),
         if (!remote)
           OutlinedButton.icon(
             key: const Key('editBook'),
@@ -173,6 +179,22 @@ class BookDetail extends ConsumerWidget {
       ],
     );
   }
+
+  /// The tick: filled while the comic counts as completed, a press marks it
+  /// the other way, with the notice and Undo `gC` on its cover has.
+  Widget _completedButton(BuildContext context, WidgetRef ref) => IconButton.outlined(
+    key: const Key('completed'),
+    onPressed: () => toggleCompleted(context, ref, [book]),
+    icon: Icon(
+      book.completed ? Icons.check_circle : Icons.check_circle_outline,
+      color: book.completed ? Colors.green : null,
+    ),
+    tooltip: KeyHints.tip(
+      context,
+      book.completed ? 'Mark as not completed' : 'Mark as completed',
+      ReaderIntent.toggleCompleted,
+    ),
+  );
 
   /// Where the comic is on S3, a transfer under way, and the S3 buttons.
   List<Widget> _s3Part(BuildContext context, WidgetRef ref, S3Status s3, double? transfer) => [

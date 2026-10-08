@@ -24,7 +24,8 @@ It is where the app opens, and `Esc` from a comic brings you back to it.
 
 On a wide window the selected book's details sit beside the covers: its
 cover, how far you are, a **Read** (or **Continue reading**, or **Read
-again**) button, a star for [Favourites](#favourites), **Edit**, its
+again**) button, a star for [Favourites](#favourites), a tick for
+[completed](#completed-comics), **Edit**, its
 [collections](#collections), its [bookmarks](06-bookmarks.md), the
 file's path, and buttons to [see its details, reset it or delete
 it](07-managing-comics.md) and to [mark it](#several-comics-at-once).
@@ -42,7 +43,7 @@ page with the same details:
 Small marks on the covers tell you where you are:
 
 - a **thin bar** along the bottom: you are part way through it;
-- a **green check**: you have read it to the end;
+- a **green check**: it is [completed](#completed-comics), read to the end;
 - an **amber star**: it is one of your favourites;
 - a **number** on a series or folder: how many comics are in it;
 - a **tick**: it is [marked](#several-comics-at-once);
@@ -138,10 +139,10 @@ subfolders and comics, as they are on disk.
 
 ![Inside a folder: its comics](images/folders-inside.webp)
 
-#### Filter by type, size and date
+#### Filter by type, size, date and completed
 
-Press `F` on the Folders tab, or tap **Filter by type, size, date** under
-the search box, to show only some of your comics:
+Press `F` on the Folders tab, or tap **Filter by type, size, date,
+completed** under the search box, to show only some of your comics:
 
 - **Type**: CBZ, CBT, PDF, EPUB, image folder or single image. Only the
   types your library has are offered. Pick one or several; none picked
@@ -150,13 +151,18 @@ the search box, to show only some of your comics:
   folder of page images counts all its pages together.
 - **Modified**: the file's own date, as your file manager shows it: the
   last 24 hours, 7 days, 30 days or 12 months, or over a year ago.
+- **Completed**: **Completed or not** shows them all, **Completed only**
+  the comics you have [read to the end](#completed-comics), and **Not
+  completed** hides those, which leaves what is still to read.
 
 The covers behind the window update as you pick. From the keyboard,
 `Tab` moves between the choices and `Space` picks one; `Alt+C` is
 **Clear all**, and `Esc`, `Alt+D` or **Done** closes the window. The
-three combine, and they combine with the search too: PDFs from the last
+four combine, and they combine with the search too: PDFs from the last
 week with "love" in the title is `F`, PDF, Last 7 days, then `/` and
-`love`.
+`love`. To see only what you have not read yet: `F`, `Tab` to **Not
+completed**, `Space`, `Esc`. A comic you then mark completed leaves the
+tab at once.
 
 A subfolder with nothing that passes is hidden, and a folder's count is
 of the comics that pass. While a filter is on, the line under the search
@@ -229,6 +235,43 @@ offers, so it waits for the Undo to show.)
 
 ![The Favourites](images/favourites.webp)
 
+## Completed comics
+
+A comic you have read to the end is *completed*: its cover gets a green
+check, its details say **Completed**, a series and a folder count it as
+read, and the [Folders tab's
+filter](#filter-by-type-size-date-and-completed) can show only the
+completed ones or hide them.
+
+- **Reading does it.** Turn to the last page of a comic and it is marked
+  completed; the line at the bottom says so the first time. It stays
+  completed when you read it again from the start.
+- **`gC` does it by hand.** On a cover, or in a comic you are reading,
+  `gC` marks the comic completed, and pressed again marks it not
+  completed. Use it for a comic you read somewhere else, or to take the
+  mark off one you only leafed through to the end. The tick in a book's
+  details does the same. In a comic `gC` is about the comic you have
+  open, also over its page grid (`p`) or bookmark list (`M`).
+- In the library the notice has an **Undo** (`u`), both ways.
+- With comics [marked](#several-comics-at-once), `gC` or **Completed** in
+  the bar marks them all completed; when they all are, it marks them all
+  not completed.
+
+For example, to tick off a run of issues you read on paper: on the
+Folders tab go into their folder, press `Shift+End` to mark them all,
+then `gC`.
+
+Opening a comic that is already on its last page does not mark it, so a
+mark you took off stays off until you turn to the last page again. A
+comic of a single page is only marked by `gC`. Comics you had read to
+the end before ComicRedr knew of this count as completed for as long as
+they are left on their last page.
+
+The mark is kept [with the comic](11-your-data.md), so it follows it to
+your other devices; when two devices disagree, the later change wins,
+taking the mark off included.
+[Reset everything](07-managing-comics.md#reset-a-comic) forgets it.
+
 ## Collections
 
 A collection is a named group of books you make yourself: *To read
@@ -298,7 +341,7 @@ works on every tab of covers, and it is made for the Folders tab: walk
 into a folder, press `Shift+End`, and every comic in it is marked.
 
 - `Ctrl+A` marks every comic shown, so with a search or a
-  [filter](#filter-by-type-size-and-date) only those that match; press it
+  [filter](#filter-by-type-size-date-and-completed) only those that match; press it
   again to unmark them all.
 - `V` marks or unmarks the selected cover and moves on, so you can pick
   comics that are not next to each other. A plain arrow key moves
@@ -321,6 +364,7 @@ marked, with what you can do to all of them at once:
 |---|---|---|
 | **All** | `Ctrl+A` | Mark every comic shown, or unmark them |
 | **Favourite** | `*` | Put them all in your [Favourites](#favourites); **Unfavourite** when they all are |
+| **Completed** | `gC` | Mark them all [completed](#completed-comics); **Not completed** when they all are |
 | **Move** | `gm` | [Move them to another folder](#move-comics-to-another-folder) |
 | **Collection** | `gc` | Put them all in a [collection](#collections), new or one you have |
 | **Reset** | `X` | [Reset](07-managing-comics.md#reset-a-comic) them all: redo panels, or everything |

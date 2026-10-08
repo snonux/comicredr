@@ -414,6 +414,9 @@ flowchart LR
   with its panels, bookmarks, favourites and your position. Merging is
   per row: bookmarks are unioned by id with removals winning, metadata
   edits take the later edit per field, positions are kept per device.
+  Whether a comic is completed is one more dated row beside the metadata
+  edits (`overrides`, field `completed`), so the later change wins there
+  too, taking the mark off included.
 - **The comic file is never written.** Metadata edits live in the
   sidecar, since rewriting the comic would change its content key.
 - **A settings file** (Settings → Export settings, `SettingsFile` in

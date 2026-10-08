@@ -94,7 +94,9 @@ check() { # check "what" actual expected
 # chip N: in the filter window, the Nth chip from the first type (Tab N
 # times) toggled with Space. Chips: CBZ, Image folder, PDF, Single image
 # (0-3), Any size, Under 10, 10 to 50, 50 to 200, Over 200 MB (4-8), Any
-# time, 24 hours, 7 days, 30 days, 12 months, Over a year (9-14).
+# time, 24 hours, 7 days, 30 days, 12 months, Over a year (9-14),
+# Completed or not, Completed only, Not completed (15-17; tool/e2e_completed.sh
+# picks those).
 chip() { for _ in $(seq 1 "$1"); do xdotool key Tab; sleep 0.15; done; key space; }
 # first_in_golden_age: from the top of the Folders tab, into Comics, then
 # Golden Age (the first folder there), and reads the first comic in it.
@@ -140,11 +142,11 @@ check "the filter says so" "$(sql "select value like '%older%' from settings whe
 key l; key Return; shot 12_comics_older
 click 431 69; shot 13_x_clicked
 check "the x cleared the filter" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
-# The filter line's button opens the window; its Clear all (after the 15
+# The filter line's button opens the window; its Clear all (after the 18
 # chips) clears it.
 key shift+f; sleep 1; chip 14; key Escape
 click 150 69; sleep 1; shot 14_window_by_click
-chip 15; sleep 0.5; shot 15_clear_all; key Escape
+chip 18; sleep 0.5; shot 15_clear_all; key Escape
 check "Clear all cleared it" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
 stop
 

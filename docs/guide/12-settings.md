@@ -41,7 +41,7 @@ A few more choices are made while reading and remembered without a
 setting: [fullscreen](04-reading.md#fullscreen), the page grid's size,
 the [text size of the `?` list](09-keyboard.md#bigger-and-smaller-text),
 the night filter and auto-trim ([old scans](04-reading.md#old-scans-clean-up-trim-and-the-night-filter)),
-[shuffle](03-library.md#shuffle) and the [filter](03-library.md#filter-by-type-size-and-date)
+[shuffle](03-library.md#shuffle) and the [filter](03-library.md#filter-by-type-size-date-and-completed)
 in the Folders tab, and, for each comic,
 [two pages](04-reading.md#two-pages-side-by-side), the reading direction
 and [the turn](04-reading.md#turn-the-comic).

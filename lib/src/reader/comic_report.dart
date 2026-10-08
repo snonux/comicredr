@@ -176,6 +176,7 @@ class ReadingSummary {
     this.page,
     this.percent,
     this.finished = false,
+    this.completedMark,
     this.updatedAt,
     this.sittings = 0,
     this.time = Duration.zero,
@@ -189,6 +190,10 @@ class ReadingSummary {
   final int? page;
   final double? percent;
   final bool finished;
+
+  /// Marked completed or not completed by hand, null when nobody said: then
+  /// it goes by [finished] (LibraryBook.completed).
+  final bool? completedMark;
   final DateTime? updatedAt;
   final int sittings;
   final Duration time;
@@ -389,6 +394,7 @@ Future<ComicReport> readComicReport(WidgetRef ref, OpenBook book) async {
     page: progress?.page,
     percent: progress?.percent,
     finished: progress?.finished ?? false,
+    completedMark: await ref.read(libraryStoreProvider).completedMarkOf(key),
     updatedAt: progress?.updatedAt,
     sittings: log.length,
     time: log.fold(Duration.zero, (t, r) => t + r.endedAt.difference(r.startedAt)),

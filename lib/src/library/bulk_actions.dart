@@ -189,6 +189,48 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
   return true;
 }
 
+/// `gC` on a cover or with comics marked, Completed in the marks bar, or
+/// the tick in a comic's details: all of [books] marked completed, or,
+/// when every one counts as completed already, all marked not completed.
+/// The notice has an Undo (`u`) either way, which gives each comic back
+/// the mark it had (none, where it had none). Comics only on S3 are left
+/// out: they have no sidecar here for the mark to travel in. True when it
+/// went ahead.
+Future<bool> toggleCompleted(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
+  final todo = books.where((b) => !b.remoteOnly).toList();
+  if (todo.isEmpty) return false;
+  final messenger = ScaffoldMessenger.of(context);
+  final undoNotice = ref.read(undoNoticeProvider);
+  final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
+  final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
+  final on = !todo.every((b) => b.completed);
+  final changed = todo.where((b) => b.completed != on).toList();
+  try {
+    for (final b in changed) {
+      await store.setCompleted(b.key, on);
+    }
+  } catch (e) {
+    debugPrint('Could not change the completed mark: $e');
+    showNotice(messenger, 'Could not mark ${_named(todo)} as ${on ? '' : 'not '}completed', mustRead: true);
+    return false;
+  }
+  await _writeSidecars(sidecars, changed);
+  // With the undo key (u) as well as the button.
+  undoNotice.show(
+    messenger,
+    '${_named(changed)} marked as ${on ? '' : 'not '}completed',
+    label: undoLabel,
+    failed: 'Could not undo the completed mark of ${_named(changed)}',
+    undo: () async {
+      for (final b in changed) {
+        await store.setCompleted(b.key, b.completedMark);
+      }
+      await _writeSidecars(sidecars, changed);
+    },
+  );
+  return true;
+}
+
 /// `x` in an open collection, on the selected comic or the marked ones:
 /// every one of [books] that is in [collection] goes out of it, and a
 /// notice offers them back (Undo, `u`). True when it went ahead. A

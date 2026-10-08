@@ -29,6 +29,7 @@ class LibraryBook {
     this.page,
     this.percent,
     this.finished = false,
+    this.completedMark,
     this.readAt,
     this.collections = const [],
     this.fromFile = const {},
@@ -89,6 +90,7 @@ class LibraryBook {
         page: page,
         percent: percent,
         finished: finished,
+        completedMark: completedMark,
         readAt: readAt,
         collections: collections,
         fromFile: fromFile,
@@ -102,7 +104,18 @@ class LibraryBook {
   /// The saved page, null for a book never opened.
   final int? page;
   final double? percent;
+
+  /// The saved page is the last one. A fact of this device's position: it
+  /// is gone again when the comic is read from the start once more.
   final bool finished;
+
+  /// Marked completed by hand (`gC`, or by reaching the last page in the
+  /// reader), or marked not completed; null when nobody said.
+  final bool? completedMark;
+
+  /// Read to the end: as marked, and where nobody said, whether the saved
+  /// page is the last one (comics finished before there was a mark).
+  bool get completed => completedMark ?? finished;
   final DateTime? readAt;
 
   /// The hand-made collections the book is in, by name.
@@ -146,7 +159,10 @@ class LibraryBook {
 
   /// Opened at least once: a reading position is saved from the first open.
   bool get started => page != null;
-  bool get inProgress => started && !finished;
+
+  /// Begun and neither on its last page nor marked completed: what the
+  /// cover's progress line and Continue are for.
+  bool get inProgress => started && !finished && !completed;
 
   /// Every word of [query] appears in the name, title, creators, year or
   /// file name, ignoring case.
@@ -207,10 +223,10 @@ class LibrarySeries {
   final String name;
   final List<LibraryBook> books;
 
-  int get read => books.where((b) => b.finished).length;
+  int get read => books.where((b) => b.completed).length;
 
-  /// The book to go on with: the first unfinished one.
-  LibraryBook get next => books.firstWhere((b) => !b.finished, orElse: () => books.first);
+  /// The book to go on with: the first one not completed.
+  LibraryBook get next => books.firstWhere((b) => !b.completed, orElse: () => books.first);
 
   bool matches(String query) => books.any((b) => b.matches(query));
 
@@ -582,13 +598,22 @@ ORDER BY r.id, f.rel_path
     db.s3Books,
   }, books);
 
-  Future<List<LibraryBook>> books() async {
-    final rows = await db.customSelect(_booksSql).get();
+  /// What the overrides rows say, by content key: the hand edits in
+  /// effect, and the completed marks.
+  Future<(Map<String, Map<MetaField, String?>>, Map<String, bool?>)> _overrides() async {
     final edits = <String, Map<MetaField, String?>>{};
+    final marks = <String, bool?>{};
     for (final o in await db.select(db.overrides).get()) {
+      if (o.field == completedField) marks[o.contentKey] = completedMark(o.value);
       final active = activeEdits({o.field: o.value});
       if (active.isNotEmpty) edits.putIfAbsent(o.contentKey, () => {}).addAll(active);
     }
+    return (edits, marks);
+  }
+
+  Future<List<LibraryBook>> books() async {
+    final rows = await db.customSelect(_booksSql).get();
+    final (edits, marks) = await _overrides();
     // An edited series groups with the series of that name, made here when
     // the edit came in from another device's sidecar.
     final names = {
@@ -615,17 +640,24 @@ ORDER BY r.id, f.rel_path
     }
     final local = [
       for (final r in rows)
-        _book(r, edits[r.read<String>('content_key')] ?? const {}, ids, shelf, files[r.read<String>('content_key')]),
+        _book(
+          r,
+          edits[r.read<String>('content_key')] ?? const {},
+          ids,
+          shelf,
+          files[r.read<String>('content_key')],
+          marks[r.read<String>('content_key')],
+        ),
     ];
     return [
       ...local,
-      ...await _remoteOnly(shelf, {for (final b in local) b.key}),
+      ...await _remoteOnly(shelf, {for (final b in local) b.key}, marks),
     ];
   }
 
   /// The comics on S3 that are not on this device: shown where a download
   /// would put them, under the first library folder.
-  Future<List<LibraryBook>> _remoteOnly(Map<String, S3Book> shelf, Set<String> here) async {
+  Future<List<LibraryBook>> _remoteOnly(Map<String, S3Book> shelf, Set<String> here, Map<String, bool?> marks) async {
     final missing = shelf.values.where((r) => !here.contains(r.contentKey)).toList();
     if (missing.isEmpty) return const [];
     final root =
@@ -641,11 +673,16 @@ ORDER BY r.id, f.rel_path
     return [
       for (final r in missing)
         if (Manifest.decode(r.manifest) case final m?)
-          await _remoteBook(m, p.joinAll([root.path, ...m.relPath.split('/')]), progress[m.contentKey]),
+          await _remoteBook(
+            m,
+            p.joinAll([root.path, ...m.relPath.split('/')]),
+            progress[m.contentKey],
+            marks[m.contentKey],
+          ),
     ];
   }
 
-  Future<LibraryBook> _remoteBook(Manifest m, String path, ProgressData? pr) async {
+  Future<LibraryBook> _remoteBook(Manifest m, String path, ProgressData? pr, bool? completedMark) async {
     final series = m.series ?? m.title;
     return LibraryBook(
       key: m.contentKey,
@@ -662,6 +699,7 @@ ORDER BY r.id, f.rel_path
       page: pr?.page,
       percent: pr?.percent,
       finished: pr?.finished ?? false,
+      completedMark: completedMark,
       readAt: pr?.updatedAt,
       s3: S3Shelf(S3Mark.remote, uploadedBy: m.uploadedBy, uploadedAt: m.uploadedAt, size: m.size),
     );
@@ -679,6 +717,37 @@ ORDER BY r.id, f.rel_path
     }
   });
 
+  /// The completed mark of the book [contentKey] as set by hand: true,
+  /// false, or null when nobody said (see [LibraryBook.completed]).
+  Future<bool?> completedMarkOf(String contentKey) async {
+    final row = await (db.select(
+      db.overrides,
+    )..where((o) => o.contentKey.equals(contentKey) & o.field.equals(completedField))).getSingleOrNull();
+    return completedMark(row?.value);
+  }
+
+  /// Whether the book [contentKey] counts as completed: as marked, else
+  /// whether its saved page is the last one.
+  Future<bool> isCompleted(String contentKey) async {
+    if (await completedMarkOf(contentKey) case final mark?) return mark;
+    final at = await (db.select(db.progress)..where((r) => r.contentKey.equals(contentKey))).getSingleOrNull();
+    return at?.finished ?? false;
+  }
+
+  /// Marks the book [contentKey] completed or not completed, or with null
+  /// takes the mark's say away again (an undo). A dated overrides row, so
+  /// the later change wins when sidecars meet, taking the mark off
+  /// included; [at] is for tests.
+  Future<void> setCompleted(String contentKey, bool? on, {DateTime? at}) => db
+      .into(db.overrides)
+      .insertOnConflictUpdate(
+        OverridesCompanion.insert(
+          contentKey: contentKey,
+          field: completedField,
+          value: completedEdit(on, at: at ?? DateTime.now()).encode(),
+        ),
+      );
+
   /// The hand edits in effect for [contentKey], for the reader's title.
   Future<Map<MetaField, String?>> edits(String contentKey) async => activeEdits({
     for (final o in await (db.select(db.overrides)..where((o) => o.contentKey.equals(contentKey))).get())
@@ -691,6 +760,7 @@ ORDER BY r.id, f.rel_path
     Map<String, int> seriesIds, [
     Map<String, S3Book> shelf = const {},
     List<({String path, DateTime? modified})>? files,
+    bool? completedMark,
   ]) {
     List<String> list(String col) => r.readNullable<String>(col)?.split(', ') ?? const [];
     DateTime? time(String col) {
@@ -740,6 +810,7 @@ ORDER BY r.id, f.rel_path
       page: r.readNullable<int>('p_page'),
       percent: r.readNullable<double>('p_percent'),
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,
+      completedMark: completedMark,
       readAt: time('p_updated'),
       collections: [...collections]..sort(naturalCompare),
       s3: switch (shelf[r.read<String>('content_key')]) {

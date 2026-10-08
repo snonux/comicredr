@@ -85,6 +85,29 @@ Map<MetaField, String?> activeEdits(Map<String, String> overrides) => {
       if (MetaEdit.decode(value) case final e when !e.fromFile) f: e.value,
 };
 
+/// The `field` of the overrides row that says a comic was marked completed
+/// (read to the end) by hand, or marked not completed. Not a [MetaField]:
+/// it is no fact of the book and not in the edit form, so [activeEdits]
+/// leaves it out. It is an overrides row all the same because those have
+/// what the mark needs: keyed by content key, dated, the later one winning
+/// a sidecar merge ([mergeEdits]) and a settings import, so taking the mark
+/// off travels as putting it on does, and Reset everything forgets it.
+const completedField = 'completed';
+
+/// The completed mark as an overrides row holds it: true or false as set by
+/// hand, null to have no say again (the undo of a first mark), which leaves
+/// it to the reading position.
+MetaEdit completedEdit(bool? on, {required DateTime at}) =>
+    on == null ? MetaEdit.undo(at: at) : MetaEdit(on ? '1' : '0', at: at);
+
+/// What the overrides row [raw] of [completedField] says: completed, not
+/// completed, or null for no say (no row, or one undone).
+bool? completedMark(String? raw) {
+  if (raw == null) return null;
+  final e = MetaEdit.decode(raw);
+  return e.fromFile ? null : e.value == '1';
+}
+
 /// A people list as typed: comma-separated, trimmed, blanks dropped.
 List<String> splitPeople(String? s) =>
     s?.split(',').map((w) => w.trim()).where((w) => w.isNotEmpty).toList() ?? const [];

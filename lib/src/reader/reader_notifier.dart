@@ -48,6 +48,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
   DateTime Function() clock = DateTime.now;
 
   ProgressStore get _progress => ref.read(progressStoreProvider);
+
+  /// The book whose position was saved last and whether its last page was
+  /// on screen then, for [_noteLastPage].
+  ({String key, bool atEnd})? _lastPageSeen;
   SidecarSync get _sidecars => ref.read(sidecarSyncProvider);
 
   /// Zoom and scroll as the reader screen last reported them, saved with the
@@ -347,6 +351,43 @@ class ReaderNotifier extends Notifier<ReaderState> {
     }
   }
 
+  /// The last page of the book is on screen (the pair 2-3 of a three-page
+  /// book shows it), which is what the saved position calls finished.
+  bool get _onLastPage => (state.unit.isEmpty ? state.page : state.unit.last) >= state.pageCount - 1;
+
+  /// `gC`: marks the book completed, or not completed when it counts as
+  /// completed (marked so, or unmarked and on its last page). Dated, so the
+  /// later of two devices' changes wins when their sidecars meet.
+  Future<void> _toggleCompleted() async {
+    final book = state.book!;
+    final store = ref.read(libraryStoreProvider);
+    try {
+      final on = !(await store.completedMarkOf(book.key) ?? _onLastPage);
+      await store.setCompleted(book.key, on);
+      _sidecars.touch(book.key);
+      if (identical(state.book, book)) _notice(on ? 'Marked as completed' : 'Marked as not completed');
+    } catch (e) {
+      _notice('Could not change the completed mark: $e');
+    }
+  }
+
+  /// Marks [book] completed because reading just arrived on its last page,
+  /// unless it is marked so already: without the mark the comic would stop
+  /// counting as completed when it is read again from the start, and
+  /// another device would never hear of it (positions are per device, the
+  /// mark is not). Says so only when nothing else is on the status line.
+  Future<void> _completeAtEnd(OpenBook book) async {
+    final store = ref.read(libraryStoreProvider);
+    try {
+      if (await store.completedMarkOf(book.key) == true) return;
+      await store.setCompleted(book.key, true);
+      _sidecars.touch(book.key);
+      if (identical(state.book, book) && state.message == null) _notice('Last page: marked as completed');
+    } catch (e) {
+      debugPrint('Could not mark ${book.path} as completed: $e');
+    }
+  }
+
   /// `gc`: puts the open book in the collection [name] (picked or typed in
   /// the dialog app.dart shows) and marks its sidecar to be written, as `*`
   /// does. A collection it is in already is said so and left alone, row
@@ -405,6 +446,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _wake?.complete();
     _wake = null;
     _view = _restoreView = null;
+    _lastPageSeen = null; // The next open starts where it starts, arriving nowhere.
     state = ReaderState(
       mode: state.mode,
       guided: state.guided,
@@ -502,6 +544,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   void _saveProgress(OpenBook book) {
     if (_sitting case final s? when s.key == book.key) s.pages.addAll(state.unit);
+    _noteLastPage(book);
     // The panel and balloon as asked for, not as resolved: detection may not
     // have reached the page yet, and they resolve the same way on reopen.
     _progress.save(
@@ -523,6 +566,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
       lastShown: state.unit.isEmpty ? null : state.unit.last,
     );
     _sidecars.touch(book.key);
+  }
+
+  /// Marks [book] completed when its last page has just come on screen:
+  /// only on arriving there from another page of the same sitting, so not
+  /// by opening a comic left on its last page (taking the mark off there
+  /// sticks), and never a one-page comic, which is on its last page from
+  /// the start.
+  void _noteLastPage(OpenBook book) {
+    final atEnd = _onLastPage;
+    if (atEnd && _lastPageSeen?.key == book.key && _lastPageSeen?.atEnd == false) unawaited(_completeAtEnd(book));
+    _lastPageSeen = (key: book.key, atEnd: atEnd);
   }
 
   /// The reader screen's zoom and scroll changed; saved with the position.
@@ -1101,6 +1155,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         await _toggleBookmark();
       case ReaderIntent.toggleFavourite:
         await _toggleFavourite();
+      case ReaderIntent.toggleCompleted:
+        await _toggleCompleted();
       case ReaderIntent.nextBookmark:
         _stepBookmark(c.times);
       case ReaderIntent.prevBookmark:

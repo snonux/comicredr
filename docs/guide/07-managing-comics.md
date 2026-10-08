@@ -21,7 +21,8 @@ everything ComicRedr knows about it:
   a PDF it lists the images inside it.
 - **Metadata**: series, issue, title, year, writers, artists and summary,
   and where they came from.
-- **Reading**: how far you are, when you last read it, how long you have
+- **Reading**: how far you are, whether it is
+  [completed](03-library.md#completed-comics) and why, when you last read it, how long you have
   spent on it and in how many sittings, its bookmarks and collections.
 - **Panels and balloons**: how many pages guided view steps through panel
   by panel, which are shown whole and why, and how sure the detector was,
@@ -60,8 +61,9 @@ its details) to start over. You get two choices:
 - **Redo panels** forgets the panels and balloons found in this comic and
   finds them again. Useful if guided view goes wrong on a book.
 - **Reset everything** also forgets its bookmarks and marks, where you
-  are in it (on every device), your edits and its reading history. Its
-  collections stay.
+  are in it (on every device), whether it is
+  [completed](03-library.md#completed-comics), your edits and its reading
+  history. Its collections stay.
 
 With comics [marked in the library](03-library.md#several-comics-at-once),
 `X` (or **Reset** in the bar over the covers) asks once and resets every

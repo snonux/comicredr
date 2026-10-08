@@ -78,6 +78,7 @@ keep what you found and get the keys back, and then they size the text.
 | `11` `00` | Whole page in the split; leave the split | |
 | `mm` `M` | [Bookmark, bookmark list](06-bookmarks.md) | `M`: the Bookmarks tab |
 | `*` | [Favourite](03-library.md#favourites) this comic, also from the page grid or bookmark list | Favourite the selected cover, or the marked ones |
+| `gC` | Mark this comic [completed](03-library.md#completed-comics), or not completed, also from the page grid or bookmark list | The selected cover, or the marked ones |
 | `gc` | Put this comic in a [collection](03-library.md#collections), also from the page grid or bookmark list | The selected cover, or the marked ones |
 | `Shift`+arrows | As the arrows alone | [Mark a run of comics](03-library.md#several-comics-at-once) |
 | `Ctrl+A` | | Mark every comic shown |
@@ -106,7 +107,7 @@ them all. The buttons that had no key before have one now:
 | Key | Button |
 |---|---|
 | `g,` | The gear at the top of the library: [Settings](12-settings.md). It works in a comic too, and the comic keeps its page. |
-| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections), or `gA` a folder out of the library. It works wherever the notice shows, also over a comic you opened in the meantime or with the `?` help up, and only while it shows: the notice goes by itself after about ten seconds, or when another notice takes its place, and with no such notice `u` does nothing. |
+| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections), `gC` marked one [completed](03-library.md#completed-comics) or not, or `gA` took a folder out of the library. It works wherever the notice shows, also over a comic you opened in the meantime or with the `?` help up, and only while it shows: the notice goes by itself after about ten seconds, or when another notice takes its place, and with no such notice `u` does nothing. |
 | `x` | In an open collection: takes the selected comic out of it (the **x** on its chip in the details), or all the [marked](03-library.md#several-comics-at-once) ones. |
 | `gA` | **Take out of the library** in a library folder's details: select the folder at the top of the Folders tab first. Its comics stay on disk, and the notice has an **Undo** (`u`) that puts the folder back. |
 | `gD` | **Download** on a comic that is [only on S3](13-s3-sync.md#on-the-other-device), or on the marked ones. |
@@ -116,7 +117,7 @@ A few buttons are shortcuts to something the keys reach in two steps,
 and have no key of their own: the names along the top of the Folders
 tab (`Backspace` goes up a folder at a time), **Read** in a series'
 details (`Enter` shows its books, `Enter` on one reads it), the **x** on
-a part of the [filter](03-library.md#filter-by-type-size-and-date)
+a part of the [filter](03-library.md#filter-by-type-size-date-and-completed)
 (`F`, then pick it off there), and **Note** and **Remove** on a bookmark
 in a book's details (`e` and `x` on the Bookmarks tab). The tabs are
 `Tab` and `Shift+Tab`, covers and pages the arrows and `Enter`.

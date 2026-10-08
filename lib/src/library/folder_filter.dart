@@ -48,6 +48,24 @@ enum DateRange {
   }
 }
 
+/// Whether a comic is completed ([LibraryBook.completed]: marked so, or
+/// left on its last page), as the filter asks it.
+enum CompletedFilter {
+  any('Completed or not'),
+  only('Completed only'),
+  hide('Not completed');
+
+  const CompletedFilter(this.label);
+
+  final String label;
+
+  bool accepts(bool completed) => switch (this) {
+    any => true,
+    only => completed,
+    hide => !completed,
+  };
+}
+
 /// The name a comic's format goes by in the filter, from [LibraryBook.format].
 String formatLabel(String format) => switch (format) {
   'cbz' => 'CBZ',
@@ -60,25 +78,46 @@ String formatLabel(String format) => switch (format) {
 };
 
 /// The Folders tab's filter (`F`): the comics of some types, sizes and
-/// modification dates. Each part left at its default lets everything
-/// through; the parts combine, and with the search.
+/// modification dates, completed or not. Each part left at its default
+/// lets everything through; the parts combine, and with the search.
+///
+/// A new part is a field with a default that lets everything through, a
+/// line each in [isActive], [accepts], [copyWith], [encode], [decode], `==`
+/// and [hashCode], chips in the dialog and a part on the filter line. A
+/// saved filter without the part reads as its default, so older settings
+/// keep working.
 class FolderFilter {
-  const FolderFilter({this.formats = const {}, this.size = SizeRange.any, this.date = DateRange.any});
+  const FolderFilter({
+    this.formats = const {},
+    this.size = SizeRange.any,
+    this.date = DateRange.any,
+    this.completed = CompletedFilter.any,
+  });
 
   /// The formats shown, by [LibraryBook.format]; empty shows them all.
   final Set<String> formats;
   final SizeRange size;
   final DateRange date;
+  final CompletedFilter completed;
 
   static const none = FolderFilter();
 
-  bool get isActive => formats.isNotEmpty || size != SizeRange.any || date != DateRange.any;
+  bool get isActive =>
+      formats.isNotEmpty || size != SizeRange.any || date != DateRange.any || completed != CompletedFilter.any;
 
   bool accepts(LibraryBook b, DateTime now) =>
-      (formats.isEmpty || formats.contains(b.format)) && size.accepts(b.size) && date.accepts(b.modified, now);
+      (formats.isEmpty || formats.contains(b.format)) &&
+      size.accepts(b.size) &&
+      date.accepts(b.modified, now) &&
+      completed.accepts(b.completed);
 
-  FolderFilter copyWith({Set<String>? formats, SizeRange? size, DateRange? date}) =>
-      FolderFilter(formats: formats ?? this.formats, size: size ?? this.size, date: date ?? this.date);
+  FolderFilter copyWith({Set<String>? formats, SizeRange? size, DateRange? date, CompletedFilter? completed}) =>
+      FolderFilter(
+        formats: formats ?? this.formats,
+        size: size ?? this.size,
+        date: date ?? this.date,
+        completed: completed ?? this.completed,
+      );
 
   /// [format] shown or not, the others as they are.
   FolderFilter toggle(String format) {
@@ -87,9 +126,16 @@ class FolderFilter {
     return copyWith(formats: next);
   }
 
-  /// For the setting: null when nothing is filtered.
-  String? encode() =>
-      isActive ? jsonEncode({'formats': (formats.toList()..sort()), 'size': size.name, 'date': date.name}) : null;
+  /// For the setting: null when nothing is filtered. `completed` is left
+  /// out at its default, so a filter without it is saved as it always was.
+  String? encode() => isActive
+      ? jsonEncode({
+          'formats': (formats.toList()..sort()),
+          'size': size.name,
+          'date': date.name,
+          if (completed != CompletedFilter.any) 'completed': completed.name,
+        })
+      : null;
 
   /// A saved filter; anything unreadable in it counts as not filtered.
   static FolderFilter decode(String? text) {
@@ -104,6 +150,8 @@ class FolderFilter {
         },
         size: SizeRange.values.asNameMap()[j['size']] ?? SizeRange.any,
         date: DateRange.values.asNameMap()[j['date']] ?? DateRange.any,
+        // Not in a filter saved before comics could be completed.
+        completed: CompletedFilter.values.asNameMap()[j['completed']] ?? CompletedFilter.any,
       );
     } on FormatException {
       return none;
@@ -115,9 +163,10 @@ class FolderFilter {
       other is FolderFilter &&
       other.size == size &&
       other.date == date &&
+      other.completed == completed &&
       other.formats.length == formats.length &&
       other.formats.containsAll(formats);
 
   @override
-  int get hashCode => Object.hash(size, date, Object.hashAllUnordered(formats));
+  int get hashCode => Object.hash(size, date, completed, Object.hashAllUnordered(formats));
 }

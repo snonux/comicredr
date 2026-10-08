@@ -85,7 +85,7 @@ class SettingsStore {
   /// covers. Off by default.
   static const shuffle = 'library.shuffle';
 
-  /// The Folders tab's filter by type, size and date (`F`), a
+  /// The Folders tab's filter by type, size, date and completed (`F`), a
   /// FolderFilter's JSON; unset when nothing is filtered.
   static const folderFilter = 'library.folderFilter';
 

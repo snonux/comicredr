@@ -34,11 +34,12 @@ come back here for a key you forgot.
    - [Bigger and smaller covers](03-library.md#bigger-and-smaller-covers)
    - [The tabs](03-library.md#the-tabs): [series](03-library.md#series),
      [folders](03-library.md#folders),
-     [filter by type, size and date](03-library.md#filter-by-type-size-and-date),
+     [filter by type, size, date and completed](03-library.md#filter-by-type-size-date-and-completed),
      [history](03-library.md#history)
    - [Search](03-library.md#search)
    - [Shuffle](03-library.md#shuffle)
    - [Favourites](03-library.md#favourites)
+   - [Completed comics](03-library.md#completed-comics)
    - [Collections](03-library.md#collections)
    - [Several comics at once](03-library.md#several-comics-at-once)
      - [Move comics to another folder](03-library.md#move-comics-to-another-folder)

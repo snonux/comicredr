@@ -45,6 +45,11 @@ ComicRedr remembers where you are in every comic: the page, the panel in
 guided view, and how far you had zoomed in. Open the comic again, even
 after renaming or copying the file, and you are right back there.
 
+Turning to the last page marks the comic
+[completed](03-library.md#completed-comics): its cover in the library
+gets a green check. `gC` takes the mark off again, or puts it on a comic
+you are not going to read to the end here.
+
 ## Back to the first page
 
 `Home` (or `gg`, two quick presses of `g`) takes you straight to page 1
@@ -98,6 +103,7 @@ bigger or smaller, `=` puts the size back, and the grid remembers it. `Esc` or `
 Leafing through a comic in the grid and it turns out to be a keeper? `*`
 makes it a [favourite](03-library.md#favourites) and `gc` puts it in a
 [collection](03-library.md#collections) right there; the grid stays open.
+`gC` marks it [completed](03-library.md#completed-comics) the same way.
 
 ![The page grid](images/pages.webp)
 

@@ -85,6 +85,9 @@ enum ReaderIntent {
     'Add this comic to the Favourites collection, or take it out; the selected book in the library, or every marked one',
   ),
   showFavourites('The Favourites collection in the library'),
+  toggleCompleted(
+    'Mark this comic completed (read to the end), or take the mark off; the selected book in the library, or every marked one',
+  ),
   remove('Remove the selected bookmark in a bookmark list; take the selected comic out of the Favourites'),
   setMark('Set mark a-z'),
   jumpMark('Jump to mark a-z'),
@@ -108,7 +111,7 @@ enum ReaderIntent {
     "Shuffle in the library's tabs of covers: each comic, series and folder shows a random page instead of its cover, on and off",
   ),
   reshuffle('Pick other random pages for shuffle in the library'),
-  filterFolders("Filter the library's Folders tab by type, size and modification date"),
+  filterFolders("Filter the library's Folders tab by type, size, modification date and completed or not"),
   resetBook(
     'Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one',
   ),

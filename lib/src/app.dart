@@ -646,7 +646,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (scope != null) await ref.read(readerProvider.notifier).reset(scope);
   }
 
-  /// `*` and `gc` with a comic open; true when [c] was one of them. They
+  /// `*`, `gC` and `gc` with a comic open; true when [c] was one of them. They
   /// are about the open comic, not the page under the cursor, so they also
   /// work over the page grid and the bookmark list, which would otherwise
   /// swallow them; both stay up. With no comic open they are left to the
@@ -655,7 +655,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final book = ref.read(readerProvider).book;
     if (book == null) return false;
     switch (c.intent) {
-      case ReaderIntent.toggleFavourite:
+      case ReaderIntent.toggleFavourite || ReaderIntent.toggleCompleted:
         unawaited(ref.read(readerProvider.notifier).handle(c));
       case ReaderIntent.addToCollection:
         unawaited(_collect(book));

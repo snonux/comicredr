@@ -76,7 +76,7 @@ class HistoryPane extends ConsumerWidget {
             '${_two(e.startedAt.hour)}:${_two(e.startedAt.minute)} · ${_length(e.duration)} · '
             '${e.pages} page${e.pages == 1 ? '' : 's'}',
           ),
-          trailing: b.finished
+          trailing: b.completed
               ? const Icon(Icons.check_circle, color: Colors.greenAccent)
               : b.inProgress
               ? Text('${((b.percent ?? 0) * 100).round()}%')
@@ -144,7 +144,7 @@ class SeriesDetail extends ConsumerWidget {
     contentPadding: EdgeInsets.zero,
     title: Text(b.name),
     subtitle: b.subtitle == null ? null : Text(b.subtitle!),
-    trailing: b.finished
+    trailing: b.completed
         ? const Icon(Icons.check_circle, color: Colors.greenAccent)
         : b.inProgress
         ? Text('${((b.percent ?? 0) * 100).round()}%')
@@ -155,7 +155,7 @@ class SeriesDetail extends ConsumerWidget {
 
 /// `12 books · 3 read` for a folder's cover.
 String folderCount(LibraryFolder folder) {
-  final read = folder.books.where((b) => b.finished).length;
+  final read = folder.books.where((b) => b.completed).length;
   return '${folder.books.length} ${folder.books.length == 1 ? 'book' : 'books'}${read > 0 ? ' · $read read' : ''}';
 }
 

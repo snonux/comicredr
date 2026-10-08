@@ -19,7 +19,8 @@ inside a folder book. It holds:
 - your bookmarks, notes and marks;
 - your [edits](07-managing-comics.md#fix-a-title-or-series) to its title
   and series;
-- the collections it is in, Favourites included.
+- the collections it is in, Favourites included;
+- whether it is [completed](03-library.md#completed-comics).
 
 Because it sits beside the comic, it goes wherever the comic goes: copy
 both to the phone or another laptop and everything is there. ComicRedr
@@ -79,8 +80,8 @@ that is not a comic in one file, `comicredr-settings-2026-09-26.json`:
 - your library folders and where the sidecars are kept;
 - your `keys.toml`, if you have one;
 - for every comic, where you are, your bookmarks, notes and marks, the
-  collections and Favourites, your edits to titles and series, and the
-  reading history.
+  collections and Favourites, which comics are completed, your edits to
+  titles and series, and the reading history.
 
 **Import settings…** reads such a file back, shows what it holds and
 asks before it changes anything. Everything shows at once: the settings,

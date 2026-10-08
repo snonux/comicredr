@@ -398,6 +398,11 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
             ? 'Not started'
             : 'Page ${g.page! + 1} of $pages (${((g.percent ?? 0) * 100).round()}%)',
       ),
+      _row('Completed', switch (g.completedMark) {
+        true => 'Yes, marked completed',
+        false => 'No, marked not completed',
+        null => g.finished ? 'Yes, left on its last page' : 'No',
+      }),
       if (g.updatedAt != null) _row('Last read', _date(g.updatedAt!)),
       if (g.sittings > 0)
         _row(

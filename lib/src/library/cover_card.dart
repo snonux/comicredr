@@ -210,8 +210,13 @@ class CoverCard extends StatelessWidget {
                           shadows: [Shadow(blurRadius: 3)],
                         ),
                       ),
-                    if (onlyBook != null && onlyBook.finished)
-                      const Positioned(right: 6, top: 6, child: Icon(Icons.check_circle, color: Colors.greenAccent)),
+                    // Completed: marked so, or left on its last page.
+                    if (onlyBook != null && onlyBook.completed)
+                      const Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Icon(Icons.check_circle, key: Key('completedBadge'), color: Colors.greenAccent),
+                      ),
                     if (onlyBook?.s3 != null) Positioned(right: 6, bottom: 8, child: S3Badge(book: onlyBook!)),
                     if (marked)
                       Positioned.fill(

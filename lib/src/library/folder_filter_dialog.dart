@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../hotkeys.dart';
 import 'folder_filter.dart';
 
-/// `F`, or the filter button on the Folders tab: the type, size and date
-/// filter. Each change applies at once, so the covers behind it follow;
+/// `F`, or the filter button on the Folders tab: the type, size, date and
+/// completed filter. Each change applies at once, so the covers behind it follow;
 /// Tab and Space work the chips, Esc or Done closes it.
 Future<void> showFolderFilter(
   BuildContext context, {
@@ -86,6 +86,16 @@ class _FolderFilterDialogState extends State<_FolderFilterDialog> {
                       label: Text(d.label),
                       selected: _filter.date == d,
                       onSelected: (_) => _set(_filter.copyWith(date: d)),
+                    ),
+                ]),
+                heading('Completed (marked so, or left on the last page)'),
+                _chips([
+                  for (final c in CompletedFilter.values)
+                    ChoiceChip(
+                      key: Key('filterCompleted-${c.name}'),
+                      label: Text(c.label),
+                      selected: _filter.completed == c,
+                      onSelected: (_) => _set(_filter.copyWith(completed: c)),
                     ),
                 ]),
               ],

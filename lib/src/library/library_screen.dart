@@ -145,8 +145,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   int _seed = 0;
   final _random = math.Random();
 
-  /// The Folders tab's filter by type, size and date (`F`), kept across
-  /// restarts.
+  /// The Folders tab's filter by type, size, date and completed (`F`), kept
+  /// across restarts.
   FolderFilter _filter = FolderFilter.none;
 
   /// How wide a cover aims to be, in logical pixels: the cover grids' zoom
@@ -620,9 +620,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     return true;
   }
 
-  /// The keys task 263 gave to buttons that had none, and `x` in an open
-  /// collection: true when [c] was one of them. (`u`, the notice's Undo,
-  /// is HomeScreen's: it works over an open comic too.)
+  /// The keys task 263 gave to buttons that had none, `gC` (completed) and
+  /// `x` in an open collection: true when [c] was one of them. (`u`, the
+  /// notice's Undo, is HomeScreen's: it works over an open comic too.)
   bool _buttonKeys(ReaderCommand c, List<LibraryBook> marked) {
     switch (c.intent) {
       case ReaderIntent.remove when _openCollection != null && (marked.isNotEmpty || !_favourites):
@@ -634,6 +634,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         } else if (_selectedItem case BookItem(:final book)) {
           unawaited(_takeOutOfCollection(book, collection));
         }
+      case ReaderIntent.toggleCompleted:
+        // The marked comics, else the selected one; the marks go after.
+        final books = _markedOrSelected(marked);
+        if (books.isNotEmpty) unawaited(_bulk(() => toggleCompleted(context, ref, books)));
       case ReaderIntent.downloadFromS3:
         final books = _actOn().where((b) => b.remoteOnly).toList();
         if (books.isNotEmpty) unawaited(_s3Action(() => downloadBooks(context, ref, books)));
@@ -1127,36 +1131,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
             ),
             const SizedBox(width: 4),
             button('marksAll', Icons.select_all, 'All', ReaderIntent.markAll, _markAll),
-            if (local.isNotEmpty) ...[
-              button(
-                'marksFavourite',
-                local.every((b) => b.favourite) ? Icons.star : Icons.star_outline,
-                local.every((b) => b.favourite) ? 'Unfavourite' : 'Favourite',
-                ReaderIntent.toggleFavourite,
-                () => _bulk(() => toggleFavourites(context, ref, marked)),
-              ),
-              button(
-                'marksMove',
-                Icons.drive_file_move_outline,
-                'Move',
-                ReaderIntent.moveBooks,
-                () => _bulk(() => _moveBooks(local)),
-              ),
-              button(
-                'marksCollection',
-                Icons.label_outline,
-                'Collection',
-                ReaderIntent.addToCollection,
-                () => _bulk(() => addBooksToCollection(context, ref, marked)),
-              ),
-              button(
-                'marksReset',
-                Icons.restart_alt,
-                'Reset',
-                ReaderIntent.resetBook,
-                () => _bulk(() => resetBooks(context, ref, marked)),
-              ),
-            ],
+            if (local.isNotEmpty) ..._marksLocalButtons(marked, local, button),
             if (marked.isNotEmpty)
               button(
                 'marksDelete',
@@ -1176,6 +1151,50 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       ),
     );
   }
+
+  /// The marks bar's buttons for the marked comics on this device ([local],
+  /// of all the [marked]): favourite, completed, move, collection, reset.
+  List<Widget> _marksLocalButtons(
+    List<LibraryBook> marked,
+    List<LibraryBook> local,
+    Widget Function(String key, IconData icon, String label, ReaderIntent intent, VoidCallback onPressed) button,
+  ) => [
+    button(
+      'marksFavourite',
+      local.every((b) => b.favourite) ? Icons.star : Icons.star_outline,
+      local.every((b) => b.favourite) ? 'Unfavourite' : 'Favourite',
+      ReaderIntent.toggleFavourite,
+      () => _bulk(() => toggleFavourites(context, ref, marked)),
+    ),
+    button(
+      'marksCompleted',
+      local.every((b) => b.completed) ? Icons.check_circle : Icons.check_circle_outline,
+      local.every((b) => b.completed) ? 'Not completed' : 'Completed',
+      ReaderIntent.toggleCompleted,
+      () => _bulk(() => toggleCompleted(context, ref, marked)),
+    ),
+    button(
+      'marksMove',
+      Icons.drive_file_move_outline,
+      'Move',
+      ReaderIntent.moveBooks,
+      () => _bulk(() => _moveBooks(local)),
+    ),
+    button(
+      'marksCollection',
+      Icons.label_outline,
+      'Collection',
+      ReaderIntent.addToCollection,
+      () => _bulk(() => addBooksToCollection(context, ref, marked)),
+    ),
+    button(
+      'marksReset',
+      Icons.restart_alt,
+      'Reset',
+      ReaderIntent.resetBook,
+      () => _bulk(() => resetBooks(context, ref, marked)),
+    ),
+  ];
 
   /// The marks bar's S3 buttons, each only while a marked comic can take it.
   List<Widget> _marksS3Buttons(
@@ -1233,6 +1252,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           if (f.size != SizeRange.any) _filterPart('filterBarSize', f.size.label, f.copyWith(size: SizeRange.any)),
           if (f.date != DateRange.any)
             _filterPart('filterBarDate', 'Modified: ${f.date.label.toLowerCase()}', f.copyWith(date: DateRange.any)),
+          if (f.completed != CompletedFilter.any)
+            _filterPart('filterBarCompleted', f.completed.label, f.copyWith(completed: CompletedFilter.any)),
           if (f.isActive)
             Tooltip(
               message: _tip('By key: Clear all in the filter', ReaderIntent.filterFolders),
@@ -1257,7 +1278,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// The filter line's button. Its tooltip names the key also while the
   /// label says what is filtered.
   Widget _filterButton(FolderFilter f) {
-    final named = _tip('Filter by type, size, date', ReaderIntent.filterFolders);
+    final named = _tip('Filter by type, size, date, completed', ReaderIntent.filterFolders);
     return Tooltip(
       message: named,
       child: TextButton.icon(
@@ -1335,7 +1356,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       case LibraryTab.reading:
         final started = books.where((b) => b.started && b.matches(q)).toList()
           ..sort((a, b) {
-            if (a.finished != b.finished) return a.finished ? 1 : -1;
+            if (a.completed != b.completed) return a.completed ? 1 : -1;
             return (b.readAt ?? DateTime(0)).compareTo(a.readAt ?? DateTime(0));
           });
         return [for (final b in started) BookItem(b)];
