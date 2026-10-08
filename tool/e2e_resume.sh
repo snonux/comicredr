@@ -68,7 +68,7 @@ failed=0
 # Guided view on page 3, a few panels in, then closed a moment after the
 # last step, before the debounced save: only the save on exit keeps it.
 start
-key 3 shift+g; key v; sleep 3
+key shift+g 3 Return; key v; sleep 3
 key l l;             shot guided_before
 key h; sleep 1; xdotool key l; sleep 0.2
 close_gracefully
@@ -83,7 +83,7 @@ start;               shot balloon_after
 same balloon
 
 # A zoomed, scrolled spread outside guided view.
-key v; key d; key 5 shift+g; key plus plus; key j j
+key v; key d; key shift+g 5 Return; key plus plus; key j j
 shot spread_before
 close_gracefully
 start;               shot spread_after

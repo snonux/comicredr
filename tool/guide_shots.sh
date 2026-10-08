@@ -223,7 +223,7 @@ guided)
   open "all top"
   page 5
   rec guided 16; key v; sleep 2; for _ in 1 2 3 4 5 6 7 8; do KS=1.5 key l; done; gif guided
-  key 5 shift+g; sleep 1; key v; sleep 1; key v; sleep 2; key l; key l; sleep 1; still guided
+  key shift+g 5 Return; sleep 1; key v; sleep 1; key v; sleep 2; key l; key l; sleep 1; still guided
   key v; page 5; key v; sleep 1
   rec balloons 16; key b; sleep 2; for _ in 1 2 3 4 5 6 7 8; do KS=1.5 key l; done; gif balloons
   key l; sleep 1.5; still balloon
@@ -283,7 +283,7 @@ bookmarks)
   open "all top"
   page 9; key m m; sleep 1.5; still bookmark-ribbon
   page 14; key v; sleep 2; key l; key l; key m m; key v
-  key 2 0 shift+g; key m m
+  key shift+g 2 0 Return; key m m
   key shift+m; sleep 2; key j; key e; typ "The chase starts"; key Return; sleep 1; still bookmark-list
   key Escape; key Escape; clear_search
   key shift+m; sleep 2; still bookmarks-tab

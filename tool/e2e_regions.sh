@@ -109,7 +109,7 @@ black() {
 }
 
 start
-key 1 shift+g;       shot ref_first
+key shift+g 1 Return;       shot ref_first
 key "$page" shift+g; shot ref_a
 key l;               shot ref_b
 key "$page" shift+g
