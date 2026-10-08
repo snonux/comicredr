@@ -59,6 +59,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   bool? _pauseWhole;
   double? _pauseSeconds;
   bool? _cleanUp;
+  bool? _continueAtStart;
   bool? _sidecars;
   String? _sidecarDir;
   bool _moving = false;
@@ -77,6 +78,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     final pause = await settings.loadBool(SettingsStore.pauseWhole);
     final seconds = SettingsStore.parseSeconds(await settings.loadString(SettingsStore.pauseSeconds));
     final cleanUp = await settings.loadBool(SettingsStore.cleanUp);
+    final continueAtStart = await settings.loadBool(SettingsStore.continueAtStart);
     final sidecars = await settings.loadBool(SettingsStore.writeSidecars);
     final sidecarDir = await settings.loadString(SettingsStore.sidecarDir);
     final detector = await ref.read(panelDetectorProvider.future);
@@ -87,6 +89,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       _pauseWhole = pause ?? true;
       _pauseSeconds = seconds ?? const ReaderState().pauseSeconds;
       _cleanUp = cleanUp ?? false;
+      _continueAtStart = continueAtStart ?? true;
       _sidecars = sidecars ?? true;
       _sidecarDir = sidecarDir;
       _s3 = s3;
@@ -235,10 +238,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
                     children: [
                       ..._pagesPart(context, theme),
                       ..._guidedPart(context, theme),
-                      if (widget.covers case final covers?) ...[
-                        _heading(theme, 'Library'),
-                        _CoverSizePicker(covers: covers),
-                      ],
+                      ..._libraryPart(theme),
                       ..._sidecarsPart(context, theme),
                       ..._sidecarPlacePart(context, theme),
                       ..._touchAndHistoryPart(context, theme),
@@ -269,6 +269,23 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
     padding: const EdgeInsets.fromLTRB(0, 16, 0, 4),
     child: Text(text, style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary)),
   );
+
+  /// Whether the comic read last opens at start, and the cover size (only
+  /// with the library behind the dialog). Between Guided view and Sidecars,
+  /// so what the e2e scripts click above it, counted from the top, has not
+  /// moved.
+  List<Widget> _libraryPart(ThemeData theme) => [
+    _heading(theme, 'Library'),
+    SwitchListTile(
+      key: const Key('setting-continueAtStart'),
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Open the comic read last when ComicRedr starts'),
+      subtitle: const Text('At the page where you left it, as C does. A comic you open ComicRedr with opens instead.'),
+      value: _continueAtStart!,
+      onChanged: (v) => _set(SettingsStore.continueAtStart, v),
+    ),
+    if (widget.covers case final covers?) _CoverSizePicker(covers: covers),
+  ];
 
   /// Clean up and the scroll pickers.
   List<Widget> _pagesPart(BuildContext context, ThemeData theme) => [

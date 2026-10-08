@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # End-to-end check of Continue (`C` and the library's Continue button) on the
 # Linux release build, under Openbox in Xvfb: a comic read to page 3 and
-# closed with the app comes back on page 3 with C after a restart; from
+# closed with the app comes back on page 3 by itself at the next start, and
+# with C in the library; from
 # inside another comic C goes to the one before and back; the button, tapped
-# with an injected GTK touch, does the same after a restart; guided view and
-# the page come back too; a comic moved within the library is found by its
-# content, one deleted gets a notice and C again goes on to the one before.
+# with an injected GTK touch, does the same after a restart with Settings'
+# switch for the start turned off (set in the index); guided view and the
+# page come back too; a comic moved within the library is found by its
+# content, by C and by the start; one deleted gets a notice at start and C
+# goes on to the one before.
 #
 #   tool/e2e_continue.sh
 #
@@ -118,11 +121,15 @@ stop
 recent=$(sqlite3 "$db" "select value from settings where key = 'reader.recent'")
 [[ $recent == *"Amber 1.cbz"* ]] && ok "the index keeps Amber as the comic read last" || fail "no recent comic in the index: $recent"
 
-echo "== a restart, C in the library"
+echo "== a restart opens Amber by itself; C in the library"
 start
-shot 04_library
+expect 04_start_amber_p3 $amber3 "a restart opens Amber on page 3 by itself"
+key Escape
+sleep 1
+shot 04b_library
+shows 04b_library $amber3 && fail "Esc did not leave Amber" || ok "Esc leaves Amber for the library"
 key C
-expect 05_c_amber_p3 $amber3 "C after a restart: Amber on page 3"
+expect 05_c_amber_p3 $amber3 "C in the library: Amber on page 3"
 
 echo "== Blue from inside Amber, then C back and forth"
 key bracketright
@@ -139,9 +146,12 @@ key v
 sleep 1
 stop
 
-echo "== a restart, the library's Continue button tapped"
+echo "== the start's Continue turned off; a restart, the library's Continue button tapped"
+sqlite3 "$db" "insert or replace into settings (key, value) values ('library.continueAtStart', 'false')"
 start
 shot 09_library_button
+shows 09_library_button $blue2 && fail "Blue opened at start with the setting off" ||
+  ok "with Settings' switch off the app starts in the library"
 # Where the Continue button is, is read off a shot of the window (the
 # view's own coordinates, below Openbox's title bar): the header's buttons
 # are the pictures 14 to 28 px wide in its row, 40 px apart, and Continue is
@@ -183,16 +193,25 @@ key Escape
 sleep 1
 stop
 
+echo "== the start's Continue on again: it finds Blue moved too"
+mkdir -p "$comics/Moved again"
+mv "$comics/Moved/Blue 1.cbz" "$comics/Moved again/"
+sqlite3 "$db" "delete from settings where key = 'library.continueAtStart'"
+start
+expect 11b_start_moved_blue $blue2 "the start opens Blue in its new folder, on page 2"
+key Escape
+key Escape
+sleep 1
+stop
+
 echo "== Blue deleted"
-rm "$comics/Moved/Blue 1.cbz"
+rm "$comics/Moved again/Blue 1.cbz"
 start
 sleep 2
-key C
-sleep 1
 shot 12_gone_notice
-shows 12_gone_notice $blue2 && fail "C opened a deleted comic" || ok "C with Blue deleted opens nothing"
+shows 12_gone_notice $blue2 && fail "the start opened a deleted comic" || ok "with Blue deleted the start opens nothing"
 key C
-expect 13_then_amber $amber3 "C again: Amber on page 3"
+expect 13_then_amber $amber3 "C then: Amber on page 3"
 stop
 
 montage -label '%t' "$out"/[01][0-9]_*.png -tile 4x -geometry 400x250+6+6 -background '#222' -fill white \

@@ -604,6 +604,14 @@ refreshes right away instead of within six hours.
   comic; the position comes back as on any open. A missing path is looked
   up by content key in the library (a moved comic); failing that, a
   notice and the entry is dropped.
+  At start (t873, `HomeScreen._continueAtStart`, from `_start` before the
+  scan) the same opens the comic read last, unless the setting
+  `library.continueAtStart` (Settings → Library, in `backedUp`) is false,
+  or the command line named a comic or folder (that opens instead) or an
+  `--add-root`: a start that adds a library folder stays in the library,
+  which is what every e2e script that passes `--add-root` expects. With
+  nothing read it says nothing. The e2e scripts that start the app with no
+  arguments after a comic was read get that comic.
 - Touch: `ReaderTouch` looks every gesture up in a `TouchMap`
   (`reader_input` touch_map.dart): taps, double-taps and long presses on a
   3x3 grid (30% side columns, rows in thirds), four swipes and a

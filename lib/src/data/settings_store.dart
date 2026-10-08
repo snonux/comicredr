@@ -112,6 +112,11 @@ class SettingsStore {
   static const s3AccessKey = 's3.accessKey';
   static const s3Keys = [s3Endpoint, s3Region, s3Bucket, s3Prefix, s3AccessKey];
 
+  /// Open the comic read last when the app starts, as `C` does (t873).
+  /// On unless set to false. A preference, not a path, so a settings file
+  /// carries it.
+  static const continueAtStart = 'library.continueAtStart';
+
   /// The comics opened last, newest first, for `C` (RecentBooks). Paths on
   /// this device, so a settings file leaves them out.
   static const recentBooks = 'reader.recent';
@@ -137,6 +142,7 @@ class SettingsStore {
     helpTextSize: false,
     shuffle: true,
     folderFilter: false,
+    continueAtStart: true,
     touchPreset: false,
     scrollSpeed: false,
     scrollSmoothness: false,

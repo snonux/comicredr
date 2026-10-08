@@ -73,12 +73,17 @@ isn't in it yet.
 
 ### Carry on where you stopped: `C`
 
-`C` opens the comic you read last, on the page you left it at, even after
-the app was closed: start ComicRedr and press `C`, and you are back on
-that page, in guided view on the same panel if that is how you were
-reading. The library's header shows the same thing as a button, a round
-play arrow whose tooltip names the comic, for touch and the mouse (on a
-phone, on the Reading tab).
+ComicRedr opens the comic you read last when it starts, on the page you
+left it at, in guided view on the same panel if that is how you were
+reading. Opened with a comic (from your file manager, or
+`comicredr book.cbz`), it opens that one instead. **Settings → Library →
+Open the comic read last when ComicRedr starts** turns this off, and then
+it starts in the library.
+
+`C` does the same at any time: in the library it opens the comic you read
+last, on the page you left it at. The library's header shows the same
+thing as a button, a round play arrow whose tooltip names the comic, for
+touch and the mouse (on a phone, on the Reading tab).
 
 Inside a comic, `C` opens the one you read before it, so it takes you back
 and forth between two comics. A comic you moved to another folder of the

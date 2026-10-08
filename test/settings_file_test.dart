@@ -62,6 +62,7 @@ void main() {
     SettingsStore.helpTextSize: '1.5',
     SettingsStore.shuffle: true,
     SettingsStore.folderFilter: '{"formats":["pdf"],"size":"any","date":"week"}',
+    SettingsStore.continueAtStart: false,
     SettingsStore.touchPreset: 'oneThumb',
     SettingsStore.scrollSpeed: 'fastest',
     SettingsStore.scrollSmoothness: 'crisp',
@@ -170,7 +171,7 @@ void main() {
     expect(done.books, {'a', 'b'});
     expect(
       importNotice(done),
-      'Imported 22 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
+      'Imported 23 settings, 2 library folders, keys.toml, 2 positions, 2 bookmarks, 1 collection entry, 2 edits '
       'and 2 history entries.',
     );
 
@@ -380,7 +381,7 @@ void main() {
     expect([for (final r in await LibraryStore(to).roots()) p.basename(r.path)], ['Comics']);
     expect(done.foldersMissing, [p.join(tmp.path, 'Manga')]);
     expect(done.sidecarDirMissing, here);
-    expect(done.settings, 21);
+    expect(done.settings, 22);
     expect(importNotice(done), contains('1 library folder not on this device: ${p.join(tmp.path, 'Manga')}.'));
     expect(importNotice(done), contains("The sidecar folder $here is not on this device; kept this one's."));
   });

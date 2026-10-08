@@ -14,6 +14,7 @@ import 'package:reader_input/reader_input.dart';
 import 'android_storage.dart';
 import 'data/s3_sync.dart';
 import 'data/settings_file.dart';
+import 'data/settings_store.dart';
 import 'help_zoom.dart';
 import 'hotkeys.dart';
 import 'input/keys_file.dart';
@@ -266,6 +267,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       } catch (e) {
         debugPrint('Could not open $path: $e');
       }
+    } else if (widget.addRoots.isEmpty) {
+      await _continueAtStart();
     }
     if (!mounted) return;
     await _rescan();
@@ -834,13 +837,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// From inside a comic, the one read before it, so `C` goes back and
   /// forth between two. A comic that is gone gets a notice and is dropped,
   /// so `C` again tries the one before it.
-  Future<void> _continueReading() async {
+  ///
+  /// [atStart] is the start's own call: with no comic read yet it says
+  /// nothing, since nobody asked.
+  Future<void> _continueReading({bool atStart = false}) async {
     final reader = ref.read(readerProvider.notifier);
     final recent = ref.read(recentBooksProvider.notifier);
     final here = ref.read(readerProvider).book;
     final pick = await recent.pick(except: here?.key);
     if (!mounted) return;
     if (pick == null) {
+      if (atStart) return;
       reader.notice(here == null ? 'No comic read yet to continue' : 'No other comic read before this one');
       return;
     }
@@ -851,6 +858,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     await reader.open(path);
+  }
+
+  /// At start, when the command line named no comic, folder or library
+  /// folder (a comic named there wins, and a scripted start that adds a
+  /// library folder stays in the library): the comic read last, at the
+  /// spot it was left, as `C` opens it. Settings → Library turns it off
+  /// (`library.continueAtStart`, on unless set to false). A comic that is
+  /// gone gets `C`'s notice and the library shows.
+  Future<void> _continueAtStart() async {
+    try {
+      final on = await ref.read(settingsStoreProvider).loadBool(SettingsStore.continueAtStart);
+      if (on == false || !mounted || ref.read(readerProvider).book != null) return;
+      await _continueReading(atStart: true);
+    } catch (e) {
+      debugPrint('Could not open the comic read last: $e');
+    }
   }
 
   /// Android's back button or gesture: the same as Esc, one level at a

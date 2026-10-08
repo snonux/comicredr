@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'support/fixtures.dart';
+import 'support/waits.dart';
 
 /// `C` and the library's Continue button: the comic read last, where it
 /// was left, across a restart; from inside a comic the one before it; a
@@ -46,7 +47,11 @@ void main() {
     return (a, b);
   }
 
-  Future<ProviderContainer> pumpApp(WidgetTester tester) async {
+  Future<ProviderContainer> pumpApp(
+    WidgetTester tester, {
+    String? initialPath,
+    List<String> addRoots = const [],
+  }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -60,7 +65,7 @@ void main() {
           classicCvOnly,
           noSidecars(db),
         ],
-        child: const ComicRedrApp(),
+        child: ComicRedrApp(initialPath: initialPath, addRoots: addRoots),
       ),
     );
     await tester.pump();
@@ -85,6 +90,9 @@ void main() {
     await tester.pump();
     await settle(tester);
   }
+
+  /// Settles until [check] passes: see [eventually].
+  Future<void> until(WidgetTester tester, void Function() check) => eventually(tester, check, settle: settle);
 
   // Opening a book from a key runs its file work in the test's fake time:
   // give it the time it takes.
@@ -132,10 +140,23 @@ void main() {
     expect(c.read(readerProvider).book?.path, daredevil);
     expect(c.read(readerProvider).page, 1);
 
-    // A restart: the button and C bring back Daredevil at page 2.
+    // A restart opens Daredevil at page 2 by itself (t873).
     await tester.runAsync(() => c.read(readerProvider.notifier).close());
     c = await pumpApp(tester);
-    await settle(tester);
+    await until(tester, () => expect(c.read(readerProvider).book?.path, daredevil));
+    expect(c.read(readerProvider).page, 1);
+
+    // With that turned off in Settings, the library shows, and its button
+    // brings Daredevil back.
+    await tester.runAsync(() async {
+      await c.read(readerProvider.notifier).close();
+      await SettingsStore(db).saveBool(SettingsStore.continueAtStart, false);
+    });
+    c = await pumpApp(tester);
+    // As long as the open with it on took, and more.
+    for (var i = 0; i < 4; i++) {
+      await settle(tester);
+    }
     expect(c.read(readerProvider).book, isNull);
     await tester.tap(find.byKey(const Key('continue')));
     for (var i = 0; i < 3; i++) {
@@ -172,15 +193,45 @@ void main() {
     // Deleted outside the app: a notice, then C opens the one before.
     await tester.runAsync(() => c.read(readerProvider.notifier).close());
     await tester.runAsync(() async => File(moved).deleteSync());
+    // The start's own Continue finds it gone: the notice, and the library.
     c = await pumpApp(tester);
-    await settle(tester);
-    await continueKey(tester);
+    await until(tester, () => expect(c.read(readerProvider).message, contains('Daredevil 181 is gone from')));
     expect(c.read(readerProvider).book, isNull);
-    expect(c.read(readerProvider).message, contains('Daredevil 181 is gone from'));
     expect(c.read(recentBooksProvider).map((b) => b.title), ['Swamp Thing 21']);
     await continueKey(tester);
     expect(c.read(readerProvider).book?.path, swamp);
     await tester.runAsync(() => c.read(readerProvider.notifier).close());
     await settle(tester);
+  });
+
+  testWidgets('at start a comic named on the command line wins, and --add-root stays in the library', (tester) async {
+    final (swamp, daredevil) = (await tester.runAsync(shelf))!;
+    var c = await pumpApp(tester);
+    await settle(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(swamp));
+    await settle(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).close());
+
+    // Swamp Thing was read last; Daredevil is named.
+    c = await pumpApp(tester, initialPath: daredevil);
+    await until(tester, () => expect(c.read(readerProvider).book?.path, daredevil));
+    await tester.runAsync(() => c.read(readerProvider.notifier).close());
+
+    // Daredevil was read last now; a start that adds a library folder
+    // opens nothing.
+    c = await pumpApp(tester, addRoots: [root.path]);
+    await settle(tester);
+    await settle(tester);
+    expect(c.read(readerProvider).book, isNull);
+    expect(c.read(readerProvider).message, isNot(contains('No comic read yet')));
+
+    // Nothing read at all: no notice either.
+    await tester.runAsync(() async {
+      await SettingsStore(db).saveString(SettingsStore.recentBooks, null);
+    });
+    c = await pumpApp(tester);
+    await settle(tester);
+    expect(c.read(readerProvider).book, isNull);
+    expect(c.read(readerProvider).message, isNull);
   });
 }
