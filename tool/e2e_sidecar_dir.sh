@@ -68,6 +68,28 @@ stop() {
 # the fold in a 720 px window: scroll there first.
 # Back up, below it, takes the last screenful: two notches back up.
 settings_bottom() { xdotool mousemove 640 400 click --repeat 15 --delay 50 5 click --repeat 2 --delay 50 4; sleep 1; }
+# place_row shot: the middle line of the "Beside each comic | In one
+# folder" choice in that screenshot, read off it: the first line in the
+# dialog drawn without a break from x=400 to 680, its top edge (nothing
+# above it in the dialog is that wide a line; the Touch choice under it
+# is). Its width changes with the choice. Not a fixed place: the settings
+# above it grow and wrap, which left the old fixed y=146 on another row.
+# PLACE_Y overrides.
+place_row() {
+  python3 - "$out/$1.png" <<'PY'
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+px = im.load()
+def ink(x, y):
+    paper = px[370, y]
+    return max(abs(a - b) for a, b in zip(px[x, y], paper)) > 25
+for y in range(60, 700):
+    if all(ink(x, y) for x in range(400, 681)):
+        print(y + 16)
+        break
+PY
+}
 bookmarks() { q "$1" "select count(*) from bookmarks where deleted_at is null"; }
 # Opens the selected book, turns a page, bookmarks it (m m) and goes back
 # to the library, which writes the sidecar.
@@ -96,7 +118,9 @@ mkdir -p "$side"
 click 870 28
 settings_bottom
 shot 02_settings
-click "${PLACE_X:-660}" "${PLACE_Y:-146}"
+place_y=${PLACE_Y:-$(place_row 02_settings)}
+[[ -n "$place_y" ]] || { echo "FAIL the sidecars' place is not on the screenshot"; failed=1; place_y=375; }
+click "${PLACE_X:-660}" "$place_y"
 sleep 1.5
 click 150 59 # Home, out of Recent, which takes no path.
 shot 03_picker
@@ -146,7 +170,10 @@ click 43 100
 click 390 200
 click 870 28
 settings_bottom
-click "${BESIDE_X:-473}" "${PLACE_Y:-146}"
+shot 06b_settings_again
+place_y=${PLACE_Y:-$(place_row 06b_settings_again)}
+[[ -n "$place_y" ]] || { echo "FAIL the sidecars' place is not on the screenshot"; failed=1; place_y=375; }
+click "${BESIDE_X:-473}" "$place_y"
 sleep 1
 shot 07_move_back_offer
 click 1047 406 # Move
