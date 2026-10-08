@@ -167,7 +167,7 @@ stop
 # Alpha marked not completed there leaves the view and the cover next to
 # it, Bravo, is selected: Enter opens it (the comic read last before was
 # Charlie). And Bravo opens first when the folder is walked into again.
-start
+start --add-root "$comics" # In the library: the comic read last would open otherwise.
 click 43 355; shot 10_restart_filtered
 check "kept across a restart" "$(filter | grep -c '"completed\\*":\\*"hide')" 1
 key shift+f; sleep 1; chip 13; key Escape; sleep 1

@@ -225,7 +225,7 @@ check "Alpha's sidecar" "$(sidecar Comics 'Alpha 1.cbz')" "Favourites, Grid pick
 # opens Alpha again, * takes the favourite it finds out rather than adding
 # one, and gc with a collection it is in leaves that row as it was (the
 # row compared, not counted, as above).
-start
+start --add-root "$home/Comics" # In the library, not the comic read last.
 click 640 450
 check "after a restart" "$(collections 'Alpha 1.cbz')" "Favourites, Grid picks, To read next"
 key C
@@ -274,7 +274,7 @@ stop
 # typed straight after it, no pause, is the name. As library commands gd
 # would ask to delete the comic and X to reset it (and its collections
 # with it).
-start
+start --add-root "$home/Comics"
 click 640 450
 key l
 gc_now

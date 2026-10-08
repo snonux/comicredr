@@ -146,11 +146,13 @@ dump() {
 
 # 1. The install to back up: two library folders, sidecars off (so nothing
 # of it is beside the comics), kept in one folder when they come back on,
-# and ~/Comics taken out of the library, set in its index while it is shut.
+# and ~/Comics taken out of the library, set in its index while it is shut,
+# as is the comic read last opening at start (off: the restarts below look
+# at the library).
 start "$comics" "$manga"
 stop
 q "insert or replace into settings (key, value) values ('sidecars.write', 'false'), ('sidecars.dir', '\"$stash\"'),
-   ('library.defaultFolderRemoved', 'true')"
+   ('library.defaultFolderRemoved', 'true'), ('library.continueAtStart', 'false')"
 mkdir -p "$(dirname "$keys")"
 cat >"$keys" <<'EOF'
 [keys]
@@ -186,7 +188,7 @@ settings_bottom
 shot 02_settings
 # Touch: One thumb, the right-hand segment above the reading history.
 origin
-click $((ox + w / 2 + 36)) $((oy + h - 568))
+click $((ox + w / 2 + 36)) $((oy + h - 589))
 shot 03_touch
 key Escape
 key f # fullscreen, last
@@ -207,6 +209,7 @@ want_changed() { # every setting away from its default
     -a "$(setting reader.cleanUp)" = true -a "$(setting sidecars.write)" = false \
     -a "$(setting sidecars.dir)" = "\"$stash\"" -a -n "$(setting grid.zoom)" \
     -a "$(setting library.shuffle)" = true -a "$(setting library.defaultFolderRemoved)" = true \
+    -a "$(setting library.continueAtStart)" = false \
     -a -n "$(setting library.folderFilter)" -a "$(setting touch.preset)" = '"oneThumb"' \
     -a "$(setting reader.scrollSpeed)" = '"fast"' -a "$(setting reader.scrollSmoothness)" = '"light"'
 }

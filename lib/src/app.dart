@@ -267,12 +267,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       } catch (e) {
         debugPrint('Could not open $path: $e');
       }
-    } else if (widget.addRoots.isEmpty) {
-      await _continueAtStart();
     }
+    final lookAgain = path == null && widget.addRoots.isEmpty && await _continueAtStart();
     if (!mounted) return;
     await _rescan();
     if (!mounted) return;
+    if (lookAgain) await _continueAtStart(scanned: true);
     _s3Notices = ref.read(s3SyncProvider).notices.listen((n) {
       if (mounted) showNotice(ScaffoldMessenger.of(context), n.text, mustRead: n.failure);
     });
@@ -866,14 +866,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// spot it was left, as `C` opens it. Settings → Library turns it off
   /// (`library.continueAtStart`, on unless set to false). A comic that is
   /// gone gets `C`'s notice and the library shows.
-  Future<void> _continueAtStart() async {
+  ///
+  /// Before the start's scan ([scanned] false) a comic not where it was
+  /// read and not at a path the index knows is left for after it, since it
+  /// may have been moved while the app was closed: true asks for that.
+  Future<bool> _continueAtStart({bool scanned = false}) async {
     try {
       final on = await ref.read(settingsStoreProvider).loadBool(SettingsStore.continueAtStart);
-      if (on == false || !mounted || ref.read(readerProvider).book != null) return;
+      if (on == false || !mounted || ref.read(readerProvider).book != null) return false;
+      if (!scanned) {
+        final pick = await ref.read(recentBooksProvider.notifier).pick();
+        if (pick == null) return false;
+        if (pick.path == null) return true;
+      }
       await _continueReading(atStart: true);
     } catch (e) {
       debugPrint('Could not open the comic read last: $e');
     }
+    return false;
   }
 
   /// Android's back button or gesture: the same as Esc, one level at a

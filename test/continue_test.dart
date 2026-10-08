@@ -190,9 +190,21 @@ void main() {
     expect(c.read(readerProvider).message, isNull);
     expect(c.read(readerProvider).book?.path, moved);
 
+    // Moved again while the app is closed, where the index has not seen it:
+    // the start opens it once its scan has.
+    await tester.runAsync(() => c.read(readerProvider.notifier).close());
+    final again = p.join(root.path, 'Marvel', 'Old', 'Daredevil 181.cbz');
+    await tester.runAsync(() async {
+      Directory(p.dirname(again)).createSync();
+      File(moved).renameSync(again);
+    });
+    c = await pumpApp(tester);
+    await until(tester, () => expect(c.read(readerProvider).book?.path, again));
+    expect(c.read(readerProvider).message ?? '', isNot(contains('is gone')));
+
     // Deleted outside the app: a notice, then C opens the one before.
     await tester.runAsync(() => c.read(readerProvider.notifier).close());
-    await tester.runAsync(() async => File(moved).deleteSync());
+    await tester.runAsync(() async => File(again).deleteSync());
     // The start's own Continue finds it gone: the notice, and the library.
     c = await pumpApp(tester);
     await until(tester, () => expect(c.read(readerProvider).message, contains('Daredevil 181 is gone from')));

@@ -439,7 +439,7 @@ look before_restart
 want=$cols
 kept=$(size)
 stop
-start
+start --add-root "$top/$out/Comics" # In the library, not the comic read last.
 click 43 170
 look after_restart
 check "the kept size after a restart" "$(size)" "$kept"
@@ -450,7 +450,7 @@ stop
 # left it: the covers show, at the usual size, and + works from there.
 for bad in NaN -12 Infinity; do
   q "insert or replace into settings (key, value) values ('library.coverSize', '\"$bad\"')"
-  start
+  start --add-root "$top/$out/Comics"
   click 43 170
   look "bad_size_$bad"
   check "a kept size of $bad: the covers a row are the usual" "$cols" "$books_usual"

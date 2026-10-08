@@ -107,7 +107,7 @@ stop
 
 # Restart: still on; S turns it off. A book was opened, so the library
 # starts on Reading: five Tabs to Folders.
-start
+start --add-root "$top/$out/Comics" # In the library, not the comic read last.
 key Tab Tab Tab Tab Tab
 key l Return; key Return
 sleep 3;                                     shot 07_after_restart

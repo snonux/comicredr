@@ -70,9 +70,10 @@ stop() {
 settings_bottom() { xdotool mousemove 640 400 click --repeat 15 --delay 50 5 click --repeat 2 --delay 50 4; sleep 1; }
 # place_row shot: the middle line of the "Beside each comic | In one
 # folder" choice in that screenshot, read off it: the first line in the
-# dialog drawn without a break from x=400 to 680, its top edge (nothing
-# above it in the dialog is that wide a line; the Touch choice under it
-# is). Its width changes with the choice. Not a fixed place: the settings
+# dialog drawn without a break from x=400 to 680 and only a few pixels
+# thick, its top edge (nothing above it in the dialog is that wide a line,
+# the switch row under the pointer is a shaded block; the Touch choice
+# under it is). Its width changes with the choice. Not a fixed place: the settings
 # above it grow and wrap, which left the old fixed y=146 on another row.
 # PLACE_Y overrides.
 place_row() {
@@ -84,8 +85,12 @@ px = im.load()
 def ink(x, y):
     paper = px[370, y]
     return max(abs(a - b) for a, b in zip(px[x, y], paper)) > 25
+def line(y):
+    return all(ink(x, y) for x in range(400, 681))
+# A thin line, not the shaded block of a hovered row: the next lines down
+# are clear again.
 for y in range(60, 700):
-    if all(ink(x, y) for x in range(400, 681)):
+    if line(y) and not line(y + 4):
         print(y + 16)
         break
 PY
