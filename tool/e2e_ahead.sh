@@ -93,7 +93,7 @@ key Escape; sleep 1
 
 # 3. All Top Comics on page 10: from page 9 on, then closed half way.
 open 'All Top'
-key 1 0 shift+g
+key shift+g 1 0 Return
 jumped=$(( $(date +%s) + 1 )) # A page under way at the jump may still land.
 sleep 1
 shot 03_page_10

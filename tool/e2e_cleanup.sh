@@ -45,7 +45,7 @@ fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # The low-res scan: page 6, a yellowed page of line art.
 launch "$small"
-key 6 shift+g;                     shot 01_lowres_as_scanned
+key shift+g 6 Return;                     shot 01_lowres_as_scanned
 key c; sleep 3;                    shot 02_lowres_cleaned
 key plus plus plus plus plus; sleep 3; shot 03_lowres_zoomed_cleaned
 grep -q 'Clean-up: .* enlarged' "$out/app.log" || fail "the zoomed-in low-res page was not enlarged"
@@ -61,7 +61,7 @@ quit
 # A restart keeps clean-up on; the big scan is not enlarged at fit-page.
 before=$(grep -c 'Clean-up: .* enlarged' "$out/app.log")
 launch "$big"
-key 1 4 shift+g; sleep 2;          shot 07_bigscan_cleaned_after_restart
+key shift+g 1 4 Return; sleep 2;          shot 07_bigscan_cleaned_after_restart
 key c; sleep 2;                    shot 08_bigscan_as_scanned
 key c; sleep 2
 quit

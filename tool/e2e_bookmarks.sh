@@ -86,7 +86,7 @@ check "kept as a removal for the sidecar" test "$(q 'select count(*) from bookma
 # Page 1 whole; page 10 in guided view, which enters on the whole page,
 # so l goes to panel 1.
 key m m
-key 1 0 shift+g
+key shift+g 1 0 Return
 key v; sleep 6
 key l
 key m m

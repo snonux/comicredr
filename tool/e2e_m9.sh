@@ -75,7 +75,7 @@ type() { xdotool type --delay 80 "$1" 2>/dev/null; sleep 1; }
 
 launch
 shot 01_open_keys_toml_warning
-key 3 shift+g;          shot 02_page3
+key shift+g 3 Return;          shot 02_page3
 key l;                  shot 03_l_unbound_still_page3
 key x;                  shot 04_x_next_page4
 key t; sleep 1;         shot 05_trimmed

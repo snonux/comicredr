@@ -438,6 +438,8 @@ pages moves as one folder. If a comic of the same name is in the folder
 already, ComicRedr asks once for all of them, with **Cancel** selected:
 **Skip those** leaves them where they are and moves the rest,
 **Replace** deletes the ones in the folder for good and moves yours in.
+Two marked comics that share a name never replace each other: the first
+moves, the second stays where it was, and the notice says so.
 
 For example, to file the comics you have read: walk into the folder on
 the Folders tab, mark them with `Shift` and the arrows, press `gm`, type

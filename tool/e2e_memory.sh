@@ -63,7 +63,7 @@ key j j j
 shot 3_zoomed_panned
 key equal
 step guided
-key 3 shift+g
+key shift+g 3 Return
 key v
 sleep 2
 for _ in $(seq 1 16); do key l; done

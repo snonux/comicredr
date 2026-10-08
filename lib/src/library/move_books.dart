@@ -72,8 +72,13 @@ bool matchesTarget(MoveTarget target, String query) {
 /// Moves [from] to [to], a file, a folder or a symlink (the link itself,
 /// pointing where it did). A rename on one disk; across disks a copy, then
 /// the original is deleted. Throws a [FileSystemException] when it can't,
-/// leaving [from] as it was.
+/// leaving [from] as it was, and when something is at [to] already: a
+/// rename would replace it without a word (two marked comics of one name
+/// moved to one folder lost the first).
 Future<void> movePath(String from, String to) async {
+  if (await FileSystemEntity.type(to, followLinks: false) != FileSystemEntityType.notFound) {
+    throw FileSystemException('Something of that name is there already', to);
+  }
   final type = await FileSystemEntity.type(from, followLinks: false);
   if (type == FileSystemEntityType.link) {
     final target = await Link(from).target();
@@ -160,8 +165,10 @@ Future<bool> moveLibraryBooks(
   final container = ProviderScope.containerOf(context);
   final roots = [for (final r in await store.roots()) r.path];
   final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
+  // Every copy of a comic, not only the first file of each.
+  final files = [for (final b in all) ...b.everyFile];
   final targets = await moveTargets(roots, {
-    for (final b in all)
+    for (final b in files)
       if (b.isFolder) b.path,
   });
   if (!context.mounted) return false;
@@ -204,7 +211,7 @@ Future<bool> moveLibraryBooks(
       }
       try {
         // A comic in the library is deleted as one, so nothing is left of it.
-        final there = all.where((o) => p.equals(o.path, to)).firstOrNull;
+        final there = files.where((o) => p.equals(o.path, to)).firstOrNull;
         if (there != null) {
           await deleteComic(
             path: to,

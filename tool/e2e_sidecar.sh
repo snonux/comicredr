@@ -87,7 +87,7 @@ for src in "$@"; do
 
   # 1. The laptop: page 3, guided view, mark a, a bookmark, panel 2.
   start laptop "$book"
-  key 3 shift+g; key v; sleep 4
+  key shift+g 3 Return; key v; sleep 4
   # A page guided view shows whole holds one step (e2e_pause_whole.sh checks
   # that); off here, so `l` below always moves. The setting stays with the
   # laptop, so W once.
@@ -153,7 +153,7 @@ if [[ $EUID -eq 0 ]]; then
   cp -r "$1" "$out/ro-src/"
   mount --bind "$out/ro-src" "$out/ro" && mount -o remount,bind,ro "$out/ro"
   start laptop "$PWD/$out/ro/$(basename "$1")"
-  key 2 shift+g
+  key shift+g 2 Return
   shot ro
   stop
   umount "$out/ro"

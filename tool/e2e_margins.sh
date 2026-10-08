@@ -60,7 +60,7 @@ xdotool windowactivate --sync "$win" 2>/dev/null || true
 xdotool mousemove 640 400
 key() { xdotool key "$@" 2>/dev/null; sleep 1; }
 shot() { import -window root "$out/$1.png"; }
-key 1 shift+g
+key shift+g 1 Return
 key v
 for page in 1 2 3 4; do
   key "$page" shift+g

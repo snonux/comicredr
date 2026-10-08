@@ -52,7 +52,7 @@ same() {
 failed=0
 
 # A zoomed, scrolled page: narrower, wider and back keeps zoom and place.
-key 3 shift+g; sleep 1
+key shift+g 3 Return; sleep 1
 key plus plus j j
 shot normal_before
 size 1100 900 0.05; size 900 900 0.05; size 700 900

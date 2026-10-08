@@ -704,22 +704,28 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final store = ref.read(libraryStoreProvider), settings = ref.read(settingsStoreProvider);
     final scanner = ref.read(scannerProvider);
     final rescan = widget.onRescan;
-    final remembered = await removeLibraryFolder(store, settings, id, path);
-    ref
-        .read(undoNoticeProvider)
-        .show(
-          messenger,
-          '${p.basename(path)} taken out of the library; its comics stay on disk',
-          label: undoLabel,
-          // Said in a notice when it throws (the folder gone from the
-          // disk meanwhile, the index refusing).
-          failed: 'Could not put ${p.basename(path)} back in the library',
-          undo: () async {
-            await restoreLibraryFolder(store, settings, path, forget: remembered);
-            // HomeScreen's rescan also watches the folder again.
-            await (rescan?.call() ?? scanner.scan());
-          },
-        );
+    final undoNotice = ref.read(undoNoticeProvider);
+    final bool remembered;
+    try {
+      remembered = await removeLibraryFolder(store, settings, id, path);
+    } catch (e) {
+      debugPrint('Could not take $path out of the library: $e');
+      showNotice(messenger, 'Could not take ${p.basename(path)} out of the library', mustRead: true);
+      return;
+    }
+    undoNotice.show(
+      messenger,
+      '${p.basename(path)} taken out of the library; its comics stay on disk',
+      label: undoLabel,
+      // Said in a notice when it throws (the folder gone from the
+      // disk meanwhile, the index refusing).
+      failed: 'Could not put ${p.basename(path)} back in the library',
+      undo: () async {
+        await restoreLibraryFolder(store, settings, path, forget: remembered);
+        // HomeScreen's rescan also watches the folder again.
+        await (rescan?.call() ?? scanner.scan());
+      },
+    );
   }
 
   /// Backspace, and Esc once nothing else is open: up to the folder above
@@ -1479,10 +1485,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   @override
   Widget build(BuildContext context) {
     _tellSizer();
-    final books = ref.watch(booksProvider).value ?? const <LibraryBook>[];
+    final booksNow = ref.watch(booksProvider);
+    final books = booksNow.value ?? const <LibraryBook>[];
     final roots = ref.watch(rootsProvider).value;
     // Open on what you are reading when there is something; else the series.
-    _tab ??= roots == null ? null : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.series);
+    // Decided once the books are read too: with the folders in first, a
+    // start with a comic begun opened on Series.
+    _tab ??= roots == null || !(booksNow.hasValue || booksNow.hasError)
+        ? null
+        : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.series);
     // A library folder taken out of the library while we are in it. One
     // just added may not be in the list yet.
     if (_folderRoot != null && roots != null) {
