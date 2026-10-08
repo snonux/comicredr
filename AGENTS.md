@@ -419,7 +419,28 @@ refreshes right away instead of within six hours.
   messenger's own queue), those that must be read all in the order they
   came, while a routine one waiting gives way to whatever comes after
   it, so at most one routine notice follows. Else "Downloaded B" took
-  "Could not download A" away a moment after it came up. An Undo notice
+  "Could not download A" away a moment after it came up. A burst of
+  them holds the screen only so long (fourth review; thirty refused
+  downloads held it for two minutes, an Undo offer behind them dropped
+  unseen), by three things. `_post` does not queue a must-read notice
+  whose text is the one showing or one waiting (`_saidAlready`; never
+  one with an Undo, whose button is its own), and does so before
+  anything gives way to it, so a routine or Undo notice waiting behind
+  repeats of one failure stays. At most `_mostWaiting` (2) must-read
+  notices wait: when one more comes, the last waiting one becomes
+  "… and N more notices" (`_Notice.more`), N counting it and all after
+  it, so a burst is the notice showing, the first waiting and that
+  count, three notices' time; what is lost is the text of the third
+  and later distinct notices of a burst (and an Undo the folded one
+  offered, as for any notice that gives way waiting). A routine notice
+  after the burst still waits as the one last in line. And the sources
+  say a thing once: marked downloads go through `S3Sync.downloadAll`,
+  which stops at what stops them all (no library folder: "Add a library
+  folder first" once; the bucket out of reach: "S3 is out of reach: 5
+  comics can be downloaded when it is back", the comics left counted,
+  one alone named) and goes on after a refusal of one comic ("Could not
+  download X: …"); a drain says a refusal ("S3: …") once per `drain`
+  for each different message, not once a waiting comic. An Undo notice
   that waits has no key until it shows (`UndoNotice.show` sets what `u`
   runs in `onShown`), and one that gave way while waiting never gets
   it; `UndoNotice.show(mustRead: true)` is for an Undo whose text also
@@ -431,8 +452,10 @@ refreshes right away instead of within six hours.
   `S3Notice` records (`text`, `failure`; `S3Sync._say` and `_fail`), and
   HomeScreen's listener passes `failure` on: out of reach, a refusal, a
   failed download and "Add a library folder first" are failures,
-  "Uploaded", "Downloaded", "Removed … from S3" and "S3 is back"
-  routine. A new notice: decide which it is. A notice with an Undo goes
+  "Uploaded", "Downloaded", "… was on S3 already", "Removed … from S3"
+  and "S3 is back" routine (`test/s3_sync_test.dart`, "what the sync
+  says", provokes every one of them on a bucket that can refuse and
+  holds which is which). A new notice: decide which it is. A notice with an Undo goes
   by itself after
   `undoNoticeTime` (10 s; `persist: false`, since in this Flutter a
   SnackBar with an action otherwise stays until hidden), a plain one

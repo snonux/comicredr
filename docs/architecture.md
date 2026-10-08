@@ -148,7 +148,9 @@ once, so none waits unseen behind another, and one with an Undo goes by
 itself after ten seconds, the `u` key with it. A notice of a failure or
 a warning (`mustRead`; the S3 sync's notices say which they are) also
 comes up at once but then stays its time: what comes meanwhile waits
-its turn behind it.
+its turn behind it. A burst of those is bounded: one that says what
+shows or waits already is not queued again, and at most two wait, the
+second turning into "… and N more notices" when more come.
 
 ```mermaid
 flowchart LR

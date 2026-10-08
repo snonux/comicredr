@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:comic_formats/comic_formats.dart';
 import 'package:comic_sync/comic_sync.dart';
@@ -92,7 +93,7 @@ class Device {
 
 void main() {
   late Directory tmp;
-  late MemoryStore bucket;
+  late RefusingStore bucket;
   late Device laptop, phone;
 
   // Two devices, two in-memory indexes.
@@ -100,7 +101,7 @@ void main() {
 
   setUp(() async {
     tmp = Directory.systemTemp.createTempSync('s3_sync_test');
-    bucket = MemoryStore();
+    bucket = RefusingStore();
     laptop = Device('laptop', tmp, bucket);
     phone = Device('phone', tmp, bucket);
     await laptop.setUp();
@@ -254,6 +255,141 @@ void main() {
     expect(await contentKey(got!), key);
   });
 
+  group('what the sync says', () {
+    /// [n] comics put on S3 by the laptop and seen there by the phone;
+    /// their keys.
+    Future<List<String>> shelved(int n, {String folder = ''}) async {
+      final dir = Directory('${laptop.root.path}/$folder')..createSync(recursive: true);
+      final keys = <String>[];
+      for (var i = 1; i <= n; i++) {
+        writeBook(dir, 'Pep $i.cbz', i);
+      }
+      await laptop.scanner.scan();
+      for (var i = 1; i <= n; i++) {
+        keys.add(await contentKey('${dir.path}/Pep $i.cbz'));
+      }
+      await laptop.s3.upload(keys);
+      await laptop.s3.drain();
+      await phone.s3.refreshShelf();
+      await pumpEventQueue();
+      laptop.notices.clear();
+      laptop.failures.clear();
+      return keys;
+    }
+
+    test('marked downloads with the bucket off: one notice for them all, the rest not tried', () async {
+      final keys = await shelved(5);
+      bucket.reachable = false;
+      await phone.s3.downloadAll(keys);
+      await pumpEventQueue();
+      expect(phone.notices, [
+        allOf(contains('is out of reach'), contains('saving on this device')),
+        'S3 is out of reach: 5 comics can be downloaded when it is back',
+      ]);
+      expect(phone.failures, phone.notices);
+      // One alone is named.
+      phone.notices.clear();
+      phone.failures.clear();
+      await phone.s3.download(keys.first);
+      await phone.s3.downloadAll([keys.last]);
+      await pumpEventQueue();
+      expect(phone.notices, [
+        'S3 is out of reach: Pep #1 can be downloaded when it is back',
+        'S3 is out of reach: Pep #5 can be downloaded when it is back',
+      ]);
+      expect(phone.failures, phone.notices);
+    });
+
+    test('the bucket going off part of the way: the ones left are counted', () async {
+      final keys = await shelved(4);
+      bucket.offAfter = 2;
+      await phone.s3.downloadAll(keys);
+      await pumpEventQueue();
+      expect(phone.notices.where((n) => n.startsWith('Downloaded ')), hasLength(2));
+      expect(phone.notices.last, 'S3 is out of reach: 2 comics can be downloaded when it is back');
+      expect(phone.failures, hasLength(2));
+    });
+
+    test('marked downloads without a library folder: said once', () async {
+      final keys = await shelved(3);
+      await phone.store.removeRoot((await phone.db.select(phone.db.roots).get()).single.id);
+      await phone.s3.refreshShelf();
+      await phone.s3.downloadAll(keys);
+      await pumpEventQueue();
+      expect(phone.notices, ['Add a library folder first: downloads go into it']);
+      expect(phone.failures, phone.notices);
+    });
+
+    test('a refusal that is not about one comic does not stop a batch, and is a failure', () async {
+      final keys = await shelved(2);
+      bucket.refuse = 'Access denied';
+      await phone.s3.downloadAll(keys);
+      await pumpEventQueue();
+      expect(phone.notices, ['Could not download Pep #1: Access denied', 'Could not download Pep #2: Access denied']);
+      expect(phone.failures, phone.notices);
+    });
+
+    test('refused keys are said once a drain, however many comics wait', () async {
+      for (var i = 1; i <= 3; i++) {
+        writeBook(laptop.root, 'Pep $i.cbz', i);
+      }
+      await laptop.scanner.scan();
+      final keys = [for (final b in await laptop.store.books()) b.key];
+      bucket.refuse = 'Access denied';
+      expect(await laptop.s3.upload(keys), 3);
+      await laptop.s3.drain();
+      await pumpEventQueue();
+      expect(laptop.notices, ['S3: Access denied']);
+      expect(laptop.failures, laptop.notices);
+      expect(laptop.s3.current.waiting, 3);
+      // The next drain tries them again and says it once more.
+      await laptop.s3.drain();
+      await pumpEventQueue();
+      expect(laptop.notices, ['S3: Access denied', 'S3: Access denied']);
+    });
+
+    test('a download that does not match, or cannot be written, is a failure', () async {
+      final keys = await shelved(2, folder: 'Sub');
+      await truncate(bucket, BookObjects('Comics/', keys[0]).comic('cbz'));
+      expect(await phone.s3.download(keys[0]), isNull);
+      // A file where the comic's folder would be.
+      final sub = Directory('${phone.root.path}/Sub');
+      if (sub.existsSync()) sub.deleteSync(recursive: true);
+      File('${phone.root.path}/Sub').writeAsStringSync('in the way');
+      expect(await phone.s3.download(keys[1]), isNull);
+      await pumpEventQueue();
+      expect(phone.notices, [
+        'The download of Pep #1 did not match what was uploaded; nothing was kept',
+        startsWith('Could not download Pep #2: '),
+      ]);
+      expect(phone.failures, phone.notices);
+    });
+
+    test('what worked is no failure: uploaded, downloaded, on S3 already, removed, back', () async {
+      final keys = await shelved(1);
+      await phone.s3.download(keys.single);
+      await phone.s3.upload(keys);
+      await phone.s3.drain();
+      await phone.s3.removeFromS3(keys);
+      await phone.s3.drain();
+      bucket.reachable = false;
+      await phone.s3.upload(keys);
+      await phone.s3.drain();
+      bucket.reachable = true;
+      await phone.s3.drain();
+      await pumpEventQueue();
+      expect(phone.notices, [
+        'Downloaded Pep #1',
+        'Pep #1 was on S3 already; its newest sidecar is on both',
+        'Removed Pep #1 from S3',
+        contains('is out of reach; saving on this device'),
+        'Uploaded Pep #1 to S3',
+        'S3 is back; 1 comic caught up',
+      ]);
+      expect(phone.failures, [contains('is out of reach; saving on this device')]);
+    });
+  });
+
   group('a comic that is on S3 already', () {
     late String key, laptopPath, phonePath;
     late BookObjects o;
@@ -318,4 +454,47 @@ Future<int> truncate(MemoryStore bucket, String name) async {
   final was = bucket.objects[name]!;
   bucket.objects[name] = (bytes: was.bytes.sublist(0, was.bytes.length ~/ 2), metadata: was.metadata);
   return bucket.objects[name]!.bytes.length;
+}
+
+/// A bucket that can also refuse (wrong keys), and go off after so many
+/// comics were fetched.
+class RefusingStore extends MemoryStore {
+  /// What every call is refused with; null for a bucket that answers.
+  String? refuse;
+
+  /// Downloads still answered before the bucket goes out of reach; null
+  /// for no such end.
+  int? offAfter;
+
+  void _refused() {
+    if (refuse case final why?) throw RemoteException(RemoteFailure.denied, why);
+  }
+
+  @override
+  Future<void> put(
+    String key,
+    Stream<Uint8List> bytes, {
+    required int size,
+    Map<String, String> metadata = const {},
+    void Function(int sent)? onProgress,
+  }) {
+    _refused();
+    return super.put(key, bytes, size: size, metadata: metadata, onProgress: onProgress);
+  }
+
+  @override
+  Future<RemoteObject?> head(String key) {
+    _refused();
+    return super.head(key);
+  }
+
+  @override
+  Future<bool> download(String key, IOSink sink, {void Function(int received)? onProgress}) {
+    _refused();
+    if (offAfter case final left? when key.contains('/comic.')) {
+      if (left == 0) reachable = false;
+      offAfter = left - 1;
+    }
+    return super.download(key, sink, onProgress: onProgress);
+  }
 }

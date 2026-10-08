@@ -45,7 +45,8 @@ Future<void> uploadBooks(BuildContext context, WidgetRef ref, List<LibraryBook> 
   });
 }
 
-/// Downloads [books] that are on S3 only, one after the other.
+/// Downloads [books] that are on S3 only, one after the other, as one
+/// batch: what stops them all is said once (`S3Sync.downloadAll`).
 Future<void> downloadBooks(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
   if (!_setUp(context, ref)) return;
   final todo = books.where((b) => b.remoteOnly).toList();
@@ -57,9 +58,7 @@ Future<void> downloadBooks(BuildContext context, WidgetRef ref, List<LibraryBook
         ? 'Downloading ${todo.first.name} (${describeBytes(todo.first.s3?.size ?? 0)})'
         : 'Downloading ${todo.length} comics',
   );
-  for (final b in todo) {
-    await s3.download(b.key);
-  }
+  await s3.downloadAll([for (final b in todo) b.key]);
 }
 
 /// Takes [books] off S3 after asking; nothing on this device changes.

@@ -223,7 +223,8 @@ slip: click it, or press `u` while the notice shows. The notice goes by
 itself after about ten seconds, or as soon as another notice comes; from
 then on `*` on the comic is the way back. (A notice that something went
 wrong is the one kind that is never cut short: it stays its few seconds
-and the next notice shows after it. `u` undoes what the notice on screen
+and the next notice shows after it; when many go wrong at once, the
+first two show and a third says how many more there were. `u` undoes what the notice on screen
 offers, so it waits for the Undo to show.)
 
 ![The Favourites](images/favourites.webp)

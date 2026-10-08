@@ -742,7 +742,17 @@ void main() {
       expect(find.textContaining('Bad state'), findsNothing);
       expect(find.textContaining('index is locked'), findsNothing);
       expect(find.text('3 selected'), findsOneWidget);
-      // A failure stays its time, and the next notice would wait behind it.
+      // A failure stays its time: the next notice waits behind it, and
+      // shows when that time is up.
+      showNotice(tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger)), 'Uploaded Preacher to S3');
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.widgetWithText(SnackBar, said), findsOneWidget);
+      expect(find.text('Uploaded Preacher to S3'), findsNothing);
+      await tester.pump(noticeTime);
+      await settle(tester);
+      expect(find.widgetWithText(SnackBar, said), findsNothing);
+      expect(find.text('Uploaded Preacher to S3'), findsOneWidget);
       await tester.pump(noticeTime);
       await settle(tester);
       expect(find.byType(SnackBar), findsNothing);

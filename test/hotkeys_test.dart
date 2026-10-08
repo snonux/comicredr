@@ -1516,6 +1516,77 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
     });
 
+    /// What the notices say one after the other over [time], looked at
+    /// every quarter second, '' while none shows.
+    Future<List<String>> watch(WidgetTester tester, Duration time) async {
+      final seen = <String>[];
+      for (var t = Duration.zero; t < time; t += const Duration(milliseconds: 250)) {
+        await wait(tester, const Duration(milliseconds: 250));
+        final bars = tester.widgetList<SnackBar>(find.byType(SnackBar)).toList();
+        expect(bars.length, lessThan(2));
+        final text = bars.isEmpty ? '' : (bars.single.content as Text).data!;
+        if (seen.isEmpty || seen.last != text) seen.add(text);
+      }
+      return seen;
+    }
+
+    testWidgets('thirty that say the same hold the screen no longer than one', (tester) async {
+      final (_, messenger) = await pumpNotice(tester);
+      for (var i = 0; i < 30; i++) {
+        showNotice(messenger, 'S3: the key was refused', mustRead: true);
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('S3: the key was refused'), findsOneWidget);
+      // One notice's time and the slide out, and the screen is free.
+      expect(await watch(tester, noticeTime + const Duration(seconds: 1)), ['S3: the key was refused', '']);
+      // Gone, it can be said again: only a repeat of what shows or waits is left out.
+      showNotice(messenger, 'S3: the key was refused', mustRead: true);
+      await tester.pumpAndSettle();
+      expect(find.text('S3: the key was refused'), findsOneWidget);
+    });
+
+    testWidgets('a burst of different ones: the first two as they are, then how many more', (tester) async {
+      final (_, messenger) = await pumpNotice(tester);
+      for (var i = 1; i <= 30; i++) {
+        showNotice(messenger, 'Could not download $i', mustRead: true);
+        // A repeat of one that waits is not counted.
+        showNotice(messenger, 'Could not download 2', mustRead: true);
+      }
+      // Three notices' time, not thirty: 28 are counted in the last.
+      final seen = await watch(tester, noticeTime * 3 + const Duration(seconds: 2));
+      expect(seen, ['Could not download 1', 'Could not download 2', '… and 28 more notices', '']);
+      // Exactly as many as fit are all shown as they are.
+      for (var i = 1; i <= 3; i++) {
+        showNotice(messenger, 'Could not move $i', mustRead: true);
+      }
+      expect(await watch(tester, noticeTime * 3 + const Duration(seconds: 2)), [
+        'Could not move 1',
+        'Could not move 2',
+        'Could not move 3',
+        '',
+      ]);
+    });
+
+    testWidgets('an Undo notice behind a bounded burst still shows, and u works then', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      var undone = 0;
+      for (var i = 1; i <= 30; i++) {
+        showNotice(messenger, 'Could not download $i', mustRead: true);
+      }
+      notice.show(messenger, 'Taken out', label: 'Undo', undo: () async => undone++);
+      // More of what was said already do not take the Undo's place.
+      for (var i = 0; i < 30; i++) {
+        showNotice(messenger, 'Could not download 2', mustRead: true);
+      }
+      expect(notice.press(), isFalse);
+      final seen = await watch(tester, noticeTime * 3 + const Duration(seconds: 1));
+      expect(seen, ['Could not download 1', 'Could not download 2', '… and 28 more notices', 'Taken out']);
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, 1);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
     testWidgets('in the app: a failure of the S3 sync is not cut short by what the sync says next', (tester) async {
       final said = StreamController<S3Notice>.broadcast();
       addTearDown(said.close);

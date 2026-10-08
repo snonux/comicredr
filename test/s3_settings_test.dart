@@ -9,9 +9,11 @@ import 'package:comicredr/src/library/s3_settings_dialog.dart';
 import 'package:comicredr/src/library/settings_transfer.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_providers.dart';
+import 'package:comicredr/src/undo_notice.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -175,6 +177,93 @@ void main() {
       await settle(tester);
       expect(await tester.runAsync(() => c.read(s3SettingsProvider).config()), isNull);
       expect(secrets.values, isEmpty);
+    });
+
+    /// The `s3-…` key of the control that has the focus.
+    String? focused() {
+      String? name;
+      FocusManager.instance.primaryFocus?.context?.visitAncestorElements((e) {
+        final key = e.widget.key;
+        if (key is! ValueKey<String> || !key.value.startsWith('s3-')) return true;
+        name = key.value;
+        return false;
+      });
+      return name;
+    }
+
+    testWidgets('the fields and buttons in their order, top to bottom and by Tab', (tester) async {
+      await tester.runAsync(() => s3.save(config));
+      await open(tester);
+      const fields = ['s3-endpoint', 's3-region', 's3-bucket', 's3-prefix', 's3-accessKey', 's3-secret'];
+      const order = [...fields, 's3-test', 's3-turnOff', 's3-cancel', 's3-save'];
+      // As written, which is the order Tab takes.
+      expect([
+        for (final f in tester.widgetList<TextField>(find.byType(TextField))) (f.key! as ValueKey<String>).value,
+      ], fields);
+      // On screen: each field under the one before, then Test connection
+      // and Turn off on a line (the fields scroll, so how they lie to the
+      // buttons under them is not looked at), Save right of Cancel.
+      final at = {for (final k in order) k: tester.getTopLeft(find.byKey(Key(k)))};
+      for (var i = 1; i <= fields.length; i++) {
+        expect(at[order[i]]!.dy, greaterThan(at[order[i - 1]]!.dy), reason: '${order[i]} under ${order[i - 1]}');
+      }
+      expect(at['s3-turnOff']!.dx, greaterThan(at['s3-test']!.dx));
+      expect(at['s3-turnOff']!.dy, greaterThan(at['s3-secret']!.dy));
+      expect(at['s3-save']!.dx, greaterThan(at['s3-cancel']!.dx));
+      // Tab from the address, which has the focus, goes through them all
+      // and round to the address again.
+      expect(focused(), 's3-endpoint');
+      for (final next in [...order.skip(1), 's3-endpoint']) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(focused(), next);
+      }
+    });
+
+    /// Saving starts the sync, whose timers must not outlive the test.
+    Future<void> stopSync(WidgetTester tester) => tester.runAsync(() => c.read(s3SyncProvider).dispose());
+
+    /// Fills the dialog in and saves; the notice that says so.
+    Future<String> save(WidgetTester tester) async {
+      await open(tester);
+      await tester.enterText(find.byKey(const Key('s3-endpoint')), 'http://garage.lan:3900');
+      await tester.enterText(find.byKey(const Key('s3-bucket')), 'comics');
+      await tester.enterText(find.byKey(const Key('s3-accessKey')), 'GKabc');
+      await tester.enterText(find.byKey(const Key('s3-secret')), 'the-secret');
+      await tester.tap(find.byKey(const Key('s3-save')));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      return (tester.widget<SnackBar>(find.byType(SnackBar)).content as Text).data!;
+    }
+
+    testWidgets('saved without a keyring: the warning stays its time, whatever the sync says next', (tester) async {
+      secrets.place = SecretPlace.file;
+      final warning = await save(tester);
+      expect(warning, contains('in a private file (no keyring answered)'));
+      final messenger = tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger));
+      showNotice(messenger, 'Uploaded Akira to S3');
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 3));
+      expect(find.text(warning), findsOneWidget);
+      expect(find.text('Uploaded Akira to S3'), findsNothing);
+      // Its time up, the one that waited shows.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(find.text(warning), findsNothing);
+      expect(find.text('Uploaded Akira to S3'), findsOneWidget);
+      await stopSync(tester);
+    });
+
+    testWidgets('saved into the keyring: a routine notice, replaced by the next at once', (tester) async {
+      final said = await save(tester);
+      expect(said, contains('in the keyring'));
+      showNotice(tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger)), 'Uploaded Akira to S3');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text(said), findsNothing);
+      expect(find.text('Uploaded Akira to S3'), findsOneWidget);
+      await stopSync(tester);
     });
   });
 }

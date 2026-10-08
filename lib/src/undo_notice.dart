@@ -18,6 +18,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 //  - Among the waiting ones the same holds: those that must be read all
 //    show, in the order they came, and a routine one waiting gives way to
 //    whatever comes after it.
+//  - A burst of notices that must be read holds the screen only so long
+//    (thirty refused downloads once held it for two minutes, an Undo
+//    offer behind them never seen). One that says what the notice on
+//    screen or a waiting one says already is not queued again. And at
+//    most [_mostWaiting] of them wait: when one more comes, the last of
+//    those waiting becomes "… and N more notices", N counting it and
+//    every one after it. So of a burst the first [_mostWaiting] show as
+//    they are (the one on screen and the first waiting) and the texts of
+//    the later ones are lost: what was done about them is in the log or
+//    on the screen behind, not in a notice.
 //
 // Every notice of the app is shown through [showNotice] or
 // [UndoNotice.show]; test/hotkeys_test.dart fails on a `showSnackBar`
@@ -31,11 +41,31 @@ const noticeTime = Duration(seconds: 4);
 /// then answered.
 const undoNoticeTime = Duration(seconds: 10);
 
+/// How many notices that must be read wait behind the one on screen: the
+/// first as it is, the last one, once a burst is longer, the count of the
+/// rest. So a burst holds the screen for the time of three notices at most.
+const _mostWaiting = 2;
+
 /// A notice on its way to the screen.
 class _Notice {
-  _Notice(this.bar, {required this.mustRead, this.onShown});
+  _Notice(this.bar, this.text, {required this.mustRead, this.onShown}) : folded = 0;
+
+  /// "… and [folded] more notices", for the notices of a burst that found
+  /// the waiting line full.
+  _Notice.more(this.folded)
+    : text = '… and $folded more notices',
+      bar = SnackBar(content: Text('… and $folded more notices'), duration: noticeTime),
+      mustRead = true,
+      onShown = null;
 
   final SnackBar bar;
+
+  /// What it says, to tell a repeat by.
+  final String text;
+
+  /// How many notices this one stands for, when it is the count that ends
+  /// a burst; 0 for a notice of its own.
+  final int folded;
 
   /// Not to be cut short by a later notice.
   final bool mustRead;
@@ -63,12 +93,28 @@ void _post(ScaffoldMessengerState messenger, _Notice notice) {
     _put(messenger, line, notice);
     return;
   }
+  // Said already, on screen or waiting: not once more. Before anything
+  // gives way to it, so a routine notice waiting behind a burst of the
+  // same failure stays.
+  if (notice.mustRead && _saidAlready(line, notice)) return;
   // Behind the one that must be read. A routine notice is only ever the
   // last of the waiting ones, and gives way to this one.
-  line.waiting
-    ..removeWhere((w) => !w.mustRead)
-    ..add(notice);
+  line.waiting.removeWhere((w) => !w.mustRead);
+  if (!notice.mustRead || line.waiting.length < _mostWaiting) {
+    line.waiting.add(notice);
+    return;
+  }
+  // The line is full: its last notice and this one are counted, not
+  // shown (an Undo that last one offered goes with it, as for any notice
+  // that gives way while waiting).
+  final last = line.waiting.removeLast();
+  line.waiting.add(_Notice.more(last.folded == 0 ? 2 : last.folded + 1));
 }
+
+/// Whether [line] shows or holds a notice with [notice]'s words. Never
+/// for one with an Undo: what its button does is its own.
+bool _saidAlready(_Line line, _Notice notice) =>
+    notice.onShown == null && [line.holding!, ...line.waiting].any((w) => w.mustRead && w.text == notice.text);
 
 /// Puts [notice] on screen in place of whatever is there, without the
 /// slide out of the old one: the new one is then the one on screen, not
@@ -109,6 +155,7 @@ void showNotice(
     messenger,
     _Notice(
       SnackBar(content: Text(text), duration: duration),
+      text,
       mustRead: mustRead,
     ),
   );
@@ -167,7 +214,7 @@ class UndoNotice {
       );
     }
 
-    _post(messenger, _Notice(bar, mustRead: mustRead, onShown: onShown));
+    _post(messenger, _Notice(bar, text, mustRead: mustRead, onShown: onShown));
   }
 
   /// [undo], with a failure said on [messenger] in place of an unhandled

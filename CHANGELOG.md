@@ -26,7 +26,12 @@ the `?` overlay.
     notice could wait unseen behind one with an Undo. Only a notice
     that something went wrong ("Could not download …", "S3 is out of
     reach", a problem in keys.toml) is not cut short: it stays its few
-    seconds, and what comes meanwhile shows after it. `u` only ever
+    seconds, and what comes meanwhile shows after it. Many at once do
+    not hold the screen for long: the same one is not repeated, and
+    after the first two the rest are counted ("… and 5 more notices").
+    Marked downloads with the server off or no library folder say so
+    once ("S3 is out of reach: 5 comics can be downloaded when it is
+    back"), and refused keys once a try, not once a comic. `u` only ever
     undoes what the notice on screen offers, also with the `?` help up,
     and an undo that fails says so. `x` with marked comics of which none
     is in the open collection says so.

@@ -319,6 +319,9 @@ class S3Sync {
   }
 
   Future<void> _drainLoop() async {
+    // What the bucket refused with in this drain, each said once, also when
+    // the queue is gone through again (`_again`).
+    final refused = <String>{};
     do {
       _again = false;
       final conn = await _connect();
@@ -343,8 +346,9 @@ class S3Sync {
           sent++;
         } on RemoteException catch (e) {
           if (e.failure == RemoteFailure.unreachable) break;
-          // Refused keys or a missing bucket: said once, tried again later.
-          _fail('S3: ${e.message}');
+          // Refused keys or a missing bucket: said once a drain, however
+          // many comics wait (they are all refused alike), tried again later.
+          if (refused.add(e.message)) _fail('S3: ${e.message}');
           failed.add(row.contentKey);
         } catch (e) {
           debugPrint('S3 sync of ${row.contentKey} failed: $e');
@@ -673,70 +677,51 @@ class S3Sync {
   /// folder, at the place its manifest names, with its sidecar, and scans
   /// it in. Returns where it went, or null (said in a notice) when it
   /// could not.
-  Future<String?> download(String contentKey) async {
+  Future<String?> download(String contentKey) => _download(contentKey, null);
+
+  /// Downloads the comics [contentKeys] one after the other. What stops
+  /// one of them stops them all (no library folder to put them in, the
+  /// bucket out of reach), so then the rest are not tried and one notice
+  /// tells of all that are left, not one a comic.
+  Future<void> downloadAll(List<String> contentKeys) async {
+    final batch = _Batch();
+    for (var i = 0; i < contentKeys.length && !batch.stopped; i++) {
+      batch.left = contentKeys.length - i;
+      await _download(contentKeys[i], batch);
+    }
+  }
+
+  /// [download], as one of [batch] when it is not null.
+  Future<String?> _download(String contentKey, _Batch? batch) async {
     final row = await (_db.select(_db.s3Books)..where((t) => t.contentKey.equals(contentKey))).getSingleOrNull();
     final m = row == null ? null : Manifest.decode(row.manifest);
     final conn = await _connect();
     if (m == null || conn == null) return null;
     final (store, config) = conn;
-    final roots = await (_db.select(_db.roots)..orderBy([(r) => OrderingTerm(expression: r.id)])).get();
-    if (roots.isEmpty) {
-      _fail('Add a library folder first: downloads go into it');
-      return null;
-    }
-    var target = p.joinAll([roots.first.path, ...m.relPath.split('/')]);
-    if (FileSystemEntity.typeSync(target) != FileSystemEntityType.notFound) {
-      if (await _keyOf(target) == contentKey) {
-        await onDownloaded?.call();
-        return target;
-      }
-      target = _free(target, folder: m.isFolder);
+    final place = await _placeFor(m, contentKey, batch);
+    if (place == null) return null;
+    final target = place.path;
+    if (place.there) {
+      await onDownloaded?.call();
+      return target;
     }
     final o = BookObjects(config.prefix, contentKey);
     _progress(contentKey, 0);
     final made = <String>[];
     try {
-      await _guard(() async {
-        var before = 0;
-        void got(int n) => _progress(contentKey, m.size == 0 ? 1 : (before + n) / m.size);
-        if (m.isFolder) {
-          made.add(target);
-          for (final f in m.files) {
-            await _fetch(store, o.file(f.path), p.joinAll([target, ...f.path.split('/')]), got);
-            before += f.size;
-          }
-        } else {
-          await Directory(p.dirname(target)).create(recursive: true);
-          made.add(target);
-          await _fetch(store, o.comic(m.ext ?? m.format), target, got);
-        }
-      });
+      await _guard(() => _fetchComic(store, o, m, target, made));
       if (await _keyOf(target) != contentKey) {
         _deleteAll(made);
         _fail('The download of ${m.title} did not match what was uploaded; nothing was kept');
         return null;
       }
-      // Its sidecar, so it opens where the other device was.
-      final side = await sidecars.sidecarFor(target, folder: m.isFolder);
-      final head = await _guard(() => store.head(o.sidecar));
-      final remoteAt = int.tryParse(head?.metadata[writtenAtMeta] ?? '');
-      if (head != null) {
-        await Directory(p.dirname(side)).create(recursive: true);
-        await _guard(() => _fetch(store, o.sidecar, side, (_) {}));
-        await (_db.update(
-          _db.s3Books,
-        )..where((t) => t.contentKey.equals(contentKey))).write(S3BooksCompanion(sidecarAt: Value(remoteAt)));
-      }
+      await _fetchSidecar(store, o, m, target);
       await onDownloaded?.call();
       _say('Downloaded ${m.title}');
       return target;
     } on RemoteException catch (e) {
       _deleteAll(made);
-      _fail(
-        e.failure == RemoteFailure.unreachable
-            ? 'S3 is out of reach: ${m.title} can be downloaded when it is back'
-            : 'Could not download ${m.title}: ${e.message}',
-      );
+      _notFetched(e, m, batch);
       return null;
     } on FileSystemException catch (e) {
       _deleteAll(made);
@@ -745,6 +730,70 @@ class S3Sync {
     } finally {
       _progress(contentKey, null);
     }
+  }
+
+  /// Where the download of [m] goes: under the first library folder, at
+  /// the place its manifest names, or beside what is there under that name
+  /// already. `there` when that is this very comic, so nothing is to
+  /// fetch. Null, said in a notice and the end of [batch], when the
+  /// library has no folder.
+  Future<({String path, bool there})?> _placeFor(Manifest m, String contentKey, _Batch? batch) async {
+    final roots = await (_db.select(_db.roots)..orderBy([(r) => OrderingTerm(expression: r.id)])).get();
+    if (roots.isEmpty) {
+      _fail('Add a library folder first: downloads go into it');
+      batch?.stopped = true;
+      return null;
+    }
+    final target = p.joinAll([roots.first.path, ...m.relPath.split('/')]);
+    if (FileSystemEntity.typeSync(target) == FileSystemEntityType.notFound) return (path: target, there: false);
+    if (await _keyOf(target) == contentKey) return (path: target, there: true);
+    return (path: _free(target, folder: m.isFolder), there: false);
+  }
+
+  /// Fetches the comic of [m] to [target], file by file for a folder book,
+  /// noting in [made] what it starts to write, for the caller to take away
+  /// again when the download fails.
+  Future<void> _fetchComic(RemoteStore store, BookObjects o, Manifest m, String target, List<String> made) async {
+    var before = 0;
+    void got(int n) => _progress(m.contentKey, m.size == 0 ? 1 : (before + n) / m.size);
+    if (m.isFolder) {
+      made.add(target);
+      for (final f in m.files) {
+        await _fetch(store, o.file(f.path), p.joinAll([target, ...f.path.split('/')]), got);
+        before += f.size;
+      }
+    } else {
+      await Directory(p.dirname(target)).create(recursive: true);
+      made.add(target);
+      await _fetch(store, o.comic(m.ext ?? m.format), target, got);
+    }
+  }
+
+  /// The bucket's sidecar for the comic downloaded to [target], so it
+  /// opens where the other device was.
+  Future<void> _fetchSidecar(RemoteStore store, BookObjects o, Manifest m, String target) async {
+    final side = await sidecars.sidecarFor(target, folder: m.isFolder);
+    final head = await _guard(() => store.head(o.sidecar));
+    if (head == null) return;
+    final remoteAt = int.tryParse(head.metadata[writtenAtMeta] ?? '');
+    await Directory(p.dirname(side)).create(recursive: true);
+    await _guard(() => _fetch(store, o.sidecar, side, (_) {}));
+    await (_db.update(
+      _db.s3Books,
+    )..where((t) => t.contentKey.equals(m.contentKey))).write(S3BooksCompanion(sidecarAt: Value(remoteAt)));
+  }
+
+  /// Says that the bucket did not give [m]. Out of reach, which is the end
+  /// of [batch], it tells of all the comics left in it in one notice; a
+  /// refusal is this comic's own and the batch goes on.
+  void _notFetched(RemoteException e, Manifest m, _Batch? batch) {
+    if (e.failure != RemoteFailure.unreachable) {
+      _fail('Could not download ${m.title}: ${e.message}');
+      return;
+    }
+    final what = batch == null || batch.left == 1 ? m.title : '${batch.left} comics';
+    _fail('S3 is out of reach: $what can be downloaded when it is back');
+    batch?.stopped = true;
   }
 
   static Future<String?> _keyOf(String path) async {
@@ -846,4 +895,11 @@ class S3Sync {
     await _status.close();
     await _notices.close();
   }
+}
+
+/// Where [S3Sync.downloadAll] is: how many comics are left, the one being
+/// fetched included, and whether something stopped them all.
+class _Batch {
+  int left = 0;
+  bool stopped = false;
 }
