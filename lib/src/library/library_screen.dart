@@ -1484,10 +1484,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   @override
   Widget build(BuildContext context) {
     _tellSizer();
-    final books = ref.watch(booksProvider).value ?? const <LibraryBook>[];
+    final booksNow = ref.watch(booksProvider);
+    final books = booksNow.value ?? const <LibraryBook>[];
     final roots = ref.watch(rootsProvider).value;
     // Open on what you are reading when there is something; else the series.
-    _tab ??= roots == null ? null : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.series);
+    // Decided once the books are read too: with the folders in first, a
+    // start with a comic begun opened on Series.
+    _tab ??= roots == null || !(booksNow.hasValue || booksNow.hasError)
+        ? null
+        : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.series);
     // A library folder taken out of the library while we are in it. One
     // just added may not be in the list yet.
     if (_folderRoot != null && roots != null) {

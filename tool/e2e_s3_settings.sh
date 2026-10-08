@@ -101,7 +101,7 @@ origin() {
 s3_dialog() {
   origin
   click $((ox + w - 30)) $((oy + 28))
-  xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 30 --delay 50 5; sleep 1
+  xdotool mousemove $((ox + w / 2)) $((oy + h / 2)) click --repeat 60 --delay 50 5; sleep 1
   click $((ox + w / 2 - ${S3_BUTTON_DX:-168})) $((oy + h - ${S3_BUTTON_DY:-152}))
 }
 # The S3 dialog opens with the address focused; Tab walks the fields in order.

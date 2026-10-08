@@ -7,6 +7,16 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Fixed:** moving comics (`gm`) never replaces a comic already in the
+  folder without asking. Two marked comics of the same file name moved
+  into one folder used to leave only the second; now the second stays
+  where it was and the notice says it could not be moved.
+- **Fixed:** with a comic begun, the library sometimes opened on the
+  Series tab instead of Reading, when the comics were read in after the
+  library folders.
+- **Fixed:** `gA` says so when the library could not be updated, instead
+  of doing nothing.
+
 - **Completed comics:** a comic read to the end is marked completed.
   Reading on to the last page does it (a key, a tap or a swipe that
   turns onto it; a jump there with `G`, the page grid, the progress bar
