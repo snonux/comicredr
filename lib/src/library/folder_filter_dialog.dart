@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../hotkeys.dart';
 import 'folder_filter.dart';
 
-/// `F`, or the filter button on the Folders tab: the type, size, date and
-/// completed filter. Each change applies at once, so the covers behind it follow;
-/// Tab and Space work the chips, Esc or Done closes it.
+/// `F`, or the filter button on the Folders tab: the type, size, date,
+/// completed and length filter. Each change applies at once, so the covers
+/// behind it follow; Tab and Space work the chips, Esc or Done closes it.
 Future<void> showFolderFilter(
   BuildContext context, {
   required FolderFilter filter,
@@ -55,8 +55,8 @@ class _FolderFilterDialogState extends State<_FolderFilterDialog> {
   );
 
   /// The filter's parts, each a heading over its line of chips, in the
-  /// order Tab walks them: type, size, date, completed. A new part goes at
-  /// the end, since the e2e scripts count Tab stops from the first chip.
+  /// order Tab walks them: type, size, date, completed, length. A new part
+  /// goes at the end, since the e2e scripts count Tab stops from the first chip.
   List<Widget> _parts(ThemeData theme) {
     Widget heading(String text) => Padding(
       padding: const EdgeInsets.only(top: 12, bottom: 6),
@@ -92,6 +92,11 @@ class _FolderFilterDialogState extends State<_FolderFilterDialog> {
       _chips([
         for (final c in CompletedFilter.values)
           _choice('filterCompleted-${c.name}', c.label, _filter.completed == c, _filter.copyWith(completed: c)),
+      ]),
+      heading('Length'),
+      _chips([
+        for (final n in PageRange.values)
+          _choice('filterPages-${n.name}', n.label, _filter.pages == n, _filter.copyWith(pages: n)),
       ]),
     ];
   }

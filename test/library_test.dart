@@ -568,16 +568,19 @@ void main() {
       expect(shuffled(), findsNothing);
     });
 
-    testWidgets('F filters the Folders tab by type and date, the bar clears it, and it is kept', (tester) async {
+    testWidgets('F filters the Folders tab by type, length and date, the bar clears it, and it is kept', (
+      tester,
+    ) async {
       writeShelf(root);
       File('${root.path}/Sunday Strip 7.png').writeAsBytesSync([...png, 7]);
+      writeBook(root, 'Long Saga.cbz', 30);
       // Spirit #2 last changed two years ago; the rest just now.
       File('${root.path}/spirit-a.cbz').setLastModifiedSync(DateTime.now().subtract(const Duration(days: 730)));
       final c = await pumpApp(tester);
       await scan(tester, c);
       await tester.tap(find.text('Folders'));
       await settle(tester);
-      expect(find.text('5 books'), findsOneWidget);
+      expect(find.text('6 books'), findsOneWidget);
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter); // Into Comics.
       expect(find.byKey(const Key('filterBarClear')), findsNothing);
@@ -618,6 +621,36 @@ void main() {
       expect(find.byKey(const Key('filterBarClear')), findsNothing);
       expect(find.text('The Spirit #1'), findsWidgets);
 
+      // By length: of these only the comic of 30 pages is 24 to 64 pages
+      // long. (The cursor is still in the search box, so by the button.)
+      await tester.tap(find.byKey(const Key('filter')));
+      await settle(tester);
+      await tester.ensureVisible(find.byKey(const Key('filterPages-to64')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('filterPages-to64')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('filterDone')));
+      await settle(tester);
+      expect(find.text('Long Saga'), findsWidgets);
+      expect(find.text('The Spirit #1'), findsNothing);
+      expect(find.text('Sunday Strip #7'), findsNothing);
+      expect(
+        find.descendant(of: find.byKey(const Key('filterBarPages')), matching: find.text('24 to 64 pages')),
+        findsOne,
+      );
+      expect(
+        await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)),
+        contains('"pages":"to64"'),
+      );
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('filterBarPages')),
+          matching: find.byTooltip('Take this off the filter'),
+        ),
+      );
+      await settle(tester);
+      expect(find.byKey(const Key('filterBarClear')), findsNothing);
+
       // By date: only the book changed over a year ago; the header button
       // opens it too.
       await tester.tap(find.byKey(const Key('filter')));
@@ -650,7 +683,7 @@ void main() {
       expect(find.text('No comics match the filter.'), findsOneWidget);
       await tester.tap(find.byKey(const Key('filterBarClear')));
       await settle(tester);
-      expect(find.text('5 books'), findsOneWidget);
+      expect(find.text('6 books'), findsOneWidget);
       expect(await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)), isNull);
     });
 

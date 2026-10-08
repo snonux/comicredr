@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # End-to-end check of the Folders tab's filter (`F`) on the Linux build:
-# by type, by size and by the file's modification date, each picked in the
+# by type, by size, by the file's modification date and by length, each picked in the
 # filter window with Tab and Space, then a comic opened from what is left
 # to prove which ones it let through; the filter kept across a restart;
 # the filter line's part x and button clicked with the mouse, and the
@@ -23,7 +23,8 @@ db="$PWD/$out/home/.local/share/org.snonux.comicredr/comicredr.sqlite"
 
 # Comics/Golden Age: Mystery Men (CBZ, 2 years old), Space Ranger (CBZ,
 # over 10 MB), Strip (one PNG) and Zeppelin (PDF); Comics/Modern/Pepper
-# (a folder of pages). File order puts the PDF last.
+# (a folder of pages) and Saga (a CBZ of 30 pages, the only long one).
+# File order puts the PDF last.
 pages() { # dir colour
   for i in 1 2 3; do
     convert -size 800x1200 xc:white -fill "$2" -stroke black -strokewidth 8 \
@@ -49,6 +50,9 @@ ims = [Image.open(f).convert("RGB") for f in sys.argv[2:]]
 ims[0].save(sys.argv[1], save_all=True, append_images=ims[1:])' "$comics/Golden Age/zeppelin.pdf" "$tmp"/c/*.jpg
 convert -size 800x1200 xc:orange "$comics/Golden Age/strip.png"
 pages "$comics/Modern/Pepper" purple
+mkdir -p "$tmp/d"
+for i in $(seq -w 1 30); do convert -size 400x600 xc:yellow -fill black -pointsize 60 -annotate +150+300 "$i" "$tmp/d/p$i.jpg"; done
+cbz "$comics/Modern/saga.cbz" "$tmp/d"
 rm -r "$tmp"
 touch -d '2 years ago' "$comics/Golden Age/mystery-men.cbz"
 ls -l "$comics/Golden Age"
@@ -96,7 +100,8 @@ check() { # check "what" actual expected
 # (0-3), Any size, Under 10, 10 to 50, 50 to 200, Over 200 MB (4-8), Any
 # time, 24 hours, 7 days, 30 days, 12 months, Over a year (9-14),
 # Completed or not, Completed only, Not completed (15-17; tool/e2e_completed.sh
-# picks those).
+# picks those), Any length, Under 24, 24 to 64, 64 to 200, Over 200 pages
+# (18-22), then Clear all (23).
 chip() { for _ in $(seq 1 "$1"); do xdotool key Tab; sleep 0.15; done; key space; }
 # first_in_golden_age: from the top of the Folders tab, into Comics, then
 # Golden Age (the first folder there), and reads the first comic in it.
@@ -106,8 +111,8 @@ first_in_golden_age() {
 }
 
 start --add-root "$comics"
-for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 5 ]] && break; sleep 0.5; done
-check "books indexed" "$(sql 'select count(*) from books')" 5
+for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 6 ]] && break; sleep 0.5; done
+check "books indexed" "$(sql 'select count(*) from books')" 6
 
 click 43 355; shot 01_folders # The Folders tab (the rail, left).
 
@@ -142,12 +147,20 @@ check "the filter says so" "$(sql "select value like '%older%' from settings whe
 key l; key Return; shot 12_comics_older
 click 431 69; shot 13_x_clicked
 check "the x cleared the filter" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
-# The filter line's button opens the window; its Clear all (after the 18
+# The filter line's button opens the window; its Clear all (after the 23
 # chips) clears it.
 key shift+f; sleep 1; chip 14; key Escape
 click 150 69; sleep 1; shot 14_window_by_click
-chip 18; sleep 0.5; shot 15_clear_all; key Escape
+chip 23; sleep 0.5; shot 15_clear_all; key Escape
 check "Clear all cleared it" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
+
+# By length, from the top: 24 to 64 pages leaves only Saga, so Modern is
+# the first folder and Saga its first comic.
+key BackSpace
+key shift+f; sleep 1; chip 20; shot 16_length_picked; key Escape; sleep 1; shot 17_length_top
+key l; key Return; key Return; key Return; sleep 2; shot 18_read_saga; key Escape; sleep 1
+check "the 30-page comic opened" "$(read_ 'Saga')" 1
+check "the filter says so" "$(sql "select value like '%\"pages\":\"to64\"%' from settings where key = 'library.folderFilter'")" 1
 stop
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"

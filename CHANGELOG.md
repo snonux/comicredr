@@ -31,6 +31,10 @@ the `?` overlay.
   the type, size and date as before. A filter saved earlier is read as it
   was. A comic that leaves the tab because it was just marked hands the
   selection to the cover next to it.
+- **Filter the Folders tab by length:** `F` has a **Length** part, by
+  page count: under 24 pages, 24 to 64, 64 to 200, or over 200. Like the
+  others it is picked with `Tab` and `Space`, shows on the line under the
+  search box, and is kept across restarts.
 
 - **A key for every button and dialog:** everything that can be clicked
   can now be done from the keyboard.

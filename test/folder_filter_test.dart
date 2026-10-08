@@ -2,11 +2,11 @@ import 'package:comicredr/src/library/folder_filter.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-LibraryBook book(String format, {int? size, DateTime? modified}) => LibraryBook(
-  key: '$format-$size-$modified',
+LibraryBook book(String format, {int? size, DateTime? modified, int pages = 1}) => LibraryBook(
+  key: '$format-$size-$modified-$pages',
   series: 'S',
   seriesId: 1,
-  pageCount: 1,
+  pageCount: pages,
   format: format,
   path: '/c/$format',
   addedAt: DateTime(2020),
@@ -56,6 +56,28 @@ void main() {
     expect(DateRange.week.accepts(null, now), isFalse);
   });
 
+  test('lengths meet without a gap; an unknown count passes only Any length', () {
+    expect(PageRange.under24.accepts(23), isTrue);
+    expect(PageRange.under24.accepts(24), isFalse);
+    expect(PageRange.to64.accepts(24), isTrue);
+    expect(PageRange.to64.accepts(64), isFalse);
+    expect(PageRange.to200.accepts(64), isTrue);
+    expect(PageRange.over200.accepts(200), isTrue);
+    for (final pages in [1, 23, 24, 63, 64, 199, 200, 900]) {
+      final hits = PageRange.values.where((r) => r != PageRange.any && r.accepts(pages));
+      expect(hits, hasLength(1), reason: '$pages pages');
+    }
+    for (final r in PageRange.values) {
+      expect(r.accepts(0), r == PageRange.any, reason: r.name);
+    }
+    const f = FolderFilter(pages: PageRange.to64);
+    expect(f.isActive, isTrue);
+    expect(f.accepts(book('cbz', pages: 30), now), isTrue);
+    expect(f.accepts(book('cbz', pages: 3), now), isFalse);
+    expect(f.copyWith(pages: PageRange.any), FolderFilter.none);
+    expect(f.hashCode, isNot(FolderFilter.none.hashCode));
+  });
+
   test('the parts combine', () {
     const f = FolderFilter(formats: {'cbz'}, size: SizeRange.to50, date: DateRange.week);
     final fresh = now.subtract(const Duration(days: 1));
@@ -72,5 +94,12 @@ void main() {
     expect(FolderFilter.decode(null), FolderFilter.none);
     expect(FolderFilter.decode('not json'), FolderFilter.none);
     expect(FolderFilter.decode('{"size": "huge", "formats": [1, "pdf"]}'), const FolderFilter(formats: {"pdf"}));
+    // The length is saved only when set, so a filter without it reads, and
+    // is written, as before it existed.
+    const long = FolderFilter(pages: PageRange.over200);
+    expect(long.encode(), contains('"pages":"over200"'));
+    expect(FolderFilter.decode(long.encode()), long);
+    expect(const FolderFilter(size: SizeRange.to50).encode(), isNot(contains('pages')));
+    expect(FolderFilter.decode('{"size": "to50", "pages": "huge"}'), const FolderFilter(size: SizeRange.to50));
   });
 }

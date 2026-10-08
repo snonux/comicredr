@@ -48,6 +48,30 @@ enum DateRange {
   }
 }
 
+/// How many pages a comic has ([LibraryBook.pageCount]), in ranges from a
+/// short story to a thick collection (t363). A comic whose count is not
+/// known (0: one only on S3 whose manifest did not say) passes only [any].
+enum PageRange {
+  any('Any length'),
+  under24('Under 24 pages', max: 24),
+  to64('24 to 64 pages', min: 24, max: 64),
+  to200('64 to 200 pages', min: 64, max: 200),
+  over200('Over 200 pages', min: 200);
+
+  const PageRange(this.label, {this.min, this.max});
+
+  final String label;
+
+  /// Bounds in pages, from inclusive, to exclusive; null is open.
+  final int? min, max;
+
+  bool accepts(int pages) {
+    if (this == any) return true;
+    if (pages <= 0) return false;
+    return (min == null || pages >= min!) && (max == null || pages < max!);
+  }
+}
+
 /// Whether a comic is completed ([LibraryBook.completed]: marked so, or
 /// left on its last page), as the filter asks it.
 enum CompletedFilter {
@@ -77,9 +101,9 @@ String formatLabel(String format) => switch (format) {
   _ => format.toUpperCase(),
 };
 
-/// The Folders tab's filter (`F`): the comics of some types, sizes and
-/// modification dates, completed or not. Each part left at its default
-/// lets everything through; the parts combine, and with the search.
+/// The Folders tab's filter (`F`): the comics of some types, sizes,
+/// modification dates and lengths, completed or not. Each part left at its
+/// default lets everything through; the parts combine, and with the search.
 ///
 /// A new part is a field with a default that lets everything through, a
 /// line each in [isActive], [accepts], [copyWith], [encode], [decode], `==`
@@ -92,6 +116,7 @@ class FolderFilter {
     this.size = SizeRange.any,
     this.date = DateRange.any,
     this.completed = CompletedFilter.any,
+    this.pages = PageRange.any,
   });
 
   /// The formats shown, by [LibraryBook.format]; empty shows them all.
@@ -99,25 +124,37 @@ class FolderFilter {
   final SizeRange size;
   final DateRange date;
   final CompletedFilter completed;
+  final PageRange pages;
 
   static const none = FolderFilter();
 
   bool get isActive =>
-      formats.isNotEmpty || size != SizeRange.any || date != DateRange.any || completed != CompletedFilter.any;
+      formats.isNotEmpty ||
+      size != SizeRange.any ||
+      date != DateRange.any ||
+      completed != CompletedFilter.any ||
+      pages != PageRange.any;
 
   bool accepts(LibraryBook b, DateTime now) =>
       (formats.isEmpty || formats.contains(b.format)) &&
       size.accepts(b.size) &&
       date.accepts(b.modified, now) &&
-      completed.accepts(b.completed);
+      completed.accepts(b.completed) &&
+      pages.accepts(b.pageCount);
 
-  FolderFilter copyWith({Set<String>? formats, SizeRange? size, DateRange? date, CompletedFilter? completed}) =>
-      FolderFilter(
-        formats: formats ?? this.formats,
-        size: size ?? this.size,
-        date: date ?? this.date,
-        completed: completed ?? this.completed,
-      );
+  FolderFilter copyWith({
+    Set<String>? formats,
+    SizeRange? size,
+    DateRange? date,
+    CompletedFilter? completed,
+    PageRange? pages,
+  }) => FolderFilter(
+    formats: formats ?? this.formats,
+    size: size ?? this.size,
+    date: date ?? this.date,
+    completed: completed ?? this.completed,
+    pages: pages ?? this.pages,
+  );
 
   /// [format] shown or not, the others as they are.
   FolderFilter toggle(String format) {
@@ -126,14 +163,16 @@ class FolderFilter {
     return copyWith(formats: next);
   }
 
-  /// For the setting: null when nothing is filtered. `completed` is left
-  /// out at its default, so a filter without it is saved as it always was.
+  /// For the setting: null when nothing is filtered. `completed` and
+  /// `pages` are left out at their defaults, so a filter without them is
+  /// saved as it always was.
   String? encode() => isActive
       ? jsonEncode({
           'formats': (formats.toList()..sort()),
           'size': size.name,
           'date': date.name,
           if (completed != CompletedFilter.any) 'completed': completed.name,
+          if (pages != PageRange.any) 'pages': pages.name,
         })
       : null;
 
@@ -152,6 +191,8 @@ class FolderFilter {
         date: DateRange.values.asNameMap()[j['date']] ?? DateRange.any,
         // Not in a filter saved before comics could be completed.
         completed: CompletedFilter.values.asNameMap()[j['completed']] ?? CompletedFilter.any,
+        // Not in a filter saved before the length could be filtered on.
+        pages: PageRange.values.asNameMap()[j['pages']] ?? PageRange.any,
       );
     } on FormatException {
       return none;
@@ -164,9 +205,10 @@ class FolderFilter {
       other.size == size &&
       other.date == date &&
       other.completed == completed &&
+      other.pages == pages &&
       other.formats.length == formats.length &&
       other.formats.containsAll(formats);
 
   @override
-  int get hashCode => Object.hash(size, date, completed, Object.hashAllUnordered(formats));
+  int get hashCode => Object.hash(size, date, completed, pages, Object.hashAllUnordered(formats));
 }

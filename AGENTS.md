@@ -757,8 +757,10 @@ refreshes right away instead of within six hours.
 - The Folders tab's filter (`F`, `ReaderIntent.filterFolders`;
   `FolderFilter` in `lib/src/library/folder_filter.dart`, its window in
   `folder_filter_dialog.dart`): a set of `LibraryBook.format`s, a
-  `SizeRange`, a `DateRange` and a `CompletedFilter` (any, only, hide;
-  by `LibraryBook.completed`, task 273), applied to the books before
+  `SizeRange`, a `DateRange`, a `CompletedFilter` (any, only, hide;
+  by `LibraryBook.completed`, task 273) and a `PageRange` (by
+  `LibraryBook.pageCount`, task 363; a count of 0, a comic on S3 whose
+  manifest said none, passes only Any length), applied to the books before
   `LibraryFolder.roots`/`children` build the tab, so folder counts are of
   what passes and folders with none go. Size and date are the first
   file's `files.size` and `files.mtime` (a folder book: its pages' total
@@ -767,14 +769,15 @@ refreshes right away instead of within six hours.
   `library.folderFilter` (in `SettingsStore.backedUp`, unset when
   off). It has its own line under the header (`_filterBar`), since the
   header has no room left beside a breadcrumb on a tablet or phone.
-  A part more (task 363 wants some) is a field whose default lets
+  A part more is a field whose default lets
   everything through and a line each in `isActive`, `accepts`,
   `copyWith`, `encode`, `decode`, `==` and `hashCode`, its chips at the
   end of the dialog (the e2e scripts count Tab stops from the first
   chip) and a part on the filter line. `decode` reads a missing or
-  unknown part as its default and `encode` leaves `completed` out at
-  its default, so a filter saved before the part existed reads, and is
-  written, as it was.
+  unknown part as its default and `encode` leaves `completed` and
+  `pages` out at their defaults, so a filter saved before the part existed
+  reads, and is written, as it was. "Page size" in task 363 was read as
+  the page count; the pages' pixel size is not filtered on.
 - Completed comics (snonux, task 273; `gC`, `ReaderIntent.toggleCompleted`).
   Two facts make it up. `LibraryBook.finished` is the old one, a column
   of `progress`: this device's saved page is the last. The mark is new:

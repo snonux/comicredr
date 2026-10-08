@@ -34,7 +34,7 @@ come back here for a key you forgot.
    - [Bigger and smaller covers](03-library.md#bigger-and-smaller-covers)
    - [The tabs](03-library.md#the-tabs): [series](03-library.md#series),
      [folders](03-library.md#folders),
-     [filter by type, size, date and completed](03-library.md#filter-by-type-size-date-and-completed),
+     [filter the Folders tab](03-library.md#filter-the-folders-tab),
      [history](03-library.md#history)
    - [Search](03-library.md#search)
    - [Shuffle](03-library.md#shuffle)

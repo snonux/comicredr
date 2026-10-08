@@ -1292,6 +1292,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
             _filterPart('filterBarDate', 'Modified: ${f.date.label.toLowerCase()}', f.copyWith(date: DateRange.any)),
           if (f.completed != CompletedFilter.any)
             _filterPart('filterBarCompleted', f.completed.label, f.copyWith(completed: CompletedFilter.any)),
+          if (f.pages != PageRange.any) _filterPart('filterBarPages', f.pages.label, f.copyWith(pages: PageRange.any)),
           if (f.isActive)
             Tooltip(
               message: _tip('By key: Clear all in the filter', ReaderIntent.filterFolders),
@@ -1316,7 +1317,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// The filter line's button. Its tooltip names the key also while the
   /// label says what is filtered.
   Widget _filterButton(FolderFilter f) {
-    final named = _tip('Filter by type, size, date, completed', ReaderIntent.filterFolders);
+    final named = _tip('Filter by type, size, date, completed, length', ReaderIntent.filterFolders);
     return Tooltip(
       message: named,
       child: TextButton.icon(

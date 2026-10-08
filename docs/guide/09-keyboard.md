@@ -117,7 +117,7 @@ A few buttons are shortcuts to something the keys reach in two steps,
 and have no key of their own: the names along the top of the Folders
 tab (`Backspace` goes up a folder at a time), **Read** in a series'
 details (`Enter` shows its books, `Enter` on one reads it), the **x** on
-a part of the [filter](03-library.md#filter-by-type-size-date-and-completed)
+a part of the [filter](03-library.md#filter-the-folders-tab)
 (`F`, then pick it off there), and **Note** and **Remove** on a bookmark
 in a book's details (`e` and `x` on the Bookmarks tab). The tabs are
 `Tab` and `Shift+Tab`, covers and pages the arrows and `Enter`.

@@ -99,7 +99,8 @@ wait_books() { for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2
 # chip N: in the filter window, the Nth control from the first type (Tab N
 # times) pressed with Space. With CBZ the only type here: CBZ (0), the
 # five sizes (1-5), the six dates (6-11), Completed or not, Completed
-# only, Not completed (12-14), then Clear all (15).
+# only, Not completed (12-14), the five lengths (15-19), then Clear all
+# (20).
 chip() { for _ in $(seq 1 "$1"); do xdotool key Tab; sleep 0.15; done; key space; }
 # first_in_comics: from the top of the Folders tab into Comics, and reads
 # the first comic shown there; then back out to the top.
@@ -182,8 +183,8 @@ key BackSpace
 first_in_comics 13_read_bravo
 check "Completed only: Bravo opened first" "$(last_read)" "Bravo 1.cbz"
 
-# 6. Clear all in the filter window (the 16th control) takes the filter off.
-key shift+f; sleep 1; chip 15; key Escape; sleep 1
+# 6. Clear all in the filter window (the 21st control) takes the filter off.
+key shift+f; sleep 1; chip 20; key Escape; sleep 1
 check "Clear all cleared it" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
 
 # 7. Charlie marked, to travel; Bravo reset (X, Alt+R is Reset everything):
