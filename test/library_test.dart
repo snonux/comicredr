@@ -515,8 +515,10 @@ void main() {
       expect(c.read(readerProvider).page, 0);
       await key(tester, LogicalKeyboardKey.escape);
 
-      // A new start keeps shuffle on; S turns it off.
+      // A new start keeps shuffle on; S turns it off. (In the library: the
+      // comic just read would open at start otherwise.)
       await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(() => SettingsStore(db).saveBool(SettingsStore.continueAtStart, false));
       final c2 = await pumpApp(tester);
       await settle(tester);
       await tester.tap(find.text('Folders'));
