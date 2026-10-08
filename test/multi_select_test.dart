@@ -98,18 +98,26 @@ void main() {
 
   testWidgets('Shift+arrows mark a run of comics, and Esc clears it', (tester) async {
     await inFolder(tester);
+    // Each marked cover, and no other, has the tick over its picture.
+    final ticks = find.byKey(const Key('markedTick'));
     expect(find.byKey(const Key('marksBar')), findsNothing);
+    expect(ticks, findsNothing);
     await shifted(tester, LogicalKeyboardKey.arrowRight);
     expect(count(), '2 selected');
+    expect(ticks, findsNWidgets(2));
     await shifted(tester, LogicalKeyboardKey.arrowRight);
     expect(count(), '3 selected');
+    expect(ticks, findsNWidgets(3));
     // Back the other way unmarks what the run went past.
     await shifted(tester, LogicalKeyboardKey.arrowLeft);
     expect(count(), '2 selected');
+    expect(ticks, findsNWidgets(2));
     await shifted(tester, LogicalKeyboardKey.end);
     expect(count(), '5 selected');
+    expect(ticks, findsNWidgets(5));
     await key(tester, LogicalKeyboardKey.escape);
     expect(find.byKey(const Key('marksBar')), findsNothing);
+    expect(ticks, findsNothing);
 
     // A plain move ends the run; a new one adds to the marks there are.
     await shifted(tester, LogicalKeyboardKey.arrowLeft); // E and D.

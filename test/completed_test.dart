@@ -10,7 +10,9 @@ import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/library/bulk_actions.dart';
+import 'package:comicredr/src/library/cover_card.dart';
 import 'package:comicredr/src/library/folder_filter.dart';
+import 'package:comicredr/src/library/library_items.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/scanner.dart';
@@ -731,6 +733,29 @@ void main() {
       expect(await markOf(tester, store, preacher.key), isTrue);
     });
 
+    testWidgets('a step that arrives with something to say keeps the status line; the mark is written all the same', (
+      tester,
+    ) async {
+      final store = (await tester.runAsync(shelf))!;
+      final preacher = named((await tester.runAsync(store.books))!, 'Preacher #1'); // Two pages.
+      final c = await pumpApp(tester);
+      await settle(tester);
+      await tester.runAsync(() => c.read(readerProvider.notifier).open(preacher.path));
+      await settle(tester);
+      // Page 1 in halves: upper, lower, whole again, and then the turn onto
+      // the last page, which the parts announce.
+      await send(tester, c, ReaderIntent.regionUpperHalf);
+      for (var i = 0; i < 2; i++) {
+        await type(tester, 'l');
+      }
+      expect(c.read(readerProvider).page, 0);
+      expect(await markOf(tester, store, preacher.key), isNull);
+      await type(tester, 'l');
+      expect(c.read(readerProvider).page, 1);
+      expect(await markOf(tester, store, preacher.key), isTrue);
+      expect(c.read(readerProvider).message, 'Whole page, in halves');
+    });
+
     testWidgets('PageDown onto the last page marks, a counted step too, in guided view as well; PageUp, a counted G '
         'and a switch to two pages do not', (tester) async {
       await tester.runAsync(() => SettingsStore(db).saveBool(SettingsStore.pauseWhole, false));
@@ -1076,6 +1101,53 @@ void main() {
       // By the page alone neither is finished and the later read would be first.
       expect(tester.getTopLeft(cover('Daredevil #181')).dx, lessThan(tester.getTopLeft(cover('Swamp Thing #21')).dx));
       expect(tester.getTopLeft(cover('Daredevil #181')).dy, tester.getTopLeft(cover('Swamp Thing #21')).dy);
+      // The line of how far a comic was read is for one still being read:
+      // both have a page saved, and only Daredevil's cover has the line.
+      Finder lineOn(String name) => find.descendant(
+        of: find.ancestor(of: cover(name), matching: find.byType(CoverCard)),
+        matching: find.byType(LinearProgressIndicator),
+      );
+      expect(lineOn('Daredevil #181'), findsOneWidget);
+      expect(lineOn('Swamp Thing #21'), findsNothing);
+    });
+
+    testWidgets("a series' cover has no sign of one comic: not the tick or the star of the comic it would open", (
+      tester,
+    ) async {
+      writeBook(root, 'Akira 1.cbz', 5);
+      writeBook(root, 'Akira 2.cbz', 6);
+      final store = (await tester.runAsync(shelf))!;
+      final books = (await tester.runAsync(store.books))!;
+      await tester.runAsync(() async {
+        // Every Akira completed, so the series' next comic is its first,
+        // which is completed and a favourite.
+        for (final name in const ['Akira #1', 'Akira #2']) {
+          await store.setCompleted(named(books, name).key, true);
+        }
+        await store.setFavourite(named(books, 'Akira #1').key, true);
+      });
+      await pumpApp(tester);
+      await settle(tester);
+      await tester.tap(find.text('Series').first);
+      await settle(tester);
+      final akira = find.ancestor(
+        of: find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Akira')),
+        matching: find.byType(CoverCard),
+      );
+      expect(akira, findsOneWidget);
+      expect(tester.widget<CoverCard>(akira).item, isA<SeriesItem>());
+      for (final sign in const ['completedBadge', 'favouriteBadge']) {
+        expect(find.descendant(of: akira, matching: find.byKey(Key(sign))), findsNothing, reason: sign);
+      }
+      expect(find.descendant(of: akira, matching: find.byType(LinearProgressIndicator)), findsNothing);
+      // The comics of the series, each a cover of its own, do have them.
+      await tester.tap(akira);
+      await settle(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await settle(tester);
+      final grid = find.byKey(const Key('grid'));
+      expect(find.descendant(of: grid, matching: find.byKey(const Key('completedBadge'))), findsNWidgets(2));
+      expect(find.descendant(of: grid, matching: find.byKey(const Key('favouriteBadge'))), findsOneWidget);
     });
 
     testWidgets('comics only on S3 are left out and the notice says so; a failing index names what was marked', (

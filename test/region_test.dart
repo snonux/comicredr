@@ -2,11 +2,13 @@ import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/guided.dart';
 import 'package:comicredr/src/reader/layout.dart';
 import 'package:comicredr/src/reader/page_painters.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:comicredr/src/reader/reader_providers.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
 import 'package:comicredr/src/reader/region.dart';
 import 'package:drift/native.dart';
@@ -14,8 +16,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:reader_input/reader_input.dart';
 
 import 'support/fixtures.dart';
+
+/// A progress store that counts the positions it is asked to save.
+class _CountedSaves extends ProgressStore {
+  _CountedSaves(super.db);
+
+  int saves = 0;
+
+  @override
+  void save(String contentKey, ReadingPosition at, int pageCount, {int? lastShown}) {
+    saves++;
+    super.save(contentKey, at, pageCount, lastShown: lastShown);
+  }
+}
 
 /// Halves, thirds and quarters of a page enlarged by hand (`H1`, `B2`,
 /// `Q3`...), in guided view on a page without panels and outside it.
@@ -232,6 +248,37 @@ void main() {
     expect(c.read(readerProvider).region, isNull);
     await key(tester, LogicalKeyboardKey.arrowRight);
     expect(status(tester), contains('last part of the last page'));
+  });
+
+  // The reader alone, without its screen: there the view saves the place
+  // too whenever its camera moves, which would hide a part key that forgot.
+  test('a part key saves the place, as every other key does', () async {
+    late final _CountedSaves progress;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        progressStoreProvider.overrideWith((ref) => progress = _CountedSaves(db)),
+        noSidecars(db),
+        classicCvOnly,
+      ],
+    );
+    addTearDown(c.dispose);
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(writeBook());
+    var before = progress.saves;
+    // A part, the page whole within the split, and out of the parts.
+    for (final (intent, parts) in const [
+      (ReaderIntent.regionUpperHalf, PageSplit.halves),
+      (ReaderIntent.regionWhole, PageSplit.halves),
+      (ReaderIntent.regionPrevious, null),
+    ]) {
+      await reader.handle(ReaderCommand(intent));
+      expect(c.read(readerProvider).parts, parts, reason: '$intent');
+      expect(progress.saves, before + 1, reason: '$intent saves the place once');
+      before = progress.saves;
+    }
+    await progress.flush();
+    expect((await db.select(db.progress).getSingle()).page, 0);
   });
 
   testWidgets('outside guided view: thirds page by page, until a jump or a mode switch', (tester) async {

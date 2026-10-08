@@ -141,15 +141,48 @@ else:
 EOF
 }
 # Settings, scrolled to its end and then twelve wheel notches (53 px each)
-# back up: where the Cover size line's smaller and bigger buttons and
-# Usual size are then. Counted from the end because what is under the line
-# (Sidecars, Touch, Reading history, Back up, S3 sync) is the same in every
-# run here, while above it the panel detector's path wraps into more lines
-# in a checkout with a longer path, which would move the line if it were
-# counted from the top. (Tab does not find the buttons reliably either:
-# the focus goes by where things are on screen, and the dialog scrolls as
-# it moves.)
-smaller_x=${SMALLER_X:-400} bigger_x=${BIGGER_X:-444} usual_x=${USUAL_X:-515} size_y=${SIZE_Y:-362}
+# back up, which brings the Cover size line's smaller and bigger buttons
+# and Usual size on screen. Scrolled from the end because above the line
+# the panel detector's path wraps into more lines in a checkout with a
+# longer path. Where the buttons then are is read off a screenshot
+# (button_row), not counted: the texts under the line (Sidecars, Touch,
+# Reading history, Back up, S3 sync) wrap too, and two words more in Back
+# up's moved the buttons 16 px up, off the Usual size button, which is
+# less tall than the two with a picture. (Tab does not find the buttons
+# reliably either: the focus goes by where things are on screen, and the
+# dialog scrolls as it moves.) SIZE_Y=n says where instead.
+smaller_x=${SMALLER_X:-400} bigger_x=${BIGGER_X:-444} usual_x=${USUAL_X:-515} size_y=${SIZE_Y:-}
+# button_row shot: the middle line of the two magnifying glasses at
+# smaller_x and bigger_x; nothing when they are not on the screenshot. They
+# are the only thing in the dialog with ink around both places and none
+# beside or between them for 14 lines on end: a line of text is less tall
+# and has letters in the gaps. Ink is whatever differs from the dialog's
+# own colour, so a greyed button (at a limit) counts as well.
+button_row() {
+  python3 - "$top/$out/$1.png" "$smaller_x" "$bigger_x" <<'EOF'
+import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB')
+small, big = int(sys.argv[2]), int(sys.argv[3])
+px = im.load()
+def ink(y, x0, x1):
+    paper = px[365, y]  # Just inside the dialog's left edge.
+    return any(max(abs(a - b) for a, b in zip(px[x, y], paper)) > 25 for x in range(x0, x1))
+def glasses(y):
+    return (ink(y, small - 10, small + 10) and ink(y, big - 10, big + 10)
+            and not ink(y, small - 20, small - 13) and not ink(y, small + 13, big - 13)
+            and not ink(y, big + 13, big + 25))
+start = None
+for y in range(90, 620):
+    if glasses(y):
+        start = y if start is None else start
+        continue
+    if start is not None and y - start >= 14:
+        print((start + y - 1) // 2)
+        break
+    start = None
+EOF
+}
 settings() {
   # The gear wants the pointer on it before the click.
   xdotool mousemove 1251 28; sleep 0.5; xdotool click 1; sleep 1.5
@@ -158,6 +191,12 @@ settings() {
   sleep 0.8
   for _ in $(seq 1 12); do xdotool click 4; sleep 0.05; done
   sleep 1
+  # Off the dialog, so no hover colour or tooltip is on the screenshot.
+  xdotool mousemove 640 710; sleep 0.5
+  shot settings_cover_size
+  [[ -n "${SIZE_Y:-}" ]] && return 0
+  size_y=$(button_row settings_cover_size)
+  [[ -n "$size_y" ]] || { fail "Settings: the Cover size buttons are not on screen"; size_y=346; }
 }
 n=0
 # Where the covers end: 1280, or 895 while a cover is selected and its
@@ -369,7 +408,6 @@ pane=1280
 step equal "= before Settings" before_settings
 check "the Books tab at the usual size again" "$cols" "$books_usual"
 settings
-shot settings_cover_size
 click "$bigger_x" "$size_y"
 wait_size_change "" || fail "Settings, bigger: nothing kept"
 kept=$(size)
