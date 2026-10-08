@@ -152,6 +152,10 @@ void main() {
     expect(await phone.s3.download(key), remote.path);
     remote = await phone.book(key);
     expect((remote.remoteOnly, remote.s3?.mark, remote.page), (false, S3Mark.synced, 3));
+    // The index knows which sidecar of the bucket it has: the one fetched.
+    final shelf = (await phone.db.select(phone.db.s3Books).get()).singleWhere((r) => r.contentKey == key);
+    final inBucket = bucket.objects[BookObjects('Comics/', key).sidecar]!.metadata[writtenAtMeta]!;
+    expect(shelf.sidecarAt, int.parse(inBucket));
 
     // The phone reads on, later (the index keeps whole seconds); its
     // sidecar is the newest and goes up.
@@ -308,6 +312,38 @@ void main() {
       expect(phone.notices.where((n) => n.startsWith('Downloaded ')), hasLength(2));
       expect(phone.notices.last, 'S3 is out of reach: 2 comics can be downloaded when it is back');
       expect(phone.failures, hasLength(2));
+      // The two that came are on disk, and no third comic.
+      expect(filesUnder(phone.root).where((f) => f.endsWith('.cbz')), ['Pep 1.cbz', 'Pep 2.cbz']);
+    });
+
+    test('a download cut off part of the way keeps nothing of the comic', () async {
+      // A folder book with one page here and the bucket off at the second.
+      final dir = Directory('${laptop.root.path}/Pepper')..createSync();
+      for (final (i, name) in ['p1.png', 'p2.png', 'sub/p3.png'].indexed) {
+        File('${dir.path}/$name')
+          ..createSync(recursive: true)
+          ..writeAsBytesSync([...png, i]);
+      }
+      final keys = await shelved(1);
+      final folder = await contentKey(dir.path);
+      await laptop.s3.upload([folder]);
+      await laptop.s3.drain();
+      await phone.s3.refreshShelf();
+      bucket.offAt = '/files/p2.png';
+      expect(await phone.s3.download(folder), isNull);
+      expect(bucket.reachable, isFalse);
+      expect(Directory('${phone.root.path}/Pepper').existsSync(), isFalse);
+      expect(filesUnder(phone.root), isEmpty);
+
+      // A comic that came whole, and the bucket off when its sidecar is asked for.
+      bucket
+        ..reachable = true
+        ..offAt = '/sidecar.crdb';
+      expect(await phone.s3.download(keys.single), isNull);
+      expect(bucket.reachable, isFalse);
+      expect(filesUnder(phone.root), isEmpty);
+      await pumpEventQueue();
+      expect(phone.failures.last, 'S3 is out of reach: Pep #1 can be downloaded when it is back');
     });
 
     test('marked downloads without a library folder: said once', () async {
@@ -352,11 +388,14 @@ void main() {
       final keys = await shelved(2, folder: 'Sub');
       await truncate(bucket, BookObjects('Comics/', keys[0]).comic('cbz'));
       expect(await phone.s3.download(keys[0]), isNull);
+      // "Nothing was kept": the comic that came is gone again.
+      expect(filesUnder(phone.root), isEmpty);
       // A file where the comic's folder would be.
       final sub = Directory('${phone.root.path}/Sub');
       if (sub.existsSync()) sub.deleteSync(recursive: true);
       File('${phone.root.path}/Sub').writeAsStringSync('in the way');
       expect(await phone.s3.download(keys[1]), isNull);
+      expect(filesUnder(phone.root), ['Sub']);
       await pumpEventQueue();
       expect(phone.notices, [
         'The download of Pep #1 did not match what was uploaded; nothing was kept',
@@ -448,6 +487,10 @@ void main() {
   });
 }
 
+/// Every file under [dir], sidecars too, as sorted paths from it.
+List<String> filesUnder(Directory dir) =>
+    [for (final f in dir.listSync(recursive: true).whereType<File>()) f.path.substring(dir.path.length + 1)]..sort();
+
 /// Cuts the object at [name] short, as an upload that broke off would
 /// leave it; returns its new length.
 Future<int> truncate(MemoryStore bucket, String name) async {
@@ -457,7 +500,7 @@ Future<int> truncate(MemoryStore bucket, String name) async {
 }
 
 /// A bucket that can also refuse (wrong keys), and go off after so many
-/// comics were fetched.
+/// comics were fetched or when one object is asked for.
 class RefusingStore extends MemoryStore {
   /// What every call is refused with; null for a bucket that answers.
   String? refuse;
@@ -465,6 +508,14 @@ class RefusingStore extends MemoryStore {
   /// Downloads still answered before the bucket goes out of reach; null
   /// for no such end.
   int? offAfter;
+
+  /// The bucket goes out of reach when an object whose name has this in
+  /// it is asked for or about; null for no such end.
+  String? offAt;
+
+  void _offAt(String key) {
+    if (offAt case final part? when key.contains(part)) reachable = false;
+  }
 
   void _refused() {
     if (refuse case final why?) throw RemoteException(RemoteFailure.denied, why);
@@ -485,12 +536,14 @@ class RefusingStore extends MemoryStore {
   @override
   Future<RemoteObject?> head(String key) {
     _refused();
+    _offAt(key);
     return super.head(key);
   }
 
   @override
   Future<bool> download(String key, IOSink sink, {void Function(int received)? onProgress}) {
     _refused();
+    _offAt(key);
     if (offAfter case final left? when key.contains('/comic.')) {
       if (left == 0) reachable = false;
       offAfter = left - 1;

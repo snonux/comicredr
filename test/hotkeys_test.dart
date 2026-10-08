@@ -1516,6 +1516,46 @@ void main() {
       expect(find.byType(SnackBar), findsNothing);
     });
 
+    testWidgets('two Undo notices that say the same both show: each has an undo of its own', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      final undone = <String>[];
+      void offer(String which) => notice.show(
+        messenger,
+        '1 comic taken out; 1 could not be',
+        label: 'Undo',
+        undo: () async => undone.add(which),
+        mustRead: true,
+      );
+
+      // The first is undone by the key: the second then shows, with its own undo.
+      offer('first');
+      offer('second');
+      await tester.pumpAndSettle();
+      expect(find.text('1 comic taken out; 1 could not be'), findsOneWidget);
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, ['first']);
+      expect(find.text('1 comic taken out; 1 could not be'), findsOneWidget);
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, ['first', 'second']);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(notice.press(), isFalse);
+
+      // The first left to its time is not undone; the key is the second's after it.
+      offer('third');
+      offer('fourth');
+      await tester.pumpAndSettle();
+      await wait(tester, undoNoticeTime - const Duration(milliseconds: 500));
+      expect(find.text('1 comic taken out; 1 could not be'), findsOneWidget);
+      await wait(tester, const Duration(milliseconds: 500));
+      expect(find.text('1 comic taken out; 1 could not be'), findsOneWidget);
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, ['first', 'second', 'fourth']);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
     /// What the notices say one after the other over [time], looked at
     /// every quarter second, '' while none shows.
     Future<List<String>> watch(WidgetTester tester, Duration time) async {

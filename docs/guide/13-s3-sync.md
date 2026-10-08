@@ -123,8 +123,11 @@ folder under your first library folder (for example `~/Comics`), with
 its sidecar, so it opens with its
 panels found and at the place you left it on the other device. Marked
 comics are downloaded together with **Download** in the bar, or `gD`.
-With the server off, one notice says so for all of them: "S3 is out of
-reach: 5 comics can be downloaded when it is back".
+With the server off they are not tried one by one. The first time the
+app finds the server gone it says so ("S3 (the server's name) is out of
+reach; saving on this device"), and then one notice counts the comics
+still to come: "S3 is out of reach: 5 comics can be downloaded when it
+is back".
 
 A comic that is already on the device, under any name, is recognised
 and simply gets its cloud; nothing is downloaded twice.
