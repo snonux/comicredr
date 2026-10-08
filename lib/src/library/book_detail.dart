@@ -147,8 +147,8 @@ class BookDetail extends ConsumerWidget {
   }
 
   /// Read (or Download, for a comic only on S3), the star, the completed
-  /// mark and Edit. Read and Download keep their labels, so their keys are
-  /// in tooltips.
+  /// mark and the pencil that edits. Read and Download keep their labels,
+  /// so their keys are in tooltips.
   Widget _mainButtons(BuildContext context, WidgetRef ref, double? transfer) {
     final remote = book.remoteOnly;
     return Wrap(
@@ -186,12 +186,15 @@ class BookDetail extends ConsumerWidget {
           ),
         ),
         if (!remote) _completedButton(context, ref),
+        // A pencil like the star and the tick, not a labelled button: with
+        // Continue reading or Read again beside them a label no longer fit
+        // the 380 px pane and went to a line of its own (t273).
         if (!remote)
-          OutlinedButton.icon(
+          IconButton.outlined(
             key: const Key('editBook'),
             onPressed: () => editBook(context, ref, book),
             icon: const Icon(Icons.edit),
-            label: Text(KeyHints.tip(context, 'Edit', ReaderIntent.editBook)),
+            tooltip: KeyHints.tip(context, 'Edit', ReaderIntent.editBook),
           ),
       ],
     );

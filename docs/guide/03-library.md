@@ -25,7 +25,7 @@ It is where the app opens, and `Esc` from a comic brings you back to it.
 On a wide window the selected book's details sit beside the covers: its
 cover, how far you are, a **Read** (or **Continue reading**, or **Read
 again**) button, a star for [Favourites](#favourites), a tick for
-[completed](#completed-comics), **Edit**, its
+[completed](#completed-comics), a pencil to [fix its title or series](07-managing-comics.md#fix-a-title-or-series), its
 [collections](#collections), its [bookmarks](06-bookmarks.md), the
 file's path, and buttons to [see its details, reset it or delete
 it](07-managing-comics.md) and to [mark it](#several-comics-at-once).

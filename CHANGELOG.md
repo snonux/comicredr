@@ -175,6 +175,9 @@ the `?` overlay.
   page cut into halves, thirds, strips or quarters; tap a part to enlarge
   it, then tap the edges to go part by part, as the arrow keys do. `gp`
   and a status-line button (on wider screens) open it too.
+- **Fixed:** in a comic's details the **Edit** button went to a line of
+  its own beside **Continue reading** or **Read again**; it is now a
+  pencil next to the star and the tick (`e` as before).
 - **Fixed:** a download from S3 that broke off part of the way, or was
   refused, no longer leaves a `NAME.part` file in the library folder,
   neither of the comic nor of its sidecar.

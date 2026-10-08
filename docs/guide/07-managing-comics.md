@@ -41,7 +41,7 @@ everything ComicRedr knows about it:
 ## Fix a title or series
 
 When a comic's name or series is wrong, select it in the library and
-press `e` (or **Edit** in its details). You can change the series, issue,
+press `e` (or the pencil in its details). You can change the series, issue,
 volume, year, title, writers, artists and summary.
 
 ![Editing a comic's details](images/edit.webp)
