@@ -17,6 +17,7 @@ import 'package:comicredr/src/library/scanner.dart';
 import 'package:comicredr/src/library/settings_transfer.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:comicredr/src/undo_notice.dart';
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -428,6 +429,9 @@ void main() {
           'p' => LogicalKeyboardKey.keyP,
           'f' => LogicalKeyboardKey.keyF,
           'd' => LogicalKeyboardKey.keyD,
+          '2' => LogicalKeyboardKey.digit2,
+          '3' => LogicalKeyboardKey.digit3,
+          '4' => LogicalKeyboardKey.digit4,
           _ => throw ArgumentError(ch),
         };
         final shift = ch != ch.toLowerCase();
@@ -727,6 +731,78 @@ void main() {
       expect(await markOf(tester, store, preacher.key), isTrue);
     });
 
+    testWidgets('PageDown onto the last page marks, a counted step too, in guided view as well; PageUp, a counted G '
+        'and a switch to two pages do not', (tester) async {
+      await tester.runAsync(() => SettingsStore(db).saveBool(SettingsStore.pauseWhole, false));
+      final store = (await tester.runAsync(shelf))!;
+      final books = (await tester.runAsync(store.books))!;
+      final swamp = named(books, 'Swamp Thing #21'), daredevil = named(books, 'Daredevil #181');
+      final preacher = named(books, 'Preacher #1');
+      final c = await pumpApp(tester);
+      await settle(tester);
+      final reader = c.read(readerProvider.notifier);
+      ReaderState now() => c.read(readerProvider);
+
+      // Three pages. On the second, two-page mode brings the last on screen
+      // beside it: that is no step onward, so no mark.
+      await tester.runAsync(() => reader.open(swamp.path));
+      await settle(tester);
+      await type(tester, 'l');
+      await type(tester, 'd');
+      expect(now().unit, [1, 2]);
+      expect(await markOf(tester, store, swamp.key), isNull, reason: 'a mode switch is no reading on');
+      await type(tester, 'd');
+      expect(now().unit, [1]);
+      // The page key reads on as the step keys do.
+      await press(tester, LogicalKeyboardKey.pageDown);
+      expect(now().page, 2);
+      expect(await markOf(tester, store, swamp.key), isTrue);
+      expect(now().message, 'Last page: marked as completed');
+      await tester.runAsync(reader.close);
+      await settle(tester);
+
+      // Four pages. A count before a step is still a step: 3l from the first
+      // page lands on the last and marks.
+      await tester.runAsync(() => reader.open(daredevil.path));
+      await settle(tester);
+      await type(tester, '3l');
+      expect(now().page, 3);
+      expect(await markOf(tester, store, daredevil.key), isTrue);
+      await type(tester, 'gC');
+      expect(await markOf(tester, store, daredevil.key), isFalse);
+      // Back by the page key marks nothing, and then 3 PageDown does.
+      await type(tester, '3');
+      await press(tester, LogicalKeyboardKey.pageUp);
+      expect(now().page, 0);
+      expect(await markOf(tester, store, daredevil.key), isFalse);
+      await type(tester, '3');
+      await press(tester, LogicalKeyboardKey.pageDown);
+      expect(now().page, 3);
+      expect(await markOf(tester, store, daredevil.key), isTrue);
+      // G with a page number is a jump, also to the last page.
+      await type(tester, 'gC');
+      await send(tester, c, ReaderIntent.firstPage);
+      await type(tester, 'G4');
+      expect(now().page, 3);
+      expect(await markOf(tester, store, daredevil.key), isFalse, reason: 'G4 is a jump, not a step');
+      await tester.runAsync(reader.close);
+      await settle(tester);
+
+      // Two pages, guided view and right to left: the page keys are not
+      // mirrored, so PageDown is still the one that reads on.
+      await tester.runAsync(() => reader.open(preacher.path));
+      await settle(tester);
+      await type(tester, 'v');
+      await send(tester, c, ReaderIntent.toggleDirection);
+      expect((now().guided, now().rightToLeft), (true, true));
+      await press(tester, LogicalKeyboardKey.pageUp);
+      expect(now().page, 0);
+      expect(await markOf(tester, store, preacher.key), isNull);
+      await press(tester, LogicalKeyboardKey.pageDown);
+      expect(now().page, 1);
+      expect(await markOf(tester, store, preacher.key), isTrue);
+    });
+
     testWidgets('a one-page comic is not marked by being opened', (tester) async {
       writeBook(root, 'Sunday Strip 7.cbz', 1);
       final store = (await tester.runAsync(shelf))!;
@@ -880,6 +956,59 @@ void main() {
       expect(selected(tester), isNull);
     });
 
+    testWidgets('under Not completed a selected comic that leaves the library for another reason takes the selection '
+        'with it', (tester) async {
+      final (_, store, books) = await filtered(tester, CompletedFilter.hide);
+      Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
+      await type(tester, 'l');
+      expect(selected(tester), 'Daredevil #181');
+      // Gone from the disk and the index, as a delete from elsewhere leaves
+      // it: its mark did not change, so this is not the filter's doing and
+      // no cover takes the selection.
+      final daredevil = named(books, 'Daredevil #181');
+      await tester.runAsync(() async {
+        File(daredevil.path).deleteSync();
+        await store.forgetDeleted(daredevil.path, daredevil.key);
+      });
+      await settle(tester);
+      expect(cover('Daredevil #181'), findsNothing);
+      expect(cover('Akira #1'), findsOneWidget);
+      expect(cover('Preacher #1'), findsOneWidget);
+      expect(selected(tester), isNull, reason: 'only a changed mark hands the selection on');
+      // The covers are still walked from the start.
+      await type(tester, 'l');
+      expect(selected(tester), 'Akira #1');
+    });
+
+    testWidgets('on a phone the tick in the details page of a comic that then leaves goes back to the covers', (
+      tester,
+    ) async {
+      final (c, store, books) = await filtered(tester, CompletedFilter.hide);
+      tester.view.physicalSize = const Size(400, 800);
+      await settle(tester);
+      Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
+      // A tap on a cover is its details page there, in place of the covers.
+      await tester.tap(cover('Akira #1'));
+      await settle(tester);
+      expect(find.byKey(const Key('detail')), findsOneWidget);
+      expect(find.byKey(const Key('grid')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('completed')));
+      await settle(tester);
+      expect(await markOf(tester, store, named(books, 'Akira #1').key), isTrue);
+      // Not the details page of the cover next to it, which nobody asked for.
+      expect(find.byKey(const Key('detail')), findsNothing);
+      expect(cover('Akira #1'), findsNothing);
+      expect(cover('Daredevil #181'), findsOneWidget);
+      // That cover has the selection all the same: Enter opens it.
+      await tester.runAsync(() async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      });
+      await settle(tester);
+      expect(c.read(readerProvider).book?.key, named(books, 'Daredevil #181').key);
+    });
+
     testWidgets('with comics marked, the cover after the last of them is selected; a changed filter selects nothing', (
       tester,
     ) async {
@@ -1028,6 +1157,21 @@ void main() {
       expect(await markOf(tester, failing, 'Akira'), isTrue);
       expect(await markOf(tester, failing, 'Blacksad'), isNull);
       expect(await markOf(tester, failing, 'Corto'), isNull);
+      // It tells of a failure, so it must be read: a routine notice that
+      // comes meanwhile waits behind it and does not take its place.
+      const partWay = 'Akira marked as completed; 2 not marked: the library could not be updated';
+      showNotice(ScaffoldMessenger.of(tester.element(find.text('go'))), 'Scan finished');
+      await settle(tester);
+      expect(find.text(partWay), findsOneWidget);
+      expect(find.text('Scan finished'), findsNothing);
+      // Its Undo is about the one comic that was marked: no mark again.
+      await tester.tap(find.text('Undo (u)'));
+      await settle(tester);
+      expect(await markOf(tester, failing, 'Akira'), isNull);
+      // The routine notice has its turn once the one that had to be read is done with.
+      expect(find.text('Scan finished'), findsOneWidget);
+      // Marked again for what follows.
+      await tester.runAsync(() => failing.setCompleted('Akira', true));
 
       // Refused at the first, with one of the three marked already: the two
       // that were to be marked are named, not all three.

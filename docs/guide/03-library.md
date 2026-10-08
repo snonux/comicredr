@@ -247,11 +247,13 @@ completed ones or hide them.
 
 - **Reading does it.** Read on to the last page of a comic (a key, a tap
   or a swipe that turns onto it; in two-page mode onto the last pair) and
-  it is marked completed; the line at the bottom says so. It stays
-  completed when you read it again from the start. Only reading on does
-  it: jumping to the end to have a look (`G`, the page grid, the bar
-  along the bottom, a bookmark, or taking up the place another device
-  left the comic at) marks nothing.
+  it is marked completed; the line at the bottom says so, unless it has
+  something else to tell you just then. It stays completed when you read
+  it again from the start. Several steps at once count as reading on too
+  (`3l`, or `3` and `PageDown`, landing on the last page). Only reading
+  on does it: jumping to the end to have a look (`G`, `G` and a page
+  number, the page grid, the bar along the bottom, a bookmark, or taking
+  up the place another device left the comic at) marks nothing.
 - **`gC` does it by hand.** On a cover, or in a comic you are reading,
   `gC` marks the comic completed, and pressed again marks it not
   completed. Use it for a comic you read somewhere else, or to take the

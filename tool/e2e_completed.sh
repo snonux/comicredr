@@ -206,9 +206,15 @@ check "Charlie's sidecar: completed" "$(sidecar Charlie)" yes
 home="$top/$out/home2"
 start --add-root "$comics"
 wait_books
-# The scan reads each sidecar after it lists the comic: wait for the last
-# mark it brings rather than a fixed time.
-for _ in $(seq 1 40); do [[ "$(mark Charlie 2>/dev/null)" == yes ]] && break; sleep 0.5; done
+# The scan reads each sidecar after it lists the comic, in no promised
+# order: wait (20 s at most) for every mark the sidecars bring, Alpha's and
+# Charlie's, rather than a fixed time or the one that happened to come last.
+# Bravo's sidecar has none, which no wait can tell from "not read yet"; its
+# check below is good once the other two are in.
+for _ in $(seq 1 40); do
+  [[ "$(mark Alpha 2>/dev/null)" == no && "$(mark Charlie 2>/dev/null)" == yes ]] && break
+  sleep 0.5
+done
 click 43 355; key l; key Return; shot 16_second_install
 check "the second install: Alpha not completed" "$(mark Alpha)" no
 check "the second install: Bravo unmarked" "$(mark Bravo)" ""

@@ -47,8 +47,9 @@ after renaming or copying the file, and you are right back there.
 
 Reading on to the last page marks the comic
 [completed](03-library.md#completed-comics): its cover in the library
-gets a green check. Jumping there (`G`, the page grid, a bookmark) does
-not: a look at the end is no reading to it. `gC` takes the mark off
+gets a green check, also when several steps at once (`3l`) land there.
+Jumping there (`G`, the page grid, a bookmark) does not: a look at the
+end is no reading to it. `gC` takes the mark off
 again, or puts it on a comic you are not going to read to the end here.
 
 ## Back to the first page

@@ -134,10 +134,6 @@ class CoverCard extends StatelessWidget {
       // Bookmarks are rows on their own tab, never covers.
       BookmarkItem(:final book, :final bookmark) => (book, book.name, describePlace(bookmark), null),
     };
-    final onlyBook = switch (item) {
-      BookItem(:final book) => book,
-      _ => null,
-    };
     return InkWell(
       key: ValueKey(item.id),
       onTap: onTap,
@@ -146,109 +142,7 @@ class CoverCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: DecoratedBox(
-              position: DecorationPosition.foreground,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: selected ? theme.colorScheme.primary : Colors.transparent, width: 3),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    if ((shufflePage, shuffleBook ?? book) case (final page?, final from?) when !from.remoteOnly)
-                      ShuffledPage(
-                        book: from,
-                        page: page,
-                        size: shuffleSize,
-                        decodeWidth: coverWidth,
-                        cover: CoverImage(bookKey: book?.key, width: coverWidth),
-                      )
-                    else if (onlyBook?.remoteOnly ?? false)
-                      Opacity(
-                        opacity: 0.45,
-                        child: CoverImage(bookKey: book?.key, width: coverWidth),
-                      )
-                    else
-                      CoverImage(bookKey: book?.key, width: coverWidth),
-                    if (item is FolderItem)
-                      Positioned(
-                        left: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.secondaryContainer,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Icon(Icons.folder, size: 20, color: theme.colorScheme.onSecondaryContainer),
-                        ),
-                      ),
-                    if (count != null)
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text('$count', style: theme.textTheme.labelMedium),
-                        ),
-                      ),
-                    if (onlyBook != null && onlyBook.favourite)
-                      const Positioned(
-                        left: 6,
-                        top: 6,
-                        child: Icon(
-                          Icons.star,
-                          key: Key('favouriteBadge'),
-                          color: Colors.amber,
-                          shadows: [Shadow(blurRadius: 3)],
-                        ),
-                      ),
-                    // Completed: marked so, or left on its last page.
-                    if (onlyBook != null && onlyBook.completed)
-                      const Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Icon(Icons.check_circle, key: Key('completedBadge'), color: Colors.greenAccent),
-                      ),
-                    if (onlyBook?.s3 != null) Positioned(right: 6, bottom: 8, child: S3Badge(book: onlyBook!)),
-                    if (marked)
-                      Positioned.fill(
-                        child: ColoredBox(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.25),
-                          child: Align(
-                            alignment: Alignment.topRight,
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Icon(
-                                Icons.check_circle,
-                                key: const Key('markedTick'),
-                                size: 28,
-                                color: theme.colorScheme.primary,
-                                shadows: const [Shadow(blurRadius: 3)],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    if (onlyBook != null && onlyBook.inProgress)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: LinearProgressIndicator(value: onlyBook.percent ?? 0, minHeight: 4),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          Expanded(child: _picture(theme, book, count)),
           const SizedBox(height: 4),
           Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium),
           Text(
@@ -261,6 +155,117 @@ class CoverCard extends StatelessWidget {
       ),
     );
   }
+
+  /// The comic the tile is, when it is one comic and not a series, a folder
+  /// or a bookmark: only such a tile has the signs that are about a comic.
+  LibraryBook? get _onlyBook => switch (item) {
+    BookItem(:final book) => book,
+    _ => null,
+  };
+
+  /// The tile's picture: the cover of [book] (or the shuffled page) with
+  /// the selection's frame around it and the signs over it, [count] the
+  /// comics of a series or folder.
+  Widget _picture(ThemeData theme, LibraryBook? book, int? count) => DecoratedBox(
+    position: DecorationPosition.foreground,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: selected ? theme.colorScheme.primary : Colors.transparent, width: 3),
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Stack(fit: StackFit.expand, children: [_cover(book), ..._cornerSigns(theme, count), ..._bookSigns(theme)]),
+    ),
+  );
+
+  /// The cover of [book]: in shuffle one of its pages, and paler for a
+  /// comic that is only on S3.
+  Widget _cover(LibraryBook? book) {
+    final cover = CoverImage(bookKey: book?.key, width: coverWidth);
+    if ((shufflePage, shuffleBook ?? book) case (final page?, final from?) when !from.remoteOnly) {
+      return ShuffledPage(book: from, page: page, size: shuffleSize, decodeWidth: coverWidth, cover: cover);
+    }
+    return (_onlyBook?.remoteOnly ?? false) ? Opacity(opacity: 0.45, child: cover) : cover;
+  }
+
+  /// The signs in the top corners that say what kind of tile it is: a
+  /// folder's on the left, how many comics ([count]) on the right.
+  List<Widget> _cornerSigns(ThemeData theme, int? count) => [
+    if (item is FolderItem)
+      Positioned(
+        left: 6,
+        top: 6,
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(Icons.folder, size: 20, color: theme.colorScheme.onSecondaryContainer),
+        ),
+      ),
+    if (count != null)
+      Positioned(
+        right: 6,
+        top: 6,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(color: theme.colorScheme.primaryContainer, borderRadius: BorderRadius.circular(10)),
+          child: Text('$count', style: theme.textTheme.labelMedium),
+        ),
+      ),
+  ];
+
+  /// The signs of one comic, in the order they are painted: favourite,
+  /// completed, S3, the tint of a marked tile, and the line of how far it
+  /// was read along the bottom.
+  List<Widget> _bookSigns(ThemeData theme) {
+    final book = _onlyBook;
+    return [
+      if (book != null && book.favourite)
+        const Positioned(
+          left: 6,
+          top: 6,
+          child: Icon(Icons.star, key: Key('favouriteBadge'), color: Colors.amber, shadows: [Shadow(blurRadius: 3)]),
+        ),
+      // Completed: marked so, or left on its last page.
+      if (book != null && book.completed)
+        const Positioned(
+          right: 6,
+          top: 6,
+          child: Icon(Icons.check_circle, key: Key('completedBadge'), color: Colors.greenAccent),
+        ),
+      if (book?.s3 != null) Positioned(right: 6, bottom: 8, child: S3Badge(book: book!)),
+      if (marked) _markedTint(theme),
+      if (book != null && book.inProgress)
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: LinearProgressIndicator(value: book.percent ?? 0, minHeight: 4),
+        ),
+    ];
+  }
+
+  /// What a marked tile has over its picture: a tint and a tick.
+  Widget _markedTint(ThemeData theme) => Positioned.fill(
+    child: ColoredBox(
+      color: theme.colorScheme.primary.withValues(alpha: 0.25),
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            Icons.check_circle,
+            key: const Key('markedTick'),
+            size: 28,
+            color: theme.colorScheme.primary,
+            shadows: const [Shadow(blurRadius: 3)],
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// The cloud in a cover's corner (design plan section 13): on S3 and in

@@ -846,11 +846,17 @@ refreshes right away instead of within six hours.
   swipes are these intents) and the last page was not on screen before
   and is after (`_onLastPage`: the last page of the unit, so the last
   pair in two-page mode; in guided view and page parts the step that
-  turns the page), calls `_completeAtEnd`. Nothing else does: `G`, a
-  count jump, `''`, a mark, `}` `{`, `jumpTo` (page grid, progress bar),
-  `jumpToBookmark`, `acceptOffer` (another device's place) and `open`
-  never mark, and a step on the last page that goes nowhere is no
-  arrival. `_completeAtEnd` leaves a comic already marked completed
+  turns the page), calls `_completeAtEnd`. A count makes no difference:
+  `3l` or `5` PageDown is the same step several times over
+  (`ReaderCommand.times`) and marks when it lands on the last page.
+  Nothing else does: `G`, `G` with a page number (`G12`), `''`, a mark,
+  `}` `{`, `jumpTo` (page grid, progress bar), `jumpToBookmark`,
+  `acceptOffer` (another device's place) and `open` never mark, and a
+  step on the last page that goes nowhere is no arrival. Nor does a
+  change of mode: on the page before the last, `d` (two pages) brings the
+  last page on screen beside it and marks nothing, which is meant, since
+  no step onward was taken; the next step back and onward again does.
+  `_completeAtEnd` leaves a comic already marked completed
   alone, row and time (a rewritten time would beat another device's
   later "not completed" in a merge), and marks one that was marked not
   completed again: read to the end once more, it is completed once more.

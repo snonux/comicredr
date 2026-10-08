@@ -997,11 +997,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// completed ([_completeAtEnd]): reading arrived there. Only such a step
   /// does (a key, a tap, a swipe; in guided view or page parts the step
   /// that turns onto the last page; in two-page mode the one onto the last
-  /// pair). A jump does not (`G`, the page grid, the progress bar, a
-  /// bookmark, a mark, another device's position taken up), nor does
-  /// opening the comic there: a look at the end is no reading to it. A
-  /// one-page comic is on its last page from the start, so no step ever
-  /// arrives there.
+  /// pair), also with a count: `3l` is that step three times over and
+  /// marks when it lands there. A jump does not (`G`, `G12`, the page grid,
+  /// the progress bar, a bookmark, a mark, another device's position taken
+  /// up), nor does opening the comic there: a look at the end is no
+  /// reading to it. Nor does a change of mode that brings the last page on
+  /// screen (two pages, switched on at the page before it): no step onward
+  /// was taken. A one-page comic is on its last page from the start, so no
+  /// step ever arrives there.
   Future<void> handle(ReaderCommand c) async {
     final book = state.book;
     final arrives = book != null && _readsOn(c) && !_onLastPage;
@@ -1010,13 +1013,31 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// Whether [c] is a step onward through the comic: the next step or page,
-  /// which right to left is the key (or tap) pointing the other way.
+  /// which right to left is the key (or tap) pointing the other way. The
+  /// page keys are not mirrored ([_dispatch]), so `nextPage` always is one.
   bool _readsOn(ReaderCommand c) => switch (c.intent) {
     ReaderIntent.nextStep || ReaderIntent.scrollRight => !state.rightToLeft,
     ReaderIntent.prevStep || ReaderIntent.scrollLeft => state.rightToLeft,
     ReaderIntent.nextPage => true,
     _ => false,
   };
+
+  /// Does what [intent] asks when it is about a part of the page (a part's
+  /// own key, the page whole within the split, the part shown before) and
+  /// says whether it was. [_dispatch] then only saves the place: these do
+  /// not change the view a part belongs to, so it has nothing to clear.
+  bool _pagePart(ReaderIntent intent) {
+    if (regionFor(intent) case final r?) {
+      _showRegion(r.split, r.part);
+    } else if (intent == ReaderIntent.regionWhole) {
+      _regionWhole();
+    } else if (intent == ReaderIntent.regionPrevious) {
+      _regionPrevious();
+    } else {
+      return false;
+    }
+    return true;
+  }
 
   /// What [handle] does with [c], last-page mark aside.
   Future<void> _dispatch(ReaderCommand c) async {
@@ -1034,18 +1055,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final step = state.parts != null ? _stepParts : (state.guided ? _stepGuided : _step);
     final pageStep = state.guided ? (int n) => _goTo(state.page + n) : _step;
     final shownBefore = (state.guided, state.mode);
-    if (regionFor(c.intent) case final r?) {
-      _showRegion(r.split, r.part);
-      _saveProgress(state.book!);
-      return;
-    }
-    if (c.intent == ReaderIntent.regionWhole) {
-      _regionWhole();
-      _saveProgress(state.book!);
-      return;
-    }
-    if (c.intent == ReaderIntent.regionPrevious) {
-      _regionPrevious();
+    if (_pagePart(c.intent)) {
       _saveProgress(state.book!);
       return;
     }
@@ -1170,8 +1180,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
         _notice('Continuous scroll is not built yet');
       case ReaderIntent.bookmark:
         await _toggleBookmark();
-      case ReaderIntent.toggleFavourite || ReaderIntent.toggleCompleted:
-        await (c.intent == ReaderIntent.toggleFavourite ? _toggleFavourite() : _toggleCompleted());
+      case ReaderIntent.toggleFavourite:
+        await _toggleFavourite();
+      case ReaderIntent.toggleCompleted:
+        await _toggleCompleted();
       case ReaderIntent.nextBookmark:
         _stepBookmark(c.times);
       case ReaderIntent.prevBookmark:
