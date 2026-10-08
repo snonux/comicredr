@@ -59,8 +59,14 @@ class Device {
   late final S3Sync s3;
   final notices = <String>[];
 
+  /// The ones among [notices] said as failures, which the app keeps up.
+  final failures = <String>[];
+
   Future<void> setUp() async {
-    s3.notices.listen(notices.add);
+    s3.notices.listen((n) {
+      notices.add(n.text);
+      if (n.failure) failures.add(n.text);
+    });
     await store.addRoot(root.path);
     await S3Settings(
       SettingsStore(db),
@@ -187,6 +193,9 @@ void main() {
     expect(laptop.s3.current.waiting, 0);
     await pumpEventQueue();
     expect(laptop.notices.last, 'S3 is back; 1 comic caught up');
+    // Out of reach is a failure to read; uploaded and back are routine.
+    expect(laptop.failures, [contains('out of reach')]);
+    expect(laptop.notices.length, greaterThan(laptop.failures.length));
     final side = await laptop.sidecars.sidecarFor(path, folder: false);
     expect(bucket.objects[BookObjects('Comics/', key).sidecar]!.metadata[writtenAtMeta], '${sidecarWrittenAt(side)}');
   });

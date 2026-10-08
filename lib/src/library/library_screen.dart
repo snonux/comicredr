@@ -529,8 +529,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         _markAll();
       case ReaderIntent.toggleFavourite when marked.isNotEmpty:
         unawaited(_bulk(() => toggleFavourites(context, ref, marked)));
-      // In the Favourites x is * on the selected comic: out, with an Undo.
       case ReaderIntent.toggleFavourite:
+      // And x in the Favourites, with nothing marked, is * on the selected comic: out, with an Undo.
       case ReaderIntent.remove when _favourites && marked.isEmpty:
         if (_selectedItem case BookItem(:final book)) {
           unawaited(_toggleFavourite(book));
@@ -765,7 +765,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
     final done = await setFavourite(ref, book, on);
     if (!done) {
-      showNotice(messenger, 'Could not change the favourites for ${book.name}');
+      showNotice(messenger, 'Could not change the favourites for ${book.name}', mustRead: true);
       return;
     }
     if (on) {

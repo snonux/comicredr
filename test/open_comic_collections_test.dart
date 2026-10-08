@@ -11,6 +11,7 @@ import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/scanner.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
+import 'package:comicredr/src/undo_notice.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
@@ -741,6 +742,10 @@ void main() {
       expect(find.textContaining('Bad state'), findsNothing);
       expect(find.textContaining('index is locked'), findsNothing);
       expect(find.text('3 selected'), findsOneWidget);
+      // A failure stays its time, and the next notice would wait behind it.
+      await tester.pump(noticeTime);
+      await settle(tester);
+      expect(find.byType(SnackBar), findsNothing);
     }
 
     Future<List<String>> inIt(String name) async => [

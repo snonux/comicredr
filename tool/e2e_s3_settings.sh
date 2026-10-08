@@ -42,7 +42,10 @@ cc -o "$out/close_window" tool/close_window.c -lX11
 export DISPLAY=:94
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
-sleep 1
+# Xvfb takes a moment to listen: Openbox, and with GDK_BACKEND=x11 the
+# app, die on a display that is not there yet ("cannot open display").
+for _ in $(seq 1 100); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+xdotool getdisplaygeometry >/dev/null 2>&1 || { echo "FAIL  Xvfb did not come up on $DISPLAY"; kill $xvfb; exit 1; }
 openbox >/dev/null 2>&1 &
 wm=$!
 app=

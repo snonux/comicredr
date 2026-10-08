@@ -5,12 +5,15 @@ import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart' hide Override;
 import 'package:comicredr/src/data/data_dirs.dart';
 import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/data/s3_sync.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/hotkeys.dart';
 import 'package:comicredr/src/keymap_overlay.dart';
+import 'package:comicredr/src/library/book_detail.dart';
 import 'package:comicredr/src/library/bulk_actions.dart';
 import 'package:comicredr/src/library/default_folder.dart';
+import 'package:comicredr/src/library/delete_book.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/library/settings_dialog.dart';
@@ -64,7 +67,13 @@ void main() {
     writeBook(root, 'Zot 2.cbz', 8);
   });
 
-  Future<ProviderContainer> pumpApp(WidgetTester tester, {Keymap? keymap, Override? sidecars, Override? store}) async {
+  Future<ProviderContainer> pumpApp(
+    WidgetTester tester, {
+    Keymap? keymap,
+    Override? sidecars,
+    Override? store,
+    Override? s3,
+  }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -77,6 +86,7 @@ void main() {
           sidecars ?? noSidecars(db),
           if (keymap != null) keymapProvider.overrideWithValue(keymap),
           ?store,
+          ?s3,
         ],
         child: ComicRedrApp(navigatorObservers: [routes]),
       ),
@@ -136,8 +146,9 @@ void main() {
     bool remapped = false,
     Override? sidecars,
     Override? store,
+    Override? s3,
   }) async {
-    final c = await pumpApp(tester, keymap: keymap, sidecars: sidecars, store: store);
+    final c = await pumpApp(tester, keymap: keymap, sidecars: sidecars, store: store, s3: s3);
     await tester.runAsync(() async {
       await c.read(libraryStoreProvider).addRoot(root.path);
       await c.read(scannerProvider).scan();
@@ -1130,7 +1141,10 @@ void main() {
       expect(find.text('Could not put Akira back in Noir'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // The same for a library folder that cannot be put back.
+      // The same for a library folder that cannot be put back, once that
+      // notice has had its time: a failure is not cut short by the next.
+      await tester.pump(noticeTime);
+      await settle(tester);
       failing.failAdds = false;
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
@@ -1308,6 +1322,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Could not undo that'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      // A failure stays its time; the next notice comes after it.
+      await tester.pump(noticeTime);
+      await tester.pumpAndSettle();
       notice.show(
         messenger,
         'Taken out',
@@ -1333,6 +1350,430 @@ void main() {
                 '${file.path}:${i + 1}',
       ];
       expect(direct, isEmpty, reason: 'a SnackBar shown directly can wait unseen behind another notice');
+    });
+  });
+
+  group('a notice that must be read', () {
+    Future<(UndoNotice, ScaffoldMessengerState)> pumpNotice(WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: Scaffold(body: SizedBox.expand())));
+      return (UndoNotice(), tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger)));
+    }
+
+    /// Lets [time] pass and whatever slides in or out finish.
+    Future<void> wait(WidgetTester tester, Duration time) async {
+      await tester.pump(time);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('stays its time; a routine notice after it waits and then shows', (tester) async {
+      final (_, messenger) = await pumpNotice(tester);
+      showNotice(messenger, 'Could not download A', mustRead: true);
+      await tester.pump();
+      showNotice(messenger, 'Downloaded B');
+      await tester.pumpAndSettle();
+      expect(find.text('Could not download A'), findsOneWidget);
+      expect(find.text('Downloaded B'), findsNothing);
+      // Still there a moment before its time is up.
+      await wait(tester, noticeTime - const Duration(milliseconds: 500));
+      expect(find.text('Could not download A'), findsOneWidget);
+      expect(find.text('Downloaded B'), findsNothing);
+      await wait(tester, const Duration(milliseconds: 500));
+      expect(find.text('Could not download A'), findsNothing);
+      expect(find.text('Downloaded B'), findsOneWidget);
+      // And that one goes as any routine notice does, with nothing after it.
+      await wait(tester, noticeTime);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('two of them show in turn, each its whole time', (tester) async {
+      final (_, messenger) = await pumpNotice(tester);
+      showNotice(messenger, 'Could not download A', mustRead: true);
+      showNotice(messenger, 'Could not download B', mustRead: true, duration: const Duration(seconds: 8));
+      await tester.pumpAndSettle();
+      expect(find.text('Could not download A'), findsOneWidget);
+      expect(find.text('Could not download B'), findsNothing);
+      await wait(tester, noticeTime);
+      expect(find.text('Could not download A'), findsNothing);
+      expect(find.text('Could not download B'), findsOneWidget);
+      await wait(tester, const Duration(seconds: 7));
+      expect(find.text('Could not download B'), findsOneWidget);
+      await wait(tester, const Duration(seconds: 1));
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('takes the place of a routine notice at once, and of an Undo notice', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      showNotice(messenger, 'Downloaded A');
+      await tester.pumpAndSettle();
+      showNotice(messenger, 'Could not download B', mustRead: true);
+      await tester.pump();
+      expect(find.text('Downloaded A'), findsNothing);
+      expect(find.text('Could not download B'), findsOneWidget);
+      await tester.pumpAndSettle();
+      await wait(tester, noticeTime);
+      expect(find.byType(SnackBar), findsNothing);
+
+      var undone = 0;
+      notice.show(messenger, 'Taken out', label: 'Undo', undo: () async => undone++);
+      await tester.pumpAndSettle();
+      showNotice(messenger, 'Could not download C', mustRead: true);
+      await tester.pump();
+      expect(find.text('Taken out'), findsNothing);
+      expect(find.text('Could not download C'), findsOneWidget);
+      // The Undo is no longer offered, and does not come back afterwards.
+      expect(notice.press(), isFalse);
+      await tester.pumpAndSettle();
+      await wait(tester, noticeTime);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(notice.press(), isFalse);
+      expect(undone, 0);
+    });
+
+    testWidgets('routine notices still replace one another at once', (tester) async {
+      final (_, messenger) = await pumpNotice(tester);
+      showNotice(messenger, 'Downloaded A');
+      await tester.pumpAndSettle();
+      showNotice(messenger, 'Downloaded B');
+      await tester.pump();
+      expect(find.text('Downloaded A'), findsNothing);
+      expect(find.text('Downloaded B'), findsOneWidget);
+      await tester.pumpAndSettle();
+      await wait(tester, noticeTime);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('of the notices waiting behind it, a routine one gives way and the others keep their order', (
+      tester,
+    ) async {
+      final (_, messenger) = await pumpNotice(tester);
+      final seen = <String>[];
+      void look() {
+        final bars = tester.widgetList<SnackBar>(find.byType(SnackBar)).toList();
+        expect(bars.length, lessThan(2));
+        final text = bars.isEmpty ? '' : (bars.single.content as Text).data!;
+        if (seen.isEmpty || seen.last != text) seen.add(text);
+      }
+
+      showNotice(messenger, 'Failed 1', mustRead: true);
+      showNotice(messenger, 'Routine 1');
+      showNotice(messenger, 'Routine 2');
+      showNotice(messenger, 'Failed 2', mustRead: true);
+      showNotice(messenger, 'Routine 3');
+      showNotice(messenger, 'Routine 4');
+      for (var i = 0; i < 80; i++) {
+        await wait(tester, const Duration(milliseconds: 250));
+        look();
+      }
+      expect(seen, ['Failed 1', 'Failed 2', 'Routine 4', '']);
+    });
+
+    testWidgets('an Undo notice that comes meanwhile waits, and u has nothing to press until it shows', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      final undone = <String>[];
+      showNotice(messenger, 'Could not download A', mustRead: true);
+      await tester.pumpAndSettle();
+      notice.show(messenger, 'Taken out', label: 'Undo', undo: () async => undone.add('first'));
+      await tester.pumpAndSettle();
+      expect(find.text('Could not download A'), findsOneWidget);
+      expect(find.text('Taken out'), findsNothing);
+      expect(notice.press(), isFalse);
+      expect(find.text('Could not download A'), findsOneWidget);
+      await wait(tester, noticeTime);
+      expect(find.text('Taken out'), findsOneWidget);
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, ['first']);
+      expect(find.byType(SnackBar), findsNothing);
+
+      // One that gave way while it waited never gets the key.
+      showNotice(messenger, 'Could not download B', mustRead: true);
+      notice.show(messenger, 'Gone again', label: 'Undo', undo: () async => undone.add('second'));
+      showNotice(messenger, 'Downloaded C');
+      await tester.pumpAndSettle();
+      expect(find.text('Could not download B'), findsOneWidget);
+      await wait(tester, noticeTime);
+      expect(find.text('Downloaded C'), findsOneWidget);
+      expect(notice.press(), isFalse);
+      await wait(tester, noticeTime);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(undone, ['first']);
+    });
+
+    testWidgets('an Undo notice that must be read keeps its place and its key', (tester) async {
+      final (notice, messenger) = await pumpNotice(tester);
+      var undone = 0;
+      notice.show(messenger, 'A taken out; B could not be', label: 'Undo', undo: () async => undone++, mustRead: true);
+      await tester.pumpAndSettle();
+      showNotice(messenger, 'Uploaded C to S3');
+      await tester.pumpAndSettle();
+      expect(find.text('A taken out; B could not be'), findsOneWidget);
+      expect(notice.press(), isTrue);
+      await tester.pumpAndSettle();
+      expect(undone, 1);
+      // Undone, it has gone, and what waited shows.
+      expect(find.text('Uploaded C to S3'), findsOneWidget);
+      await wait(tester, noticeTime);
+      expect(find.byType(SnackBar), findsNothing);
+    });
+
+    testWidgets('in the app: a failure of the S3 sync is not cut short by what the sync says next', (tester) async {
+      final said = StreamController<S3Notice>.broadcast();
+      addTearDown(said.close);
+      await inFolder(
+        tester,
+        s3: s3SyncProvider.overrideWith(
+          (ref) => _SayingS3(
+            said.stream,
+            ref.watch(databaseProvider),
+            sidecars: ref.watch(sidecarSyncProvider),
+            settings: ref.watch(s3SettingsProvider),
+            storeFor: ref.watch(remoteStoreFactoryProvider),
+            coverDir: null,
+          ),
+        ),
+      );
+      expect(said.hasListener, isTrue);
+      // The second of two downloads, a moment after the first failed.
+      said.add((text: 'Could not download Akira: refused', failure: true));
+      await tester.pump(const Duration(milliseconds: 300));
+      said.add((text: 'Downloaded Blacksad', failure: false));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Could not download Akira: refused'), findsOneWidget);
+      expect(find.text('Downloaded Blacksad'), findsNothing);
+      await tester.pump(noticeTime - const Duration(seconds: 1));
+      expect(find.text('Could not download Akira: refused'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Could not download Akira: refused'), findsNothing);
+      expect(find.text('Downloaded Blacksad'), findsOneWidget);
+      // Two routine ones: the later takes the earlier's place at once.
+      said.add((text: 'Uploaded Corto to S3', failure: false));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Downloaded Blacksad'), findsNothing);
+      expect(find.text('Uploaded Corto to S3'), findsOneWidget);
+      // And a failure takes a routine one's place at once.
+      said.add((text: 'S3: the keys were refused', failure: true));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Uploaded Corto to S3'), findsNothing);
+      expect(find.text('S3: the keys were refused'), findsOneWidget);
+      await tester.pump(noticeTime);
+      await tester.pump(const Duration(seconds: 1));
+    });
+  });
+
+  group('the S3 branches and the order of Settings', () {
+    /// Asks [ask] from a button of a bare app; what comes back gives the
+    /// answer, null while the question is up.
+    Future<DeleteChoice? Function()> asking(
+      WidgetTester tester,
+      Future<DeleteChoice> Function(BuildContext context) ask,
+    ) async {
+      DeleteChoice? answer;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                // Nothing is answered while the question is up.
+                onPressed: () async {
+                  answer = null;
+                  answer = await ask(context);
+                },
+                child: const Text('ask'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('ask'));
+      await tester.pumpAndSettle();
+      return () => answer;
+    }
+
+    /// Opens the question again after an answer closed it.
+    Future<void> again(WidgetTester tester) async {
+      await tester.tap(find.text('ask'));
+      await tester.pumpAndSettle();
+    }
+
+    DeleteFacts facts({required bool onS3}) =>
+        DeleteFacts(name: 'Akira', path: '/c/Akira.cbz', folder: false, bytes: 1200000, pages: 4, onS3: onS3);
+    const cancel = Key('deleteCancel'), here = Key('deleteHere');
+    const everywhere = Key('deleteEverywhere'), confirm = Key('deleteConfirm');
+
+    /// Every way of answering a question about a comic on S3: three
+    /// buttons, each by a tap and by its letter.
+    Future<void> threeChoices(WidgetTester tester, DeleteChoice? Function() answer) async {
+      expect(find.byKey(cancel), findsOneWidget);
+      expect(find.byKey(here), findsOneWidget);
+      expect(find.byKey(everywhere), findsOneWidget);
+      expect(find.byKey(confirm), findsNothing);
+      // Cancel has the focus, so Enter deletes nothing.
+      expect(focused(tester, 'Cancel'), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(answer(), DeleteChoice.cancel);
+      for (final (key, letter, choice) in [
+        (cancel, 'c', DeleteChoice.cancel),
+        (here, 'o', DeleteChoice.here),
+        (everywhere, 'd', DeleteChoice.everywhere),
+      ]) {
+        await again(tester);
+        await tester.tap(find.byKey(key));
+        await tester.pumpAndSettle();
+        expect(answer(), choice, reason: 'a tap on $key');
+        await again(tester);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyEvent(keyOf(letter), character: letter);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await tester.pumpAndSettle();
+        expect(answer(), choice, reason: 'Alt+$letter');
+        expect(find.byKey(const Key('deleteDialog')), findsNothing);
+      }
+    }
+
+    testWidgets('deleting a comic on S3 asks three ways, each by its button and its letter', (tester) async {
+      final answer = await asking(tester, (context) => askDelete(context, facts(onS3: true)));
+      expect(find.text('Delete only here'), findsOneWidget);
+      expect(find.text('Delete here and from S3'), findsOneWidget);
+      await threeChoices(tester, answer);
+    });
+
+    testWidgets('a comic that is not on S3 is not offered "Delete only here"', (tester) async {
+      final answer = await asking(tester, (context) => askDelete(context, facts(onS3: false)));
+      expect(find.byKey(here), findsNothing);
+      expect(find.byKey(everywhere), findsNothing);
+      expect(find.text('Delete only here'), findsNothing);
+      expect(focused(tester, 'Cancel'), isTrue);
+      // Alt+O is no button's letter here.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyO, character: 'o');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('deleteDialog')), findsOneWidget);
+      await tester.tap(find.byKey(confirm));
+      await tester.pumpAndSettle();
+      expect(answer(), DeleteChoice.here);
+    });
+
+    testWidgets('deleting several: three ways when one is on S3, two when none is or all are only there', (
+      tester,
+    ) async {
+      var answer = await asking(tester, (context) => askDeleteMany(context, [facts(onS3: true), facts(onS3: false)]));
+      await threeChoices(tester, answer);
+
+      answer = await asking(tester, (context) => askDeleteMany(context, [facts(onS3: false), facts(onS3: false)]));
+      expect(find.byKey(here), findsNothing);
+      expect(find.byKey(everywhere), findsNothing);
+      await tester.tap(find.byKey(confirm));
+      await tester.pumpAndSettle();
+      expect(answer(), DeleteChoice.here);
+
+      // Nothing of them is on this device: there is no "only here".
+      answer = await asking(tester, (context) => askDeleteMany(context, const [], remoteOnly: 2));
+      expect(find.byKey(here), findsNothing);
+      expect(find.byKey(confirm), findsNothing);
+      expect(focused(tester, 'Cancel'), isTrue);
+      await tester.tap(find.byKey(everywhere));
+      await tester.pumpAndSettle();
+      expect(answer(), DeleteChoice.everywhere);
+    });
+
+    testWidgets('the details of a comic that is only on S3: Download, and no Details, Reset or Delete', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      LibraryBook book(S3Mark mark) => LibraryBook(
+        key: 'k-${mark.name}',
+        series: 'Akira',
+        seriesId: 1,
+        pageCount: 4,
+        format: 'cbz',
+        path: '${root.path}/Akira.cbz',
+        addedAt: DateTime(2026),
+        s3: S3Shelf(mark, size: 1200000),
+      );
+      Future<void> show(LibraryBook b) async {
+        await tester.pumpWidget(
+          ProviderScope(
+            key: ValueKey(b.key),
+            overrides: [
+              databaseProvider.overrideWithValue(db),
+              coverDirProvider.overrideWithValue('${tmp.path}/covers'),
+              noSidecars(db),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: BookDetail(book: b, onRead: (_, {at}) {}),
+              ),
+            ),
+          ),
+        );
+        await settle(tester);
+      }
+
+      const last = [Key('bookDetails'), Key('resetBook'), Key('deleteBook')];
+      await show(book(S3Mark.remote));
+      expect(find.byKey(const Key('download')), findsOneWidget);
+      expect(find.byKey(const Key('read')), findsNothing);
+      expect(find.byKey(const Key('editBook')), findsNothing);
+      for (final key in last) {
+        expect(find.byKey(key), findsNothing, reason: '$key has nothing here to work on');
+      }
+      expect(find.text('Downloads to ${root.path}/Akira.cbz'), findsOneWidget);
+
+      // Here and on S3: the comic's own buttons, and no Download.
+      await show(book(S3Mark.synced));
+      expect(find.byKey(const Key('download')), findsNothing);
+      expect(find.byKey(const Key('read')), findsOneWidget);
+      expect(find.byKey(const Key('editBook')), findsOneWidget);
+      for (final key in last) {
+        expect(find.byKey(key), findsOneWidget);
+      }
+    });
+
+    testWidgets('Settings has its parts in this order from the top, which is the order Tab takes', (tester) async {
+      await inFolder(tester);
+      await type(tester, 'g,');
+      const order = [
+        'cleanUp',
+        'scrollSpeed',
+        'wholePage',
+        'pauseWhole',
+        'detector',
+        'coverSize',
+        'sidecars',
+        'sidecarPlace',
+        'export',
+        'touch',
+        'clearHistory',
+        'exportSettings',
+        's3',
+      ];
+      final tops = [for (final name in order) tester.getTopLeft(find.byKey(Key('setting-$name'))).dy];
+      for (var i = 1; i < order.length; i++) {
+        expect(tops[i], greaterThan(tops[i - 1]), reason: '${order[i]} comes after ${order[i - 1]}');
+      }
+      // And the headings, as read from the top.
+      final dialog = find.byType(SettingsDialog);
+      double top(String heading) =>
+          tester.getTopLeft(find.descendant(of: dialog, matching: find.text(heading)).first).dy;
+      const headings = [
+        'Pages',
+        'Guided view',
+        'Library',
+        'Sidecars',
+        'Touch',
+        'Reading history',
+        'Back up',
+        'S3 sync',
+      ];
+      for (var i = 1; i < headings.length; i++) {
+        expect(top(headings[i]), greaterThan(top(headings[i - 1])), reason: '${headings[i]} after ${headings[i - 1]}');
+      }
     });
   });
 
@@ -1934,4 +2375,25 @@ class _FailingOut extends LibraryStore {
 
   @override
   Future<int> addRoot(String path) => failRoots ? throw StateError('the index is locked') : super.addRoot(path);
+}
+
+/// The S3 sync as far as the app's notices go: says what the test says and
+/// never looks for a bucket.
+class _SayingS3 extends S3Sync {
+  _SayingS3(
+    this._said,
+    super.db, {
+    required super.sidecars,
+    required super.settings,
+    required super.storeFor,
+    required super.coverDir,
+  });
+
+  final Stream<S3Notice> _said;
+
+  @override
+  Stream<S3Notice> get notices => _said;
+
+  @override
+  Future<void> start() async {}
 }

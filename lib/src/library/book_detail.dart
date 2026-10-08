@@ -356,7 +356,7 @@ Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook bo
   try {
     open = (await openBook(book.path)).withEdits(await store.edits(book.key));
   } catch (e) {
-    showNotice(messenger, 'Could not open ${book.name}: $e');
+    showNotice(messenger, 'Could not open ${book.name}: $e', mustRead: true);
     return;
   }
   var redo = false;
@@ -382,9 +382,10 @@ Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook bo
       ok
           ? "${book.name}'s panels will be found again"
           : "Reset ${book.name} here, but the file beside it can't be changed, so it may come back",
+      mustRead: !ok,
     );
   } catch (e) {
-    showNotice(messenger, 'Could not reset ${book.name}: $e');
+    showNotice(messenger, 'Could not reset ${book.name}: $e', mustRead: true);
   }
 }
 
@@ -405,9 +406,10 @@ Future<bool> resetBook(BuildContext context, WidgetRef ref, LibraryBook book) as
           : scope == ResetScope.everything
           ? '${book.name} starts from scratch'
           : "${book.name}'s panels will be found again",
+      mustRead: !ok,
     );
   } catch (e) {
-    showNotice(messenger, 'Could not reset ${book.name}: $e');
+    showNotice(messenger, 'Could not reset ${book.name}: $e', mustRead: true);
   }
   return true;
 }
@@ -446,12 +448,13 @@ Future<bool> deleteLibraryBook(
       keepCover: onS3 && choice == DeleteChoice.here,
     );
     if (choice == DeleteChoice.everywhere) await s3.removeFromS3([book.key]);
-    showNotice(messenger, deletedNotice(book.name, stuck));
+    // A sidecar left behind is to be read: "Removed X from S3" follows within moments.
+    showNotice(messenger, deletedNotice(book.name, stuck), mustRead: stuck.isNotEmpty);
   } on FileSystemException catch (e) {
-    showNotice(messenger, 'Could not delete ${book.name}: ${e.message}');
+    showNotice(messenger, 'Could not delete ${book.name}: ${e.message}', mustRead: true);
   } catch (e) {
     // The file went first, so this is the index or a sidecar afterwards.
-    showNotice(messenger, 'Deleted ${book.name}, but the library could not be updated: $e');
+    showNotice(messenger, 'Deleted ${book.name}, but the library could not be updated: $e', mustRead: true);
   }
   return true;
 }

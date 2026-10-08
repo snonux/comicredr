@@ -173,9 +173,10 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       );
       if (move != true) return;
       final moved = await sync.moveAll(from: old, to: dir);
-      showNotice(messenger, 'Moved $moved of $files${moved < n ? '; the rest could not be moved' : ''}');
+      final rest = moved < n ? '; the rest could not be moved' : '';
+      showNotice(messenger, 'Moved $moved of $files$rest', mustRead: moved < n);
     } catch (e) {
-      showNotice(messenger, 'Could not change where comic data is kept: $e');
+      showNotice(messenger, 'Could not change where comic data is kept: $e', mustRead: true);
     } finally {
       if (mounted) setState(() => _moving = false);
     }

@@ -239,7 +239,7 @@ Future<bool> moveLibraryBooks(
     if (skipped > 0) '${comicsCount(skipped)} left where ${skipped == 1 ? 'it was' : 'they were'}',
     if (failed.isNotEmpty) 'could not move ${failed.first}${failed.length > 1 ? ' and ${failed.length - 1} more' : ''}',
   ];
-  showNotice(messenger, parts.isEmpty ? 'Nothing moved' : parts.join('; '));
+  showNotice(messenger, parts.isEmpty ? 'Nothing moved' : parts.join('; '), mustRead: failed.isNotEmpty);
   return true;
 }
 
@@ -394,7 +394,7 @@ class _MoveDialogState extends State<MoveDialog> {
       await Directory(dir).create();
     } on FileSystemException catch (e) {
       if (!mounted) return;
-      showNotice(ScaffoldMessenger.of(context), 'Could not make $name: ${e.message}');
+      showNotice(ScaffoldMessenger.of(context), 'Could not make $name: ${e.message}', mustRead: true);
       return;
     }
     if (mounted) Navigator.pop(context, dir);

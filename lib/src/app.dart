@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
 import 'android_storage.dart';
+import 'data/s3_sync.dart';
 import 'data/settings_file.dart';
 import 'help_zoom.dart';
 import 'hotkeys.dart';
@@ -113,7 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _keys = FocusNode(debugLabel: 'keys');
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<void>? _watch;
-  StreamSubscription<String>? _s3Notices;
+  StreamSubscription<S3Notice>? _s3Notices;
   String _pending = '';
   bool _showKeymap = false;
 
@@ -243,6 +244,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ? '${warnings.first}. ? shows the keys in use.'
             : '${warnings.length} problems in keys.toml; ? lists them with the keys in use.',
         duration: const Duration(seconds: 8),
+        // The sync's first notice ("S3 is out of reach") comes within these 8 s.
+        mustRead: true,
       );
     }
     final store = ref.read(libraryStoreProvider);
@@ -267,8 +270,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!mounted) return;
     await _rescan();
     if (!mounted) return;
-    _s3Notices = ref.read(s3SyncProvider).notices.listen((text) {
-      if (mounted) showNotice(ScaffoldMessenger.of(context), text);
+    _s3Notices = ref.read(s3SyncProvider).notices.listen((n) {
+      if (mounted) showNotice(ScaffoldMessenger.of(context), n.text, mustRead: n.failure);
     });
     unawaited(ref.read(s3SyncProvider).start());
   }
@@ -428,7 +431,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final n = await ref.read(sidecarSyncProvider).exportAll(dir);
       showNotice(messenger, 'Wrote $n sidecar${n == 1 ? '' : 's'} to $dir');
     } catch (e) {
-      showNotice(messenger, 'Could not export sidecars: $e');
+      showNotice(messenger, 'Could not export sidecars: $e', mustRead: true);
     }
   });
 
@@ -458,7 +461,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       showNotice(messenger, 'Settings exported to $path');
     } catch (e) {
-      showNotice(messenger, 'Could not export settings: $e');
+      showNotice(messenger, 'Could not export settings: $e', mustRead: true);
     } finally {
       _keys.requestFocus();
     }
@@ -473,7 +476,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// shown and confirmed, then taken up at once.
   Future<void> _importSettings() => _whilePicking(() async {
     final messenger = ScaffoldMessenger.of(context);
-    void say(String text) => showNotice(messenger, text, duration: const Duration(seconds: 8));
+    // To be read, all of it: a refusal, or what was imported and what was left out.
+    void say(String text) => showNotice(messenger, text, duration: const Duration(seconds: 8), mustRead: true);
     try {
       final String? path;
       if (Platform.isAndroid) {
@@ -584,13 +588,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// Says [text] in the reader's status line or, in the library, a short
-  /// notice.
-  void _say(String text) {
+  /// notice ([mustRead] as for [showNotice]: something that did not work).
+  void _say(String text, {bool mustRead = false}) {
     if (!mounted) return;
     if (ref.read(readerProvider).book != null) {
       ref.read(readerProvider.notifier).notice(text);
     } else {
-      showNotice(ScaffoldMessenger.of(context), text, duration: const Duration(seconds: 2));
+      showNotice(ScaffoldMessenger.of(context), text, duration: const Duration(seconds: 2), mustRead: mustRead);
     }
   }
 
@@ -681,7 +685,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // name was for that one, so nothing is written, and that is said
     // rather than left to look as if it had worked.
     if (!identical(ref.read(readerProvider).book, book)) {
-      _say('$what is no longer open: not added to $name');
+      _say('$what is no longer open: not added to $name', mustRead: true);
       return;
     }
     await reader.addToCollection(name);
@@ -737,9 +741,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         keepCover: onS3 && choice == DeleteChoice.here,
       );
       if (choice == DeleteChoice.everywhere) await ref.read(s3SyncProvider).removeFromS3([book.key]);
-      showNotice(messenger, deletedNotice(book.title, stuck));
+      // A sidecar left behind is to be read: "Removed X from S3" follows within moments.
+      showNotice(messenger, deletedNotice(book.title, stuck), mustRead: stuck.isNotEmpty);
     } on FileSystemException catch (e) {
-      showNotice(messenger, 'Could not delete ${book.title}: ${e.message}');
+      showNotice(messenger, 'Could not delete ${book.title}: ${e.message}', mustRead: true);
       await reader.open(book.path);
     }
   }

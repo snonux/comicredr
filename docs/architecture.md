@@ -143,9 +143,12 @@ screen, loses its way in a dialog that scrolls).
 
 Notices along the bottom all go through `lib/src/undo_notice.dart`
 (`showNotice`, and `UndoNotice` for one with an Undo button, which `u`
-presses): a notice takes the place of whatever notice is up, at once, so
-none waits unseen behind another, and one with an Undo goes by itself
-after ten seconds, the `u` key with it.
+presses). A routine notice takes the place of the one that is up, at
+once, so none waits unseen behind another, and one with an Undo goes by
+itself after ten seconds, the `u` key with it. A notice of a failure or
+a warning (`mustRead`; the S3 sync's notices say which they are) also
+comes up at once but then stays its time: what comes meanwhile waits
+its turn behind it.
 
 ```mermaid
 flowchart LR

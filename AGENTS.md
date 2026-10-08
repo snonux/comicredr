@@ -403,14 +403,37 @@ refreshes right away instead of within six hours.
   up over a comic opened straight after it, and `u` works with the help
   up. What the Undo throws is caught and said in a notice
   (`UndoNotice.show(failed:)`), since nobody awaits a button or a key.
-  Notices, one rule (second review of t263): every notice of the app is
-  shown through `showNotice(messenger, text)` or `UndoNotice.show`, both
-  in `lib/src/undo_notice.dart`, and each takes the place of whatever
-  notice is up, at once (`clearSnackBars` and `removeCurrentSnackBar`,
-  no slide out), so there is never a queue: before, a notice shown with
-  a plain `showSnackBar` waited unseen behind an Undo notice, and `u`
-  could run the undo of a notice not yet on screen, which then showed a
-  dead button. A notice with an Undo goes by itself after
+  Notices, one rule (second and third review of t263): every notice of
+  the app is shown through `showNotice(messenger, text)` or
+  `UndoNotice.show`, both in `lib/src/undo_notice.dart`, and both end in
+  `_post`. A notice is routine (something done, a hint, an Undo offer)
+  or must be read (`mustRead: true`: a failure, or a warning about what
+  was done). A routine one takes the place of a routine one that is up,
+  at once (`clearSnackBars` and `removeCurrentSnackBar`, no slide out),
+  so routine notices never queue: before, a notice shown with a plain
+  `showSnackBar` waited unseen behind an Undo notice, and `u` could run
+  the undo of a notice not yet on screen, which then showed a dead
+  button. One that must be read also takes a routine one's place at
+  once, and then stays its whole time: whatever comes meanwhile waits
+  behind it (`_Line.waiting`, kept per messenger in an Expando, not the
+  messenger's own queue), those that must be read all in the order they
+  came, while a routine one waiting gives way to whatever comes after
+  it, so at most one routine notice follows. Else "Downloaded B" took
+  "Could not download A" away a moment after it came up. An Undo notice
+  that waits has no key until it shows (`UndoNotice.show` sets what `u`
+  runs in `onShown`), and one that gave way while waiting never gets
+  it; `UndoNotice.show(mustRead: true)` is for an Undo whose text also
+  tells of a failure (`takeOutOfCollection` part of the way). Which
+  are which: `mustRead` is passed where the text says "could not", a
+  sidecar that stayed, a reset the file beside the comic may undo, the
+  start-up warning about keys.toml, everything Import settings says,
+  and S3 Save when no keyring answered. The sync's notices are
+  `S3Notice` records (`text`, `failure`; `S3Sync._say` and `_fail`), and
+  HomeScreen's listener passes `failure` on: out of reach, a refusal, a
+  failed download and "Add a library folder first" are failures,
+  "Uploaded", "Downloaded", "Removed … from S3" and "S3 is back"
+  routine. A new notice: decide which it is. A notice with an Undo goes
+  by itself after
   `undoNoticeTime` (10 s; `persist: false`, since in this Flutter a
   SnackBar with an action otherwise stays until hidden), a plain one
   after `noticeTime` (4 s) unless its caller says; once it has gone,
@@ -543,8 +566,9 @@ refreshes right away instead of within six hours.
   The S3 e2e scripts (`e2e_s3_settings`, `e2e_s3_reader`,
   `e2e_s3_android`), which save a test secret, export the same dead
   address for the whole script and start the app with the XDG folders
-  unset and `GDK_BACKEND=x11` as well. The older e2e scripts still set
-  only HOME: export the three by hand on a desktop. A script that
+  unset and `GDK_BACKEND=x11` as well; `e2e_reset` and `e2e_m8_library`
+  start the app the same way (third review). The other older e2e
+  scripts still set only HOME: export the three by hand on a desktop. A script that
   starts the app right after Xvfb waits for the display first
   (`xdotool getdisplaygeometry`; `e2e_delete`, `e2e_reset` and
   `e2e_m8_library` died with "cannot open display" without it).

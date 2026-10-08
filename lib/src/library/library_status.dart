@@ -115,20 +115,25 @@ class LibraryStatus extends ConsumerWidget {
   final String pending;
   final VoidCallback onFailures;
 
+  /// What the line says when there is no notice: how far the scan is, or
+  /// what the library holds and how much of it could not be read.
+  String _count(ScanStatus scan) {
+    if (scan.running) {
+      return scan.total == 0
+          ? 'Scanning the library folders…'
+          : 'Scanning: ${scan.done} / ${scan.total} new or changed books';
+    }
+    final series = books.map((b) => b.seriesId).toSet().length;
+    return '${books.length} books in $series series'
+        '${scan.failed.isEmpty ? '' : '  ·  ${scan.failed.length} could not be read'}';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final reader = ref.watch(readerProvider);
     final scan = ref.watch(scanStatusProvider).value ?? const ScanStatus();
-    final series = books.map((b) => b.seriesId).toSet().length;
-    final text =
-        reader.message ??
-        (scan.running
-            ? scan.total == 0
-                  ? 'Scanning the library folders…'
-                  : 'Scanning: ${scan.done} / ${scan.total} new or changed books'
-            : '${books.length} books in $series series'
-                  '${scan.failed.isEmpty ? '' : '  ·  ${scan.failed.length} could not be read'}');
+    final text = reader.message ?? _count(scan);
     return Material(
       color: theme.colorScheme.surfaceContainer,
       child: Column(

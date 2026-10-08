@@ -26,7 +26,7 @@ Future<void> editBook(BuildContext context, WidgetRef ref, LibraryBook book) asy
     await save([book], edits);
     showNotice(messenger, 'Saved');
   } catch (e) {
-    showNotice(messenger, 'Could not save the changes to ${book.name}: $e');
+    showNotice(messenger, 'Could not save the changes to ${book.name}: $e', mustRead: true);
   }
 }
 
@@ -45,7 +45,7 @@ Future<void> renameSeries(BuildContext context, WidgetRef ref, LibrarySeries ser
     final n = series.books.length;
     showNotice(messenger, 'Renamed $n ${n == 1 ? 'book' : 'books'} to $name');
   } catch (e) {
-    showNotice(messenger, 'Could not rename ${series.name}: $e');
+    showNotice(messenger, 'Could not rename ${series.name}: $e', mustRead: true);
   }
 }
 

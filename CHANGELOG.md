@@ -21,9 +21,12 @@ the `?` overlay.
     Favourites. They are actions like the others: `?` lists them and
     `keys.toml` can change them.
   - A notice with an **Undo** goes by itself after about ten seconds
-    (it used to stay until something else took it away), and any new
+    (it used to stay until something else took it away), and a new
     notice takes the place of the one that is up at once: before, a
-    notice could wait unseen behind one with an Undo. `u` only ever
+    notice could wait unseen behind one with an Undo. Only a notice
+    that something went wrong ("Could not download …", "S3 is out of
+    reach", a problem in keys.toml) is not cut short: it stays its few
+    seconds, and what comes meanwhile shows after it. `u` only ever
     undoes what the notice on screen offers, also with the `?` help up,
     and an undo that fails says so. `x` with marked comics of which none
     is in the open collection says so.

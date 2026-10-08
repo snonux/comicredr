@@ -172,9 +172,19 @@ void main() {
     // Without a keyboard, the status line's buttons are the way into guided
     // view and balloons.
     expect(find.byKey(const Key('balloonsButton')), findsNothing);
+    final guidedWas = tester.element(find.byKey(const Key('guidedButton')));
+    final pagesWas = tester.element(find.byKey(const Key('pagesButton')));
     await tester.tap(find.byKey(const Key('guidedButton')));
     await settle(tester);
     expect(c.read(readerProvider).guided, isTrue);
+    // The balloons button came in before them, and each is still the
+    // button it was (its key is on the row's own child), not one rebuilt
+    // in the next place along, which would drop its ink and tooltip.
+    expect(find.byKey(const Key('balloonsButton')), findsOneWidget);
+    expect(guidedWas.mounted, isTrue);
+    expect(tester.element(find.byKey(const Key('guidedButton'))), same(guidedWas));
+    expect(guidedWas.widget, isA<IconButton>());
+    expect(tester.element(find.byKey(const Key('pagesButton'))), same(pagesWas));
     await tester.tap(find.byKey(const Key('balloonsButton')));
     await settle(tester);
     expect(c.read(readerProvider).balloons, isTrue);

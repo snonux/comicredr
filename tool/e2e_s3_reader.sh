@@ -115,7 +115,10 @@ trap 'kill $app $xvfb $proxy 2>/dev/null || true' EXIT
 # back to $XDG_RUNTIME_DIR/bus, a desktop's real session bus, and the test
 # secret would be saved over the real one in the keyring of whoever runs this.
 export DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/comicredr-no-session-bus
-sleep 1
+# Xvfb takes a moment to listen, and with GDK_BACKEND=x11 the app dies on
+# a display that is not there yet ("cannot open display").
+for _ in $(seq 1 100); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+xdotool getdisplaygeometry >/dev/null 2>&1 || { echo "FAIL  Xvfb did not come up on $DISPLAY"; exit 1; }
 
 home=
 db() { echo "$home/Comics/.comicredr/comicredr.sqlite"; }

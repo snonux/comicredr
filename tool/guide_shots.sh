@@ -70,7 +70,10 @@ Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 pid=
 trap 'kill $pid $xvfb 2>/dev/null || true' EXIT
-sleep 1
+# Xvfb takes a moment to listen, and with GDK_BACKEND=x11 the app dies on
+# a display that is not there yet ("cannot open display").
+for _ in $(seq 1 100); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+xdotool getdisplaygeometry >/dev/null 2>&1 || { echo "Xvfb did not come up on $DISPLAY" >&2; exit 1; }
 
 key() { xdotool key --delay 90 "$@" 2>/dev/null; sleep "${KS:-1.2}"; }
 typ() { xdotool type --delay 70 "$1"; sleep 0.6; }

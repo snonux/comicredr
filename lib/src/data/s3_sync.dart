@@ -58,6 +58,12 @@ abstract final class S3Pending {
   static const upload = 'upload', sidecar = 'sidecar', remove = 'remove';
 }
 
+/// One notice of the sync. [failure] when it tells of something that did
+/// not work or warns (out of reach, a refusal, a download that failed): the
+/// app then keeps it up its whole time, where a routine one ("Uploaded X")
+/// is replaced by the next notice.
+typedef S3Notice = ({String text, bool failure});
+
 /// S3 sync (design plan section 13): comics and their sidecars in the
 /// user's own bucket, so reading goes on from the other device.
 ///
@@ -95,14 +101,14 @@ class S3Sync {
   final Duration refreshEvery;
 
   final _status = StreamController<S3Status>.broadcast();
-  final _notices = StreamController<String>.broadcast();
+  final _notices = StreamController<S3Notice>.broadcast();
   S3Status _now = const S3Status();
 
   Stream<S3Status> get status => _status.stream;
   S3Status get current => _now;
 
   /// One-line notices for the status line: out of reach, back, uploaded.
-  Stream<String> get notices => _notices.stream;
+  Stream<S3Notice> get notices => _notices.stream;
 
   RemoteStore? _store;
   S3Config? _config;
@@ -120,8 +126,14 @@ class S3Sync {
     if (!_status.isClosed) _status.add(s);
   }
 
+  /// A routine notice: something done.
   void _say(String text) {
-    if (!_notices.isClosed) _notices.add(text);
+    if (!_notices.isClosed) _notices.add((text: text, failure: false));
+  }
+
+  /// A notice of something that did not work, or a warning.
+  void _fail(String text) {
+    if (!_notices.isClosed) _notices.add((text: text, failure: true));
   }
 
   /// The bucket as the settings say now, or null when sync is off.
@@ -182,7 +194,7 @@ class S3Sync {
   void _unreachable() {
     _wasOut = true;
     if (_now.reach != S3Reach.unreachable) {
-      _say('S3 (${_config?.host ?? 'the bucket'}) is out of reach; saving on this device');
+      _fail('S3 (${_config?.host ?? 'the bucket'}) is out of reach; saving on this device');
       _set(_now.copyWith(reach: S3Reach.unreachable));
     }
     _retryTimer?.cancel();
@@ -332,7 +344,7 @@ class S3Sync {
         } on RemoteException catch (e) {
           if (e.failure == RemoteFailure.unreachable) break;
           // Refused keys or a missing bucket: said once, tried again later.
-          _say('S3: ${e.message}');
+          _fail('S3: ${e.message}');
           failed.add(row.contentKey);
         } catch (e) {
           debugPrint('S3 sync of ${row.contentKey} failed: $e');
@@ -669,7 +681,7 @@ class S3Sync {
     final (store, config) = conn;
     final roots = await (_db.select(_db.roots)..orderBy([(r) => OrderingTerm(expression: r.id)])).get();
     if (roots.isEmpty) {
-      _say('Add a library folder first: downloads go into it');
+      _fail('Add a library folder first: downloads go into it');
       return null;
     }
     var target = p.joinAll([roots.first.path, ...m.relPath.split('/')]);
@@ -701,7 +713,7 @@ class S3Sync {
       });
       if (await _keyOf(target) != contentKey) {
         _deleteAll(made);
-        _say('The download of ${m.title} did not match what was uploaded; nothing was kept');
+        _fail('The download of ${m.title} did not match what was uploaded; nothing was kept');
         return null;
       }
       // Its sidecar, so it opens where the other device was.
@@ -720,7 +732,7 @@ class S3Sync {
       return target;
     } on RemoteException catch (e) {
       _deleteAll(made);
-      _say(
+      _fail(
         e.failure == RemoteFailure.unreachable
             ? 'S3 is out of reach: ${m.title} can be downloaded when it is back'
             : 'Could not download ${m.title}: ${e.message}',
@@ -728,7 +740,7 @@ class S3Sync {
       return null;
     } on FileSystemException catch (e) {
       _deleteAll(made);
-      _say('Could not download ${m.title}: ${e.message}');
+      _fail('Could not download ${m.title}: ${e.message}');
       return null;
     } finally {
       _progress(contentKey, null);

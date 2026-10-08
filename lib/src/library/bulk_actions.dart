@@ -39,7 +39,9 @@ Future<void> _writeSidecars(SidecarSync sidecars, Iterable<LibraryBook> books) a
 /// Deletes the marked [books] after one question for all of them: `gd` or
 /// Shift+Delete with comics marked, or Delete in the marks bar. Comics only
 /// on S3 are taken off S3 when "Delete here and from S3" is picked, and
-/// left alone otherwise. [beforeDelete] runs once it is confirmed.
+/// left alone otherwise. [beforeDelete] runs once it is confirmed. The
+/// notice at the end must be read when a comic or a sidecar could not be
+/// deleted: the sync's "Removed X from S3" follows it within moments.
 Future<bool> deleteLibraryBooks(
   BuildContext context,
   WidgetRef ref,
@@ -102,7 +104,7 @@ Future<bool> deleteLibraryBooks(
       'could not delete ${failed.first}${failed.length > 1 ? ' and ${failed.length - 1} more' : ''}',
     if (stuck.isNotEmpty) '${stuck.length == 1 ? 'a sidecar' : '${stuck.length} sidecars'} could not be removed',
   ];
-  showNotice(messenger, parts.isEmpty ? 'Nothing deleted' : parts.join('; '));
+  showNotice(messenger, parts.isEmpty ? 'Nothing deleted' : parts.join('; '), mustRead: (failed + stuck).isNotEmpty);
   return true;
 }
 
@@ -137,6 +139,7 @@ Future<bool> resetBooks(BuildContext context, WidgetRef ref, List<LibraryBook> b
       if (stuck > 0) "the files beside ${comicsCount(stuck)} can't be changed, so it may come back",
       if (failed.isNotEmpty) 'could not reset ${failed.first}',
     ].join('; '),
+    mustRead: stuck > 0 || failed.isNotEmpty,
   );
   return true;
 }
@@ -159,7 +162,7 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
     }
   } catch (e) {
     debugPrint('Could not change the favourites: $e');
-    showNotice(messenger, 'Could not change the favourites');
+    showNotice(messenger, 'Could not change the favourites', mustRead: true);
     return false;
   }
   await _writeSidecars(sidecars, changed);
@@ -225,7 +228,7 @@ Future<bool> takeOutOfCollection(
   await _writeSidecars(sidecars, out);
   final text = takenOutNotice(out, todo, collection);
   if (out.isEmpty) {
-    showNotice(messenger, text);
+    showNotice(messenger, text, mustRead: true);
     return false;
   }
   undoNotice.show(
@@ -233,6 +236,8 @@ Future<bool> takeOutOfCollection(
     text,
     label: undoLabel,
     failed: 'Could not put ${_named(out)} back in $collection',
+    // Part of the way: the notice also names what could not be taken out.
+    mustRead: out.length < todo.length,
     undo: () async {
       for (final b in out) {
         await store.addToCollection(b.key, collection);
@@ -315,9 +320,9 @@ Future<bool> collectBooks(BuildContext context, WidgetRef ref, List<LibraryBook>
           name: name,
           only: books.length == 1 ? books.single.name : null,
         );
-  // In place of a notice still up (the one of the gc before this one), not
-  // queued behind it.
-  showNotice(messenger, said);
+  // In place of a routine notice still up (the one of the gc before this
+  // one), not queued behind it; to be read when a comic was not added.
+  showNotice(messenger, said, mustRead: notAdded > 0);
   return notAdded == 0;
 }
 

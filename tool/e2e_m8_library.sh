@@ -43,7 +43,15 @@ type() { xdotool type --delay 60 "$1" 2>/dev/null; sleep 0.6; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1.2; }
 shot() { import -window root "$out/$1.png"; }
 start() {
-  HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr --add-root "$comics" >>"$out/app.log" 2>&1 &
+  # GDK_BACKEND: on a desktop running Wayland GTK would otherwise open the
+  # window there instead of in Xvfb, where the keys and clicks go. No
+  # session bus and no XDG folders of whoever runs this: the app then
+  # cannot reach their keyring or their own data. The bus address names a
+  # socket that is not there, rather than being unset: unset, D-Bus falls
+  # back to $XDG_RUNTIME_DIR/bus, which on a desktop is the real session's.
+  env -u XDG_DATA_HOME -u XDG_CONFIG_HOME -u XDG_CACHE_HOME \
+    DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent/comicredr-no-session-bus GDK_BACKEND=x11 \
+    HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr --add-root "$comics" >>"$out/app.log" 2>&1 &
   app=$!
   sleep 7
   win=$(xdotool search --name ComicRedr | tail -1)

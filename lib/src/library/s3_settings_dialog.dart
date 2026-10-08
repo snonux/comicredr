@@ -140,6 +140,9 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
       ScaffoldMessenger.of(context),
       'S3 sync set up for ${config.bucket} on ${config.host}; '
       'the secret key is ${place == SecretPlace.file ? 'in a private file (no keyring answered)' : 'in the keyring'}',
+      // No keyring is a warning to read: the notice of the first try at
+      // the bucket, a moment later, must not take it away.
+      mustRead: place == SecretPlace.file,
     );
     Navigator.pop(context, true);
   }
@@ -200,7 +203,6 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final saved = _saved;
     return DialogHotkeys(
       child: AlertDialog(
@@ -209,92 +211,7 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
           width: 520,
           child: saved == null
               ? const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))
-              : SingleChildScrollView(
-                  controller: _scroll,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Comics you upload and their sidecars go to a bucket on your own S3 server, such as Garage '
-                        'or MinIO, so another device can read on where you left off. Everything stays on this '
-                        'device too; when the server is off, the app carries on without it.',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 12),
-                      _field(
-                        'endpoint',
-                        _endpoint,
-                        'Address',
-                        autofocus: true,
-                        hint: _plainHttp
-                            ? 'Plain http: the keys are signed, but comics and sidecars travel unencrypted. Fine at '
-                                  'home, not over the internet.'
-                            : 'Like https://garage.example.org or http://garage.lan:3900',
-                      ),
-                      _field('region', _region, 'Region', hint: 'Garage\'s is garage'),
-                      _field('bucket', _bucket, 'Bucket'),
-                      _field(
-                        'prefix',
-                        _prefix,
-                        'Folder in the bucket',
-                        hint: 'Everything ComicRedr writes goes under it',
-                      ),
-                      _field('accessKey', _accessKey, 'Access key id'),
-                      _field(
-                        'secret',
-                        _secret,
-                        'Secret key',
-                        secret: true,
-                        hint: saved.hasSecret
-                            ? 'A secret key is saved ${_placeName(saved.secretPlace)}; leave this empty to keep it'
-                            : 'Kept in the keyring, never in settings files',
-                      ),
-                      Row(
-                        children: [
-                          OutlinedButton.icon(
-                            key: const Key('s3-test'),
-                            onPressed: _test,
-                            icon: _busy
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.wifi_tethering),
-                            label: const Mnemonic('Test connection'),
-                          ),
-                          if (saved.isSet) ...[
-                            const Spacer(),
-                            TextButton(
-                              key: const Key('s3-turnOff'),
-                              onPressed: _busy ? null : _turnOff,
-                              child: const Mnemonic('Turn off', letter: 'o'),
-                            ),
-                          ],
-                        ],
-                      ),
-                      if (_result case final r?)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                r.ok ? Icons.check_circle_outline : Icons.error_outline,
-                                size: 18,
-                                color: r.ok ? Colors.green : theme.colorScheme.error,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(r.text, key: const Key('s3-result'), style: theme.textTheme.bodySmall),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+              : _form(Theme.of(context), saved),
         ),
         actions: [
           TextButton(
@@ -307,6 +224,97 @@ class _S3SettingsDialogState extends ConsumerState<S3SettingsDialog> {
       ),
     );
   }
+
+  /// What the dialog shows once the [saved] settings are read: the
+  /// explanation, the fields, Test connection and its answer, in the
+  /// order Tab goes through them (the order they are written in).
+  Widget _form(ThemeData theme, S3Fields saved) => SingleChildScrollView(
+    controller: _scroll,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Comics you upload and their sidecars go to a bucket on your own S3 server, such as Garage '
+          'or MinIO, so another device can read on where you left off. Everything stays on this '
+          'device too; when the server is off, the app carries on without it.',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        ..._fields(saved),
+        _testRow(saved),
+        if (_result case final r?) _answer(theme, r),
+      ],
+    ),
+  );
+
+  /// The six fields, the address first and focused.
+  List<Widget> _fields(S3Fields saved) => [
+    _field(
+      'endpoint',
+      _endpoint,
+      'Address',
+      autofocus: true,
+      hint: _plainHttp
+          ? 'Plain http: the keys are signed, but comics and sidecars travel unencrypted. Fine at '
+                'home, not over the internet.'
+          : 'Like https://garage.example.org or http://garage.lan:3900',
+    ),
+    _field('region', _region, 'Region', hint: 'Garage\'s is garage'),
+    _field('bucket', _bucket, 'Bucket'),
+    _field('prefix', _prefix, 'Folder in the bucket', hint: 'Everything ComicRedr writes goes under it'),
+    _field('accessKey', _accessKey, 'Access key id'),
+    _field(
+      'secret',
+      _secret,
+      'Secret key',
+      secret: true,
+      hint: saved.hasSecret
+          ? 'A secret key is saved ${_placeName(saved.secretPlace)}; leave this empty to keep it'
+          : 'Kept in the keyring, never in settings files',
+    ),
+  ];
+
+  /// Test connection and, once sync is set up, Turn off.
+  Widget _testRow(S3Fields saved) => Row(
+    children: [
+      OutlinedButton.icon(
+        key: const Key('s3-test'),
+        onPressed: _test,
+        icon: _busy
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.wifi_tethering),
+        label: const Mnemonic('Test connection'),
+      ),
+      if (saved.isSet) ...[
+        const Spacer(),
+        TextButton(
+          key: const Key('s3-turnOff'),
+          onPressed: _busy ? null : _turnOff,
+          child: const Mnemonic('Turn off', letter: 'o'),
+        ),
+      ],
+    ],
+  );
+
+  /// What the test, or a field left wrong, answered.
+  Widget _answer(ThemeData theme, ({String text, bool ok}) r) => Padding(
+    padding: const EdgeInsets.only(top: 8),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          r.ok ? Icons.check_circle_outline : Icons.error_outline,
+          size: 18,
+          color: r.ok ? Colors.green : theme.colorScheme.error,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(r.text, key: const Key('s3-result'), style: theme.textTheme.bodySmall),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Where a saved secret key is, as the field's hint says it.
