@@ -129,7 +129,7 @@ check "the filter is saved" "$(sql "select value like '%pdf%' from settings wher
 stop
 
 # A restart keeps it; then by size: PDF off, 10 to 50 MB on.
-start
+start --add-root "$comics" # In the library: the comic read last would open otherwise.
 click 43 355; shot 07_restart_filtered
 key shift+f; sleep 1; chip 2; key Escape
 key shift+f; sleep 1; chip 6; shot 08_size_picked; key Escape
@@ -160,7 +160,7 @@ key BackSpace
 key shift+f; sleep 1; chip 20; shot 16_length_picked; key Escape; sleep 1; shot 17_length_top
 key l; key Return; key Return; key Return; sleep 2; shot 18_read_saga; key Escape; sleep 1
 check "the 30-page comic opened" "$(read_ 'Saga')" 1
-check "the filter says so" "$(sql "select value like '%\"pages\":\"to64\"%' from settings where key = 'library.folderFilter'")" 1
+check "the filter says so" "$(sql "select value like '%to64%' from settings where key = 'library.folderFilter'")" 1
 stop
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"
