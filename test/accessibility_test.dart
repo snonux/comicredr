@@ -6,6 +6,7 @@ import 'package:comicredr/src/library/providers.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -113,4 +114,32 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
+
+  // w73: at three times the text on a phone the status line under the
+  // library ran 222 px past the screen's edge, from the moment it showed.
+  for (final width in [320.0, 360.0]) {
+    for (final scale in [1.5, 2.0, 3.0]) {
+      testWidgets('the library fits a $width dp phone with the text at $scale times', (tester) async {
+        tester.view.physicalSize = Size(width, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        final c = await pumpApp(tester);
+        await settle(tester);
+        expect(tester.takeException(), isNull);
+        final root = Directory('${tmp.path}/Comics')..createSync();
+        for (var i = 1; i <= 2; i++) {
+          writeBookOf(root, 'Series #00$i.cbz', [for (var p = 0; p <= i; p++) grid4Page()]);
+        }
+        await tester.runAsync(() async {
+          await c.read(libraryStoreProvider).addRoot(root.path);
+          await c.read(scannerProvider).scan();
+        });
+        await settle(tester);
+        expect(find.byKey(const Key('status')), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
 }

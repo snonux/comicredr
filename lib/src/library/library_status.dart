@@ -150,25 +150,44 @@ class LibraryStatus extends ConsumerWidget {
                   : KeyHints.tip(context, 'Which comics could not be read, and why', ReaderIntent.showScanFailures),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(text, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    Text(
-                      pending,
-                      key: const Key('pending'),
-                      style: const TextStyle(fontFamily: 'monospace'),
-                    ),
-                    const SizedBox(width: 12),
-                    Text('ComicRedr $appVersion', key: const Key('version'), style: theme.textTheme.bodySmall),
-                  ],
-                ),
+                child: LayoutBuilder(builder: (context, box) => _line(context, theme, text, box.maxWidth)),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// The line itself: what [text] says, the keys typed so far and the
+  /// version. The version is left out when it would take more than half
+  /// the [width], as with the system's text at twice its size or more on a
+  /// phone, where it pushed the line past the screen's edge (w73); what the
+  /// line says comes first. The version is also on the `?` help.
+  Widget _line(BuildContext context, ThemeData theme, String text, double width) {
+    final version = 'ComicRedr $appVersion';
+    final style = theme.textTheme.bodySmall;
+    final painter = TextPainter(
+      text: TextSpan(text: version, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    final showVersion = painter.width + 12 <= width / 2;
+    painter.dispose();
+    return Row(
+      children: [
+        Expanded(
+          child: Text(text, key: const Key('status'), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+        // A count or a key sequence: a few letters, never cut.
+        Text(
+          pending,
+          key: const Key('pending'),
+          style: const TextStyle(fontFamily: 'monospace'),
+        ),
+        if (showVersion) ...[const SizedBox(width: 12), Text(version, key: const Key('version'), style: style)],
+      ],
     );
   }
 }
