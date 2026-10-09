@@ -183,6 +183,48 @@ it, across restarts, and only the Folders tab is filtered.
 
 ![The Golden age folder filtered to its PDF](images/filter.webp)
 
+#### Sort the Folders tab
+
+The Folders tab lists comics by file name unless you sort it. Press
+`gS` on the Folders tab, or click **Sort: Name, A to Z** at the right
+end of the line under the search box, and pick an order:
+
+| Order | Comes first | `Alt` + |
+|---|---|---|
+| **Name** | A to Z, by file name (numbers counted as numbers, so 2 before 10) | `N` |
+| **Added** | the comic added to the library last | `A` |
+| **Last read** | the comic you read last | `L` |
+| **Modified** | the newest file, by its date as your file manager shows it | `M` |
+| **Size** | the biggest file | `S` |
+| **Pages** | the comic with the most pages | `P` |
+| **Series** | A to Z by series, then by volume and issue number | `E` |
+| **Year** | the newest comic, by the year it came out | `Y` |
+
+**Reverse** (`Alt+R`) turns the order round: oldest first, smallest
+first, Z to A. The covers behind the window move as you pick; `Esc`,
+`Alt+D` or **Done** closes it.
+
+Without the window:
+
+- `go` sorts by the next order in the list (after **Year** comes
+  **Name** again), and
+- `gO` turns the order round.
+
+A notice along the bottom says what the tab is sorted by now.
+
+Subfolders stay before the comics and follow the same order, each
+judged by its own first comic: sorted by **Last read**, the folder
+holding the comic you read last comes first. A comic that has no value
+for the order (one you never opened, sorted by **Last read**, or one
+without a year) goes after all the others, whichever way round. The
+order stays across restarts, works together with the filter and the
+search, and only the Folders tab is sorted.
+
+For example, to see what you read lately: `gS`, `Alt+L`, `Esc`. To find
+the thick volumes: `gS`, `Alt+P`, `Esc`.
+
+![The sort window over the Golden age folder, sorted by pages](images/sort-dialog.webp)
+
 ### History
 
 The History tab lists every time you sat down with a comic, grouped by

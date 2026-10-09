@@ -23,6 +23,8 @@ import 'default_folder.dart';
 import 'edit_dialog.dart';
 import 'folder_filter.dart';
 import 'folder_filter_dialog.dart';
+import 'folder_sort.dart';
+import 'folder_sort_dialog.dart';
 import 'library_items.dart';
 import 'library_panes.dart';
 import 'library_status.dart';
@@ -149,6 +151,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// across restarts.
   FolderFilter _filter = FolderFilter.none;
 
+  /// The Folders tab's order (`gS`, `go`, `gO`), kept across restarts.
+  FolderSort _sort = FolderSort.usual;
+
   /// How wide a cover aims to be, in logical pixels: the cover grids' zoom
   /// (`+` `-`, Ctrl and the wheel, a pinch), one size for every tab of
   /// covers, kept across restarts. Null for the default.
@@ -199,6 +204,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           })
           .catchError((Object e) => debugPrint('Could not read the folder filter: $e')),
     );
+    unawaited(_loadSort());
     _reshuffle();
   }
 
@@ -355,6 +361,42 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     );
   }
 
+  FolderSort get sort => _sort;
+
+  /// Takes up the saved order of the Folders tab.
+  Future<void> _loadSort() async {
+    try {
+      final sort = FolderSort.decode(await ref.read(settingsStoreProvider).loadString(SettingsStore.folderSort));
+      if (mounted) setState(() => _sort = sort);
+    } catch (e) {
+      debugPrint('Could not read the folder sort: $e');
+    }
+  }
+
+  /// Sorts the Folders tab, remembered for the next start. The selection
+  /// stays on its cover, scrolled to wherever that goes; [say] tells the
+  /// new order in a notice, for the keys that change it without a window.
+  void setSort(FolderSort s, {bool say = false}) {
+    if (say) showNotice(ScaffoldMessenger.of(context), 'Sorted by ${s.label.toLowerCase()}');
+    if (s == _sort) return;
+    setState(() => _sort = s);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _reveal();
+    });
+    unawaited(
+      ref
+          .read(settingsStoreProvider)
+          .saveString(SettingsStore.folderSort, s.encode())
+          .catchError((Object e) => debugPrint('Could not save the folder sort: $e')),
+    );
+  }
+
+  /// The sort window.
+  Future<void> _openSort() async {
+    await showFolderSort(context, sort: _sort, onChanged: setSort);
+    widget.keysFocus?.requestFocus();
+  }
+
   /// The filter's dialog, offering the formats the library has.
   Future<void> _openFilter() async {
     final books = ref.read(booksProvider).value ?? const <LibraryBook>[];
@@ -387,10 +429,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   bool _settingsOpen = false;
 
-  /// Takes up the saved cover size, filter and shuffle setting again,
-  /// after an import changed them.
+  /// Takes up the saved cover size, filter, sort and shuffle setting
+  /// again, after an import changed them.
   Future<void> reloadSettings() async {
     await _loadCoverSize();
+    await _loadSort();
     try {
       final filter = FolderFilter.decode(await ref.read(settingsStoreProvider).loadString(SettingsStore.folderFilter));
       if (mounted) setState(() => _filter = filter);
@@ -564,6 +607,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         unawaited(_bulk(() => _deleteMarked(marked)));
       case ReaderIntent.filterFolders when tab == LibraryTab.folders:
         unawaited(_openFilter());
+      case ReaderIntent.sortFolders when tab == LibraryTab.folders:
+        unawaited(_openSort());
+      case ReaderIntent.nextSortOrder when tab == LibraryTab.folders:
+        setSort(_sort.next(), say: true);
+      case ReaderIntent.reverseSort when tab == LibraryTab.folders:
+        setSort(_sort.flipped(), say: true);
       case ReaderIntent.resetBook:
         if (_selectedItem case BookItem(:final book) when !book.remoteOnly) {
           unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));
@@ -1274,45 +1323,70 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// Under the Folders tab's header: the filter's button, and while it is
   /// on, what it lets through, each part with its own x, and a way to clear
   /// it all. A tap on a part opens the filter. Its own line, as the header
-  /// has no room left beside a breadcrumb.
+  /// has no room left beside a breadcrumb. The sort button is at its end,
+  /// so the filter's parts stay where they were before there was one.
   Widget _filterBar(BuildContext context) {
     final f = _filter;
     return Container(
       key: const Key('filterBar'),
       alignment: AlignmentDirectional.centerStart,
       padding: const EdgeInsets.fromLTRB(8, 0, 12, 4),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          _filterButton(f),
-          if (f.formats.isNotEmpty)
-            _filterPart(
-              'filterBarType',
-              (f.formats.map(formatLabel).toList()..sort()).join(', '),
-              f.copyWith(formats: const {}),
-            ),
-          if (f.size != SizeRange.any) _filterPart('filterBarSize', f.size.label, f.copyWith(size: SizeRange.any)),
-          if (f.date != DateRange.any)
-            _filterPart('filterBarDate', 'Modified: ${f.date.label.toLowerCase()}', f.copyWith(date: DateRange.any)),
-          if (f.completed != CompletedFilter.any)
-            _filterPart('filterBarCompleted', f.completed.label, f.copyWith(completed: CompletedFilter.any)),
-          if (f.pages != PageRange.any) _filterPart('filterBarPages', f.pages.label, f.copyWith(pages: PageRange.any)),
-          if (f.isActive)
-            Tooltip(
-              message: _tip('By key: Clear all in the filter', ReaderIntent.filterFolders),
-              child: TextButton(
-                key: const Key('filterBarClear'),
-                style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                onPressed: () => setFilter(FolderFilter.none),
-                child: const Text('Clear filter'),
-              ),
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, box) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _filterParts(f)),
+            _sortButton(narrow: box.maxWidth < 600),
+          ],
+        ),
       ),
     );
   }
+
+  /// The filter's button and, while it is on, its parts and Clear filter.
+  Widget _filterParts(FolderFilter f) => Wrap(
+    spacing: 8,
+    runSpacing: 4,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      _filterButton(f),
+      if (f.formats.isNotEmpty)
+        _filterPart(
+          'filterBarType',
+          (f.formats.map(formatLabel).toList()..sort()).join(', '),
+          f.copyWith(formats: const {}),
+        ),
+      if (f.size != SizeRange.any) _filterPart('filterBarSize', f.size.label, f.copyWith(size: SizeRange.any)),
+      if (f.date != DateRange.any)
+        _filterPart('filterBarDate', 'Modified: ${f.date.label.toLowerCase()}', f.copyWith(date: DateRange.any)),
+      if (f.completed != CompletedFilter.any)
+        _filterPart('filterBarCompleted', f.completed.label, f.copyWith(completed: CompletedFilter.any)),
+      if (f.pages != PageRange.any) _filterPart('filterBarPages', f.pages.label, f.copyWith(pages: PageRange.any)),
+      if (f.isActive)
+        Tooltip(
+          message: _tip('By key: Clear all in the filter', ReaderIntent.filterFolders),
+          child: TextButton(
+            key: const Key('filterBarClear'),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            onPressed: () => setFilter(FolderFilter.none),
+            child: const Text('Clear filter'),
+          ),
+        ),
+    ],
+  );
+
+  /// The sort's button: the order in its label (only the order's name on a
+  /// narrow window), the way round in the tooltip as well, with its key.
+  Widget _sortButton({required bool narrow}) => Tooltip(
+    message: _tip('Sort: ${_sort.label}', ReaderIntent.sortFolders),
+    child: TextButton.icon(
+      key: const Key('sort'),
+      style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+      icon: Icon(_sort.reversed ? Icons.arrow_upward : Icons.sort),
+      label: Text(narrow ? _sort.order.label : 'Sort: ${_sort.label}', maxLines: 1, overflow: TextOverflow.ellipsis),
+      onPressed: _openSort,
+    ),
+  );
 
   static const _shuffleKey = ReaderIntent.toggleShuffle;
   static const _markHelp = 'Mark comics to delete, reset, favourite or sync together';
@@ -1330,7 +1404,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         key: const Key('filter'),
         style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
         icon: Icon(f.isActive ? Icons.filter_alt : Icons.filter_alt_outlined),
-        label: Text(f.isActive ? 'Filtered:' : named),
+        // One line: beside the sort button a long label is cut short, the
+        // tooltip says it whole.
+        label: Text(f.isActive ? 'Filtered:' : named, maxLines: 1, overflow: TextOverflow.ellipsis),
         onPressed: _openFilter,
       ),
     );
@@ -1432,7 +1508,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         final filtered = _filter.isActive ? files.where((b) => _filter.accepts(b, now)).toList() : files;
         if (_folder == null) {
           return [
-            for (final f in LibraryFolder.roots(roots, filtered))
+            for (final f in _sort.folders(LibraryFolder.roots(roots, filtered)))
               // A library folder with nothing the filter lets through goes
               // too; without a filter an empty one stays, to be taken out.
               if (f.matches(q) && (!_filter.isActive || f.books.isNotEmpty)) FolderItem(f),
@@ -1440,9 +1516,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         }
         final (:folders, books: here) = LibraryFolder.children(_folder!, filtered);
         return [
-          for (final f in folders)
+          for (final f in _sort.folders(folders))
             if (f.matches(q)) FolderItem(f),
-          for (final b in here)
+          for (final b in _sort.books(here))
             if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.history:

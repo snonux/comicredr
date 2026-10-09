@@ -89,6 +89,10 @@ class SettingsStore {
   /// FolderFilter's JSON; unset when nothing is filtered.
   static const folderFilter = 'library.folderFilter';
 
+  /// The Folders tab's order (`gS`, `go`, `gO`), a FolderSort as saved:
+  /// `size` or `size:reversed`; unset for the usual name order.
+  static const folderSort = 'library.folderSort';
+
   /// The default library folder (~/Comics) was taken out of the library,
   /// so starts no longer add it back.
   static const defaultFolderRemoved = 'library.defaultFolderRemoved';
@@ -142,6 +146,7 @@ class SettingsStore {
     helpTextSize: false,
     shuffle: true,
     folderFilter: false,
+    folderSort: false,
     continueAtStart: true,
     touchPreset: false,
     scrollSpeed: false,

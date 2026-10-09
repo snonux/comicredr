@@ -183,13 +183,17 @@ filter)
   # A section of its own, with stills only, so it can be retaken where
   # the GIFs of the library section cannot be made. The Golden age folder
   # on the Folders tab, filtered to PDFs (the chips are CBZ, Image
-  # folder, PDF).
+  # folder, PDF), and its sort window.
   # Folders clicked twice: once shows the tab where it was left, again its top.
   key Escape; key Escape; tab Folders; tab Folders; key Home; key Return; sleep 1.5
   key Home; key Return; sleep 1.5
   key shift+f; sleep 1; key Tab; key Tab; key space; sleep 1.5; park; still filter-dialog
   key Escape; sleep 1; park; still filter
   key shift+f; sleep 1; key Tab; key Tab; key space; key Escape
+  # The sort window over the same folder, sorted by pages; then back to
+  # name order for the sections after this one.
+  key g shift+s; sleep 1; key alt+p; sleep 1.5; park; still sort-dialog
+  key alt+n; key Escape
   key BackSpace; key BackSpace
   ;;
 

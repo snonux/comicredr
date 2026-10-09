@@ -7,6 +7,14 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Sort the Folders tab:** by name, date added, last read, the file's
+  date, size, pages, series and issue, or year, each either way round.
+  `gS` or the **Sort** button at the end of the filter line opens the
+  choice (`Alt` and a letter picks an order, `Alt+R` reverses it), `go`
+  steps to the next order and `gO` turns it round. Subfolders follow the
+  same order, comics without the value go last, and the order is kept
+  across restarts and in exported settings.
+
 - **Fixed:** moving comics (`gm`) never replaces a comic already in the
   folder without asking. Two marked comics of the same file name moved
   into one folder used to leave only the second; now the second stays

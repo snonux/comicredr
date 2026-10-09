@@ -689,6 +689,92 @@ void main() {
       expect(await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)), isNull);
     });
 
+    testWidgets('gS, go and gO sort the Folders tab, by key and by the button, and the order is kept', (tester) async {
+      // Page counts tell them apart: Alpha 3, Beta 9, Gamma 5.
+      writeBook(root, 'Alpha.cbz', 3);
+      writeBook(root, 'Beta.cbz', 9);
+      writeBook(root, 'Gamma.cbz', 5);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      final books = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!;
+      final seriesOf = {for (final b in books) b.key: b.series};
+      // The covers in reading order, by where they are on screen.
+      List<String> shown() {
+        final covers = find
+            .byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('b:'))
+            .evaluate()
+            .toList();
+        final at = {for (final e in covers) e: tester.getTopLeft(find.byWidget(e.widget))};
+        covers.sort((a, b) => at[a]!.dy != at[b]!.dy ? at[a]!.dy.compareTo(at[b]!.dy) : at[a]!.dx.compareTo(at[b]!.dx));
+        return [for (final e in covers) seriesOf[(e.widget.key! as ValueKey<String>).value.split(':')[1]]!];
+      }
+
+      Future<void> alt(String letter) async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyEvent(
+          LogicalKeyboardKey(LogicalKeyboardKey.keyA.keyId + letter.codeUnitAt(0) - 0x61),
+          character: letter,
+        );
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        await settle(tester);
+      }
+
+      Future<String?> saved() =>
+          tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderSort)).then((v) => v);
+
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.enter); // Into Comics.
+      expect(shown(), ['Alpha', 'Beta', 'Gamma']);
+      expect(find.text('Sort: Name, A to Z'), findsOneWidget);
+
+      // gS opens the window; Alt+P sorts by pages, most first, at once.
+      await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+      await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+      expect(find.byKey(const Key('sortDialog')), findsOneWidget);
+      await alt('p');
+      expect(shown(), ['Beta', 'Gamma', 'Alpha']);
+      expect(await saved(), 'pages');
+      // Alt+R turns it round; Alt+D closes the window.
+      await alt('r');
+      expect(shown(), ['Alpha', 'Gamma', 'Beta']);
+      expect(await saved(), 'pages:reversed');
+      await alt('d');
+      expect(find.byKey(const Key('sortDialog')), findsNothing);
+      expect(find.text('Sort: Pages, fewest first'), findsOneWidget);
+
+      // go: the next order (series), still reversed, and a notice says so.
+      await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+      await key(tester, LogicalKeyboardKey.keyO, character: 'o');
+      expect(shown(), ['Gamma', 'Beta', 'Alpha']);
+      expect(find.text('Sorted by series, z to a'), findsOneWidget);
+      // gO: the other way round.
+      await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+      await key(tester, LogicalKeyboardKey.keyO, character: 'O');
+      expect(shown(), ['Alpha', 'Beta', 'Gamma']);
+      expect(await saved(), 'series');
+
+      // A new start keeps it; the button opens the window, a chip picks.
+      await tester.runAsync(() => SettingsStore(db).saveString(SettingsStore.folderSort, 'pages'));
+      await tester.pumpWidget(const SizedBox());
+      await pumpApp(tester);
+      await settle(tester);
+      await tester.tap(find.text('Folders'));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.enter);
+      expect(shown(), ['Beta', 'Gamma', 'Alpha']);
+      await tester.tap(find.byKey(const Key('sort')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('sort-name')));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.escape);
+      expect(find.byKey(const Key('sortDialog')), findsNothing);
+      expect(shown(), ['Alpha', 'Beta', 'Gamma']);
+      expect(await saved(), isNull, reason: 'the usual order is no setting');
+    });
+
     /// The app's own start: first frame, the start-up scan, the books.
     Future<void> starting(WidgetTester tester) async {
       for (var i = 0; i < 20; i++) {

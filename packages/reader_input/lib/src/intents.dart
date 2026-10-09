@@ -113,6 +113,9 @@ enum ReaderIntent {
   ),
   reshuffle('Pick other random pages for shuffle in the library'),
   filterFolders("Filter the library's Folders tab by type, size, modification date and completed or not"),
+  sortFolders("Sort the library's Folders tab: by name, date added, last read, file date, size, pages, series or year"),
+  nextSortOrder("The library's Folders tab: sort by the next order (name, added, last read, …)"),
+  reverseSort("The library's Folders tab: reverse the sort order"),
   resetBook(
     'Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one',
   ),

@@ -184,6 +184,7 @@ key Escape; sleep 2
 at 43 380 # Folders
 key shift+s # shuffle
 key shift+f; sleep 1; key space; key Escape # a folder filter: the first type
+key g shift+o # the Folders tab sorted the other way round
 settings_bottom
 shot 02_settings
 # Touch: One thumb, the right-hand segment above the reading history.
@@ -210,7 +211,7 @@ want_changed() { # every setting away from its default
     -a "$(setting sidecars.dir)" = "\"$stash\"" -a -n "$(setting grid.zoom)" \
     -a "$(setting library.shuffle)" = true -a "$(setting library.defaultFolderRemoved)" = true \
     -a "$(setting library.continueAtStart)" = false \
-    -a -n "$(setting library.folderFilter)" -a "$(setting touch.preset)" = '"oneThumb"' \
+    -a -n "$(setting library.folderFilter)" -a "$(setting library.folderSort)" = '"name:reversed"' -a "$(setting touch.preset)" = '"oneThumb"' \
     -a "$(setting reader.scrollSpeed)" = '"fast"' -a "$(setting reader.scrollSmoothness)" = '"light"'
 }
 check "every setting is changed before the export" want_changed
@@ -241,7 +242,7 @@ check "it says it is ComicRedr's settings, format 1" python3 -c "
 import json, sys
 j = json.load(open(sys.argv[1]))
 assert j['app'] == 'org.snonux.comicredr' and j['kind'] == 'settings' and j['format'] == 1, j
-assert len(j['settings']) == 15 and 'device.id' not in j['settings'], j['settings']
+assert len(j['settings']) == 16 and 'device.id' not in j['settings'], j['settings']
 assert 'library.defaultFolderRemoved' not in j['settings'], j['settings']
 assert j['keysToml'] == open(sys.argv[2]).read()
 " "$backup" "$keys"

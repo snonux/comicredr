@@ -35,6 +35,7 @@ come back here for a key you forgot.
    - [The tabs](03-library.md#the-tabs): [series](03-library.md#series),
      [folders](03-library.md#folders),
      [filter the Folders tab](03-library.md#filter-the-folders-tab),
+     [sort it](03-library.md#sort-the-folders-tab),
      [history](03-library.md#history)
    - [Search](03-library.md#search)
    - [Shuffle](03-library.md#shuffle)

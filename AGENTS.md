@@ -786,6 +786,28 @@ refreshes right away instead of within six hours.
   `pages` out at their defaults, so a filter saved before the part existed
   reads, and is written, as it was. "Page size" in task 363 was read as
   the page count; the pages' pixel size is not filtered on.
+- The Folders tab's sort (snonux, 2026-10-09; `gS` `sortFolders`, `go`
+  `nextSortOrder`, `gO` `reverseSort`; `FolderSort` in
+  `lib/src/library/folder_sort.dart`, its window in
+  `folder_sort_dialog.dart`): a `SortOrder` (name, added, last read,
+  modified, size, pages, series, year) and `reversed`. Applied in
+  `_itemsFor` after the filter, to the books (`FolderSort.books`) and to
+  the folders (`FolderSort.folders`: each by its first book in the
+  order; by name they keep the order `LibraryFolder` gives, which for
+  library folders is the order they were added). Name order is
+  `LibraryFolder.fileOrder`, the tab's order before there was a sort.
+  The value orders put the larger value first unless reversed; a book
+  without the value (`readAt` null, no `year`, a page count of 0) goes
+  last either way, ties by file name. Saved as `library.folderSort`
+  (`size`, `size:reversed`; unset for name A to Z; in
+  `SettingsStore.backedUp`, so e2e_settings_backup's export holds 16
+  settings), anything unknown read as the usual order. The button sits
+  at the right end of the filter line (`_sortButton`, order only below
+  600 dp), so the filter's parts did not move. In the window each order's
+  chip has a `Mnemonic` with `onPressed` (Alt+N, A, L, M, S, P, E, Y),
+  Reverse Alt+R, Done Alt+D; `go` and `gO` say the new order in a
+  notice. Only the Folders tab is sorted; the other tabs keep their
+  own orders.
 - Completed comics (snonux, task 273; `gC`, `ReaderIntent.toggleCompleted`).
   Two facts make it up. `LibraryBook.finished` is the old one, a column
   of `progress`: this device's saved page is the last. The mark is new:
@@ -1337,6 +1359,7 @@ tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slo
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
+tool/e2e_folder_sort.sh       # gS and Alt+P, S, M, L in its window, gO and go, each proved by the comic that opens first; kept across a restart; the sort button clicked; checks the index with sqlite3; makes its own books
 tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
 tool/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; in a comic I, End and Alt+P redo its panels (analysed_pages newer than before) with the app still there (mm bookmarks the page and takes it off again, Esc the library as it was); gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), d without Alt and Enter delete nothing, Alt+C cancels, Alt+D deletes; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out and u puts it back with its comics found again; the app has no session bus (no keyring) and no XDG folders of the caller; checks the index with sqlite3 and the comics on disk; makes its own books

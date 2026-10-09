@@ -189,6 +189,12 @@ toggleShuffle = ["S"]
 reshuffle = ["gs"]
 # Filter the library's Folders tab by type, size, modification date and completed or not
 filterFolders = ["F"]
+# Sort the library's Folders tab: by name, date added, last read, file date, size, pages, series or year
+sortFolders = ["gS"]
+# The library's Folders tab: sort by the next order (name, added, last read, …)
+nextSortOrder = ["go"]
+# The library's Folders tab: reverse the sort order
+reverseSort = ["gO"]
 # Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one
 resetBook = ["X"]
 # Delete this comic and its sidecar, after asking; the selected book in the library, or every marked one

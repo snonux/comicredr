@@ -122,8 +122,8 @@ a part of the [filter](03-library.md#filter-the-folders-tab)
 in a book's details (`e` and `x` on the Bookmarks tab). The tabs are
 `Tab` and `Shift+Tab`, covers and pages the arrows and `Enter`.
 
-**In a dialog** (Settings, a question before deleting, the filter, a
-name to type) the keys are the ones of any Linux desktop:
+**In a dialog** (Settings, a question before deleting, the filter, the
+sort, a name to type) the keys are the ones of any Linux desktop:
 
 | Key | In a dialog |
 |---|---|

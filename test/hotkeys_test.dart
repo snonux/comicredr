@@ -2064,6 +2064,7 @@ void main() {
       const usual = <ReaderIntent, Object>{
         ReaderIntent.markBook: 'V',
         ReaderIntent.filterFolders: 'F',
+        ReaderIntent.sortFolders: 'gS',
         ReaderIntent.bookmark: 'mm',
         ReaderIntent.pageGrid: 'p',
         ReaderIntent.bookmarkList: 'M',
@@ -2098,6 +2099,15 @@ void main() {
       expectKeysNamed(tester, keymap, where: 'the Folders tab with a filter', atLeast: 10);
       await key(ReaderIntent.filterFolders);
       await alt(tester, 'c');
+      await alt(tester, 'd');
+      // Sorted: the sort button names its key with the order in its label.
+      await key(ReaderIntent.sortFolders);
+      await alt(tester, 'p');
+      await alt(tester, 'd');
+      expect(find.text('Sort: Pages, most first'), findsOneWidget);
+      expectKeysNamed(tester, keymap, where: 'the Folders tab sorted', atLeast: 8);
+      await key(ReaderIntent.sortFolders);
+      await alt(tester, 'n');
       await alt(tester, 'd');
       // A library folder selected: its details.
       await key(ReaderIntent.up);
@@ -2295,6 +2305,7 @@ void main() {
       await check('Reset', open: () => type(tester, 'X'));
       await check('Collection', open: () => type(tester, 'gc'));
       await check('Filter', open: () => type(tester, 'F'));
+      await check('Sort', open: () => type(tester, 'gS'));
       await check('Edit', open: () => type(tester, 'e'));
       await check('Move', open: () => type(tester, 'gm'));
       await check(
