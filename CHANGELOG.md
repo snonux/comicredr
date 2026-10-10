@@ -12,8 +12,9 @@ the `?` overlay.
   and the same `RUN=` resumes a stopped run. `FROM=shipped` (or a kept
   run) trains on top instead of starting from COCO, and
   `make score-model MODEL=...` compares any model with the built-in one on
-  the three test sets, speed and size included. docs/training.md, "Runs
-  and checkpoints".
+  the three test sets, speed and size included, and lists the pages whose
+  outcome changed. docs/training.md now opens with which model to train
+  and how, how the shipped one was trained, and when a new one is better.
 
 ## 0.7.1
 

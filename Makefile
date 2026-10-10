@@ -228,8 +228,9 @@ endif
 # with its checkpoint and scores (docs/training.md, "Runs and checkpoints").
 # LOCAL=1 also trains on the NC/ND/SA books and the fake pages (LOCAL=more:
 # the fake pages alone): that model may not be published, so it is never
-# put in assets/; `make install-model` uses it. Without LOCAL the new model
-# replaces the built-in one in assets/ (git checkout puts it back).
+# put in assets/; `make install-model` uses it. Only a fresh run without
+# LOCAL (the shipped recipe) replaces the built-in model in assets/ (git
+# checkout puts it back); a run with FROM is a test and stays in spike/out/.
 # Variables given on the command line reach tool/train_model.sh as they are.
 train-model:
 	tool/train_model.sh
@@ -237,6 +238,9 @@ train-model:
 	  echo "Local model in spike/out/local/comicredr-panels.onnx (not for publishing):"; \
 	  echo "  make install-model MODEL=spike/out/local/comicredr-panels.onnx"; \
 	  echo "  (and make install KEEP_MODEL=1 from then on, or make install puts the built-in one back)"; \
+	elif [ -n "$(FROM)" ]; then \
+	  echo "Model in spike/out/comicredr-panels.onnx, trained on top: a test, not for shipping (docs/training.md)."; \
+	  echo "  make install-model MODEL=spike/out/comicredr-panels.onnx tries it in the app"; \
 	else tool/fetch_model.sh spike/out/comicredr-panels.onnx && \
 	  echo "It replaced $(BUNDLED_MODEL); to keep the shipped one: git checkout -- $(BUNDLED_MODEL)"; fi
 

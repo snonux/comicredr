@@ -1401,9 +1401,11 @@ carries a per-style summary.
 ## Train the detector
 
 The full recipe, for people and agents alike, is
-[docs/training.md](docs/training.md): what the shipped model is, the one
-command that rebuilds it, the licence rules, adding books and labels,
-scoring and shipping. The notes below add the history.
+[docs/training.md](docs/training.md): which model to train and how (only
+a fresh `make train-model` ships; `FROM=` runs are tests), how the shipped
+model was trained, comparing models and when one is better, the licence
+rules, adding books and labels, and shipping. The notes below add the
+history.
 
 The model built into the app is D-FINE-S (Apache-2.0 code and weights),
 fine-tuned from its COCO-only checkpoint (`ustc-community/dfine-small-coco`
@@ -1419,8 +1421,8 @@ for a model kept at home. The test sets (`test/corpus.manifest.toml`,
 
 Everything runs on the CPU. `make train-model` (tool/train_model.sh) runs
 the steps that build the shipped model, from fetching the training comics
-to exporting the ONNX file, then validates it and puts it in
-`assets/models/` through tool/fetch_model.sh (the check loads the file with
+to exporting the ONNX file, then (a fresh run without `LOCAL` only)
+validates it and puts it in `assets/models/` through tool/fetch_model.sh (the check loads the file with
 onnxruntime and wants a [1, 300, 6] output). The export folds constants
 with onnxslim, without which the ONNX Runtime 1.15 the app bundles cannot
 load it. The labels are committed in `spike/labels/` (how they were drawn:
@@ -1482,8 +1484,10 @@ Fake pages on the layouts of your own comics (real gutters and border
 lines, made-up art in each frame, exact frame labels) are made and kept
 in another repository, `../comicredr-training-assets`
 (github.com/snonux/comicredr-training-assets). `make train-model LOCAL=1`
-adds its `moredata/` when it is there (`MORE=` for another folder);
-docs/training.md, "Fake pages from your own comics".
+or `LOCAL=more` adds its `moredata/` when it is there; train with
+`MORE=../comicredr-training-assets/moredata-art` (its `real_art.py`), since
+the made-up art of `moredata/` made the model worse. docs/training.md,
+"Fake pages from your own comics".
 
 `evaluate.py` scores classic CV and a trained model on the same 100 labelled pages, none of them from a training
 book: panel and balloon F1 at IoU 0.5, and per page whether guided view

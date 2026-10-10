@@ -4,28 +4,65 @@ Everything needed to train the detector built into ComicRedr again is in
 this repository: the lists of comics and where to download them, the
 labels drawn on their pages, the scripts, and the settings of the shipped
 run. Only the comics themselves are downloaded, because they are not ours
-to commit. This page is the whole recipe.
+to commit. This page is the whole recipe. Extra pages made from comics
+of your own, and the notes of every run so far, are in
+[comicredr-training-assets](https://github.com/snonux/comicredr-training-assets)
+(its TRAINING.md), checked out beside this repository.
 
-## What the shipped model is
+## Which model to train, and how
+
+There is one model to train for the app: D-FINE-S, started from its COCO
+weights and trained for 30 epochs on the clean books' labelled pages and
+the synthetic pages made from them. That is how the shipped model was
+made, and `make train-model` does exactly that. The other kinds of run
+are tests, or models for your own use:
+
+| You want | Command | What it trains | Can it ship? |
+|---|---|---|---|
+| A new built-in model | `make train-model` | the shipped recipe: from COCO, 30 epochs at 1e-4, clean books only | yes, when it beats the shipped model |
+| A quick answer whether new pages or labels help | `make train-model FROM=shipped` | 8 epochs at 3e-5 on top of the shipped model, old pages and new | no: if they help, train fresh with them |
+| A model for yourself, with books that may not be published | `make train-model LOCAL=1`, or `LOCAL=more` for the extra pages alone; `FROM=shipped` makes either a quick run | the clean books plus the NC/ND/SA books and the extra pages of comicredr-training-assets | never |
+
+Every run ends by scoring itself against the shipped model on the three
+test sets, into `$CHECKPOINTS/$RUN/scores/summary.md`, and is kept so
+that another run can start from it ("Runs and checkpoints"). "Comparing
+models" below says how to read the scores and when a model is better.
+
+Only a fresh run ships, because training on top changes the numbers by
+itself. On 2026-10-10, 8 epochs on top of the shipped model with no new
+pages at all made 4 more wrong camera moves on the original set and 2
+more on the modern one. So judge an on-top run with new pages against
+an on-top run without them (the control: the same command with no new
+pages, or the kept run `2026-10-10-on-top-control`), not only against
+the shipped model. When the new pages win there, put them in a fresh run
+and compare that with the shipped model.
+
+## How the shipped model was trained
+
+On 2026-09-26, with the recipe `make train-model` runs by default:
 
 | | |
 |---|---|
+| Command that reproduces it | `make train-model` (`EPOCHS=30`, `LR=1e-4`, `IMGSZ=640`, no `FROM`, no `LOCAL`) |
 | File | `assets/models/comicredr-panels.onnx` (43 MB) |
 | Architecture | D-FINE-S, Apache-2.0, through Hugging Face transformers |
 | Starting weights | `ustc-community/dfine-small-coco` (COCO only) |
 | Classes | 0 frame (panel), 1 caption, 2 balloon |
-| Real pages | 998 labelled pages from the books in `test/train.manifest.toml` |
+| Real pages | 998 labelled pages from the comics in `test/train.manifest.toml`, labels in `spike/labels/train/` |
 | Synthetic pages | 400, from `spike/synth_modern.py --seed 1` |
-| Training | 30 epochs at 640 px, batch 4, AdamW lr 1e-4, the last epoch exported |
+| Training | 30 epochs at 640 px, batch 4, AdamW at 1e-4 (half that for the backbone), 200 warm-up steps then a cosine down to 5%, weights averaged (EMA 0.998); a tenth of the pages held out for the validation loss |
+| Exported | the last epoch, not the one with the lowest validation loss: it guided more test pages right |
 | Export | ONNX opset 17, input `images` [1, 3, 800, 800], output `output0` [1, 300, 6], folded with onnxslim |
-| Time | about 11 minutes an epoch, so 5 to 6 hours, on 4 CPU cores; no GPU needed |
-| Python packages | `spike/requirements-train.txt` (Python 3.11) |
+| Scores | guided right / whole / wrong 73 / 17 / 10 (original), 47 / 15 / 4 (modern), 4 / 15 / 5 (diagonal); panel F1 0.903, 0.894, 0.910; balloon F1 0.787, 0.863, 0.944 |
+| Time | about 11 minutes an epoch then, 5 to 6 hours; 16 minutes an epoch in a 4-core cloud container on 2026-10-10, so allow 8 hours; no GPU |
+| Checkpoint | not kept; `FROM=shipped` rebuilds one from the ONNX file ("Runs and checkpoints") |
+| Python packages | `spike/requirements-train.txt` (Python 3.11; 3.13 works too) |
 
 The app reads `output0` rows as x0, y0, x1, y1 in input pixels, then a
 score and a class. It keeps frames scoring at least 0.3 and balloons at
 least 0.4. The model's own name list travels in the ONNX metadata.
 
-## Retrain it
+## Running a training
 
 You need Python 3.11 or later, about 7 GB of free disk, and network
 access to archive.org, peppercarrot.com (the comics) and huggingface.co
@@ -35,10 +72,10 @@ access to archive.org, peppercarrot.com (the comics) and huggingface.co
 # CPU-only torch first: without the index URL pip also fetches some 3 GB of CUDA libraries
 python3 -m pip install --user torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
 python3 -m pip install --user -r spike/requirements-train.txt
-make train-model EPOCHS=1    # optional: the whole pipeline once, in about half an hour
-make train-model             # the real run from COCO, several hours
-make train-model FROM=shipped   # or: on top of the shipped model, about 8 epochs
-make && make install         # build and install the app with the new model
+make train-model EPOCHS=1 SCORE=0   # optional: the whole pipeline once, in about half an hour
+make train-model                    # the shipped recipe, from COCO: 5 to 8 hours
+make train-model FROM=shipped       # or a quick test on top of the shipped model: about 2 hours
+make && make install                # build and install the app with the model in assets/models/
 ```
 
 `make train-model` runs `tool/train_model.sh`, the one way models are
@@ -54,17 +91,20 @@ trained. It does this:
    `IMGSZ` px and learning rate `LR`, starting from COCO or from `FROM`.
    The run is kept as described under "Runs and checkpoints".
 5. Exports `last/` to ONNX, in the run's folder and in
-   `spike/out/comicredr-panels.onnx`.
+   `spike/out/comicredr-panels.onnx` (`spike/out/local/` with `LOCAL`).
 6. Scores it against the shipped model (`tool/score_model.sh`, see
-   "Scoring a model"); `SCORE=0` skips that.
+   "Comparing models"); `SCORE=0` skips that.
 
-Then `tool/fetch_model.sh` checks that ONNX Runtime can load the file and
-that it gives [1, 300, 6] rows, and puts it in `assets/models/`. The
-downloads, pages and checkpoints are git-ignored. Commit the new
-`assets/models/comicredr-panels.onnx` when you want the app to ship it;
-until then `FROM=shipped` and the scores go by that file as it is (the
-script says so), and `git checkout -- assets/models/comicredr-panels.onnx`
-puts the shipped one back. With `LOCAL` the model never goes there.
+After a fresh run without `LOCAL`, `tool/fetch_model.sh` checks that ONNX
+Runtime can load the file and that it gives [1, 300, 6] rows, and puts
+it in `assets/models/` in place of the shipped one. Commit it only when
+it beats the shipped model ("Shipping a new model"); until then
+`FROM=shipped` and the scores go by that file as it is (the script says
+so), and `git checkout -- assets/models/comicredr-panels.onnx` puts the
+shipped one back. A run with `FROM` or `LOCAL` leaves `assets/models/`
+alone: `make install-model MODEL=spike/out/comicredr-panels.onnx` (or
+`spike/out/local/...`) tries its model in the app. The downloads, pages
+and checkpoints are git-ignored.
 
 The run is seeded, so the same packages on the same machine give the same
 model. Different CPUs or package versions can move the numbers a little.
@@ -182,19 +222,25 @@ pages of comics you own, keep the gutters and border lines, and replace
 the art inside every frame with made-up art, so the pages hold layouts
 and no art. Its README has the method, the numbers and the commands.
 
-These pages add to the training set; they replace nothing.
-`make train-model LOCAL=1` adds
-`../comicredr-training-assets/moredata` when it is there (`MORE=` names
-another folder):
+These pages add to the training set; they replace nothing. Use the
+real-art version, `moredata-art/`, which that repository's `real_art.py`
+makes in a few minutes from its `moredata/` and this repository's
+training pages; `moredata/` itself made the model worse (below).
+`LOCAL=1` and `LOCAL=more` add the folder `MORE` names
+(`../comicredr-training-assets/moredata` unless you say otherwise):
 
 ```sh
-make train-model LOCAL=1                  # from COCO, with them and the train-local books
-make train-model LOCAL=more FROM=shipped  # on top of the shipped model, with them alone
+T=../comicredr-training-assets
+COMICREDR=$PWD python3 $T/real_art.py $T/moredata spike/train_pages $T/moredata-art   # after a first make train-model
+make train-model LOCAL=more FROM=shipped MORE=$T/moredata-art   # a quick test on top; compare with the control
+make train-model LOCAL=more MORE=$T/moredata-art                # fresh from COCO: the model to keep at home
+make train-model LOCAL=1 MORE=$T/moredata-art                   # the same with the train-local books too
 ```
 
 They go with the model kept at home (`LOCAL=1` or `LOCAL=more`), because
 the layouts come from books that are not in `test/train.manifest.toml`.
-They hold no balloons and no captions, so they teach frames only.
+`moredata/` holds no balloons and no captions; `moredata-art/` holds the
+ones that came with the art.
 
 What they did (2026-10-10, 8 epochs on top of the shipped model at 3e-5;
 guided right / whole / wrong):
@@ -217,7 +263,7 @@ pages, which itself makes a few more wrong moves on the original set.
 The repository's TRAINING.md has the full table (panel and balloon F1)
 and the runs; they are kept, see "Runs and checkpoints".
 
-## Scoring a model
+## Comparing models
 
 Three labelled test sets score models and are never trained on:
 
@@ -227,28 +273,58 @@ Three labelled test sets score models and are never trained on:
 | Modern | `test/modern.manifest.toml` | `spike/labels/modern/` | 66 |
 | Diagonal | `test/diagonal-eval.manifest.toml` | `spike/labels/diagonal-eval/` | 24 |
 
+Every `make train-model` run scores itself against the shipped model
+(`$CHECKPOINTS/$RUN/scores/summary.md`). To compare any models:
+
 ```sh
-tool/score_model.sh OUT shipped=assets/models/comicredr-panels.onnx new=path/to/comicredr-panels.onnx
-make score-model MODEL=path/to/comicredr-panels.onnx    # the same, into spike/out/score/
+make score-model MODEL=path/to/comicredr-panels.onnx     # the shipped model against it, into spike/out/score/
+tool/score_model.sh OUT shipped=assets/models/comicredr-panels.onnx \
+    a=$CHECKPOINTS/RUN_A/comicredr-panels.onnx b=$CHECKPOINTS/RUN_B/comicredr-panels.onnx
+OVERLAYS=1 tool/score_model.sh OUT ...                    # also draws every page's boxes
 ```
 
 The first time, it fetches the three sets' comics, extracts their pages
 into `spike/eval_pages/`, `spike/modern_pages/` and
 `spike/diagonal_pages/` and copies the labels beside them. Then it runs
 `spike/evaluate.py PAGES --no-cv --trim --trained MODEL` for every model
-and set, one after the other on the same machine, and writes
-`OUT/summary.md`: guided right / whole / wrong, panel F1, balloon F1,
-balloon stops on captions and milliseconds a page for each model and set,
-and the files' sizes. Each set's full report, per style too, is in
-`OUT/NAME-SET/report.md`. Every training run does this against the
-shipped model (step 6 above).
+and set, one after the other on the same machine, so the times compare,
+and writes `OUT/summary.md`. It has a row per model and set:
+
+| Column | What it says |
+|---|---|
+| Right / whole / wrong | what guided view would do on each page: move the camera right, show the page whole (the confidence gate refused the frames), or move it wrong |
+| Panel F1 | how well the frames found match the labelled ones, at IoU 0.5 |
+| Balloon F1 | the same for speech and thought balloons |
+| Balloon stops on captions | how often balloon mode (`b`) would stop on a caption; fewer is better |
+| ms/page | the model alone in ONNX Runtime on this machine |
+
+Under the table are the files' sizes and "Pages that changed": every
+page whose outcome differs from the first model's, like
+`modern-indie/ihow-000_pdf__p004.jpg whole -> wrong`. With `OVERLAYS=1`,
+`OUT/NAME-SET/overlays/` has each page with the labels in grey and the
+model's boxes over them, to look at those pages. Each set's full report,
+per style too, is in `OUT/NAME-SET/report.md`.
+
+A model is better than the shipped one when, scored on the same machine:
+
+1. it makes no more wrong camera moves on any of the three sets (a wrong
+   move is worse than showing a page whole);
+2. it guides more pages right over the three sets together;
+3. its balloon F1 is no more than 0.01 lower on any set, and balloon mode
+   stops on captions no more often; and
+4. it is about as fast (the same architecture is the same size, so it
+   should be).
+
+The sets are small (24 diagonal pages), so a page or two either way is
+noise: look at the pages that changed before believing a gain that
+small, and never tune settings or labels to the test sets. For example,
+the 2026-10-10 run on top with `moredata/` fails the first rule on the
+original and modern sets (12 wrong for 10, 7 for 4), whatever it gains
+elsewhere.
 
 `evaluate.py` does what the app does: it trims wide scanned margins, finds
-slanted frames' outlines and applies the same confidence gate. For each
-page it says whether guided view would move the camera right, show the
-page whole, or move it wrong. It also gives panel and balloon F1 at IoU
-0.5 and how often balloon mode would stop on a caption. A wrong camera
-move is worse than showing a page whole.
+slanted frames' outlines and applies the same confidence gate, so its
+right / whole / wrong is what a reader would see.
 
 The shipped model, and the ones it was chosen over (guided right / whole /
 wrong):
@@ -259,17 +335,19 @@ wrong):
 | D-FINE-S, 998 real pages | 69 / 22 / 9 | 43 / 21 / 2 | 6 / 13 / 5 |
 | D-FINE-S, 998 real + 400 synthetic (shipped) | 73 / 17 / 10 | 47 / 15 / 4 | 4 / 15 / 5 |
 
-A new model should beat these on the same sets before it replaces the
-built-in one. AGENTS.md ("Train the detector") has the longer history.
+The runs since are under "Fake pages from your own comics";
+AGENTS.md ("Train the detector") has the older history.
 
 ## Shipping a new model
 
-1. `make train-model`, or `make model MODEL=file.onnx` for a file you
-   trained another way.
-2. Score it as above and compare.
+1. Train it fresh with `make train-model`, with any new clean books and
+   labels in it. A run with `FROM` is a test and a run with `LOCAL` is
+   kept at home; neither ships.
+   `make model MODEL=file.onnx` puts a file trained elsewhere in place.
+2. Check its `scores/summary.md` against the rules in "Comparing models".
 3. `make && make install`, then open a few books in guided view. Every
    book's panels are detected again the first time it opens, because the
    model file's hash is part of the stored detector version.
 4. Run `tool/e2e_modern.sh` and `tool/e2e_margins.sh` on the release build.
-5. Commit the model, update the numbers here and in the CHANGELOG, and
-   add any new books to `NOTICE`.
+5. Commit the model, update "How the shipped model was trained" and the
+   numbers here and in the CHANGELOG, and add any new books to `NOTICE`.

@@ -55,9 +55,9 @@ if ! python3 -c "import cv2, numpy, PIL, pypdfium2, scipy, torch, transformers, 
   exit 1
 fi
 echo "== Run $RUN: $EPOCHS epochs at lr $LR, ${FROM:-from COCO}; kept in $keep"
-# FROM=shipped and the scores go by the file in assets/models/, which a run
-# without LOCAL replaces (make train-model): say so when it is not the
-# committed one.
+# FROM=shipped and the scores go by the file in assets/models/, which a
+# fresh run without LOCAL replaces (make train-model): say so when it is
+# not the committed one.
 if ! git diff --quiet HEAD -- assets/models/comicredr-panels.onnx 2>/dev/null; then
   echo "Note: assets/models/comicredr-panels.onnx is not the committed model; FROM=shipped and the"
   echo "      scores use it as it is (git checkout -- assets/models/comicredr-panels.onnx puts it back)."
