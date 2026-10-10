@@ -174,6 +174,31 @@ void main() {
     expect(c.read(readerProvider).fullscreen, isFalse);
   });
 
+  testWidgets('the fit button fits the width and the whole page again', (tester) async {
+    final c = await openBook(tester);
+    ReaderViewState v() => tester.state<ReaderViewState>(find.byType(ReaderView));
+    final button = find.byKey(const Key('fitButton'));
+    expect(v().spot.fit, 'page');
+    expect(tester.widget<IconButton>(button).tooltip, 'Fit width (zw)');
+    await tester.tap(button);
+    await settle(tester);
+    expect(v().spot.fit, 'width');
+    expect(tester.widget<IconButton>(button).tooltip, 'Fit the whole page (zz)');
+    expect(c.read(viewFitProvider), Fit.width);
+    // One finger scrolls the page fitted to the width, and turns nothing.
+    final before = v().transform.getTranslation().y;
+    await swipe(tester, view(tester).center, const Offset(0, -150));
+    expect(v().transform.getTranslation().y, lessThan(before));
+    expect(c.read(readerProvider).page, 0);
+    await tester.tap(button);
+    await settle(tester);
+    expect(v().spot.fit, 'page');
+    // Guided view frames panels: no fit to pick there.
+    await c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.toggleGuided));
+    await settle(tester);
+    expect(button, findsNothing);
+  });
+
   testWidgets('a touchpad pinch zooms', (tester) async {
     await openBook(tester);
     final m = view(tester).center;

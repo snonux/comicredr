@@ -45,6 +45,9 @@ Other keys that help in guided view:
 - `↓` `↑` (or `j` `k`) look below and above the panel. What comes on
   screen is shown bright rather than dimmed; the next panel is framed
   and dimmed around as usual.
+- On a touchscreen, drag with one finger to look around the panel, and
+  pinch with two to zoom. A quick flick to the left or right steps to the
+  next or previous panel; a slower drag only moves the page.
 - `zz` or `=` centres the current panel again after you zoomed or moved.
 - `PageDown` and `PageUp` skip to the next or previous page at once.
 - `Tab` also cycles through single page, two pages and guided view.

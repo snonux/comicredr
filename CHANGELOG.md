@@ -7,6 +7,14 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Fit width by touch:** the reader's status line has a fit width
+  button (outside guided view), so a phone without a keyboard can do
+  what `zw` does; tapped again it shows the whole page, as `zz` does.
+- **One finger scrolls in guided view:** a drag with one finger now moves
+  the page around the panel, as it already did on a zoomed page outside
+  guided view; two fingers still pinch to zoom. A quick flick still steps
+  to the next or previous panel, and taps work as before.
+
 ## 0.7.0
 
 - **Sort the Folders tab:** by name, date added, last read, the file's

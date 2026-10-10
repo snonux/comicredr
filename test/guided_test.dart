@@ -287,6 +287,47 @@ void main() {
     expect(s().guided, isTrue);
   });
 
+  testWidgets('one finger pans in guided view; only a flick steps', (tester) async {
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(writeGuidedBook()));
+    await settle(tester);
+    await key(tester, LogicalKeyboardKey.keyV);
+    ReaderState s() => c.read(readerProvider);
+    final r = tester.getRect(find.byType(ReaderView));
+    await tester.tapAt(Offset(r.right - 40, r.center.dy), kind: PointerDeviceKind.touch);
+    await settle(tester);
+    expect((s().page, s().panelIndex), (0, 1));
+    Offset pan() {
+      final t = tester.state<ReaderViewState>(find.byType(ReaderView)).transform.getTranslation();
+      return Offset(t.x, t.y);
+    }
+
+    /// One finger by [by] in ten moves of [ms] each.
+    Future<void> drag(Offset by, int ms) async {
+      final g = await tester.startGesture(r.center, kind: PointerDeviceKind.touch);
+      for (var i = 1; i <= 10; i++) {
+        await g.moveBy(by / 10, timeStamp: Duration(milliseconds: ms * i));
+        await tester.pump(Duration(milliseconds: ms));
+      }
+      await g.up(timeStamp: Duration(milliseconds: ms * 10));
+      await settle(tester);
+    }
+
+    // A slow drag across, or down, moves the page with the finger and
+    // stays on the panel: 300 px in 1.5 s is no flick.
+    var before = pan();
+    await drag(const Offset(-300, 0), 150);
+    expect((s().page, s().panelIndex), (0, 1));
+    expect(pan().dx, closeTo(before.dx - 300, 30));
+    before = pan();
+    await drag(const Offset(0, -200), 150);
+    expect((s().page, s().panelIndex), (0, 1));
+    expect(pan().dy, closeTo(before.dy - 200, 30));
+    // A flick still steps, and the camera frames the next panel.
+    await drag(const Offset(-300, 0), 20);
+    expect((s().page, s().panelIndex), (0, 2));
+  });
+
   test('a slanted frame dims along its outline, relative to the hole', () {
     const hole = Rect.fromLTWH(0.1, 0.1, 0.8, 0.4);
     expect(holeShape(hole, null), isNull);

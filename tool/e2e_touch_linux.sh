@@ -4,7 +4,8 @@
 # by taps, every default reader gesture (edge taps, swipes, double-tap zoom,
 # pinch, the middle tap for fullscreen, a long press for the time), the
 # progress bar dragged, the page grid opened, pinched, scrolled and a page
-# tapped, guided view turned on and stepped, the status line's back button
+# tapped, the fit width button and a one-finger scroll, guided view turned
+# on, stepped and panned by one finger, the status line's back button
 # out of guided view and then out of the comic (Android's back gesture),
 # and a long press on a cover. Touches come from tool/touch_inject.c, which
 # also reports whether the Flutter view asks the window system for touch
@@ -66,6 +67,17 @@ hold() { touch down 0 "$1" "$2"; sleep 0.9; touch up 0 "$1" "$2"; sleep 0.3; }
 swipe() {
   touch down 0 "$1" "$2"
   for i in $(seq 1 20); do touch move 0 $(( $1 + ($3 - $1) * i / 20 )) $(( $2 + ($4 - $2) * i / 20 )); done
+  touch up 0 "$3" "$4"
+  sleep 1.2
+}
+# slow_drag x0 y0 x1 y1: one finger in 20 moves over 2 s, resting before
+# it lifts: a pan, not a swipe.
+slow_drag() {
+  touch down 0 "$1" "$2"
+  for i in $(seq 1 20); do
+    touch move 0 $(( $1 + ($3 - $1) * i / 20 )) $(( $2 + ($4 - $2) * i / 20 )); sleep 0.084
+  done
+  sleep 0.3
   touch up 0 "$3" "$4"
   sleep 1.2
 }
@@ -149,14 +161,30 @@ changed 12_grid_pinched 13_grid_scrolled 20000 "a finger scrolls the page grid"
 pinch 640 400 300 50; shot 14_grid_small
 tap 500 160;               expect "$(page)" 4 "tap a page in the grid opens it"
 
-# 5. Guided view from its button, stepped by taps and swipes; the back
-# button leaves guided view, then the comic.
-tap 968 693; sleep 3; shot 15_guided
+# 5. The fit width button: the page fills the width, one finger scrolls
+# it down and turns no page, the button again shows the whole page.
+fit() { q "select json_extract(view_json, '$.view.fit') from progress order by updated_at desc limit 1"; }
+tap 1000 693; sleep 1; shot 14b_fit_width
+expect "$(fit)" width "the fit width button"
+before=$(page)
+slow_drag 640 500 640 200; shot 14c_fit_width_scrolled
+expect "$(page)" "$before" "one finger scrolls the page fitted to the width, no page turn"
+changed 14b_fit_width 14c_fit_width_scrolled 20000 "one finger scrolls the page fitted to the width"
+tap 1000 693; sleep 1
+expect "$(fit)" page "the fit button again: the whole page"
+
+# 6. Guided view from its button, stepped by taps and swipes; one finger
+# pans without stepping; the back button leaves guided view, then the
+# comic.
+tap 920 693; sleep 3; shot 15_guided
 expect "$(guided)" 1 "the guided view button"
 tap 1200 340; shot 16_guided_panel
 expect "$(panel)" 0 "tap the right edge in guided view: the first panel"
 swipe 900 340 400 340; shot 17_guided_swipe
 expect "$(panel)" 1 "swipe left in guided view: the next panel"
+slow_drag 700 340 500 340; shot 17b_guided_pan
+expect "$(panel)" 1 "a slow one-finger drag in guided view stays on the panel"
+changed 17_guided_swipe 17b_guided_pan 20000 "a slow one-finger drag in guided view moves the page"
 tap 32 693; shot 18_back_out_of_guided
 expect "$(guided)" 0 "the back button leaves guided view"
 tap 32 693; sleep 1; shot 19_back_to_library
@@ -165,7 +193,7 @@ before=$(page)
 tap 1200 340
 expect "$(page)" "$before" "the library is showing: a tap on the right turns no page"
 
-# 6. A long press on the other cover selects it and shows its details.
+# 7. A long press on the other cover selects it and shows its details.
 hold 360 200; sleep 1; shot 20_long_press_cover
 changed 19_back_to_library 20_long_press_cover 5000 "a long press on a cover shows its details"
 

@@ -1336,6 +1336,7 @@ extension on _HomeScreenState {
     gridOpen: _showPages,
     partsOpen: _showParts,
     bookmarksOpen: _showBookmarks,
+    fitWidth: ref.watch(viewFitProvider) == Fit.width,
     s3Progress: s.book == null ? null : ref.watch(s3StatusProvider).value?.transfers[s.book!.key],
     onCommand: _onCommand,
   );

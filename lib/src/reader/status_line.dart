@@ -21,6 +21,7 @@ class StatusLine extends StatelessWidget {
     this.gridOpen = false,
     this.bookmarksOpen = false,
     this.partsOpen = false,
+    this.fitWidth = false,
     this.s3Progress,
   });
 
@@ -56,6 +57,9 @@ class StatusLine extends StatelessWidget {
 
   /// Whether the bookmark list is open.
   final bool bookmarksOpen;
+
+  /// Whether the page is fitted to the width of the screen (`zw`).
+  final bool fitWidth;
 
   /// Whether the page parts picker is open.
   final bool partsOpen;
@@ -170,6 +174,13 @@ class StatusLine extends StatelessWidget {
                 ReaderIntent.toggleSpread,
                 on: state.mode == PageMode.spread,
               ),
+            // A phone has no keyboard for zw and zz; guided view frames
+            // panels and has no fit. A window as narrow as a phone has the
+            // back arrow too and no room left for it, but has the keys.
+            if (!state.guided && !(narrow && back != null))
+              fitWidth
+                  ? button('fitButton', Icons.fit_screen, 'Fit the whole page', ReaderIntent.fitPage, on: true)
+                  : button('fitButton', Icons.width_wide, 'Fit width', ReaderIntent.fitWidth),
             button('pagesButton', Icons.grid_view, 'Pages', ReaderIntent.pageGrid, on: gridOpen),
             // A phone has a two-finger tap for it and no room here.
             if (!narrow)

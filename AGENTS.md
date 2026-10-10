@@ -624,7 +624,15 @@ refreshes right away instead of within six hours.
   picked in Settings (`touch.preset`) with the `[touch]` lines of
   keys.toml over it. A tap only waits for a possible second tap in a zone
   that has a double-tap action, so edge taps turn at once. Pinch zoom and
-  panning stay with the InteractiveViewer and can't be remapped.
+  panning stay with the InteractiveViewer and can't be remapped. One
+  finger pans in guided view too (snonux, 2026-10-10), so there a swipe
+  is only a flick (`ReaderTouch.flickVelocity`, 800 px/s as the finger
+  lifts) and guided drags have next to no inertia (`_noInertia`), which
+  would fight the camera's glide. Outside guided view a swipe counts
+  only when the drag moved nothing along it. The status line's
+  `fitButton` (outside guided view; left out below 600 dp when the back
+  arrow is there, for room) sends `fitWidth`, or `fitPage` when the fit
+  is width, which ReaderView tells it through `viewFitProvider`.
   Nothing in it is per platform: Flutter's Linux engine turns GTK touch
   events into touch pointers (`FlTouchManager`; the view selects
   `GDK_TOUCH_MASK`, which `tool/touch_inject.c` reports), so a Linux

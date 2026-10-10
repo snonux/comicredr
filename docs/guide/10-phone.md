@@ -55,7 +55,9 @@ Android 7–10 uses a permission dialog instead (Android 10 shown here):
   for the same.
 - The reader's status line puts the page number and the title on a line
   of their own above its buttons: guided view, balloons (in guided view),
-  the page grid, bookmarks and fullscreen; see [Touch](08-touch.md) for the
+  fit width (outside guided view), the page grid, bookmarks and
+  fullscreen. Fit width fills the screen's width with the page and one
+  finger scrolls it; tap it again for the whole page; see [Touch](08-touch.md) for the
   gestures.
 - The round play arrow at the top of the library's Reading tab carries
   on with the comic you read last, where you stopped, like `C` on the

@@ -21,6 +21,17 @@ import 'scroll_speed.dart';
 /// How the page is fitted before any zoom.
 enum Fit { page, width, height }
 
+/// The open book's fit, for the status line's fit-width button. ReaderView
+/// owns the fit and tells it here after each change.
+final viewFitProvider = NotifierProvider<ViewFit, Fit>(ViewFit.new);
+
+class ViewFit extends Notifier<Fit> {
+  @override
+  Fit build() => Fit.page;
+
+  void set(Fit fit) => state = fit;
+}
+
 /// The open book on screen: decodes the pages of the current unit through a
 /// [PageCache], fits them, and handles zoom and pan. Page turns come from
 /// [readerProvider]; view intents arrive through [ReaderViewState.handle].
@@ -229,6 +240,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
       _levels.clear();
       _restore = ref.read(readerProvider.notifier).takeRestoredView();
       if (_restore case final r?) _fit = Fit.values.asNameMap()[r.fit] ?? _fit;
+      _tellFit();
     }
     final unit = s.unit;
     if (_viewport == Size.zero) return;
@@ -421,6 +433,15 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
       _cameraKey = null;
     });
     _scheduleReport();
+    _tellFit();
+  }
+
+  /// Tells the status line the fit, after the frame: [_sync] runs while
+  /// the view builds, when no provider may change.
+  void _tellFit() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(viewFitProvider.notifier).set(_fit);
+    });
   }
 
   bool _reportScheduled = false;
@@ -626,6 +647,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   }
 
   double get _scale => _transform.value.getMaxScaleOnAxis();
+
+  /// A drag's friction in guided view: a flick at 2000 px/s glides on
+  /// about 3 px for some 7 ms.
+  static const _noInertia = 1e-300;
 
   /// One key pan, as a share of the screen: the speed picked in Settings.
   double get _stepShare => ref.read(scrollSpeedProvider).step;
@@ -1127,10 +1152,11 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
           transformationController: _transform,
           constrained: false,
           minScale: s.guided ? 0.5 : 1,
-          // In guided view a one-finger drag is a swipe to the next panel
-          // (ReaderTouch); letting it pan too would leave the drag's inertia
-          // fighting the camera's glide.
-          panEnabled: !s.guided,
+          // One finger pans, in guided view too (snonux, 2026-10-10: on a
+          // phone two fingers to scroll was one too many); there a flick is
+          // the swipe to the next panel (ReaderTouch). Guided view's drags
+          // have next to no inertia, which would fight the camera's glide.
+          interactionEndFrictionCoefficient: s.guided ? _noInertia : 0.0000135,
           // A drag lights what it brings on screen, as a key pan does.
           onInteractionUpdate: (d) {
             if (d.pointerCount == 1) _lightSeen();

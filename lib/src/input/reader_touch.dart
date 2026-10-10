@@ -16,8 +16,10 @@ import 'package:reader_input/reader_input.dart';
 /// Taps, double-taps and long presses look up the 3x3 [TouchZone] they
 /// land in. A tap only waits to see whether a second one follows in a zone
 /// that has a double-tap action, so the edges turn pages at once. A swipe
-/// that pans a zoomed page is a pan, not a swipe; in guided view, where one
-/// finger doesn't pan, a swipe always counts.
+/// that pans a zoomed page is a pan, not a swipe. In guided view one finger
+/// pans too, wherever the camera is, so there only a flick counts as a
+/// swipe: a finger still moving fast as it lifts. A drag that slows down
+/// before the finger lifts was a pan.
 ///
 /// Only fingers and pens count. A mouse click does nothing here, so clicking
 /// the window to focus it never turns a page.
@@ -47,6 +49,10 @@ class ReaderTouch extends StatefulWidget {
   /// moved; a quicker flick needs less.
   static const swipeDistance = 0.12;
   static const swipeVelocity = 400.0;
+
+  /// How fast a finger must still move as it lifts for a drag in guided
+  /// view to be a swipe to the next panel rather than a pan.
+  static const flickVelocity = 800.0;
 
   @override
   State<ReaderTouch> createState() => _ReaderTouchState();
@@ -182,10 +188,13 @@ class _ReaderTouchState extends State<ReaderTouch> {
       return;
     }
     final v = _velocity?.getVelocity().pixelsPerSecond ?? Offset.zero;
+    final guided = widget.guided();
     bool swiped(double d, double across, double speed, double extent) =>
         d.abs() > 2 * across.abs() &&
-        (d.abs() > ReaderTouch.swipeDistance * extent ||
-            (d.abs() > 2 * kTouchSlop && speed.abs() > ReaderTouch.swipeVelocity && speed.sign == d.sign));
+        (guided
+            ? d.abs() > 2 * kTouchSlop && speed.abs() > ReaderTouch.flickVelocity && speed.sign == d.sign
+            : d.abs() > ReaderTouch.swipeDistance * extent ||
+                  (d.abs() > 2 * kTouchSlop && speed.abs() > ReaderTouch.swipeVelocity && speed.sign == d.sign));
     final TouchGesture swipe;
     if (swiped(moved.dx, moved.dy, v.dx, size.width)) {
       // Finger moving left drags the next page in, as `→` would.
@@ -196,7 +205,7 @@ class _ReaderTouchState extends State<ReaderTouch> {
       return;
     }
     final horizontal = swipe == TouchGesture.swipeLeft || swipe == TouchGesture.swipeRight;
-    if (!widget.guided() && _viewMoved(horizontal: horizontal)) return;
+    if (!guided && _viewMoved(horizontal: horizontal)) return;
     final intent = widget.touchMap().action(swipe);
     if (intent != null) _send(ReaderCommand(intent));
   }

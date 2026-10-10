@@ -160,9 +160,12 @@ direction) opens that way by itself.
 | `←` `→` | Move left and right across a zoomed page, then turn the page from its edge |
 
 With the mouse, drag a zoomed page to move around. On a touchscreen,
-pinch to zoom, drag to move, and double-tap the middle to zoom in on that
-spot. A zoomed page stays sharp: ComicRedr redraws the part you look at
-in full detail.
+pinch with two fingers to zoom, drag with one finger to move, and
+double-tap the middle to zoom in on that spot. Without a keyboard, the
+status line's **Fit width** button does `zw`: the page fills the width
+of the screen and one finger scrolls it up and down. Tap it again for
+the whole page, as `zz` does. A zoomed page stays sharp: ComicRedr
+redraws the part you look at in full detail.
 
 ### Smooth scrolling
 

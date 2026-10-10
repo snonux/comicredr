@@ -13,10 +13,10 @@ own gestures are the same on all of them.
 | Tap the right edge | Next page, or next panel in guided view |
 | Tap the left edge | Back |
 | Tap the middle | Fullscreen on and off (and with it the status line) |
-| Swipe left or right | Next or back |
+| Swipe left or right | Next or back; in guided view a quick flick, since a slower drag moves the page |
 | Double-tap the middle column | Zoom in on that spot, or back out (in guided view, on a panel: centre it again) |
 | Pinch | Zoom |
-| Drag | Move around a zoomed page |
+| Drag with one finger | Move around a zoomed page, a page fitted to the width, or a panel in guided view |
 | Hold a finger on the middle | [The time](04-reading.md#what-time-is-it) |
 | Tap with two fingers | [Enlarge a part of the page](04-reading.md#by-touch): pick a half, third, strip or quarter, then tap the edges to go part by part |
 | Drag along the progress bar | Preview pages, and let go to jump |
@@ -24,7 +24,8 @@ own gestures are the same on all of them.
 | Pinch the covers in the library | [Bigger or smaller covers](03-library.md#bigger-and-smaller-covers) |
 
 The buttons on the status line do the rest: guided view, balloons (in
-guided view), the page grid, a bookmark here, the list of bookmarks and
+guided view), fit width (outside guided view, tap it again for the whole
+page), the page grid, a bookmark here, the list of bookmarks and
 fullscreen; on a wider screen also the comic's details, two pages side
 by side and the parts of a page. On Android, the back gesture works
 like `Esc`: it leaves guided view, then the book. On Linux the status
