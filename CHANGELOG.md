@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.7.0
+
 - **Sort the Folders tab:** by name, date added, last read, the file's
   date, size, pages, series and issue, or year, each either way round.
   `gS` or the **Sort** button at the end of the filter line opens the

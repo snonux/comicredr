@@ -1,0 +1,4 @@
+* Completed comics: reading on to the last page marks a comic; gC marks or unmarks by hand.
+* Folders tab: sort by name, date, size, pages and more (gS); filter by completed and by length (F).
+* The comic read last opens at start (can be turned off in Settings).
+* Fixes: moving comics never replaces one silently, no .part files after a broken S3 download, and more.
