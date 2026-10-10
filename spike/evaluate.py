@@ -254,6 +254,28 @@ class Onnx:
         return drop_containers(dedupe(*found["frame"])), dedupe(*found["balloon"])
 
 
+class Boxes:
+    """Panels and balloons drawn elsewhere (by hand, or by a vision LLM), read
+    from DIR/<style>/<page stem>.json: {"panels": [[x, y, w, h], ...],
+    "balloons": [...]}, each box a share of the page's width and height.
+    Pages without a file there are skipped. The boxes are scored like any
+    detector's: reading order, frame outlines and the gate are the app's."""
+
+    name = "boxes"
+
+    def __init__(self, folder):
+        self.folder = Path(folder)
+        self.page = None
+
+    def has(self, page):
+        return (self.folder / page.parent.name / (page.stem + ".json")).exists()
+
+    def __call__(self, img):
+        d = json.loads((self.folder / self.page.parent.name / (self.page.stem + ".json")).read_text())
+        self.captions = d.get("captions", [])
+        return [list(map(float, b)) for b in d.get("panels", [])], [list(map(float, b)) for b in d.get("balloons", [])]
+
+
 def dedupe(boxes, scores, thr=0.7):
     """Fold near-duplicates into the higher-scoring box, as decodeDetections() does."""
     kept = []
@@ -437,6 +459,8 @@ def main():
     ap.add_argument("--pretrained")
     ap.add_argument("--trained")
     ap.add_argument("--no-cv", action="store_true")
+    ap.add_argument("--boxes", help="score boxes drawn elsewhere: DIR/<style>/<page>.json (see Boxes); "
+                                    "only pages with a file there are scored")
     ap.add_argument("--overlays", action="store_true")
     ap.add_argument("--panel-conf", type=float, default=PANEL_CONF)
     ap.add_argument("--balloon-conf", type=float, default=BALLOON_CONF)
@@ -461,10 +485,14 @@ def main():
         dets.append(Ultralytics(a.pretrained, "pretrained"))
     if a.trained:
         dets.append(load_trained(a.trained))
+    boxes = Boxes(a.boxes) if a.boxes else None
+    if boxes:
+        dets.append(boxes)
 
     pages = sorted(p for p in Path(a.pages).rglob("*") if p.suffix.lower() in IMAGE_EXT
                    and p.with_suffix(".json").exists()
-                   and not any(t in p.name for t in (".cv.", ".yolo.", ".show.", ".check.")))
+                   and not any(t in p.name for t in (".cv.", ".yolo.", ".show.", ".check."))
+                   and (boxes is None or boxes.has(p)))
     results = []
     for page in pages:
         lab = json.loads(page.with_suffix(".json").read_text())
@@ -481,11 +509,17 @@ def main():
         if a.trim:
             page_img, t = autotrim.crop(img, autotrim.detection_trim(img, pad=a.trim_pad, below=a.trim_below))
             row["trim"] = t
+        if boxes:
+            boxes.page = page
         for d in dets:
             # Classic CV keeps the whole page, as in the app.
             dt, d_img = (autotrim.FULL, img) if d.name == "cv" else (t, page_img)
             t0 = time.perf_counter()
             panels, balloons = d(d_img)
+            if d is boxes:
+                # Drawn on the whole page: into the trimmed part's terms, so the gate judges them as the app would.
+                panels, balloons = autotrim.to_crop(panels, dt), autotrim.to_crop(balloons, dt)
+                d.captions = autotrim.to_crop(d.captions, dt)
             ms = (time.perf_counter() - t0) * 1000
             shapes = None
             if d.name != "cv" and not a.no_outlines:
