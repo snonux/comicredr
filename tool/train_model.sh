@@ -9,8 +9,10 @@
 #
 #   tool/train_model.sh            # EPOCHS epochs, as the shipped model
 #   EPOCHS=1 tool/train_model.sh   # a quick check that the pipeline runs
-#   LOCAL=1 tool/train_model.sh    # also the NC/ND/SA books, for a model
-#                                  # kept at home (never committed)
+#   LOCAL=1 tool/train_model.sh    # also the NC/ND/SA books, and the fake
+#                                  # pages in MORE when there are any
+#                                  # (../comicredr-training-assets/moredata),
+#                                  # for a model kept at home (never committed)
 #
 # The whole recipe, and how to add books and labels: docs/training.md.
 #
@@ -25,6 +27,7 @@ EPOCHS="${EPOCHS:-30}"
 IMGSZ="${IMGSZ:-640}"
 LOCAL="${LOCAL:-}"
 OUT="${OUT:-spike/out}"
+MORE="${MORE:-../comicredr-training-assets/moredata}"
 [[ -n "$LOCAL" ]] && OUT="$OUT/local"
 
 if ! python3 -c "import cv2, numpy, PIL, pypdfium2, torch, transformers, onnx, onnxruntime, onnxslim" 2>/dev/null; then
@@ -60,6 +63,14 @@ if [[ -n "$LOCAL" ]]; then
   find spike/train_pages_local -name '*.json' ! -name '*.cand.json' -delete
   python3 spike/labelkit.py import spike/labels/train-local spike/train_pages_local
   pages+=(spike/train_pages_local)
+  # Fake pages on the layouts of your own comics, when they are there. They
+  # are made and kept outside this repository, in comicredr-training-assets
+  # (MORE). They hold no art, but the layouts come from books that are not
+  # in the training manifest, so they go with the model kept at home.
+  if [[ -f "$MORE/index.tsv" ]]; then
+    echo "== LOCAL=1: also the fake pages in $MORE ($(($(wc -l < "$MORE/index.tsv") - 1)) pages)"
+    pages+=("$MORE")
+  fi
 fi
 echo "== Making 400 synthetic modern pages from the labelled art"
 rm -rf spike/synth_pages

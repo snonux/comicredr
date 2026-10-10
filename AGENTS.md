@@ -1457,6 +1457,13 @@ collages, bleeds), with exact labels; a placement that would cut a
 balloon in half is tried elsewhere. The clean training set has few modern
 indie books, and these pages make up for part of that.
 
+Fake pages on the layouts of your own comics (real gutters and border
+lines, made-up art in each frame, exact frame labels) are made and kept
+in another repository, `../comicredr-training-assets`
+(github.com/snonux/comicredr-training-assets). `make train-model LOCAL=1`
+adds its `moredata/` when it is there (`MORE=` for another folder);
+docs/training.md, "Fake pages from your own comics".
+
 `evaluate.py` scores classic CV and a trained model on the same 100 labelled pages, none of them from a training
 book: panel and balloon F1 at IoU 0.5, and per page whether guided view
 would move the camera right, show the page whole, or move it wrong. Like
