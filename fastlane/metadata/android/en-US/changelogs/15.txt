@@ -1,0 +1,2 @@
+* Fit width by touch: a new button on the reader's status line (zw on the keyboard); tap it again for the whole page.
+* One finger now scrolls the page in guided view too; two fingers still zoom. A quick flick steps to the next panel.

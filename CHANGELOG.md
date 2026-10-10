@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.7.1
+
 - **Fit width by touch:** the reader's status line has a fit width
   button (outside guided view), so a phone without a keyboard can do
   what `zw` does; tapped again it shows the whole page, as `zz` does.
