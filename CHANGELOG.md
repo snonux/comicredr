@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.8.0
+
 - **Unread:** comics that turn up in a library folder, never seen before,
   go into a collection called Unread by themselves; opening one takes it
   out. Moved, renamed or copied comics are not new, and the first look

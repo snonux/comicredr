@@ -1,0 +1,1 @@
+* Unread: comics new to your library go into an Unread collection by themselves; opening one takes it out. Comics already there, moved or renamed count as seen.

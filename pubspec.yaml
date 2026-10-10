@@ -1,7 +1,7 @@
 name: comicredr
 description: A local-first comic reader with guided view, for Fedora and Android.
 publish_to: none
-version: 0.7.1+15
+version: 0.8.0+16
 
 environment:
   sdk: ^3.13.4
