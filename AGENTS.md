@@ -80,9 +80,14 @@ than the last published release:
    (at most 500 characters), and copy it to `1000+N.txt`, `2000+N.txt`
    and `4000+N.txt`. Flutter's split APKs use these ABI version codes,
    which F-Droid reads for *What's new*.
-3. Commit, `git tag vX.Y.Z`, `git push && git push origin vX.Y.Z`.
+3. Commit and push to main, then run the Release workflow by hand
+   (`workflow_dispatch` on `main`, input `tag: vX.Y.Z`; from a cloud
+   session the GitHub MCP `actions_run_trigger` does it). It creates the
+   tag on the commit it runs on when the tag is missing, after checking
+   that it matches `pubspec.yaml`, so nobody pushes a tag by hand. Pushing
+   a `vX.Y.Z` tag from a laptop still works too.
 
-The tag starts `.github/workflows/release.yml`, which builds the armeabi-v7a,
+The workflow (`.github/workflows/release.yml`) builds the armeabi-v7a,
 arm64-v8a and x86_64 APKs with the release key and attaches them to the
 GitHub release of the tag. The
 [F-Droid repository](https://github.com/snonux/fdroid) picks it up with the
@@ -111,8 +116,8 @@ refreshes right away instead of within six hours.
   e2e_m9 installs from `make tarball`, so run that first.
 - The first `flutter build` or `flutter run` downloads PDFium once, so it
   needs the network.
-- Cloud sessions can push only their own branch: pushing tags and
-  creating releases fails with 403.
+- Cloud sessions cannot push tags (403); a release is made by running
+  the Release workflow, which creates the tag (see "Releases").
 - Fetching the corpus needs archive.org, huggingface.co and
   peppercarrot.com. digitalcomicmuseum.com and comicbookplus.com refuse
   cloud containers.
