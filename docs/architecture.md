@@ -241,7 +241,10 @@ flowchart TB
 8. **Cache.** The result is stored in the app's index database and in the
    comic's `.crdb` sidecar, keyed by content key, page and detector
    version. A comic copied to the phone opens there with its panels
-   already known.
+   already known. Panels imported into the sidecar by
+   `tool/llm_panels.py` (drawn by a large vision model such as Claude)
+   are stored as the source `manual`, which `PanelStore.load` prefers
+   over the built-in detector on the pages that have them.
 
 Detection runs in the background for the open comic only, guided view on
 or off (`_ensurePanels` in `reader_notifier.dart`): the page being read,

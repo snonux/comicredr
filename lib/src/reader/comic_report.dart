@@ -307,7 +307,7 @@ String wholeReason(String reason) {
 String sourceLabel(PanelSource source, int version) => switch (source) {
   PanelSource.model => 'trained model, generation ${detectorGeneration(version)}',
   PanelSource.classicCv => 'classic computer vision, version $version',
-  PanelSource.manual => 'drawn by hand',
+  PanelSource.manual => 'imported (drawn by hand or by a large model)',
 };
 
 /// Page facts already read, by content key: they never change for a key.

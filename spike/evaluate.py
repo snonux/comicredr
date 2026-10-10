@@ -257,9 +257,13 @@ class Onnx:
 class Boxes:
     """Panels and balloons drawn elsewhere (by hand, or by a vision LLM), read
     from DIR/<style>/<page stem>.json: {"panels": [[x, y, w, h], ...],
-    "balloons": [...]}, each box a share of the page's width and height.
+    "balloons": [...], "captions": [...]}, each box a share of the page's
+    width and height, panels in reading order. "shapes" may give each
+    panel's outline ([[x, y], ...] in the same terms, or null) for slanted
+    frames; panels without one have it found the way the model's are.
     Pages without a file there are skipped. The boxes are scored like any
-    detector's: reading order, frame outlines and the gate are the app's."""
+    detector's: reading order (unless --keep-order), outlines and the gate
+    are the app's."""
 
     name = "boxes"
 
@@ -273,6 +277,7 @@ class Boxes:
     def __call__(self, img):
         d = json.loads((self.folder / self.page.parent.name / (self.page.stem + ".json")).read_text())
         self.captions = d.get("captions", [])
+        self.shapes = d.get("shapes")
         return [list(map(float, b)) for b in d.get("panels", [])], [list(map(float, b)) for b in d.get("balloons", [])]
 
 
@@ -347,10 +352,12 @@ def clip(boxes):
     return out
 
 
-def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL, shapes=None):
-    """[shapes]: each detected panel's outline on the page (N x 2, 0..1) or None."""
+def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL, shapes=None,
+               keep_order=False):
+    """[shapes]: each detected panel's outline on the page (N x 2, 0..1) or None.
+    [keep_order]: score the panels in the order given instead of the app's reading order."""
     found = panels
-    panels = reading_order(clip(panels), aspect=aspect)
+    panels = clip(panels) if keep_order else reading_order(clip(panels), aspect=aspect)
     pm = match(panels, gt_panels)
     bm = match(clip(balloons), gt_balloons)
     crop_shapes = None
@@ -461,6 +468,7 @@ def main():
     ap.add_argument("--no-cv", action="store_true")
     ap.add_argument("--boxes", help="score boxes drawn elsewhere: DIR/<style>/<page>.json (see Boxes); "
                                     "only pages with a file there are scored")
+    ap.add_argument("--keep-order", action="store_true", help="score --boxes panels in their own order")
     ap.add_argument("--overlays", action="store_true")
     ap.add_argument("--panel-conf", type=float, default=PANEL_CONF)
     ap.add_argument("--balloon-conf", type=float, default=BALLOON_CONF)
@@ -529,8 +537,11 @@ def main():
                 polys = frame_outlines.outlines(d_img, [px(p) for p in panels], [px(b) for b in balloons])
                 tw, th = dt[2] - dt[0], dt[3] - dt[1]
                 shapes = [None if q is None else np.asarray(q) / [dw, dh] * [tw, th] + [dt[0], dt[1]] for q in polys]
+                if d is boxes and d.shapes:
+                    shapes = [s if g is None else np.asarray(g, float) for s, g in zip(shapes, d.shapes)]
             panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
-            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt, shapes=shapes)
+            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt, shapes=shapes,
+                             keep_order=d is boxes and a.keep_order)
             res["outlines"] = sum(q is not None for q in shapes or [])
             score_captions(res, autotrim.to_page(getattr(d, "captions", []), dt), gt["captions"])
             res["ms"] = ms

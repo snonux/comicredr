@@ -69,6 +69,7 @@ come back here for a key you forgot.
    - [Pages shown whole](05-guided-view.md#pages-shown-whole) and
      [a quick press stays](05-guided-view.md#a-quick-press-stays)
    - [How panels are found](05-guided-view.md#how-panels-are-found)
+   - [Panels from a large AI model](05-guided-view.md#panels-from-a-large-ai-model)
 6. [Bookmarks and marks](06-bookmarks.md)
    - [Set a bookmark](06-bookmarks.md#set-a-bookmark)
    - [Jump between bookmarks](06-bookmarks.md#jump-between-bookmarks)

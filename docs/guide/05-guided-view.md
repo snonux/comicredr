@@ -147,4 +147,121 @@ If a comic's panels look wrong after an update, `X` → **Redo panels**
 finds them again (see
 [Reset a comic](07-managing-comics.md#reset-a-comic)).
 
+## Panels from a large AI model
+
+The built-in detector is small so that it can run on a phone, and some
+pages beat it: slanted panels, old scans, panels on black. For a comic
+you care about you can have a large AI model that sees pictures, such
+as Claude (in Claude Code) or Codex, mark up its panels and balloons
+once, and put the result in the comic's
+[sidecar](11-your-data.md). Guided view then uses those panels on the
+pages they cover, on every device the sidecar travels to, and the
+built-in detector carries on as before for every other comic and page.
+This is optional; nothing in the app changes until you do it.
+
+How well it works: on 40 hard pages from the test comics, 32 of which
+the built-in detector gets wrong or shows whole, guided view moved
+right on 31 pages with Claude's panels and on 8 with the detector's.
+On slanted pages Claude got all 12 right. It found balloons better on
+modern and slanted pages, and it keeps narration boxes apart, which
+balloon mode then skips. It takes Claude about half a minute a page; on a paid API plan
+that is roughly 3 to 5 cents a page, a dollar or so for a 30-page
+comic. On a subscription it comes out of your usage instead.
+
+You need a copy of the ComicRedr source (the tool is
+`tool/llm_panels.py`), Python 3 with Pillow (`pip install pillow`,
+and `pypdfium2` for PDFs), and Claude Code or Codex. Do it on a
+computer; the sidecar takes the panels to your phone. CBZ, CBT, PDF,
+folders of pages and single images work; EPUB does not.
+
+1. Make the pages and the prompt. This writes each page as a picture
+   with a grid of percent lines over it, so the model can read
+   positions off it, and the instructions as `PROMPT.md`:
+
+   ```sh
+   python3 tool/llm_panels.py pages ~/Comics/Latuda.cbz /tmp/latuda
+   ```
+
+2. Run the model in that folder with the prompt. With Claude Code:
+
+   ```sh
+   cd /tmp/latuda && claude "$(cat PROMPT.md)"
+   ```
+
+   With Codex, `codex "$(cat PROMPT.md)"` in the same folder the same
+   way (only Claude was tried). The model looks at every page, writes
+   `panels.json`, draws it on the pages with the tool's `check`
+   command and fixes what is off. Allow it to write files and run the
+   tool when it asks.
+
+3. Look for yourself: `check/page-001.jpg` and on show the panels in
+   green with their number in reading order, balloons in magenta and
+   narration boxes in blue. Ask the model to fix a page, or edit
+   `panels.json` by hand, and run the check again:
+
+   ```sh
+   python3 tool/llm_panels.py check ~/Comics/Latuda.cbz /tmp/latuda
+   ```
+
+4. Put it in the comic's sidecar:
+
+   ```sh
+   python3 tool/llm_panels.py import ~/Comics/Latuda.cbz /tmp/latuda/panels.json
+   ```
+
+   If you keep sidecars in one folder (Settings → Sidecars), name that
+   comic's sidecar with `--sidecar`.
+
+5. Open the comic. Guided view follows the imported panels in the
+   model's order; a page given no panels is shown whole. The details
+   view (`I`) names them as imported.
+
+The prompt the tool writes, word for word but for the last paragraph's
+paths:
+
+```
+You are marking up the pages of a comic for a reader app's guided view.
+In this folder, page-001.jpg, page-002.jpg, ... are the pages in order, each
+with a grid drawn over it: a line every 5% of the page's width and height,
+labelled every 10%.
+
+For every page, look at the image and write down:
+- panels: every panel, in the order a reader reads them (left to right, top
+  to bottom; a tall panel beside a stack is read first), as
+  [x0, y0, x1, y1]: its left, top, right and bottom edges in percent of the
+  page. A slanted or cut panel may be {"outline": [[x, y], ...]} instead,
+  its corners in percent, going round from the top left one. Borderless art
+  counts as a panel when it is a stop of its own. Panels should not overlap;
+  where art spills over a border, give the border. A cover, a pin-up or a
+  page of text gets "panels": [].
+- balloons: speech and thought balloons, and speech written without a
+  balloon, as [x0, y0, x1, y1] in percent.
+- captions: narration boxes, kept apart from balloons.
+Leave out sound effects and signs.
+
+Write it all to panels.json in this folder:
+{"pages": {"1": {"panels": [...], "balloons": [...], "captions": [...]}, "2": ...}}
+
+Then run `python3 tool/llm_panels.py check 'Latuda.cbz' .` and look at
+check/page-NNN.jpg: green boxes are panels with their number, magenta
+balloons, blue captions. Fix any box that does not sit on its edge, and run
+check again until they all do.
+```
+
+A `panels.json` for a page of two panels side by side above a slanted
+pair, with one balloon and one narration box:
+
+```json
+{"pages": {"3": {
+  "panels": [[2, 2, 49, 48], [51, 2, 98, 48],
+             {"outline": [[2, 52], [55, 52], [35, 98], [2, 98]]},
+             {"outline": [[57, 52], [98, 52], [98, 98], [37, 98]]}],
+  "balloons": [[60, 5, 80, 15]],
+  "captions": [[3, 3, 30, 8]]}}}
+```
+
+Pages left out of the file keep the detector's panels, so you can do
+just the pages that need it. To go back to the detector for the whole
+comic, `X` → **Redo panels** drops the imported panels.
+
 [Contents](README.md) · Previous: [Reading a comic](04-reading.md) · Next: [Bookmarks and marks](06-bookmarks.md)

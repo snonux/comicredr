@@ -54,11 +54,12 @@ class PagePanels {
   List<Panel> stops({required bool rightToLeft, double aspect = 1}) =>
       gate.passed ? (rightToLeft ? readingOrder(frames, rightToLeft: true, aspect: aspect) : frames) : const [];
 
-  /// The balloons inside stop [stop], in reading order.
+  /// The speech and thought balloons inside stop [stop], in reading order.
+  /// Captions (only panels imported from elsewhere have them) are no stops.
   List<Panel> balloonsIn(int stop, {required bool rightToLeft, double aspect = 1}) {
     final groups = _byFrame[(rightToLeft, aspect)] ??= balloonsByFrame(
       stops(rightToLeft: rightToLeft, aspect: aspect),
-      balloons,
+      balloons.where((b) => b.kind != PanelKind.caption),
       rightToLeft: rightToLeft,
     );
     return stop >= 0 && stop < groups.length ? groups[stop] : const [];

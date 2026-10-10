@@ -7,6 +7,17 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Panels from a large AI model (optional):** `tool/llm_panels.py` turns a
+  comic's pages into pictures for Claude Code, Codex or another agent that
+  can look at images, hands it the prompt, draws its answer back on the
+  pages for checking, and writes the panels, balloons and captions it found
+  into the comic's sidecar. Guided view then uses them on those pages
+  instead of the built-in detector's, which stays the default everywhere
+  else; `X` → Redo panels goes back to the detector. On 40 test pages the
+  detector mostly gets wrong or shows whole, Claude's panels were right on
+  31 and the detector's on 8 (guide, "Panels from a large AI model").
+  Balloon by balloon now skips captions, which only imported panels have.
+
 ## 0.8.0
 
 - **Unread:** comics that turn up in a library folder, never seen before,
