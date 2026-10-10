@@ -121,6 +121,30 @@ On the modern test pages they took the model from 43 to 47 of 66 guided
 right. It's worth trying more of them, other layouts, or another mix with
 the real pages (`--count`, `--seed`).
 
+## Fake pages from your own comics
+
+More frame layouts, with exact labels, come from a repository of their
+own: [comicredr-training-assets](https://github.com/snonux/comicredr-training-assets),
+checked out beside this one. Its scripts read the frame borders off the
+pages of comics you own, keep the gutters and border lines, and replace
+the art inside every frame with made-up art, so the pages hold layouts
+and no art. Its README has the method, the numbers and the commands.
+
+These pages add to the training set; they replace nothing. Pass the
+folder to `spike/train.py` beside the others, or run
+`make train-model LOCAL=1`, which adds
+`../comicredr-training-assets/moredata` when it is there (`MORE=` names
+another folder):
+
+```sh
+python3 spike/train.py spike/train_pages spike/synth_pages ../comicredr-training-assets/moredata --out spike/out/local/train
+```
+
+They go with the model kept at home (`LOCAL=1`), because the layouts come
+from books that are not in `test/train.manifest.toml`. They hold no
+balloons and no captions, so they teach frames only; keep them a minority
+beside the labelled pages or balloon recall may slip.
+
 ## Scoring a model
 
 Three labelled test sets score models and are never trained on:
