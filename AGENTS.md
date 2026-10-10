@@ -1426,6 +1426,27 @@ with onnxslim, without which the ONNX Runtime 1.15 the app bundles cannot
 load it. The labels are committed in `spike/labels/` (how they were drawn:
 `spike/LABELLING.md`); the comics are fetched.
 
+Train only through `make train-model` (docs/training.md, "Runs and
+checkpoints"): every run is a kept folder (`CHECKPOINTS`, by default
+`../comicredr-training-assets/checkpoints/`) with `last/`, `best/`,
+`state.pt`, `run.json`, the ONNX file and `scores/summary.md` against the
+shipped model (`tool/score_model.sh`), written every epoch, and the same
+`RUN=` resumes a killed run. `FROM=shipped` or `FROM=RUN/last` trains on
+top (8 epochs at 3e-5 by default); `spike/onnx_to_checkpoint.py` rebuilds
+a trainable checkpoint from any exported ONNX file, checked by exporting
+it again (within 1.2e-7 for the shipped model), which is how the
+2026-10-10 run went on from the shipped model whose checkpoint was lost.
+In a cloud container set `CHECKPOINTS=/mnt/project-files/comicredr-checkpoints`
+so the run outlives the container, and install the CPU torch wheel first
+(`--index-url https://download.pytorch.org/whl/cpu`); the default wheel
+pulls some 3 GB of CUDA. All 109 pages of the diagonal training set
+(`spike/labels/diagonal/` on the old branch claude/library-subfolders-301e1l)
+are in `spike/labels/train/` and `test/train.manifest.toml`, so the shipped
+model learned from them. The 2026-10-10 runs on top of the shipped model,
+with and without the fake pages of comicredr-training-assets, beat
+nothing (docs/training.md, "Fake pages from your own comics"); they are
+kept in `/mnt/project-files/comicredr-checkpoints/`.
+
 ```sh
 python3 -m pip install --user -r spike/requirements-train.txt   # the versions the shipped model used
 python3 spike/fetch_corpus.py                                   # eval comics

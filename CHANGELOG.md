@@ -7,6 +7,14 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Training the detector:** every `make train-model` run is kept, with
+  its checkpoint, data, command and its scores against the shipped model,
+  and the same `RUN=` resumes a stopped run. `FROM=shipped` (or a kept
+  run) trains on top instead of starting from COCO, and
+  `make score-model MODEL=...` compares any model with the built-in one on
+  the three test sets, speed and size included. docs/training.md, "Runs
+  and checkpoints".
+
 ## 0.7.1
 
 - **Fit width by touch:** the reader's status line has a fit width

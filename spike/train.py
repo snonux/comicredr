@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """Train the panel, caption and balloon detector the app ships, on CPU.
 
-  python3 spike/train.py PAGES_DIR [PAGES_DIR ...] --out spike/out/train \
-      [--weights ustc-community/dfine-small-coco] [--epochs 30] [--imgsz 800]
-  python3 spike/train.py --export spike/out/train/best --out-onnx comicredr-panels.onnx
+  python3 spike/train.py PAGES_DIR [PAGES_DIR ...] --out RUN_DIR \
+      [--weights ustc-community/dfine-small-coco | CHECKPOINT_DIR] [--epochs 30] [--lr 1e-4] [--imgsz 640]
+  python3 spike/train.py --export RUN_DIR/last --out-onnx comicredr-panels.onnx
+
+A run folder holds last/ and best/ (Hugging Face checkpoints a later run
+can start from with --weights), state.pt (model, optimiser, schedule and
+EMA after the last finished epoch) and run.json (the data, the command and
+the loss per epoch). Started again with the same --out, a run whose
+state.pt is there goes on from the epoch after it instead of starting
+over, so a stopped or killed run loses at most one epoch.
 
 The model is D-FINE-S (Apache-2.0 code and weights), fine-tuned from its
 COCO-only checkpoint through the Hugging Face transformers port. Never
@@ -21,7 +28,9 @@ import argparse
 import json
 import math
 import random
+import shutil
 import sys
+import time
 from pathlib import Path
 
 import cv2
@@ -84,7 +93,9 @@ def train(a):
     random.seed(0)
     torch.manual_seed(0)
     out = Path(a.out)
-    counts = build_dataset(a.pages, out / "dataset")
+    out.mkdir(parents=True, exist_ok=True)
+    resume = torch.load(out / "state.pt", weights_only=False) if (out / "state.pt").exists() else None
+    counts = dataset_counts(a, out, resume)
     print(f"dataset: {counts['train']} train, {counts['val']} val pages", flush=True)
     names = dict(enumerate(CLASSES))
     model = DFineForObjectDetection.from_pretrained(
@@ -94,38 +105,106 @@ def train(a):
                                        shuffle=True, num_workers=2, collate_fn=collate, drop_last=True)
     val = torch.utils.data.DataLoader(Pages(out / "dataset", "val", a.imgsz, False), batch_size=a.batch,
                                       num_workers=1, collate_fn=collate)
-    backbone = [p for n, p in model.named_parameters() if ".backbone." in n]
-    rest = [p for n, p in model.named_parameters() if ".backbone." not in n]
-    opt = torch.optim.AdamW([{"params": backbone, "lr": a.lr * 0.5}, {"params": rest, "lr": a.lr}],
-                            weight_decay=1e-4)
-    steps = a.epochs * len(data)
-    warm = min(200, steps // 10)
-    sched = torch.optim.lr_scheduler.LambdaLR(
-        opt, lambda s: (s + 1) / warm if s < warm else 0.5 * (1 + math.cos(math.pi * (s - warm) / max(1, steps - warm))) * 0.95 + 0.05)
+    opt, sched = optimiser(model, a, a.epochs * len(data))
     ema = torch.optim.swa_utils.AveragedModel(model, multi_avg_fn=torch.optim.swa_utils.get_ema_multi_avg_fn(0.998))
-    best = float("inf")
-    for epoch in range(a.epochs):
-        model.train()
-        total = 0.0
-        for x, targets in data:
-            loss = model(pixel_values=x, labels=targets).loss
-            opt.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
-            opt.step()
-            sched.step()
-            ema.update_parameters(model)
-            total += loss.item()
+    run = {"command": " ".join(sys.argv), "pages": [str(p) for p in a.pages], "weights": a.weights,
+           "epochs": a.epochs, "lr": a.lr, "imgsz": a.imgsz, "batch": a.batch, "threads": a.threads,
+           "dataset": counts, "history": [], "best": float("inf"), "start": 0}
+    if resume is not None:
+        restore(resume, model, opt, sched, ema, run, out)
+    for epoch in range(run["start"], a.epochs):
+        began = time.time()
+        loss = train_epoch(model, data, opt, sched, ema)
         # Validation loss of the EMA weights, in train mode for the loss terms
         # but without gradients; picks the checkpoint kept as best.
         ema.module.train()
         with torch.no_grad():
             vloss = sum(ema.module(pixel_values=x, labels=t).loss.item() for x, t in val) / max(1, len(val))
-        print(f"epoch {epoch + 1}/{a.epochs} train {total / len(data):.3f} val {vloss:.3f}", flush=True)
-        save(ema.module, out / "last", a.imgsz)
-        if vloss < best:
-            best = vloss
-            save(ema.module, out / "best", a.imgsz)
+        print(f"epoch {epoch + 1}/{a.epochs} train {loss:.3f} val {vloss:.3f}", flush=True)
+        run["history"].append({"epoch": epoch + 1, "train": round(loss, 4), "val": round(vloss, 4),
+                               "minutes": round((time.time() - began) / 60, 1)})
+        checkpoint(out, a, model, opt, sched, ema, run, vloss)
+
+
+def dataset_counts(a, out, resume):
+    """The training set written in out/dataset, or the one already there when resuming."""
+    if resume is None or not (out / "dataset" / "data.yaml").exists():
+        return build_dataset(a.pages, out / "dataset")
+    return {s: len(list((out / "dataset" / "images" / s).glob("*.jpg"))) for s in ("train", "val")}
+
+
+def optimiser(model, a, steps):
+    """AdamW, half the rate for the backbone; warm-up, then a cosine down to 5%."""
+    backbone = [p for n, p in model.named_parameters() if ".backbone." in n]
+    rest = [p for n, p in model.named_parameters() if ".backbone." not in n]
+    opt = torch.optim.AdamW([{"params": backbone, "lr": a.lr * 0.5}, {"params": rest, "lr": a.lr}],
+                            weight_decay=1e-4)
+    warm = min(200, steps // 10)
+
+    def rate(s):
+        if s < warm:
+            return (s + 1) / warm
+        return 0.5 * (1 + math.cos(math.pi * (s - warm) / max(1, steps - warm))) * 0.95 + 0.05
+
+    return opt, torch.optim.lr_scheduler.LambdaLR(opt, rate)
+
+
+def train_epoch(model, data, opt, sched, ema):
+    model.train()
+    total = 0.0
+    for x, targets in data:
+        loss = model(pixel_values=x, labels=targets).loss
+        opt.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+        opt.step()
+        sched.step()
+        ema.update_parameters(model)
+        total += loss.item()
+    return total / len(data)
+
+
+def restore(resume, model, opt, sched, ema, run, out):
+    """Goes on from state.pt: the epoch after the last one finished."""
+    model.load_state_dict(resume["model"])
+    opt.load_state_dict(resume["opt"])
+    sched.load_state_dict(resume["sched"])
+    ema.load_state_dict(resume["ema"])
+    random.setstate(resume["py_rng"])
+    torch.set_rng_state(resume["torch_rng"])
+    run["best"], run["start"] = resume["best"], resume["epoch"]
+    if (out / "run.json").exists():
+        run["history"] = json.loads((out / "run.json").read_text()).get("history", [])[:run["start"]]
+    print(f"resumed after epoch {run['start']} of {run['epochs']}", flush=True)
+
+
+def checkpoint(out, a, model, opt, sched, ema, run, vloss):
+    """last/ every epoch, best/ when the validation loss is the lowest yet,
+    then state.pt and run.json. state.pt is written whole and then renamed,
+    so a run killed while saving keeps the epoch before."""
+    save(ema.module, out / "last", a.imgsz)
+    if vloss < run["best"]:
+        run["best"] = vloss
+        save(ema.module, out / "best", a.imgsz)
+    torch.save({"model": model.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(),
+                "ema": ema.state_dict(), "epoch": run["history"][-1]["epoch"], "best": run["best"],
+                "py_rng": random.getstate(), "torch_rng": torch.get_rng_state()}, out / "state.tmp")
+    (out / "state.tmp").replace(out / "state.pt")
+    (out / "run.json").write_text(json.dumps({k: v for k, v in run.items() if k != "start"}, indent=1) + "\n")
+    if a.copy_to:
+        copy_run(out, Path(a.copy_to))
+
+
+def copy_run(out, to):
+    """The run folder without its dataset copy, for a run kept elsewhere."""
+    to.mkdir(parents=True, exist_ok=True)
+    for name in ("last", "best"):
+        if (out / name).exists():
+            shutil.rmtree(to / name, ignore_errors=True)
+            shutil.copytree(out / name, to / name)
+    for name in ("state.pt", "run.json"):
+        shutil.copy(out / name, to / f"{name}.tmp")
+        (to / f"{name}.tmp").replace(to / name)
 
 
 def save(model, folder, imgsz):
@@ -186,6 +265,7 @@ def main():
     ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--lr", type=float, default=1e-4)
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--copy-to", metavar="DIR", help="also copy last/, best/, state.pt and run.json here every epoch")
     ap.add_argument("--export", metavar="CHECKPOINT_DIR")
     ap.add_argument("--out-onnx")
     a = ap.parse_args()

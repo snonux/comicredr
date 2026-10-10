@@ -8,6 +8,7 @@
 #   make tarball          release build packed as build/comicredr-VERSION-linux-ARCH.tar.gz
 #   make keys             copy the default keymap to keys.toml (KEYS below) to edit
 #   make train-model      rebuild the built-in detector model from free comics (hours, CPU; docs/training.md)
+#   make score-model MODEL=file.onnx   score a model against the built-in one on the three test sets
 #   make model MODEL=path   replace the built-in detector model with another file
 #   make install-model MODEL=comicredr-panels.onnx   override it per user
 #   make keystore         create the Android release key (once, back it up)
@@ -92,7 +93,7 @@ VERSION := $(shell sed -n 's/^version: *\([^+]*\).*/\1/p' pubspec.yaml)
 TARNAME := comicredr-$(VERSION)-linux-$(ARCH)
 TARBALL := build/$(TARNAME).tar.gz
 
-.PHONY: all build deps run dev test analyze format install uninstall _retire-models model train-model install-model check-model check-libs icons clean help version \
+.PHONY: all build deps run dev test analyze format install uninstall _retire-models model train-model score-model install-model check-model check-libs icons clean help version \
 	keystore apk apks install-apk push-model push-keys tarball keys
 
 all: build
@@ -222,20 +223,32 @@ ifeq ($(NO_MODEL),)
 endif
 
 # EPOCHS=1 for a quick run through the pipeline; 30 matches the built-in model.
-# LOCAL=1 also trains on the NC/ND/SA books: that model may not be
-# published, so it is never put in assets/; `make install-model` uses it.
+# FROM=shipped (or a kept checkpoint folder) trains on top instead, 8 epochs.
+# RUN=NAME names the run, and the same NAME resumes it. Every run is kept
+# with its checkpoint and scores (docs/training.md, "Runs and checkpoints").
+# LOCAL=1 also trains on the NC/ND/SA books and the fake pages (LOCAL=more:
+# the fake pages alone): that model may not be published, so it is never
+# put in assets/; `make install-model` uses it. Without LOCAL the new model
+# replaces the built-in one in assets/ (git checkout puts it back).
+# Variables given on the command line reach tool/train_model.sh as they are.
 train-model:
-	EPOCHS=$(EPOCHS) LOCAL=$(LOCAL) tool/train_model.sh
+	tool/train_model.sh
 	@if [ -n "$(LOCAL)" ]; then \
 	  echo "Local model in spike/out/local/comicredr-panels.onnx (not for publishing):"; \
 	  echo "  make install-model MODEL=spike/out/local/comicredr-panels.onnx"; \
 	  echo "  (and make install KEEP_MODEL=1 from then on, or make install puts the built-in one back)"; \
-	else tool/fetch_model.sh spike/out/comicredr-panels.onnx; fi
+	else tool/fetch_model.sh spike/out/comicredr-panels.onnx && \
+	  echo "It replaced $(BUNDLED_MODEL); to keep the shipped one: git checkout -- $(BUNDLED_MODEL)"; fi
 
 model:
 	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
 	install -Dm644 "$(MODEL)" $(BUNDLED_MODEL)
 	@echo "Model in $(BUNDLED_MODEL); the next make packs it into the app."
+
+# The three test sets, the built-in model against MODEL, into spike/out/score/summary.md.
+score-model:
+	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
+	tool/score_model.sh spike/out/score shipped=$(BUNDLED_MODEL) new=$(MODEL)
 
 # A model here wins over the one built into the app, for trying another
 # model without rebuilding.

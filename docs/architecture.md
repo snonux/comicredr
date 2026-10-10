@@ -366,6 +366,10 @@ flowchart LR
 - **Everything on the CPU.** No GPU is needed anywhere, for training or
   reading. `make train-model` runs the whole pipeline; the steps and
   requirements are in [docs/training.md](training.md).
+- **Kept runs.** Every run keeps its checkpoint, its data and command,
+  and its scores against the shipped model, so the next run can train on
+  top of it (`FROM=`); `spike/onnx_to_checkpoint.py` turns a model file
+  back into a checkpoint when a run's own was lost.
 
 **How good is it?** `spike/evaluate.py` runs a model over labelled pages
 from books it never trained on and asks, per page, whether guided view

@@ -32,13 +32,17 @@ access to archive.org, peppercarrot.com (the comics) and huggingface.co
 (the starting weights).
 
 ```sh
+# CPU-only torch first: without the index URL pip also fetches some 3 GB of CUDA libraries
+python3 -m pip install --user torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
 python3 -m pip install --user -r spike/requirements-train.txt
 make train-model EPOCHS=1    # optional: the whole pipeline once, in about half an hour
-make train-model             # the real run, several hours
+make train-model             # the real run from COCO, several hours
+make train-model FROM=shipped   # or: on top of the shipped model, about 8 epochs
 make && make install         # build and install the app with the new model
 ```
 
-`make train-model` runs `tool/train_model.sh`, which does this:
+`make train-model` runs `tool/train_model.sh`, the one way models are
+trained. It does this:
 
 1. Fetches every book in `test/train.manifest.toml` into
    `test/corpus-train/`. It checks each file's sha256 and retries
@@ -46,17 +50,65 @@ make && make install         # build and install the app with the new model
 2. Extracts the labelled pages into `spike/train_pages/` and copies the
    committed labels from `spike/labels/train/` beside them.
 3. Makes 400 synthetic modern pages into `spike/synth_pages/` (see below).
-4. Trains `spike/train.py` on both folders for `EPOCHS` epochs at `IMGSZ`
-   px. The checkpoints go in `spike/out/train/last/` and `best/`.
-5. Exports `last/` to `spike/out/comicredr-panels.onnx`.
+4. Trains `spike/train.py` on those folders for `EPOCHS` epochs at
+   `IMGSZ` px and learning rate `LR`, starting from COCO or from `FROM`.
+   The run is kept as described under "Runs and checkpoints".
+5. Exports `last/` to ONNX, in the run's folder and in
+   `spike/out/comicredr-panels.onnx`.
+6. Scores it against the shipped model (`tool/score_model.sh`, see
+   "Scoring a model"); `SCORE=0` skips that.
 
 Then `tool/fetch_model.sh` checks that ONNX Runtime can load the file and
 that it gives [1, 300, 6] rows, and puts it in `assets/models/`. The
 downloads, pages and checkpoints are git-ignored. Commit the new
-`assets/models/comicredr-panels.onnx` when you want the app to ship it.
+`assets/models/comicredr-panels.onnx` when you want the app to ship it;
+until then `FROM=shipped` and the scores go by that file as it is (the
+script says so), and `git checkout -- assets/models/comicredr-panels.onnx`
+puts the shipped one back. With `LOCAL` the model never goes there.
 
 The run is seeded, so the same packages on the same machine give the same
 model. Different CPUs or package versions can move the numbers a little.
+
+## Runs and checkpoints
+
+Every run is kept, so the next one can start where it ended. A run is a
+folder `$CHECKPOINTS/$RUN`:
+
+| | |
+|---|---|
+| `CHECKPOINTS` | `../comicredr-training-assets/checkpoints/` when that repository is checked out beside this one (git-ignored there), else `spike/out/checkpoints/` |
+| `RUN` | `DATE-fresh` or `DATE-on-top`, plus `-local` for `LOCAL=1` and `-local-more` for `LOCAL=more`; or a name of your own |
+| `last/`, `best/` | Hugging Face checkpoints of the last epoch and of the lowest validation loss; `FROM=` takes either |
+| `start/` | for `FROM=shipped`: the checkpoint rebuilt from the ONNX file the run started from |
+| `state.pt` | model, optimiser, schedule and EMA after the last finished epoch |
+| `run.json` | the page folders and counts, the command, the starting weights, and the losses and minutes of every epoch |
+| `comicredr-panels.onnx` | the exported model |
+| `scores/` | `summary.md` (the shipped model against this one) and evaluate.py's report per set |
+
+`spike/train.py` writes all of it after every epoch (`--copy-to`). Start
+a run again with the same `RUN` and it goes on from the epoch after the
+last one finished, also on another machine when the folder came along; a
+killed run loses one epoch at most.
+
+To train on top of an earlier run: `make train-model FROM=$CHECKPOINTS/NAME/last`.
+`FROM=shipped` (or `FROM=file.onnx`) starts from a model file instead:
+`spike/onnx_to_checkpoint.py` turns the ONNX file back into a checkpoint,
+so no run is lost for good as long as its model is. The export keeps every
+weight the model uses to find panels, folded (batch norms into the
+convolutions before them); the script finds where each weight went by
+exporting the same architecture with marked weights, puts them back, and
+checks that exporting the result gives the same file. Two small parts the
+export drops are made up and settle in training's first steps: the class
+and quality heads of decoder layers 0 and 1, which only the training
+losses read (copied from layer 2), and the denoising label embedding (as
+the COCO start has it). For the shipped model the rebuilt checkpoint
+exports to within 1.2e-7 of the file.
+
+On top of a model, 8 epochs at 3e-5 (`FROM`'s defaults) is a third of the
+rate and a quarter of the epochs of a fresh run, so that it learns new
+pages without unlearning old ones. `EPOCHS=` and `LR=` change them.
+The old data must always be in the run: training on new pages alone makes
+the model forget what they lack.
 
 ## What may be trained on
 
@@ -130,20 +182,40 @@ pages of comics you own, keep the gutters and border lines, and replace
 the art inside every frame with made-up art, so the pages hold layouts
 and no art. Its README has the method, the numbers and the commands.
 
-These pages add to the training set; they replace nothing. Pass the
-folder to `spike/train.py` beside the others, or run
-`make train-model LOCAL=1`, which adds
+These pages add to the training set; they replace nothing.
+`make train-model LOCAL=1` adds
 `../comicredr-training-assets/moredata` when it is there (`MORE=` names
 another folder):
 
 ```sh
-python3 spike/train.py spike/train_pages spike/synth_pages ../comicredr-training-assets/moredata --out spike/out/local/train
+make train-model LOCAL=1                  # from COCO, with them and the train-local books
+make train-model LOCAL=more FROM=shipped  # on top of the shipped model, with them alone
 ```
 
-They go with the model kept at home (`LOCAL=1`), because the layouts come
-from books that are not in `test/train.manifest.toml`. They hold no
-balloons and no captions, so they teach frames only; keep them a minority
-beside the labelled pages or balloon recall may slip.
+They go with the model kept at home (`LOCAL=1` or `LOCAL=more`), because
+the layouts come from books that are not in `test/train.manifest.toml`.
+They hold no balloons and no captions, so they teach frames only.
+
+What they did (2026-10-10, 8 epochs on top of the shipped model at 3e-5;
+guided right / whole / wrong):
+
+| Model | Original 100 | Modern 66 | Diagonal 24 |
+|---|---|---|---|
+| Shipped | 73 / 17 / 10 | 47 / 15 / 4 | 4 / 15 / 5 |
+| On top, no new pages | 70 / 16 / 14 | 49 / 11 / 6 | 5 / 14 / 5 |
+| On top, + `moredata/` | 72 / 16 / 12 | 39 / 20 / 7 | 4 / 15 / 5 |
+| On top, + `moredata-art/` | 70 / 17 / 13 | 50 / 9 / 7 | 5 / 12 / 7 |
+
+None beat the shipped model, which stays. The made-up art taught the
+model that a panel ends where the colours change, so it joined real
+neighbours across thin gutters, and 54 of the pages label two panels as
+one frame. The repository's `real_art.py` fixes both: the same layouts
+filled with art cut from this repository's clean training pages
+(`moredata-art/`, `MORE=../comicredr-training-assets/moredata-art`). That
+undid the damage and added nothing over training on top with no new
+pages, which itself makes a few more wrong moves on the original set.
+The repository's TRAINING.md has the full table (panel and balloon F1)
+and the runs; they are kept, see "Runs and checkpoints".
 
 ## Scoring a model
 
@@ -156,20 +228,20 @@ Three labelled test sets score models and are never trained on:
 | Diagonal | `test/diagonal-eval.manifest.toml` | `spike/labels/diagonal-eval/` | 24 |
 
 ```sh
-python3 spike/fetch_corpus.py --out test/corpus
-python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern
-python3 spike/fetch_corpus.py --manifest test/diagonal-eval.manifest.toml --out test/corpus-diagonal-eval
-python3 spike/extract_pages.py test/corpus spike/eval_pages --per-book 400
-python3 spike/extract_pages.py test/corpus-modern spike/modern_pages --per-book 400 --manifest test/modern.manifest.toml
-python3 spike/extract_pages.py test/corpus-diagonal-eval spike/diagonal_pages --per-book 400 --manifest test/diagonal-eval.manifest.toml
-python3 spike/labelkit.py import spike/labels/eval spike/eval_pages
-python3 spike/labelkit.py import spike/labels/modern spike/modern_pages
-python3 spike/labelkit.py import spike/labels/diagonal-eval spike/diagonal_pages
-cd spike
-for s in eval modern diagonal; do
-  python3 evaluate.py ${s}_pages --out out/score-$s --no-cv --trim --trained out/comicredr-panels.onnx
-done                                                # out/score-*/report.md
+tool/score_model.sh OUT shipped=assets/models/comicredr-panels.onnx new=path/to/comicredr-panels.onnx
+make score-model MODEL=path/to/comicredr-panels.onnx    # the same, into spike/out/score/
 ```
+
+The first time, it fetches the three sets' comics, extracts their pages
+into `spike/eval_pages/`, `spike/modern_pages/` and
+`spike/diagonal_pages/` and copies the labels beside them. Then it runs
+`spike/evaluate.py PAGES --no-cv --trim --trained MODEL` for every model
+and set, one after the other on the same machine, and writes
+`OUT/summary.md`: guided right / whole / wrong, panel F1, balloon F1,
+balloon stops on captions and milliseconds a page for each model and set,
+and the files' sizes. Each set's full report, per style too, is in
+`OUT/NAME-SET/report.md`. Every training run does this against the
+shipped model (step 6 above).
 
 `evaluate.py` does what the app does: it trims wide scanned margins, finds
 slanted frames' outlines and applies the same confidence gate. For each
