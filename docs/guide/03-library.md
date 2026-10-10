@@ -398,6 +398,30 @@ them.
 - The Collections tab shows each collection as a cover; open one to see
   its books.
 
+### Unread: the comics that are new
+
+Comics that turn up in your library folders and that ComicRedr has never
+seen before go into a collection called *Unread* by themselves, so what
+you just bought or downloaded is easy to find. Copy `Saga 61.cbz` into
+`~/Comics` while the app runs (or before you start it), and a moment
+later the Collections tab has *Unread* with Saga 61 in it.
+
+- Opening the comic takes it out of *Unread*, also on your other
+  devices once its sidecar gets there.
+- Only what is new counts. A comic you move to another folder, rename,
+  copy, or delete and put back is not new: its content was seen before.
+  Nor is a comic you replace with a fixed-up file of the same name, or
+  one that comes with a sidecar saying it was read on another device.
+- The first time ComicRedr looks through a folder (on a fresh install,
+  or a folder you have just added) it takes what is there as your
+  library so far, so it doesn't fill *Unread* with every comic you own.
+  New comics count from then on. The comics you had before this version
+  count as seen too.
+- Otherwise it is an ordinary collection: take a comic out with `x`
+  inside it, or put one in with `gc`.
+
+![Unread on the Collections tab](images/unread.webp)
+
 Favourites is simply a collection called *Favourites*. Collections are
 kept in each comic's [sidecar file](11-your-data.md) (a small hidden file
 beside the comic that also holds your place and bookmarks), so they

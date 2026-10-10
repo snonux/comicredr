@@ -79,7 +79,11 @@ class LibraryScanner {
 
   Future<void> _scanOnce() async {
     _emit(const ScanStatus(running: true));
-    final todo = <(int, String, Candidate)>[];
+    // Each with whether it is a file the folder did not have before, in a
+    // folder scanned to the end before: a comic that is new to the library,
+    // unless its content was seen already (moved, copied or put back).
+    final todo = <(int, String, Candidate, bool)>[];
+    final scanned = <int>[];
     for (final root in await store.roots()) {
       final List<Candidate> found;
       try {
@@ -88,6 +92,7 @@ class LibraryScanner {
         debugPrint('Cannot scan ${root.path}: $e');
         continue; // An unplugged drive is not an empty one: keep its books.
       }
+      scanned.add(root.id);
       final known = await store.filesUnder(root.id);
       final seen = <String>{};
       for (final c in found) {
@@ -96,7 +101,7 @@ class LibraryScanner {
         final unchanged = k != null && k.size == c.size && k.mtime.millisecondsSinceEpoch ~/ 1000 == c.mtimeMs ~/ 1000;
         // A cleared cache loses covers; reading the book again puts it back.
         if (unchanged && File(coverFile(coverDir, k.contentKey)).existsSync()) continue;
-        todo.add((root.id, root.path, c));
+        todo.add((root.id, root.path, c, k == null && root.scannedAt != null));
       }
       await store.forgetFiles(root.id, known.keys.where((k) => !seen.contains(k)));
     }
@@ -110,7 +115,7 @@ class LibraryScanner {
     var next = 0;
     Future<void> worker() async {
       while (next < todo.length) {
-        final (rootId, rootPath, c) = todo[next++];
+        final (rootId, rootPath, c, added) = todo[next++];
         final path = bookPath(rootPath, c.relPath);
         try {
           final info = await _read(path, coverDir);
@@ -120,6 +125,7 @@ class LibraryScanner {
           } catch (e) {
             debugPrint('Could not read the sidecar of $path: $e');
           }
+          await _noteSeen(info.contentKey, added: added);
         } catch (e) {
           failed.add((path, e is FormatException ? e.message : '$e'));
         }
@@ -130,7 +136,21 @@ class LibraryScanner {
 
     await Future.wait([for (var i = 0; i < workers; i++) worker()]);
     await store.removeOrphans();
+    await store.markScanned(scanned);
     _emit(ScanStatus(done: done, total: todo.length, failed: failed));
+  }
+
+  /// Notes [contentKey] as seen, and puts it in the Unread collection when
+  /// it was never seen before and [added] to a folder scanned before: until
+  /// a scan of a folder first goes through to the end (a fresh install, a
+  /// folder just added, a first scan cut short) it finds what was there
+  /// already, which is not new.
+  Future<void> _noteSeen(String contentKey, {required bool added}) async {
+    try {
+      if (await store.markSeen(contentKey) && added) await store.putInUnread(contentKey);
+    } catch (e) {
+      debugPrint('Could not note $contentKey as seen: $e');
+    }
   }
 
   /// Rescans when anything under a root changes: inotify on Linux. Android

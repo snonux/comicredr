@@ -42,6 +42,7 @@ come back here for a key you forgot.
    - [Favourites](03-library.md#favourites)
    - [Completed comics](03-library.md#completed-comics)
    - [Collections](03-library.md#collections)
+     and [Unread, the comics that are new](03-library.md#unread-the-comics-that-are-new)
    - [Several comics at once](03-library.md#several-comics-at-once)
      - [Move comics to another folder](03-library.md#move-comics-to-another-folder)
    - [Adding, rescanning and taking out folders](03-library.md#adding-rescanning-and-taking-out-folders)
@@ -129,8 +130,8 @@ The comics in these pictures are free to show:
   1945), *Weird Comics* 4 (Fox, 1940), *First Love Illustrated* 78
   (Harvey, 1957), *Space War* 2 (Charlton, 1959) and *Reptisaurus* 5
   (Charlton, 1962).
-- [Pepper&Carrot](https://www.peppercarrot.com) episode 6, *The Potion
-  Contest*, by David Revoy, licensed
+- [Pepper&Carrot](https://www.peppercarrot.com) episodes 6, *The Potion
+  Contest*, and 22, *The Voting System*, by David Revoy, licensed
   [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 The pictures are made by `tool/guide_shots.sh`, which drives the real app

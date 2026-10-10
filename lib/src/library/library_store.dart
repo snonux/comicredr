@@ -253,6 +253,11 @@ String _name(List<LibraryBook> books) =>
 /// again.
 const favouritesCollection = 'Favourites';
 
+/// The collection a scan puts each comic never seen before in, and opening
+/// the comic takes it out of (`LibraryStore.markSeen`, `putInUnread`,
+/// `leaveUnread`). An ordinary collection otherwise.
+const unreadCollection = 'Unread';
+
 /// The hand-made collections among [books], as groups the library shows
 /// like series: collections in name order, books in series order. Ids are
 /// negative, so they never meet a series id.
@@ -405,6 +410,12 @@ class LibraryStore {
   });
 
   Future<List<LibraryRoot>> roots() => db.select(db.roots).get();
+
+  /// Notes that a scan of the folders [rootIds] went through to the end,
+  /// for the first time for those not scanned before.
+  Future<void> markScanned(List<int> rootIds) => (db.update(
+    db.roots,
+  )..where((r) => r.id.isIn(rootIds) & r.scannedAt.isNull())).write(RootsCompanion(scannedAt: Value(DateTime.now())));
 
   Stream<List<RootInfo>> watchRoots() => _live(
     {db.roots, db.files},
@@ -967,6 +978,39 @@ ORDER BY r.id, f.rel_path
   /// the same way: the later of adding and taking out wins.
   Future<void> setFavourite(String contentKey, bool on) =>
       on ? addToCollection(contentKey, favouritesCollection) : removeFromCollection(contentKey, favouritesCollection);
+
+  /// Notes that this install has found [contentKey] in a library folder.
+  /// Returns whether it had never seen it before.
+  Future<bool> markSeen(String contentKey) async =>
+      await db.customUpdate(
+        'INSERT OR IGNORE INTO seen_books (content_key, first_seen) VALUES (?, ?)',
+        variables: [Variable(contentKey), Variable(DateTime.now())],
+        updates: {db.seenBooks},
+        updateKind: UpdateKind.insert,
+      ) >
+      0;
+
+  /// Puts a comic just found for the first time in [unreadCollection],
+  /// unless it was read already: a position or a sitting for it, which a
+  /// sidecar from another device brings along. Returns whether it went in.
+  Future<bool> putInUnread(String contentKey) => db.transaction(() async {
+    final read =
+        await (db.select(db.progress)..where((p) => p.contentKey.equals(contentKey))).getSingleOrNull() != null ||
+        await (db.select(db.readLog)
+                  ..where((r) => r.contentKey.equals(contentKey))
+                  ..limit(1))
+                .getSingleOrNull() !=
+            null;
+    return !read && await addToCollection(contentKey, unreadCollection);
+  });
+
+  /// Takes a comic being opened out of [unreadCollection]. Returns whether
+  /// it was in it, so its sidecar needs writing.
+  Future<bool> leaveUnread(String contentKey) async =>
+      await (db.update(db.collectionBooks)
+            ..where((c) => c.contentKey.equals(contentKey) & c.name.equals(unreadCollection) & c.removedAt.isNull()))
+          .write(CollectionBooksCompanion(removedAt: Value(DateTime.now()))) >
+      0;
 
   /// Sittings with books, newest first, for the History tab.
   Stream<List<HistoryEntry>> watchHistory({int limit = 300}) => _live(

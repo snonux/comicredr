@@ -108,6 +108,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // The sidecar first, so what it brings (panels from the laptop, a
     // position from the phone) is in the index before the reads below.
     final side = await _orNull(() => _sidecars.attach(book.path, book.key, folder: book.folder));
+    // Opened, so no longer new: out of Unread, here and, by the sidecar, elsewhere.
+    if (await _orNull(() => ref.read(libraryStoreProvider).leaveUnread(book.key)) ?? false) _sidecars.touch(book.key);
     // Titles edited in the library, some perhaps just now from the sidecar.
     final edits = await _orNull(() => ref.read(libraryStoreProvider).edits(book.key));
     if (edits != null) book = book.withEdits(edits);

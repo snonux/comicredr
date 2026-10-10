@@ -8,7 +8,7 @@
 #   python3 spike/fetch_corpus.py --skip-model   # once, for test/corpus/
 #   tool/guide_shots.sh [section...]             # all sections by default
 #
-# Sections: library filter marks reader guided guided-more parts keys touch
+# Sections: library filter marks unread reader guided guided-more parts keys touch
 # bookmarks details dialogs history s3 empty. They run in that order and later ones
 # lean on what earlier ones did (a started book, a bookmark), so run a
 # single section only after a full run. E2E_SKIP_BUILD=1 reuses the build.
@@ -42,7 +42,7 @@ db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
 sections=("$@")
 [[ ${#sections[@]} -gt 0 ]] ||
-  sections=(library filter marks reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
+  sections=(library filter marks unread reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
 mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
@@ -338,6 +338,32 @@ marks)
   # gm: the folder picker, narrowed by typing.
   key g m; sleep 1; typ "silver"; park; still move
   key Escape; key Escape; key Escape; key Escape
+  ;;
+
+unread)
+  # A comic that turns up while the app runs goes in Unread: Pepper&Carrot
+  # episode 22, fetched aside and moved into the library in one go. Taken
+  # out again after the picture, so the sections after this one see the
+  # library as before. Its Unread row stays, so a second run shows it too
+  # (its content is seen by then, and would not go in again).
+  ep22="$out/raw/Episode 22 - The Voting System"
+  mkdir -p "$ep22"
+  for i in 01 02 03 04 05 06 07 08; do
+    [[ -s "$ep22/page-$i.jpg" ]] || curl -sfL -o "$ep22/page-$i.jpg" \
+      "https://www.peppercarrot.com/0_sources/ep22_The-Voting-System/low-res/en_Pepper-and-Carrot_by-David-Revoy_E22P$i.jpg" ||
+      rm -f "$ep22/page-$i.jpg"
+  done
+  key Escape; key Escape; tab Series
+  # Not while the first scan of the library runs: what that finds is not new.
+  for _ in $(seq 1 120); do [[ "$(q "select count(*) from roots where scanned_at is null")" == 0 ]] && break; sleep 1; done
+  cp -r "$ep22" "$comics/Pepper&Carrot/"
+  for _ in $(seq 1 60); do
+    [[ "$(q "select count(*) from collection_books where name = 'Unread' and removed_at is null")" -ge 1 ]] && break
+    sleep 1
+  done
+  sleep 3; tab Collections; still unread
+  rm -rf "$comics/Pepper&Carrot/Episode 22 - The Voting System"
+  sleep 5
   ;;
 
 s3)

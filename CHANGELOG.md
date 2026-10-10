@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Unread:** comics that turn up in a library folder, never seen before,
+  go into a collection called Unread by themselves; opening one takes it
+  out. Moved, renamed or copied comics are not new, and the first look
+  through a folder (a fresh install, a folder just added) takes what is
+  there as already seen. The comics already in the library are seen too.
 - **Training the detector:** every `make train-model` run is kept, with
   its checkpoint, data, command and its scores against the shipped model,
   and the same `RUN=` resumes a stopped run. `FROM=shipped` (or a kept

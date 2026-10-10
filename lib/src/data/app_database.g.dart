@@ -1093,8 +1093,19 @@ class $RootsTable extends Roots with TableInfo<$RootsTable, LibraryRoot> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _scannedAtMeta = const VerificationMeta(
+    'scannedAt',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, path, addedAt];
+  late final GeneratedColumn<DateTime> scannedAt = GeneratedColumn<DateTime>(
+    'scanned_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, path, addedAt, scannedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1124,6 +1135,12 @@ class $RootsTable extends Roots with TableInfo<$RootsTable, LibraryRoot> {
         addedAt.isAcceptableOrUnknown(data['added_at']!, _addedAtMeta),
       );
     }
+    if (data.containsKey('scanned_at')) {
+      context.handle(
+        _scannedAtMeta,
+        scannedAt.isAcceptableOrUnknown(data['scanned_at']!, _scannedAtMeta),
+      );
+    }
     return context;
   }
 
@@ -1145,6 +1162,10 @@ class $RootsTable extends Roots with TableInfo<$RootsTable, LibraryRoot> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}added_at'],
       )!,
+      scannedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}scanned_at'],
+      ),
     );
   }
 
@@ -1158,10 +1179,15 @@ class LibraryRoot extends DataClass implements Insertable<LibraryRoot> {
   final int id;
   final String path;
   final DateTime addedAt;
+
+  /// When a scan of the folder first went through to the end. Until then
+  /// what a scan finds there was there already, not new (Unread).
+  final DateTime? scannedAt;
   const LibraryRoot({
     required this.id,
     required this.path,
     required this.addedAt,
+    this.scannedAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1169,6 +1195,9 @@ class LibraryRoot extends DataClass implements Insertable<LibraryRoot> {
     map['id'] = Variable<int>(id);
     map['path'] = Variable<String>(path);
     map['added_at'] = Variable<DateTime>(addedAt);
+    if (!nullToAbsent || scannedAt != null) {
+      map['scanned_at'] = Variable<DateTime>(scannedAt);
+    }
     return map;
   }
 
@@ -1177,6 +1206,9 @@ class LibraryRoot extends DataClass implements Insertable<LibraryRoot> {
       id: Value(id),
       path: Value(path),
       addedAt: Value(addedAt),
+      scannedAt: scannedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(scannedAt),
     );
   }
 
@@ -1189,6 +1221,7 @@ class LibraryRoot extends DataClass implements Insertable<LibraryRoot> {
       id: serializer.fromJson<int>(json['id']),
       path: serializer.fromJson<String>(json['path']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
+      scannedAt: serializer.fromJson<DateTime?>(json['scannedAt']),
     );
   }
   @override
@@ -1198,20 +1231,27 @@ class LibraryRoot extends DataClass implements Insertable<LibraryRoot> {
       'id': serializer.toJson<int>(id),
       'path': serializer.toJson<String>(path),
       'addedAt': serializer.toJson<DateTime>(addedAt),
+      'scannedAt': serializer.toJson<DateTime?>(scannedAt),
     };
   }
 
-  LibraryRoot copyWith({int? id, String? path, DateTime? addedAt}) =>
-      LibraryRoot(
-        id: id ?? this.id,
-        path: path ?? this.path,
-        addedAt: addedAt ?? this.addedAt,
-      );
+  LibraryRoot copyWith({
+    int? id,
+    String? path,
+    DateTime? addedAt,
+    Value<DateTime?> scannedAt = const Value.absent(),
+  }) => LibraryRoot(
+    id: id ?? this.id,
+    path: path ?? this.path,
+    addedAt: addedAt ?? this.addedAt,
+    scannedAt: scannedAt.present ? scannedAt.value : this.scannedAt,
+  );
   LibraryRoot copyWithCompanion(RootsCompanion data) {
     return LibraryRoot(
       id: data.id.present ? data.id.value : this.id,
       path: data.path.present ? data.path.value : this.path,
       addedAt: data.addedAt.present ? data.addedAt.value : this.addedAt,
+      scannedAt: data.scannedAt.present ? data.scannedAt.value : this.scannedAt,
     );
   }
 
@@ -1220,45 +1260,52 @@ class LibraryRoot extends DataClass implements Insertable<LibraryRoot> {
     return (StringBuffer('LibraryRoot(')
           ..write('id: $id, ')
           ..write('path: $path, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('scannedAt: $scannedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, path, addedAt);
+  int get hashCode => Object.hash(id, path, addedAt, scannedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is LibraryRoot &&
           other.id == this.id &&
           other.path == this.path &&
-          other.addedAt == this.addedAt);
+          other.addedAt == this.addedAt &&
+          other.scannedAt == this.scannedAt);
 }
 
 class RootsCompanion extends UpdateCompanion<LibraryRoot> {
   final Value<int> id;
   final Value<String> path;
   final Value<DateTime> addedAt;
+  final Value<DateTime?> scannedAt;
   const RootsCompanion({
     this.id = const Value.absent(),
     this.path = const Value.absent(),
     this.addedAt = const Value.absent(),
+    this.scannedAt = const Value.absent(),
   });
   RootsCompanion.insert({
     this.id = const Value.absent(),
     required String path,
     this.addedAt = const Value.absent(),
+    this.scannedAt = const Value.absent(),
   }) : path = Value(path);
   static Insertable<LibraryRoot> custom({
     Expression<int>? id,
     Expression<String>? path,
     Expression<DateTime>? addedAt,
+    Expression<DateTime>? scannedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (path != null) 'path': path,
       if (addedAt != null) 'added_at': addedAt,
+      if (scannedAt != null) 'scanned_at': scannedAt,
     });
   }
 
@@ -1266,11 +1313,13 @@ class RootsCompanion extends UpdateCompanion<LibraryRoot> {
     Value<int>? id,
     Value<String>? path,
     Value<DateTime>? addedAt,
+    Value<DateTime?>? scannedAt,
   }) {
     return RootsCompanion(
       id: id ?? this.id,
       path: path ?? this.path,
       addedAt: addedAt ?? this.addedAt,
+      scannedAt: scannedAt ?? this.scannedAt,
     );
   }
 
@@ -1286,6 +1335,9 @@ class RootsCompanion extends UpdateCompanion<LibraryRoot> {
     if (addedAt.present) {
       map['added_at'] = Variable<DateTime>(addedAt.value);
     }
+    if (scannedAt.present) {
+      map['scanned_at'] = Variable<DateTime>(scannedAt.value);
+    }
     return map;
   }
 
@@ -1294,7 +1346,8 @@ class RootsCompanion extends UpdateCompanion<LibraryRoot> {
     return (StringBuffer('RootsCompanion(')
           ..write('id: $id, ')
           ..write('path: $path, ')
-          ..write('addedAt: $addedAt')
+          ..write('addedAt: $addedAt, ')
+          ..write('scannedAt: $scannedAt')
           ..write(')'))
         .toString();
   }
@@ -4058,6 +4111,225 @@ class OverridesCompanion extends UpdateCompanion<Override> {
   }
 }
 
+class $SeenBooksTable extends SeenBooks
+    with TableInfo<$SeenBooksTable, SeenBook> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SeenBooksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _contentKeyMeta = const VerificationMeta(
+    'contentKey',
+  );
+  @override
+  late final GeneratedColumn<String> contentKey = GeneratedColumn<String>(
+    'content_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _firstSeenMeta = const VerificationMeta(
+    'firstSeen',
+  );
+  @override
+  late final GeneratedColumn<DateTime> firstSeen = GeneratedColumn<DateTime>(
+    'first_seen',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [contentKey, firstSeen];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'seen_books';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SeenBook> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('content_key')) {
+      context.handle(
+        _contentKeyMeta,
+        contentKey.isAcceptableOrUnknown(data['content_key']!, _contentKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentKeyMeta);
+    }
+    if (data.containsKey('first_seen')) {
+      context.handle(
+        _firstSeenMeta,
+        firstSeen.isAcceptableOrUnknown(data['first_seen']!, _firstSeenMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_firstSeenMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {contentKey};
+  @override
+  SeenBook map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SeenBook(
+      contentKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content_key'],
+      )!,
+      firstSeen: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}first_seen'],
+      )!,
+    );
+  }
+
+  @override
+  $SeenBooksTable createAlias(String alias) {
+    return $SeenBooksTable(attachedDatabase, alias);
+  }
+}
+
+class SeenBook extends DataClass implements Insertable<SeenBook> {
+  final String contentKey;
+  final DateTime firstSeen;
+  const SeenBook({required this.contentKey, required this.firstSeen});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['content_key'] = Variable<String>(contentKey);
+    map['first_seen'] = Variable<DateTime>(firstSeen);
+    return map;
+  }
+
+  SeenBooksCompanion toCompanion(bool nullToAbsent) {
+    return SeenBooksCompanion(
+      contentKey: Value(contentKey),
+      firstSeen: Value(firstSeen),
+    );
+  }
+
+  factory SeenBook.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SeenBook(
+      contentKey: serializer.fromJson<String>(json['contentKey']),
+      firstSeen: serializer.fromJson<DateTime>(json['firstSeen']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'contentKey': serializer.toJson<String>(contentKey),
+      'firstSeen': serializer.toJson<DateTime>(firstSeen),
+    };
+  }
+
+  SeenBook copyWith({String? contentKey, DateTime? firstSeen}) => SeenBook(
+    contentKey: contentKey ?? this.contentKey,
+    firstSeen: firstSeen ?? this.firstSeen,
+  );
+  SeenBook copyWithCompanion(SeenBooksCompanion data) {
+    return SeenBook(
+      contentKey: data.contentKey.present
+          ? data.contentKey.value
+          : this.contentKey,
+      firstSeen: data.firstSeen.present ? data.firstSeen.value : this.firstSeen,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SeenBook(')
+          ..write('contentKey: $contentKey, ')
+          ..write('firstSeen: $firstSeen')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(contentKey, firstSeen);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SeenBook &&
+          other.contentKey == this.contentKey &&
+          other.firstSeen == this.firstSeen);
+}
+
+class SeenBooksCompanion extends UpdateCompanion<SeenBook> {
+  final Value<String> contentKey;
+  final Value<DateTime> firstSeen;
+  final Value<int> rowid;
+  const SeenBooksCompanion({
+    this.contentKey = const Value.absent(),
+    this.firstSeen = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SeenBooksCompanion.insert({
+    required String contentKey,
+    required DateTime firstSeen,
+    this.rowid = const Value.absent(),
+  }) : contentKey = Value(contentKey),
+       firstSeen = Value(firstSeen);
+  static Insertable<SeenBook> custom({
+    Expression<String>? contentKey,
+    Expression<DateTime>? firstSeen,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (contentKey != null) 'content_key': contentKey,
+      if (firstSeen != null) 'first_seen': firstSeen,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SeenBooksCompanion copyWith({
+    Value<String>? contentKey,
+    Value<DateTime>? firstSeen,
+    Value<int>? rowid,
+  }) {
+    return SeenBooksCompanion(
+      contentKey: contentKey ?? this.contentKey,
+      firstSeen: firstSeen ?? this.firstSeen,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (contentKey.present) {
+      map['content_key'] = Variable<String>(contentKey.value);
+    }
+    if (firstSeen.present) {
+      map['first_seen'] = Variable<DateTime>(firstSeen.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SeenBooksCompanion(')
+          ..write('contentKey: $contentKey, ')
+          ..write('firstSeen: $firstSeen, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ReadLogTable extends ReadLog with TableInfo<$ReadLogTable, ReadLogData> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -5294,6 +5566,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PanelsTable panels = $PanelsTable(this);
   late final $AnalysedPagesTable analysedPages = $AnalysedPagesTable(this);
   late final $OverridesTable overrides = $OverridesTable(this);
+  late final $SeenBooksTable seenBooks = $SeenBooksTable(this);
   late final $ReadLogTable readLog = $ReadLogTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
   late final $CollectionBooksTable collectionBooks = $CollectionBooksTable(
@@ -5318,6 +5591,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     panels,
     analysedPages,
     overrides,
+    seenBooks,
     readLog,
     settings,
     collectionBooks,
@@ -6153,11 +6427,13 @@ typedef $$RootsTableCreateCompanionBuilder = RootsCompanion Function({
   Value<int> id,
   required String path,
   Value<DateTime> addedAt,
+  Value<DateTime?> scannedAt,
 });
 typedef $$RootsTableUpdateCompanionBuilder = RootsCompanion Function({
   Value<int> id,
   Value<String> path,
   Value<DateTime> addedAt,
+  Value<DateTime?> scannedAt,
 });
 
 class $$RootsTableFilterComposer extends Composer<_$AppDatabase, $RootsTable> {
@@ -6180,6 +6456,11 @@ class $$RootsTableFilterComposer extends Composer<_$AppDatabase, $RootsTable> {
 
   ColumnFilters<DateTime> get addedAt => $composableBuilder(
     column: $table.addedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get scannedAt => $composableBuilder(
+    column: $table.scannedAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -6207,6 +6488,11 @@ class $$RootsTableOrderingComposer
     column: $table.addedAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get scannedAt => $composableBuilder(
+    column: $table.scannedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RootsTableAnnotationComposer
@@ -6226,6 +6512,9 @@ class $$RootsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get addedAt =>
       $composableBuilder(column: $table.addedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get scannedAt =>
+      $composableBuilder(column: $table.scannedAt, builder: (column) => column);
 }
 
 class $$RootsTableTableManager
@@ -6257,16 +6546,30 @@ class $$RootsTableTableManager
               $$RootsTableOrderingComposer($db: db, $table: table),
           createComputedFieldComposer: () =>
               $$RootsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> path = const Value.absent(),
-            Value<DateTime> addedAt = const Value.absent(),
-          }) => RootsCompanion(id: id, path: path, addedAt: addedAt),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String path,
-            Value<DateTime> addedAt = const Value.absent(),
-          }) => RootsCompanion.insert(id: id, path: path, addedAt: addedAt),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> path = const Value.absent(),
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<DateTime?> scannedAt = const Value.absent(),
+              }) => RootsCompanion(
+                id: id,
+                path: path,
+                addedAt: addedAt,
+                scannedAt: scannedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String path,
+                Value<DateTime> addedAt = const Value.absent(),
+                Value<DateTime?> scannedAt = const Value.absent(),
+              }) => RootsCompanion.insert(
+                id: id,
+                path: path,
+                addedAt: addedAt,
+                scannedAt: scannedAt,
+              ),
           withReferenceMapper: (p0) => p0
               .map(
                 (e) => (
@@ -7871,6 +8174,152 @@ typedef $$OverridesTableProcessedTableManager =
       Override,
       PrefetchHooks Function()
     >;
+typedef $$SeenBooksTableCreateCompanionBuilder = SeenBooksCompanion Function({
+  required String contentKey,
+  required DateTime firstSeen,
+  Value<int> rowid,
+});
+typedef $$SeenBooksTableUpdateCompanionBuilder = SeenBooksCompanion Function({
+  Value<String> contentKey,
+  Value<DateTime> firstSeen,
+  Value<int> rowid,
+});
+
+class $$SeenBooksTableFilterComposer
+    extends Composer<_$AppDatabase, $SeenBooksTable> {
+  $$SeenBooksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get firstSeen => $composableBuilder(
+    column: $table.firstSeen,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SeenBooksTableOrderingComposer
+    extends Composer<_$AppDatabase, $SeenBooksTable> {
+  $$SeenBooksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get firstSeen => $composableBuilder(
+    column: $table.firstSeen,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SeenBooksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SeenBooksTable> {
+  $$SeenBooksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get contentKey => $composableBuilder(
+    column: $table.contentKey,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get firstSeen =>
+      $composableBuilder(column: $table.firstSeen, builder: (column) => column);
+}
+
+class $$SeenBooksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SeenBooksTable,
+          SeenBook,
+          $$SeenBooksTableFilterComposer,
+          $$SeenBooksTableOrderingComposer,
+          $$SeenBooksTableAnnotationComposer,
+          $$SeenBooksTableCreateCompanionBuilder,
+          $$SeenBooksTableUpdateCompanionBuilder,
+          (SeenBook, BaseReferences<_$AppDatabase, $SeenBooksTable, SeenBook>),
+          SeenBook,
+          PrefetchHooks Function()
+        > {
+  $$SeenBooksTableTableManager(_$AppDatabase db, $SeenBooksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SeenBooksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SeenBooksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SeenBooksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> contentKey = const Value.absent(),
+                Value<DateTime> firstSeen = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SeenBooksCompanion(
+                contentKey: contentKey,
+                firstSeen: firstSeen,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String contentKey,
+                required DateTime firstSeen,
+                Value<int> rowid = const Value.absent(),
+              }) => SeenBooksCompanion.insert(
+                contentKey: contentKey,
+                firstSeen: firstSeen,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SeenBooksTable, SeenBook>(table),
+                  BaseReferences<_$AppDatabase, $SeenBooksTable, SeenBook>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SeenBooksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SeenBooksTable,
+      SeenBook,
+      $$SeenBooksTableFilterComposer,
+      $$SeenBooksTableOrderingComposer,
+      $$SeenBooksTableAnnotationComposer,
+      $$SeenBooksTableCreateCompanionBuilder,
+      $$SeenBooksTableUpdateCompanionBuilder,
+      (SeenBook, BaseReferences<_$AppDatabase, $SeenBooksTable, SeenBook>),
+      SeenBook,
+      PrefetchHooks Function()
+    >;
 typedef $$ReadLogTableCreateCompanionBuilder = ReadLogCompanion Function({
   required String contentKey,
   required DateTime startedAt,
@@ -8620,6 +9069,8 @@ class $AppDatabaseManager {
       $$AnalysedPagesTableTableManager(_db, _db.analysedPages);
   $$OverridesTableTableManager get overrides =>
       $$OverridesTableTableManager(_db, _db.overrides);
+  $$SeenBooksTableTableManager get seenBooks =>
+      $$SeenBooksTableTableManager(_db, _db.seenBooks);
   $$ReadLogTableTableManager get readLog =>
       $$ReadLogTableTableManager(_db, _db.readLog);
   $$SettingsTableTableManager get settings =>

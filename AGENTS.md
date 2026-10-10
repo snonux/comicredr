@@ -300,6 +300,23 @@ refreshes right away instead of within six hours.
   overlay are
   left alone: `I` is a modal route with its own keys, and nothing reaches
   the comic behind `?`. No touch button for `gc` in the reader.
+- Unread (snonux, 2026-10-10; `unreadCollection` in `library_store.dart`):
+  an ordinary collection a scan puts a comic in when it is new. New is
+  two things: its content key was never in `seen_books` (schema 12, a row
+  per key this install ever scanned, never deleted, so a moved, renamed,
+  copied or deleted and restored comic is not new), and its file is at a
+  path its library folder did not have, in a folder whose scan has gone
+  through to the end before (`roots.scanned_at`, set by `markScanned`):
+  the first scan of a folder, a fresh install's included, or one cut
+  short, seeds `seen_books` and adds nothing. Other content at a known
+  path (a retagged file) is not new either. `putInUnread` leaves out a
+  comic with a position or a sitting (another device's position comes in
+  with its sidecar, which the scan merges first). The migration to 12
+  takes every book as seen and every folder as scanned. Opening a comic
+  (`ReaderNotifier.open`, after the sidecar is attached) calls
+  `leaveUnread` and writes the sidecar when it was in, so the removal
+  travels. The scan writes no sidecar for the add. No setting and no key;
+  `test/unread_test.dart`, `tool/e2e_unread.sh`.
 - The collection question (`lib/src/library/collection_dialog.dart`) has
   one path for every asker: `askCollection(context, ref, what:, keys:)`,
   used by `gc` in the reader (`_collect`), `gc` and the marks bar's
@@ -1355,6 +1372,7 @@ tool/e2e_continue.sh         # C and the library's Continue button (tapped): the
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_completed.sh         # gC in the reader on and off, reading on to the last page marks a comic and G there does not, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, gC on a cover under the filter then Enter opens the cover next to it, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
+tool/e2e_unread.sh            # a comic copied into a running library goes in Unread, a moved one and the first scan do not; opened from the Collections tab it leaves (index and sidecar); after a restart a copy is not new and a comic in a new folder is; makes its own books
 tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star (found by comparing two screenshots, not at a fixed place), x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books
 tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books

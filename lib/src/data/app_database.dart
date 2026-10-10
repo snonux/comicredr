@@ -39,6 +39,10 @@ class Roots extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get path => text().unique()();
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// When a scan of the folder first went through to the end. Until then
+  /// what a scan finds there was there already, not new (Unread).
+  DateTimeColumn get scannedAt => dateTime().nullable()();
 }
 
 /// The same book can live at many paths, across roots. `relPath` is relative
@@ -170,6 +174,20 @@ class CollectionBooks extends Table {
   Set<Column> get primaryKey => {name, contentKey};
 }
 
+/// Every comic this install has found in a library folder, by content key,
+/// and when it was first found. Never cleared, not even when the comic is
+/// deleted, so a comic that comes back, moves or is copied is not new: only
+/// one never seen before goes in the Unread collection
+/// (`LibraryStore.unreadCollection`). Kept on this device only.
+@DataClassName('SeenBook')
+class SeenBooks extends Table {
+  TextColumn get contentKey => text()();
+  DateTimeColumn get firstSeen => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {contentKey};
+}
+
 /// One sitting with a book: when it began and ended, and how many pages
 /// were shown. Kept on this device only (M8 reading history).
 class ReadLog extends Table {
@@ -228,6 +246,7 @@ class S3Books extends Table {
     Panels,
     AnalysedPages,
     Overrides,
+    SeenBooks,
     ReadLog,
     Settings,
     CollectionBooks,
@@ -248,7 +267,7 @@ class AppDatabase extends _$AppDatabase {
       );
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   /// What the detector found about a book: redone by a reset of its panels.
   List<TableInfo<Table, Object?>> get detectionTables => [analysedPages, panels];
@@ -296,6 +315,17 @@ class AppDatabase extends _$AppDatabase {
       // Every book's path and copies are looked up by content key.
       if (from < 10) await customStatement('CREATE INDEX IF NOT EXISTS files_content_key ON files (content_key)');
       if (from < 11) await m.createTable(s3Books); // S3 sync
+      if (from < 12) {
+        // Unread: the comics and folders the library has already are not new.
+        await m.createTable(seenBooks);
+        // An index from before M7 got the column with the table.
+        final columns = await customSelect('PRAGMA table_info(roots)').get();
+        if (!columns.any((c) => c.read<String>('name') == 'scanned_at')) await m.addColumn(roots, roots.scannedAt);
+        await customStatement('UPDATE roots SET scanned_at = added_at');
+        await customStatement(
+          'INSERT OR IGNORE INTO seen_books (content_key, first_seen) SELECT content_key, added_at FROM books',
+        );
+      }
     },
   );
 }
