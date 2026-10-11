@@ -346,7 +346,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   FolderFilter get filter => _filter;
 
-  /// Filters the Folders tab, remembered for the next start.
+  /// Filters every tab that lists comics, remembered for the next start.
   void setFilter(FolderFilter f) {
     if (f == _filter) return;
     setState(() {
@@ -605,8 +605,17 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         unawaited(_bulk(() => resetBooks(context, ref, marked)));
       case ReaderIntent.deleteBook when marked.isNotEmpty:
         unawaited(_bulk(() => _deleteMarked(marked)));
-      case ReaderIntent.filterFolders when tab == LibraryTab.folders:
+      case ReaderIntent.filterFolders:
         unawaited(_openFilter());
+      case ReaderIntent.filterCompleted:
+        // gF: the completed part cycles, every comic → not completed →
+        // completed only, and the notice says where it is.
+        final next = _filter.completed.cycled;
+        setFilter(_filter.copyWith(completed: next));
+        showNotice(
+          ScaffoldMessenger.of(context),
+          next == CompletedFilter.any ? 'Filter: every comic' : 'Filter: ${next.label.toLowerCase()}',
+        );
       case ReaderIntent.sortFolders when tab == LibraryTab.folders:
         unawaited(_openSort());
       case ReaderIntent.nextSortOrder when tab == LibraryTab.folders:
@@ -921,7 +930,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   }
 
   /// The cover that takes the selection when the selected one has just left
-  /// the Folders tab because the filter goes by completed and its mark
+  /// the current tab because the filter goes by completed and its mark
   /// changed (`gC`, the marks bar, the tick in its details, or the reader
   /// reaching its last page while the library waits under it); null when
   /// that is not what happened. Without this nothing was selected after:
@@ -936,7 +945,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// filter hides was not acted on. Called from build, so it sets fields
   /// without setState.
   String? _neighbourUnderFilter(List<LibraryItem> before, List<LibraryBook> books) {
-    if (tab != LibraryTab.folders || _filter.completed == CompletedFilter.any) return null;
+    if (_filter.completed == CompletedFilter.any) return null;
     final hidden = books.any((b) => _selectedBooks.contains(b.key) && !_filter.completed.accepts(b.completed));
     if (!hidden) return null;
     final shown = {for (final it in _items) it.id};
@@ -1320,11 +1329,12 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       ),
   ];
 
-  /// Under the Folders tab's header: the filter's button, and while it is
-  /// on, what it lets through, each part with its own x, and a way to clear
-  /// it all. A tap on a part opens the filter. Its own line, as the header
-  /// has no room left beside a breadcrumb. The sort button is at its end,
-  /// so the filter's parts stay where they were before there was one.
+  /// Under the header while the filter is on, and on the Folders tab
+  /// always (its sort button lives at the end): what the filter lets
+  /// through, each part with its own x, and a way to clear it all. A tap
+  /// on a part opens the filter. Its own line, as the header has no room
+  /// left beside a breadcrumb. The sort button is at its end, so the
+  /// filter's parts stay where they were before there was one.
   Widget _filterBar(BuildContext context) {
     final f = _filter;
     return Container(
@@ -1336,20 +1346,21 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: _filterParts(f)),
-            _sortButton(narrow: box.maxWidth < 600),
+            // Only the Folders tab is sorted; the sort button stays where
+            // it was, so the filter's parts did not move.
+            if (tab == LibraryTab.folders) _sortButton(narrow: box.maxWidth < 600),
           ],
         ),
       ),
     );
   }
 
-  /// The filter's button and, while it is on, its parts and Clear filter.
+  /// The filter's parts while it is on, and Clear filter.
   Widget _filterParts(FolderFilter f) => Wrap(
     spacing: 8,
     runSpacing: 4,
     crossAxisAlignment: WrapCrossAlignment.center,
     children: [
-      _filterButton(f),
       if (f.formats.isNotEmpty)
         _filterPart(
           'filterBarType',
@@ -1393,24 +1404,6 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   /// [text] with the key [intent] has now, for a tooltip or a label.
   String _tip(String text, ReaderIntent intent) => KeyHints.tip(context, text, intent);
-
-  /// The filter line's button. Its tooltip names the key also while the
-  /// label says what is filtered.
-  Widget _filterButton(FolderFilter f) {
-    final named = _tip('Filter by type, size, date, completed, length', ReaderIntent.filterFolders);
-    return Tooltip(
-      message: named,
-      child: TextButton.icon(
-        key: const Key('filter'),
-        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-        icon: Icon(f.isActive ? Icons.filter_alt : Icons.filter_alt_outlined),
-        // One line: beside the sort button a long label is cut short, the
-        // tooltip says it whole.
-        label: Text(f.isActive ? 'Filtered:' : named, maxLines: 1, overflow: TextOverflow.ellipsis),
-        onPressed: _openFilter,
-      ),
-    );
-  }
 
   /// One part of what the filter lets through; [without] is the filter
   /// with that part off, which its x sets.
@@ -1471,11 +1464,23 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// A tab of covers, where shuffle shows: all but History and Bookmarks.
   bool get _coverTab => tab != LibraryTab.history && tab != LibraryTab.bookmarks;
 
+  /// The books the filter lets through ([FolderFilter.accepts]), for any
+  /// tab that lists comics; the Folders tab also counts them into its
+  /// folders. With no filter, [books] itself.
+  List<LibraryBook> _shown(List<LibraryBook> books) {
+    if (!_filter.isActive) return books;
+    final now = DateTime.now();
+    return [
+      for (final b in books)
+        if (_filter.accepts(b, now)) b,
+    ];
+  }
+
   List<LibraryItem> _itemsFor(List<LibraryBook> books, List<RootInfo> roots, List<BookmarkInfo> bookmarks) {
     final q = _query.trim();
     switch (tab) {
       case LibraryTab.reading:
-        final started = books.where((b) => b.started && b.matches(q)).toList()
+        final started = _shown(books).where((b) => b.started && b.matches(q)).toList()
           ..sort((a, b) {
             if (a.completed != b.completed) return a.completed ? 1 : -1;
             return (b.readAt ?? DateTime(0)).compareTo(a.readAt ?? DateTime(0));
@@ -1484,20 +1489,23 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       case LibraryTab.collections when _favourites:
         final favourites = collectionGroups(books).where((s) => s.name == favouritesCollection).firstOrNull;
         return [
-          for (final b in favourites?.books ?? const <LibraryBook>[])
+          for (final b in _shown(favourites?.books ?? const <LibraryBook>[]))
             if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.series || LibraryTab.collections:
+        // Resolve the open group before filtering. An empty group stays
+        // open, and collections keep the IDs assigned from all their names.
         final all = _groups(books);
         final open = all.where((s) => s.id == _series).firstOrNull;
-        if (open != null) return [for (final b in open.books.where((b) => b.matches(q))) BookItem(b)];
+        if (open != null) return [for (final b in _shown(open.books).where((b) => b.matches(q))) BookItem(b)];
+        final shown = [for (final s in all) LibrarySeries(s.id, s.name, _shown(s.books))];
         return [
-          for (final s in all.where((s) => s.matches(q)))
+          for (final s in shown.where((s) => s.matches(q)))
             s.books.length == 1 && tab == LibraryTab.series ? BookItem(s.books.first) : SeriesItem(s),
         ];
       case LibraryTab.books:
         return [
-          for (final s in LibrarySeries.group(books))
+          for (final s in LibrarySeries.group(_shown(books)))
             for (final b in s.books)
               if (b.matches(q)) BookItem(b),
         ];
@@ -1531,7 +1539,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         final lower = q.toLowerCase();
         // Book by book in the order of the Books tab, each in reading order.
         return [
-          for (final s in LibrarySeries.group(books))
+          for (final s in LibrarySeries.group(_shown(books)))
             for (final b in s.books)
               for (final m in byBook[b.key] ?? const <BookmarkInfo>[])
                 if (b.matches(q) || (m.note?.toLowerCase().contains(lower) ?? false)) BookmarkItem(m, b),
@@ -1550,7 +1558,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     if (_selected != null && !_items.any((it) => it.id == _selected)) {
       // An edit moved the book to another series, or renamed its series:
       // the selection follows the books. Its completed mark took it off the
-      // filtered Folders tab: the cover next to it.
+      // filtered tab: the cover next to it.
       _selected =
           _items.where((it) => _books(it).any(_selectedBooks.contains)).firstOrNull?.id ??
           _neighbourUnderFilter(before, books);
@@ -1631,10 +1639,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                 children: [
                   _header(context, books),
                   if (_marked.isNotEmpty || _selecting) _marksBar(context),
-                  if (tab == LibraryTab.folders) _filterBar(context),
+                  if (tab == LibraryTab.folders || _filter.isActive) _filterBar(context),
                   Expanded(
                     child: switch (tab) {
-                      LibraryTab.history => HistoryPane(books: books, query: _query.trim(), onRead: read),
+                      LibraryTab.history => HistoryPane(
+                        books: _shown(books),
+                        query: _query.trim(),
+                        onRead: read,
+                        filtered: _filter.isActive,
+                      ),
                       LibraryTab.bookmarks => _bookmarkRows(context),
                       _ => _grid(context, wide),
                     },
@@ -1864,13 +1877,41 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       prefixIcon: const Icon(Icons.search),
       hintText: KeyHints.tip(context, 'Search titles, series, creators', ReaderIntent.search),
       border: const OutlineInputBorder(),
-      suffixIcon: _query.isEmpty
-          ? null
-          : IconButton(
-              icon: const Icon(Icons.clear),
-              tooltip: KeyHints.tip(context, 'Clear the search', ReaderIntent.back),
-              onPressed: () => back(),
-            ),
+      // The filter, on any tab that lists comics: a funnel at the search
+      // box's end, filled while a filter is on. The header row has no room
+      // for it beside the breadcrumb (a tablet with the details pane, a
+      // phone), so it sits in the box, whose width gives and takes with
+      // it; the filter combines with the search, so it belongs there.
+      suffixIcon: LayoutBuilder(
+        builder: (context, constraints) {
+          // A narrow box keeps the funnel and gives up the clear x (Esc
+          // clears the search); a sliver of a box has room for no button.
+          final room = constraints.maxWidth;
+          if (room < 48) return const SizedBox.shrink();
+          return Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_query.isNotEmpty && room >= 108)
+                IconButton(
+                  icon: const Icon(Icons.clear),
+                  tooltip: KeyHints.tip(context, 'Clear the search', ReaderIntent.back),
+                  onPressed: () => back(),
+                ),
+              IconButton(
+                key: const Key('filter'),
+                icon: Icon(_filter.isActive ? Icons.filter_alt : Icons.filter_alt_outlined),
+                isSelected: _filter.isActive,
+                tooltip: KeyHints.tip(
+                  context,
+                  'Filter by type, size, date, completed, length',
+                  ReaderIntent.filterFolders,
+                ),
+                onPressed: _openFilter,
+              ),
+            ],
+          );
+        },
+      ),
     ),
     onChanged: (q) => setState(() {
       _query = q;
@@ -1978,7 +2019,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           padding: const EdgeInsets.all(24),
           child: Text(
             _query.isNotEmpty
-                ? 'Nothing matches "$_query".'
+                ? 'Nothing matches "$_query"${_filter.isActive ? ' with this filter' : ''}.'
+                : _filter.isActive
+                ? 'No bookmarks match the filter.'
                 : 'No bookmarks yet. In the reader, mm or the bookmark button bookmarks the page, '
                       'or the panel in guided view.',
             textAlign: TextAlign.center,
@@ -2052,11 +2095,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   Widget _grid(BuildContext context, bool wide) {
     if (_items.isEmpty) {
-      final filtered = tab == LibraryTab.folders && _filter.isActive;
+      final filtered = _filter.isActive;
       final text = _query.isNotEmpty
           ? 'Nothing matches "$_query"${filtered ? ' with this filter' : ''}.'
           : filtered
-          ? (_folder == null ? 'No comics match the filter.' : 'No comics in this folder match the filter.')
+          ? (tab == LibraryTab.folders && _folder != null
+                ? 'No comics in this folder match the filter.'
+                : 'No comics match the filter.')
           : tab == LibraryTab.folders
           ? (_folder == null ? 'No library folders yet. A adds one.' : 'No books in this folder any more.')
           : tab == LibraryTab.reading

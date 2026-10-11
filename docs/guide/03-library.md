@@ -139,11 +139,12 @@ subfolders and comics, as they are on disk.
 
 ![Inside a folder: its comics](images/folders-inside.webp)
 
-#### Filter the Folders tab
+#### Filter the library
 
-Press `F` on the Folders tab, or tap **Filter by type, size, date,
-completed, length** under the search box, to show only some of your
-comics:
+Press `F`, or tap the funnel at the search box's right end, to show only
+some of your comics. The filter works on every tab that lists comics:
+the Folders tab, Books, Series, Reading, Collections, History and
+Bookmarks alike.
 
 - **Type**: CBZ, CBT, PDF, EPUB, image folder or single image. Only the
   types your library has are offered. Pick one or several; none picked
@@ -164,20 +165,29 @@ The covers behind the window update as you pick. From the keyboard,
 **Clear all**, and `Esc`, `Alt+D` or **Done** closes the window. The
 five combine, and they combine with the search too: PDFs from the last
 week with "love" in the title is `F`, PDF, Last 7 days, then `/` and
-`love`. To see only what you have not read yet: `F`, `Tab` to **Not
-completed**, `Space`, `Esc`. A comic you then mark completed leaves the
-tab at once and the cover next to it is selected, so `gC`, `gC`, `gC`
-ticks off one after the other, and `Enter` opens what comes next. (After
-**Undo** the comic is back and the selection stays where it is.) For
-the thick volumes only, tap **Over 200 pages** under **Length**, or
-press `Tab` until it is ringed and `Space`.
+`love`. To see only what you have not read yet, `gF` is the whole
+detour in one key: it turns the Completed part to **Not completed**,
+press it again for **Completed only** and a third time for every comic,
+with a notice saying where it is. (`F`, `Tab` to **Not completed**,
+`Space`, `Esc` does the same.) A comic you then mark completed leaves
+the tab at once and the cover next to it is selected, so `gC`, `gC`,
+`gC` ticks off one after the other, and `Enter` opens what comes next.
+(After **Undo** the comic is back and the selection stays where it
+is.) For the thick volumes only, tap **Over 200 pages** under
+**Length**, or press `Tab` until it is ringed and `Space`.
 
-A subfolder with nothing that passes is hidden, and a folder's count is
-of the comics that pass. While a filter is on, the line under the search
-box says what it lets through: tap a part to change it, its x to take it
-off, or **Clear filter** for all of it. **Clear all** in the window does
-the same. The filter stays until you clear
-it, across restarts, and only the Folders tab is filtered.
+On the Folders tab a subfolder with nothing that passes is hidden, and
+a folder's count is of the comics that pass. An open series or collection
+stays open when the filter hides every comic in it: clear the filter to
+see them again, or press `Esc` to go back to the groups. While a filter
+is on, the line under the search box says what it lets through: tap a
+part to change it, its x to take it off, or **Clear filter** for all of it.
+An empty tab says when nothing matches the filter, including History
+and Bookmarks; clearing it brings the hidden rows back.
+**Clear all** in the window does the same. The funnel in the search box
+is filled while a filter is on. The filter stays until you clear it,
+across restarts — and it holds on every tab: a comic marked completed
+leaves the Reading tab too, for instance, not just the Folders tab.
 
 ![The filter over the Golden age folder, PDFs only](images/filter-dialog.webp)
 
@@ -289,8 +299,7 @@ offers, so it waits for the Undo to show.)
 
 A comic you have read to the end is *completed*: its cover gets a green
 check, its details say **Completed**, a series and a folder count it as
-read, and the [Folders tab's
-filter](#filter-the-folders-tab) can show only the
+read, and the [library filter](#filter-the-library) can show only the
 completed ones or hide them.
 
 - **Reading does it.** Read on to the last page of a comic (a key, a tap
@@ -437,7 +446,7 @@ works on every tab of covers, and it is made for the Folders tab: walk
 into a folder, press `Shift+End`, and every comic in it is marked.
 
 - `Ctrl+A` marks every comic shown, so with a search or a
-  [filter](#filter-the-folders-tab) only those that match; press it
+  [filter](#filter-the-library) only those that match; press it
   again to unmark them all.
 - `V` marks or unmarks the selected cover and moves on, so you can pick
   comics that are not next to each other. A plain arrow key moves

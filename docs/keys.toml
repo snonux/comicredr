@@ -187,8 +187,10 @@ showScanFailures = ["g!"]
 toggleShuffle = ["S"]
 # Pick other random pages for shuffle in the library
 reshuffle = ["gs"]
-# Filter the library's Folders tab by type, size, modification date and completed or not
+# Filter the library's tabs by type, size, modification date, completed or not and length
 filterFolders = ["F"]
+# The library's filter: cycle the completed part — every comic, not completed, completed only
+filterCompleted = ["gF"]
 # Sort the library's Folders tab: by name, date added, last read, file date, size, pages, series or year
 sortFolders = ["gS"]
 # The library's Folders tab: sort by the next order (name, added, last read, …)

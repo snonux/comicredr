@@ -1224,6 +1224,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.toggleShuffle:
       case ReaderIntent.reshuffle:
       case ReaderIntent.filterFolders:
+      case ReaderIntent.filterCompleted:
       case ReaderIntent.sortFolders:
       case ReaderIntent.nextSortOrder:
       case ReaderIntent.reverseSort:

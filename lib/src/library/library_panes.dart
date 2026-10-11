@@ -12,10 +12,11 @@ import 'providers.dart';
 
 /// Reading history: sittings with books, newest first, by day.
 class HistoryPane extends ConsumerWidget {
-  const HistoryPane({super.key, required this.books, required this.query, required this.onRead});
+  const HistoryPane({super.key, required this.books, required this.query, required this.onRead, this.filtered = false});
 
   final List<LibraryBook> books;
   final String query;
+  final bool filtered;
   final void Function(LibraryBook, {Place? at}) onRead;
 
   static String _day(DateTime d) {
@@ -46,7 +47,11 @@ class HistoryPane extends ConsumerWidget {
     if (shown.isEmpty) {
       return Center(
         child: Text(
-          query.isEmpty ? 'What you read shows up here, sitting by sitting.' : 'Nothing matches "$query".',
+          query.isNotEmpty
+              ? 'Nothing matches "$query"${filtered ? ' with this filter' : ''}.'
+              : filtered
+              ? 'No reading history matches the filter.'
+              : 'What you read shows up here, sitting by sitting.',
           style: theme.textTheme.bodyLarge,
         ),
       );

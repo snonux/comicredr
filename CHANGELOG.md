@@ -7,6 +7,19 @@ the `?` overlay.
 
 ## Unreleased
 
+- **The filter is on every tab, not only the Folders tab:** `F`, and the
+  funnel at the search box's right end (new: it used to be a wide button
+  on a line under the header, which only the Folders tab had), open the
+  filter window anywhere in the library, and the filter now holds on
+  Books, Series, Reading, Collections, History and Bookmarks too, not
+  just the Folders tab. A series or a folder with nothing that passes
+  hides, as folders on the Folders tab already did. The sort stays on
+  the Folders tab. On a phone-wide window the funnel is in the search
+  box only while there is room for it.
+- **`gF` cycles the filter's Completed part:** every comic → not
+  completed → completed only, one keypress at a time, with a notice
+  saying where it is. "What is left to read" is now `gF` on any tab
+  instead of `F`, `Tab`, `Space`, `Esc`.
 - **Panels from a large AI model (optional):** `tool/llm_panels.py` turns a
   comic's pages into pictures for Claude Code, Codex or another agent that
   can look at images, hands it the prompt, draws its answer back on the

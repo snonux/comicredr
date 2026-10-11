@@ -792,21 +792,32 @@ refreshes right away instead of within six hours.
   cover shows until the page is ready, and the 256 px page until a 512 px
   one is. On a phone-wide header the
   reshuffle button is left out; `gs` or `S` twice picks again.
-- The Folders tab's filter (`F`, `ReaderIntent.filterFolders`;
-  `FolderFilter` in `lib/src/library/folder_filter.dart`, its window in
+- The library's filter (`F`, `ReaderIntent.filterFolders`, and `gF`
+  `filterCompleted`; `FolderFilter` in
+  `lib/src/library/folder_filter.dart`, its window in
   `folder_filter_dialog.dart`): a set of `LibraryBook.format`s, a
   `SizeRange`, a `DateRange`, a `CompletedFilter` (any, only, hide;
   by `LibraryBook.completed`, task 273) and a `PageRange` (by
   `LibraryBook.pageCount`, task 363; a count of 0, a comic on S3 whose
-  manifest said none, passes only Any length), applied to the books before
-  `LibraryFolder.roots`/`children` build the tab, so folder counts are of
-  what passes and folders with none go. Size and date are the first
+  manifest said none, passes only Any length). It applies to every tab
+  that lists comics (`_shown` in `library_screen.dart`, before the
+  per-tab listings are built: series and collections with none passing
+  go, as folders on the Folders tab already did, where folder counts are
+  of what passes); the sort stays Folders-only. `gF` cycles the
+  completed part, every comic → not completed → completed only, with a
+  notice; `CompletedFilter.cycled`. Size and date are the first
   file's `files.size` and `files.mtime` (a folder book: its pages' total
   and newest), read in `_booksSql` into `LibraryBook.size`/`modified`; a
   comic on S3 only uses the upload's. Saved as JSON in
   `library.folderFilter` (in `SettingsStore.backedUp`, unset when
-  off). It has its own line under the header (`_filterBar`), since the
-  header has no room left beside a breadcrumb on a tablet or phone.
+  off). The button that opens it is the funnel at the search box's
+  right end, in the field's suffix — the header row has no room for it
+  beside a breadcrumb on a tablet or phone (at 1280 with the details
+  pane open the search box is ~200 px already); a box narrower than
+  48 px hides the funnel, one between 48 and 108 px keeps it and gives
+  up the clear x. The line under the header (`_filterBar`) shows while
+  the filter is on (parts and Clear filter), and always on the Folders
+  tab, where the sort button sits at its end.
   A part more is a field whose default lets
   everything through and a line each in `isActive`, `accepts`,
   `copyWith`, `encode`, `decode`, `==` and `hashCode`, its chips at the
@@ -1404,7 +1415,7 @@ tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a lo
 tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
 tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
-tool/e2e_folder_filter.sh     # F on the Folders tab: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x and the filter line clicked, Clear all; checks the index with sqlite3; makes its own books
+tool/e2e_folder_filter.sh     # F and the funnel in the search box: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x on the filter line and the funnel clicked, Clear all; the Books tab filtered too; gC marks a cover and gF cycles the completed part (not completed, completed only, every comic), each proved by the comic that opens first; checks the index with sqlite3; makes its own books
 tool/e2e_folder_sort.sh       # gS and Alt+P, S, M, L in its window, gO and go, each proved by the comic that opens first; kept across a restart; the sort button clicked; checks the index with sqlite3; makes its own books
 tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books

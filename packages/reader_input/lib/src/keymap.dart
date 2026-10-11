@@ -148,6 +148,7 @@ class Keymap {
       Binding(['S'], ReaderIntent.toggleShuffle),
       Binding(['g', 's'], ReaderIntent.reshuffle),
       Binding(['F'], ReaderIntent.filterFolders),
+      Binding(['g', 'F'], ReaderIntent.filterCompleted),
       Binding(['g', 'S'], ReaderIntent.sortFolders),
       Binding(['g', 'o'], ReaderIntent.nextSortOrder),
       Binding(['g', 'O'], ReaderIntent.reverseSort),

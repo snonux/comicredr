@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# End-to-end check of the Folders tab's filter (`F`) on the Linux build:
-# by type, by size, by the file's modification date and by length, each picked in the
-# filter window with Tab and Space, then a comic opened from what is left
-# to prove which ones it let through; the filter kept across a restart;
-# the filter line's part x and button clicked with the mouse, and the
-# window's Clear all. Checks
-# the index with sqlite3.
+# End-to-end check of the library's filter (`F`, the funnel in the search
+# box) on the Linux build: on the Folders tab by type, by size, by the
+# file's modification date and by length, each picked in the filter window
+# with Tab and Space, then a comic opened from what is left to prove which
+# ones it let through; the filter kept across a restart; the filter line's
+# part x and the funnel in the search box clicked with the mouse, and the
+# window's Clear all; the Books tab filtered too (the filter is on every
+# tab that lists comics); gC marks a comic completed on its cover and gF
+# cycles the completed part of the filter: not completed, completed only,
+# every comic. Checks the index with sqlite3.
 #
 #   tool/e2e_folder_filter.sh
 #
@@ -91,6 +94,14 @@ key() { xdotool key "$@" 2>/dev/null; sleep 0.8; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1; }
 sql() { python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(sys.argv[2]).fetchone()[0])' "$db" "$1"; }
 read_() { sql "select count(*) from progress p join books b using (content_key) where b.title = '$1'"; }
+# The comic opened last: the first of the Continue list.
+last_read() {
+  sql "select value from settings where key = 'reader.recent'" | python3 -c '
+import json, os, sys
+v = json.loads(sys.stdin.read() or "[]")
+v = json.loads(v) if isinstance(v, str) else v
+print(os.path.basename(v[0]["path"]) if v else "")'
+}
 failed=0
 check() { # check "what" actual expected
   if [[ "$2" == "$3" ]]; then echo "ok    $1: $2"; else echo "FAIL  $1: $2, expected $3"; failed=1; fi
@@ -109,6 +120,12 @@ first_in_golden_age() {
   key l; key Return; key Return; key Return; sleep 2; shot "$1"; key Escape; sleep 1
   key BackSpace; key BackSpace
 }
+# Where the mouse finds things at 1280x900: the funnel at the search box's
+# end, and the x of the filter line's first part (the date chip, its right
+# end). Nothing is selected in either state, so the header is as wide as it
+# gets; the funnel is filled while a filter is on.
+FUNNEL_X=${FUNNEL_X:-971}
+CHIP_X=${CHIP_X:-305}
 
 start --add-root "$comics"
 for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 6 ]] && break; sleep 0.5; done
@@ -145,12 +162,15 @@ check "the filter says so" "$(sql "select value like '%older%' from settings whe
 
 # The mouse, in Comics: the date part's x on the filter line takes it off.
 key l; key Return; shot 12_comics_older
-click 431 69; shot 13_x_clicked
+click $CHIP_X 69; shot 13_x_clicked
 check "the x cleared the filter" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
-# The filter line's button opens the window; its Clear all (after the 23
-# chips) clears it.
+# From the tab's top, the funnel in the search box opens the window (the
+# date filter just set dropped the selection, so the header is as wide as
+# it gets and the funnel sits at the search box's end); its Clear all
+# (after the 23 chips) clears it.
+key BackSpace
 key shift+f; sleep 1; chip 14; key Escape
-click 150 69; sleep 1; shot 14_window_by_click
+click $FUNNEL_X 28; sleep 1; shot 14_window_by_click
 chip 23; sleep 0.5; shot 15_clear_all; key Escape
 check "Clear all cleared it" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
 
@@ -161,6 +181,41 @@ key shift+f; sleep 1; chip 20; shot 16_length_picked; key Escape; sleep 1; shot 
 key l; key Return; key Return; key Return; sleep 2; shot 18_read_saga; key Escape; sleep 1
 check "the 30-page comic opened" "$(read_ 'Saga')" 1
 check "the filter says so" "$(sql "select value like '%to64%' from settings where key = 'library.folderFilter'")" 1
+stop
+
+# The Books tab is filtered too: Tab Tab from the Reading tab (where the
+# app starts) is Books, and only Zeppelin is a PDF. F opens the window
+# there as well; Clear all takes the filter off again.
+start --add-root "$comics" # In the library: the comic read last would open otherwise.
+key Tab; key Tab; shot 19_books_tab
+key shift+f; sleep 1; chip 23; key Escape # The length filter from before, off.
+key shift+f; sleep 1; chip 2; key Escape; sleep 1; shot 20_books_pdf_only
+key l; key Return; sleep 2; key Escape; sleep 1
+check "the Books tab's filter opened the PDF first" "$(last_read)" "zeppelin.pdf"
+key shift+f; sleep 1; chip 23; key Escape
+check "Clear all cleared it" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
+stop
+
+# gC marks Mystery Men completed on its cover; gF cycles the completed
+# part of the filter: not completed first, completed only, every comic.
+# Mystery Men leaves the tab under the first, comes back alone under the
+# second, and all are back under the third.
+start --add-root "$comics"
+click 43 355 # The Folders tab, its top; the filter from before is still on.
+key shift+f; sleep 1; chip 23; key Escape # Clear all: every comic again.
+key l; key Return; key Return; sleep 1 # Comics, then Golden Age: Mystery Men first.
+key g C; sleep 0.5; shot 21_marked
+check "gC marked Mystery Men" "$(sql "select count(*) from overrides where field = 'completed'")" 1
+key g F; sleep 0.5; shot 22_gf_not_completed
+check "gF set not completed" "$(sql "select value like '%completed%hide%' from settings where key = 'library.folderFilter'")" 1
+key l; key Return; sleep 2; key Escape; sleep 1
+check "not completed: Space Ranger opened first" "$(last_read)" "space-ranger.cbz"
+key g F; sleep 0.5; shot 23_gf_completed_only
+check "gF set completed only" "$(sql "select value like '%completed%only%' from settings where key = 'library.folderFilter'")" 1
+key l; key Return; sleep 2; key Escape; sleep 1
+check "completed only: Mystery Men opened first" "$(last_read)" "mystery-men.cbz"
+key g F; sleep 0.5; shot 24_gf_off
+check "gF took the filter off" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
 stop
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"

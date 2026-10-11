@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../hotkeys.dart';
 import 'folder_filter.dart';
 
-/// `F`, or the filter button on the Folders tab: the type, size, date,
-/// completed and length filter. Each change applies at once, so the covers
-/// behind it follow; Tab and Space work the chips, Esc or Done closes it.
+/// `F`, or the filter button by the search box: the type, size, date,
+/// completed and length filter, on any tab that lists comics. Each change
+/// applies at once, so the covers behind it follow; Tab and Space work the
+/// chips, Esc or Done closes it.
 Future<void> showFolderFilter(
   BuildContext context, {
   required FolderFilter filter,
@@ -39,7 +40,7 @@ class _FolderFilterDialogState extends State<_FolderFilterDialog> {
   Widget build(BuildContext context) => DialogHotkeys(
     child: AlertDialog(
       key: const Key('filterDialog'),
-      title: const Text('Filter the Folders tab'),
+      title: const Text('Filter the library'),
       content: SizedBox(
         width: 460,
         child: SingleChildScrollView(

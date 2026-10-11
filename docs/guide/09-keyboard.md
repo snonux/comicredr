@@ -86,6 +86,8 @@ keep what you found and get the keys back, and then they size the text.
 | `I` | [Details](07-managing-comics.md#details-of-a-comic) | Details of the selected book |
 | `f` | [Fullscreen](04-reading.md#fullscreen) | Fullscreen |
 | `/` | | [Search](03-library.md#search) |
+| `F` | | [Filter](03-library.md#filter-the-library) the comics shown, on every tab |
+| `gF` | | The filter's Completed part in one key: not completed, completed only, every comic |
 | `g,` | [Settings](12-settings.md), over the comic | Settings |
 | `u` | Undo what the notice along the bottom offers to undo, while it shows | The same |
 | `?` | Every key (`+` `-` `=` in it: [bigger and smaller text](#bigger-and-smaller-text)) | Every key |
@@ -117,7 +119,7 @@ A few buttons are shortcuts to something the keys reach in two steps,
 and have no key of their own: the names along the top of the Folders
 tab (`Backspace` goes up a folder at a time), **Read** in a series'
 details (`Enter` shows its books, `Enter` on one reads it), the **x** on
-a part of the [filter](03-library.md#filter-the-folders-tab)
+a part of the [filter](03-library.md#filter-the-library)
 (`F`, then pick it off there), and **Note** and **Remove** on a bookmark
 in a book's details (`e` and `x` on the Bookmarks tab). The tabs are
 `Tab` and `Shift+Tab`, covers and pages the arrows and `Enter`.

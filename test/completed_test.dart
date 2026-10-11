@@ -5,6 +5,7 @@ import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/meta_edits.dart';
 import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/data/read_log_store.dart';
 import 'package:comicredr/src/data/settings_file.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
@@ -981,6 +982,105 @@ void main() {
       expect(selected(tester), isNull);
     });
 
+    for (final tab in ['Books', 'Reading']) {
+      testWidgets('under Not completed the $tab tab selects the next comic after gC', (tester) async {
+        final store = (await tester.runAsync(shelf))!;
+        final books = (await tester.runAsync(store.books))!;
+        await tester.runAsync(() async {
+          final progress = ProgressStore(db, debounce: Duration.zero);
+          for (final (i, book) in books.indexed) {
+            progress.save(book.key, const ReadingPosition(page: 0), book.pageCount);
+            await progress.flush();
+            await (db.update(
+              db.progress,
+            )..where((r) => r.contentKey.equals(book.key))).write(ProgressCompanion(updatedAt: Value(at(i))));
+          }
+          await SettingsStore(db)
+              .saveString(SettingsStore.folderFilter, const FolderFilter(completed: CompletedFilter.hide).encode()!);
+        });
+        final c = await pumpApp(tester);
+        await settle(tester);
+        await tester.tap(find.text(tab).first);
+        await settle(tester);
+        await press(tester, LogicalKeyboardKey.home);
+        final before = tester
+            .widgetList<CoverCard>(find.byType(CoverCard))
+            .map((w) => (w.item as BookItem).book)
+            .toList();
+        expect(before, hasLength(3));
+        expect(selected(tester), before.first.name);
+        await type(tester, 'gC');
+        expect(await markOf(tester, store, before.first.key), isTrue);
+        expect(selected(tester), before[1].name);
+        await tester.runAsync(() async {
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        });
+        await settle(tester);
+        expect(c.read(readerProvider).book?.key, before[1].key);
+      });
+    }
+
+    for (final tab in ['Series', 'Collections']) {
+      testWidgets('an open $tab group stays empty when its last matching comic is completed', (tester) async {
+        writeBook(root, 'Akira 1.cbz', 5);
+        writeBook(root, 'Akira 2.cbz', 6);
+        final store = (await tester.runAsync(shelf))!;
+        final books = (await tester.runAsync(store.books))!;
+        await tester.runAsync(() async {
+          for (final book in books) {
+            await store.addToCollection(book.key, book.series);
+          }
+          await store.setCompleted(named(books, 'Akira #2').key, true);
+        });
+        await pumpApp(tester);
+        await settle(tester);
+        await tester.tap(find.text(tab).first);
+        await settle(tester);
+        await press(tester, LogicalKeyboardKey.home);
+        await press(tester, LogicalKeyboardKey.enter);
+        expect(selected(tester), 'Akira #1');
+        await type(tester, 'gF');
+        // The filter drops the selection; select the one remaining comic.
+        await press(tester, LogicalKeyboardKey.home);
+        expect(selected(tester), 'Akira #1');
+        await type(tester, 'gC');
+        expect(find.byType(CoverCard), findsNothing, reason: 'other groups must not appear inside Akira');
+        expect(find.text('Akira'), findsOneWidget, reason: 'the open group remains in the header');
+        expect(find.text('No comics match the filter.'), findsOneWidget);
+        await type(tester, 'gF'); // Completed only: the same group returns.
+        final shown = tester.widgetList<CoverCard>(find.byType(CoverCard)).map((w) => (w.item as BookItem).book.name);
+        expect(shown, ['Akira #1', 'Akira #2']);
+      });
+    }
+
+    testWidgets('filtering out an earlier collection preserves the open collection and cover IDs', (tester) async {
+      final store = (await tester.runAsync(shelf))!;
+      final books = (await tester.runAsync(store.books))!;
+      final a = named(books, 'Daredevil #181'), b = named(books, 'Preacher #1'), c = named(books, 'Swamp Thing #21');
+      await tester.runAsync(() async {
+        for (final (name, book) in [('A', a), ('B', b), ('C', c)]) {
+          await store.addToCollection(book.key, name);
+        }
+        await store.setCompleted(a.key, true);
+      });
+      await pumpApp(tester);
+      await settle(tester);
+      await tester.tap(find.text('Collections').first);
+      await settle(tester);
+      await press(tester, LogicalKeyboardKey.home);
+      await type(tester, 'l');
+      await press(tester, LogicalKeyboardKey.enter); // B.
+      await type(tester, 'gF'); // A disappears.
+      expect(find.text('B'), findsOneWidget);
+      expect(tester.widget<CoverCard>(find.byType(CoverCard)).item, isA<BookItem>());
+      expect((tester.widget<CoverCard>(find.byType(CoverCard)).item as BookItem).book.key, b.key);
+      await press(tester, LogicalKeyboardKey.escape);
+      final groups = tester.widgetList<CoverCard>(find.byType(CoverCard)).map((w) => w.item as SeriesItem).toList();
+      expect(groups.map((s) => s.series.name), ['B', 'C']);
+      expect(groups.map((s) => s.id), ['s:-2', 's:-3']);
+    });
+
     testWidgets('under Not completed a selected comic that leaves the library for another reason takes the selection '
         'with it', (tester) async {
       final (_, store, books) = await filtered(tester, CompletedFilter.hide);
@@ -1293,6 +1393,10 @@ void main() {
       await type(tester, 'F');
       expect(find.byKey(const Key('filterDialog')), findsOneWidget);
       expect(tester.widget<ChoiceChip>(find.byKey(const Key('filterCompleted-any'))).selected, isTrue);
+      // The test font is wide: the completed chips wrap, and the one tapped
+      // may sit below the dialog's fold.
+      await tester.ensureVisible(find.byKey(const Key('filterCompleted-only')));
+      await settle(tester);
       await tester.tap(find.byKey(const Key('filterCompleted-only')));
       await settle(tester);
       await tester.tap(find.byKey(const Key('filterDone')));
@@ -1343,6 +1447,116 @@ void main() {
       expect(find.byKey(const Key('filterBarCompleted')), findsNothing);
       expect(find.text('3 books · 1 read'), findsOneWidget);
       expect(await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)), isNull);
+    });
+
+    for (final tab in ['History', 'Bookmarks']) {
+      testWidgets('gF filters the $tab rows by their comic and keeps the rows stored', (tester) async {
+        final store = (await tester.runAsync(shelf))!;
+        final books = (await tester.runAsync(store.books))!;
+        final done = named(books, 'Daredevil #181'), unread = named(books, 'Preacher #1');
+        await tester.runAsync(() async {
+          await store.setCompleted(done.key, true);
+          for (final (i, book) in [done, unread].indexed) {
+            await ReadLogStore(db).record(book.key, at(i * 30), at(i * 30 + 10), 2);
+            await db
+                .into(db.bookmarks)
+                .insert(BookmarksCompanion.insert(id: 'bookmark-$i', contentKey: book.key, page: 1, createdAt: at(i)));
+          }
+        });
+        await pumpApp(tester);
+        await settle(tester);
+        await tester.tap(find.text(tab).first);
+        await settle(tester);
+        Finder row(String name) => find.descendant(
+          of: find.byKey(Key(tab == 'History' ? 'history' : 'bookmarksTab')),
+          matching: find.text(name),
+        );
+        expect(row(done.name), findsOneWidget);
+        expect(row(unread.name), findsOneWidget);
+        await type(tester, 'gF');
+        expect(row(done.name), findsNothing);
+        expect(row(unread.name), findsOneWidget);
+        await type(tester, 'gF');
+        expect(row(done.name), findsOneWidget);
+        expect(row(unread.name), findsNothing);
+        await type(tester, 'gF');
+        expect(row(done.name), findsOneWidget);
+        expect(row(unread.name), findsOneWidget);
+        // With every recorded comic completed, Not completed hides all
+        // the rows. The empty message explains the filter, and switching
+        // to Completed only brings the stored rows back.
+        await type(tester, 'gF');
+        await tester.runAsync(() => store.setCompleted(unread.key, true));
+        await settle(tester);
+        expect(row(done.name), findsNothing);
+        expect(row(unread.name), findsNothing);
+        expect(
+          find.text(tab == 'History' ? 'No reading history matches the filter.' : 'No bookmarks match the filter.'),
+          findsOneWidget,
+        );
+        await type(tester, 'gF');
+        expect(row(done.name), findsOneWidget);
+        expect(row(unread.name), findsOneWidget);
+        expect(await tester.runAsync(() => db.select(db.bookmarks).get()), hasLength(2));
+        expect(await tester.runAsync(() => db.select(db.readLog).get()), hasLength(2));
+      });
+    }
+
+    testWidgets('gF cycles the completed filter on any tab, with a notice; the funnel button and F work there too', (
+      tester,
+    ) async {
+      final store = (await tester.runAsync(shelf))!;
+      final books = (await tester.runAsync(store.books))!;
+      await tester.runAsync(() => store.setCompleted(named(books, 'Daredevil #181').key, true));
+      await pumpApp(tester);
+      await settle(tester);
+      // The Books tab, not the Folders tab: the filter works there too.
+      await tester.tap(find.text('Books'));
+      await settle(tester);
+      Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
+      expect(cover('Daredevil #181'), findsOneWidget);
+      expect(find.byKey(const Key('filterBar')), findsNothing, reason: 'no filter, not the Folders tab');
+
+      // gF: not completed first, as what is left to read is the more
+      // asked-for half.
+      await type(tester, 'gF');
+      expect(find.text('Filter: not completed'), findsOneWidget);
+      expect(cover('Daredevil #181'), findsNothing);
+      expect(cover('Preacher #1'), findsOneWidget);
+      // The line under the header says so, and the funnel in the search
+      // box is filled while the filter is on.
+      expect(find.byKey(const Key('filterBarCompleted')), findsOneWidget);
+      expect(tester.widget<IconButton>(find.byKey(const Key('filter'))).isSelected, isTrue);
+      expect(
+        await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)),
+        contains('"completed":"hide"'),
+      );
+
+      // Again: completed only. And a third time: every comic, no filter.
+      await type(tester, 'gF');
+      expect(find.text('Filter: completed only'), findsOneWidget);
+      expect(cover('Daredevil #181'), findsOneWidget);
+      expect(cover('Preacher #1'), findsNothing);
+      await type(tester, 'gF');
+      expect(find.text('Filter: every comic'), findsOneWidget);
+      expect(cover('Daredevil #181'), findsOneWidget);
+      expect(cover('Preacher #1'), findsOneWidget);
+      expect(find.byKey(const Key('filterBarCompleted')), findsNothing);
+      expect(tester.widget<IconButton>(find.byKey(const Key('filter'))).isSelected, isFalse);
+      expect(await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)), isNull);
+
+      // The funnel opens the window on any tab, and so does F.
+      await tester.tap(find.byKey(const Key('filter')));
+      await settle(tester);
+      expect(find.byKey(const Key('filterDialog')), findsOneWidget);
+      expect(tester.widget<ChoiceChip>(find.byKey(const Key('filterCompleted-any'))).selected, isTrue);
+      await tester.tap(find.byKey(const Key('filterDone')));
+      await settle(tester);
+      await type(tester, 'F');
+      expect(find.byKey(const Key('filterDialog')), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      expect(find.byKey(const Key('filterDialog')), findsNothing);
     });
   });
 }

@@ -88,6 +88,15 @@ enum CompletedFilter {
     only => completed,
     hide => !completed,
   };
+
+  /// The next state of the `gF` cycle: any → not completed → completed
+  /// only → any. Not completed comes first from "any", as what is left
+  /// to read is the more asked-for half.
+  CompletedFilter get cycled => switch (this) {
+    any => hide,
+    hide => only,
+    only => any,
+  };
 }
 
 /// The name a comic's format goes by in the filter, from [LibraryBook.format].
@@ -101,8 +110,9 @@ String formatLabel(String format) => switch (format) {
   _ => format.toUpperCase(),
 };
 
-/// The Folders tab's filter (`F`): the comics of some types, sizes,
-/// modification dates and lengths, completed or not. Each part left at its
+/// The library's filter (`F`): the comics of some types, sizes,
+/// modification dates and lengths, completed or not. It applies to every
+/// tab that lists comics. Each part left at its
 /// default lets everything through; the parts combine, and with the search.
 ///
 /// A new part is a field with a default that lets everything through, a
