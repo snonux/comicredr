@@ -84,7 +84,7 @@ for _ in $(seq 1 120); do
   sleep 0.5
 done
 sleep 3
-key Tab; shot 01_library
+key Tab; key b; key Return; shot 01_library
 check "books indexed" "$(sql 'select count(*) from books')" 5
 check "formats" "$(sql 'select format, count(*) from books group by format order by format')" "cbz|1 folder|1 image|3"
 check "one page each" "$(sql "select distinct page_count from books where format = 'image'")" 1

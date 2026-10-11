@@ -78,10 +78,10 @@ stop() {
 }
 key_of() { q "select content_key from files where rel_path = 'Shelf/Book $1.cbz'"; }
 favourites() { q "select count(*) from collection_books where name = 'Favourites' and removed_at is null"; }
-# The Folders tab (Tab from Series, where an unread library opens), into
+# The Folders tab (Tab, F, Enter in the sidebar), into
 # Comics, into Shelf: its first comic is selected.
 to_shelf() {
-  key Tab; key Tab; key Tab; key Tab
+  key Tab; key f; key Return
   key l; key Return; key Return; sleep 1
 }
 

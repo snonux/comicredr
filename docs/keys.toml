@@ -63,9 +63,9 @@ toggleBalloons = ["b"]
 toggleWholePage = ["w"]
 # Wine red on a page guided view shows whole, and a quick step held there, on and off
 togglePauseWhole = ["W"]
-# Cycle single, double, guided; next library tab
+# Cycle single, double, guided; library sidebar focus (next bottom tab on narrow screens)
 cycleModeForward = ["Tab"]
-# Cycle modes backwards; previous library tab
+# Cycle modes backwards; library sidebar focus (previous bottom tab on narrow screens)
 cycleModeBack = ["S-Tab"]
 # Single page or two-page spread
 toggleSpread = ["d"]

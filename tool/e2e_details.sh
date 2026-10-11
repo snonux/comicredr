@@ -110,7 +110,7 @@ stop
 start --add-root "$(dirname "$cbz")"
 sleep 6
 # The Books tab, first cover.
-key Tab; key l; sleep 2
+key Tab; key b; key Return; key l; sleep 2
 shot 11_library
 key shift+i; sleep 5
 shot 12_library_details

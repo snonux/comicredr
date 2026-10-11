@@ -151,7 +151,7 @@ laptop_device=$(sql "select json_extract(value, '$') from settings where key = '
 start
 click 640 450
 # The Books tab; the first cover is Round Trip. Read it to page 4.
-key Tab
+key Tab; key b; key Return
 key l
 key Return
 sleep 3
@@ -282,7 +282,7 @@ check "phone: no errors in the log" "$(grep -cE 'FATAL EXCEPTION|Unhandled Excep
 # 3. Opening the comic brings the phone's sidecar and offers its place.
 start
 click 640 450
-key Tab
+key Tab; key b; key Return
 key g g
 key Return
 sleep 4

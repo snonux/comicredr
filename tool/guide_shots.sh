@@ -8,7 +8,7 @@
 #   python3 spike/fetch_corpus.py --skip-model   # once, for test/corpus/
 #   tool/guide_shots.sh [section...]             # all sections by default
 #
-# Sections: library filter marks unread reader guided guided-more parts keys touch
+# Sections: library sidebar filter marks unread reader guided guided-more parts keys touch
 # bookmarks details dialogs history s3 empty. They run in that order and later ones
 # lean on what earlier ones did (a started book, a bookmark), so run a
 # single section only after a full run. E2E_SKIP_BUILD=1 reuses the build.
@@ -42,7 +42,7 @@ db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
 sections=("$@")
 [[ ${#sections[@]} -gt 0 ]] ||
-  sections=(library filter marks unread reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
+  sections=(library sidebar filter marks unread reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
 mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
@@ -177,6 +177,12 @@ library)
   key Return; sleep 1.5; key shift+s; sleep 10; park; still shuffle
   key shift+s
   key BackSpace; key BackSpace
+  ;;
+
+sidebar)
+  key Escape; key Escape; key Escape
+  tab Series; key Tab; still sidebar-keys
+  key Return
   ;;
 
 filter)

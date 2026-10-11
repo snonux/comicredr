@@ -67,8 +67,8 @@ start --add-root "$top/$out/Comics"
 for _ in $(seq 1 60); do [[ "$(sql 'select count(*) from files' 2>/dev/null)" == 4 ]] && break; sleep 0.5; done
 check "books indexed" "$(sql 'select count(*) from files')" 4
 
-# Folders tab (four Tabs on from Series), into Comics, into Mixed.
-key Tab Tab Tab Tab
+# Folders tab (Tab, F, Enter), into Comics, into Mixed.
+key Tab; key f; key Return
 key l Return; key Return
 sleep 1;                                     shot 01_covers
 check "no pages made before shuffle" "$(pages | wc -l)" 0
@@ -106,9 +106,9 @@ key Escape; sleep 1;                         shot 06_back
 stop
 
 # Restart: still on; S turns it off. A book was opened, so the library
-# starts on Reading: five Tabs to Folders.
+# starts on Reading: Tab, F, Enter chooses Folders.
 start --add-root "$top/$out/Comics" # In the library, not the comic read last.
-key Tab Tab Tab Tab Tab
+key Tab; key f; key Return
 key l Return; key Return
 sleep 3;                                     shot 07_after_restart
 d=$(differ 01_covers 07_after_restart)

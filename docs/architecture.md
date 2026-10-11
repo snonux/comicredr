@@ -102,6 +102,13 @@ sequenceDiagram
 
 ## Input: one set of intents for keys and touch
 
+The wide library's sidebar is a focused keyboard context: Tab's configured
+cycle-mode intent enters or leaves it; destination letters are underlined
+and handled only there. A local resolver holds the configured cycle-mode
+bindings; other characters cannot start a reader command prefix. Losing
+focus clears the local prefix. Narrow bottom navigation still cycles tabs.
+
+
 ```mermaid
 flowchart LR
   keys["Key press"] --> tokens["key tokens<br/>lib/src/input"]

@@ -31,6 +31,7 @@ come back here for a key you forgot.
    - [When you need a key: `?`](02-getting-started.md#when-you-need-a-key-)
 3. [The library](03-library.md)
    - [Moving around](03-library.md#moving-around)
+   - [Keyboard shortcuts in the sidebar](03-library.md#keyboard-shortcuts-in-the-sidebar)
    - [Bigger and smaller covers](03-library.md#bigger-and-smaller-covers)
    - [The tabs](03-library.md#the-tabs): [series](03-library.md#series),
      [folders](03-library.md#folders),

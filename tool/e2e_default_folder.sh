@@ -73,7 +73,7 @@ mkdir -p "$out/with"; comics_in "$out/with"
 start with
 wait_files with 2
 sleep 2; shot 01_with_comics_library
-key Tab Tab Tab Tab; shot 02_with_comics_folders_tab
+key Tab; key f; key Return; shot 02_with_comics_folders_tab
 stop
 check "~/Comics is the library folder" "$(sql with 'select path from roots')" "$top/$out/with/Comics"
 check "both comics indexed" "$(files with)" 2
@@ -105,7 +105,7 @@ start with
 click 640 650
 # The Folders tab, its one folder, then the pane's "Take out of the
 # library" button.
-key Tab Tab Tab Tab; key Right
+key Tab; key f; key Return; key Right
 shot 06_comics_selected
 click "${REMOVE_X:-1080}" "${REMOVE_Y:-528}"
 shot 07_comics_taken_out

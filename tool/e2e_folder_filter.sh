@@ -183,11 +183,11 @@ check "the 30-page comic opened" "$(read_ 'Saga')" 1
 check "the filter says so" "$(sql "select value like '%to64%' from settings where key = 'library.folderFilter'")" 1
 stop
 
-# The Books tab is filtered too: Tab Tab from the Reading tab (where the
-# app starts) is Books, and only Zeppelin is a PDF. F opens the window
+# The Books tab is filtered too: Tab, B, Enter from the Reading tab
+# (where the app starts) chooses Books, and only Zeppelin is a PDF. F opens the window
 # there as well; Clear all takes the filter off again.
 start --add-root "$comics" # In the library: the comic read last would open otherwise.
-key Tab; key Tab; shot 19_books_tab
+key Tab; key b; key Return; shot 19_books_tab
 key shift+f; sleep 1; chip 23; key Escape # The length filter from before, off.
 key shift+f; sleep 1; chip 2; key Escape; sleep 1; shot 20_books_pdf_only
 key l; key Return; sleep 2; key Escape; sleep 1

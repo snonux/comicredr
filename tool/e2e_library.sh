@@ -109,7 +109,7 @@ key l;                   shot 02_select_first
 key l l;                 shot 03_select_third
 key j;                   shot 04_down_a_row
 # The Books tab, a search, and reading a result.
-key Tab;                 shot 05_books_tab
+key Tab; key b; key Return;        shot 05_books_tab
 key slash; type weird;   shot 06_search_typed
 key Return;              shot 07_search_results
 key Return; sleep 2;     shot 08_reading_weird_comics
@@ -120,7 +120,7 @@ check "bookmark saved" "$(sql 'select count(*) from bookmarks where mark is null
 check "progress saved" "$(sql "select p.page from progress p join books b using (content_key) where b.title like 'Weird Comics%'")" 2
 key Escape;              shot 12_search_cleared
 # Series: into Pepper&Carrot, open the first episode, ] to the next.
-key shift+Tab;           shot 13_series_tab
+key Tab; key s; key Return;        shot 13_series_tab
 key slash; type pepper; key Return
 key Return;              shot 14_in_series
 key Return; sleep 2;     shot 15_reading_e06
@@ -134,8 +134,8 @@ key bracketright;        shot 20_spirit_last_in_series
 key Escape; key Escape; key Escape
 # The Reading tab shows what was opened, the last one first. Six tabs:
 # Reading, Series, Books, Collections, History, Folders.
-key Tab Tab Tab Tab Tab; shot 21_reading_tab
-key Tab Tab Tab Tab Tab; shot 22_folders_tab
+key Tab; key r; key Return;        shot 21_reading_tab
+key Tab; key f; key Return;        shot 22_folders_tab
 # Folders: walk into the comics folder and its sub-folders and back out.
 key l;                   shot 22a_folders_root_selected
 key Return;              shot 22b_in_comics
@@ -146,7 +146,7 @@ key Return; sleep 2;     shot 22f_reading_from_folder
 key Escape; sleep 1;     shot 22g_back_in_pepper_carrot
 key BackSpace BackSpace; shot 22h_folders_top
 # Mouse, on the Series tab: click a cover to select it, click again to read.
-key Tab Tab; sleep 0.5
+key Tab; key s; key Return; sleep 0.5
 xdotool mousemove 190 200 click 1; sleep 1; shot 23_click_selects
 xdotool click 1; sleep 2;                  shot 24_click_again_reads
 key Escape; sleep 1

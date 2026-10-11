@@ -68,6 +68,22 @@ it in step when the architecture or the model changes.
   (`lib/src/library/settings_dialog.dart`). Keep those headings or update
   the strings.
 
+## Library sidebar keys (p83)
+
+At 600 dp and wider, cycleModeForward/Back toggle the sidebar's real
+FocusNode and the content. Its labels underline R/S/B/C/H/F/M only while
+it has primary focus. Its local KeySequenceResolver contains only the
+live cycle-mode bindings, so custom multi-key bindings work there too.
+Other plain characters stay local and start no ReaderKeyboard prefix;
+non-character keys such as F11 can bubble. Up/Down and j/k change
+destinations, Home/End select the ends, Enter/Esc/Right return to content.
+Ambiguous digit bindings finish on a timer as in ReaderKeyboard; blur,
+disposal and a keymap change cancel it. The resolver resets on blur.
+Pointer input into the content or choosing
+a destination releases sidebar focus. Under 600 dp the bottom tabs retain
+cycleModeForward/Back's old cycling. `test/library_test.dart` and
+`tool/e2e_sidebar_keys.sh` cover the boundary and context isolation.
+
 ## Releases
 
 A release is a `vX.Y.Z` tag on a commit whose `pubspec.yaml` says
@@ -109,7 +125,7 @@ refreshes right away instead of within six hours.
 
 - The Linux e2e scripts need
   `apt-get install libgtk-3-dev libsecret-1-dev xvfb xdotool imagemagick sqlite3 openbox
-  x11-utils desktop-file-utils wmctrl` first (xprop for e2e_fullscreen,
+  x11-utils desktop-file-utils wmctrl tesseract-ocr` first (xprop for e2e_fullscreen,
   update-desktop-database for e2e_images); most also use Python with
   Pillow, e2e_margins OpenCV (`pip install opencv-python-headless`), and
   e2e_smooth_scroll ffmpeg and numpy.
@@ -380,7 +396,7 @@ refreshes right away instead of within six hours.
   rules, by where a button is, since that decides who gets the keys.
   **On a screen** (the library, the reader, and the overlays that are
   part of it: page grid, bookmark list, parts picker, `?`) the keys go to
-  ReaderKeyboard, so Tab is `cycleModeForward` and no button can be
+  ReaderKeyboard, so Tab is `cycleModeForward` and ordinary buttons cannot be
   walked to: each button sends a `ReaderIntent` that has a key, and its
   tooltip, or its label where it has one, names that key from the live
   keymap: `KeyHints.tip(context, 'Favourites', ReaderIntent.showFavourites)`
@@ -505,7 +521,8 @@ refreshes right away instead of within six hours.
   Alt+C; the tooltips name `F`), Note and Remove on a bookmark and the x
   of a collection chip in a book's details (tooltips name `e` and `x`
   and where they work), the parts picker's choice of split (the part's
-  own key picks it), tabs (Tab, Shift+Tab), and rows and covers (arrows
+  own key picks it), tabs (Tab/Shift+Tab focus the sidebar, then its underlined letter;
+  narrow bottom tabs still cycle with Tab/Shift+Tab), and rows and covers (arrows
   and Enter: covers `b:` `f:` `s:`, the page grid's `pageTile-`, the
   Bookmarks tab's `bookmarkItem-`, the reader's list's `bookmarkRow-`,
   History's `history-`), the comics listed in a series' details
@@ -1406,6 +1423,7 @@ tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs
 tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
 tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
+tool/e2e_sidebar_keys.sh    # sidebar focus, underlined letters, context isolation, arrows and Tab exits; makes its own books
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
 tool/e2e_llm_panels.sh        # tool/llm_panels.py pages, check and import into the sidecar the app wrote: guided view follows the imported order, a page given none is whole, rows kept as source manual across the app's own sidecar writes and a restart, X Redo panels drops them; makes its own book

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
 import 'package:comic_formats/comic_formats.dart' show naturalCompare;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'package:reader_input/reader_input.dart';
 import '../data/settings_store.dart';
 import '../grid_zoom.dart';
 import '../hotkeys.dart';
+import '../input/key_tokens.dart';
 import '../reader/bookmark_list.dart';
 import '../reader/guided.dart';
 import '../reader/reader_notifier.dart';
@@ -48,6 +50,9 @@ enum LibraryTab {
 
   final String label;
 
+  /// A letter local to the focused sidebar; Books and Bookmarks differ.
+  String get letter => this == bookmarks ? 'm' : label[0].toLowerCase();
+
   /// The label under the phone's bottom tabs, where a long one wraps.
   final String short;
   final IconData icon;
@@ -57,7 +62,7 @@ enum LibraryTab {
 /// series, every book, and the folders they come from, as cover grids with a
 /// search field. Keys and touch drive it through the same intents as the
 /// reader: `hjkl` and the arrows move between covers, Enter opens, `/`
-/// searches, Tab changes tab, Esc backs out. The Folders tab walks the
+/// searches, Tab focuses the sidebar, Esc backs out. The Folders tab walks the
 /// folders on disk: Enter goes into a folder, Esc back up.
 ///
 /// Layout follows the plan's breakpoints: bottom navigation under 600 dp, a
@@ -117,6 +122,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   String _query = '';
   final _search = TextEditingController();
   final _searchFocus = FocusNode();
+  final _sidebarFocus = FocusNode(debugLabel: 'Library sidebar');
+  bool _hasSidebar = false;
+  Keymap? _sidebarKeymap;
+  KeySequenceResolver? _sidebarResolver;
+  Timer? _sidebarTimer;
   final _scroll = ScrollController();
   String? _selected;
   Set<String> _selectedBooks = const {}; // The keys of the books it stands for.
@@ -470,6 +480,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   void dispose() {
     _search.dispose();
     _searchFocus.dispose();
+    _sidebarTimer?.cancel();
+    _sidebarFocus.dispose();
     _scroll.dispose();
     _sizerState.dispose();
     super.dispose();
@@ -488,6 +500,126 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     _detail = false;
     if (_scroll.hasClients) _scroll.jumpTo(0);
   });
+
+  /// The same configured intents cycle phone tabs and move between the
+  /// sidebar and content when there is a sidebar.
+  void _cycleNavigation(int by) {
+    if (!_hasSidebar) {
+      _setTab(LibraryTab.values[(tab.index + by) % LibraryTab.values.length]);
+    } else if (_sidebarFocus.hasPrimaryFocus) {
+      _leaveSidebar();
+    } else {
+      _sidebarFocus.requestFocus();
+    }
+  }
+
+  void _leaveSidebar() {
+    _sidebarTimer?.cancel();
+    _sidebarResolver?.reset();
+    if (widget.keysFocus case final keys?) {
+      keys.requestFocus();
+    } else {
+      _sidebarFocus.unfocus();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final map = KeyHints.of(context);
+    if (identical(map, _sidebarKeymap)) return;
+    _sidebarTimer?.cancel();
+    _sidebarKeymap = map;
+    _sidebarResolver = KeySequenceResolver(
+      Keymap([
+        for (final b in map.bindings)
+          if (b.intent == ReaderIntent.cycleModeForward || b.intent == ReaderIntent.cycleModeBack) b,
+      ]),
+    );
+  }
+
+  /// Ambiguous digit bindings (11 versus 111) finish after the same
+  /// deadline as ReaderKeyboard. A pending command never travels on blur.
+  void _armSidebarTimer(DateTime now) {
+    _sidebarTimer?.cancel();
+    final resolver = _sidebarResolver!;
+    final at = resolver.deadline;
+    if (at == null) return;
+    _sidebarTimer = Timer(at.difference(now), () {
+      if (!mounted || !_sidebarFocus.hasPrimaryFocus || !identical(resolver, _sidebarResolver)) return;
+      final command = resolver.expire(at);
+      _armSidebarTimer(at);
+      if (command != null) handle(command);
+    });
+  }
+
+  KeyEventResult _sidebarKey(FocusNode node, KeyEvent event) {
+    if (!node.hasPrimaryFocus || event is KeyUpEvent) return KeyEventResult.ignored;
+    final hardware = HardwareKeyboard.instance;
+    final resolver = _sidebarResolver!;
+    final token = keyToken(event, ctrl: hardware.isControlPressed, shift: hardware.isShiftPressed);
+    if (!hardware.isAltPressed &&
+        !hardware.isMetaPressed &&
+        token != null &&
+        (resolver.isPending || resolver.keymap.bindings.any((b) => b.keys.first == token))) {
+      final now = clock.now();
+      final command = resolver.feed(token, now);
+      _armSidebarTimer(now);
+      if (command != null) {
+        handle(command);
+        return KeyEventResult.handled;
+      }
+      if (resolver.isPending) return KeyEventResult.handled;
+    }
+    if (hardware.isControlPressed || hardware.isAltPressed || hardware.isMetaPressed) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.arrowRight) {
+      _leaveSidebar();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowDown || key == LogicalKeyboardKey.keyJ) {
+      _setTab(LibraryTab.values[(tab.index + 1) % LibraryTab.values.length]);
+    } else if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.keyK) {
+      _setTab(LibraryTab.values[(tab.index - 1) % LibraryTab.values.length]);
+    } else if (key == LogicalKeyboardKey.home) {
+      _setTab(LibraryTab.values.first);
+    } else if (key == LogicalKeyboardKey.end) {
+      _setTab(LibraryTab.values.last);
+    } else {
+      final letter = (event.character ?? key.keyLabel).toLowerCase();
+      final destination = LibraryTab.values.where((t) => t.letter == letter).firstOrNull;
+      if (destination != null) {
+        _setTab(destination);
+      } else {
+        // No global prefix can start in the sidebar. Non-character keys
+        // such as F11 still reach ReaderKeyboard.
+        return key.keyLabel.characters.length == 1 ? KeyEventResult.handled : KeyEventResult.ignored;
+      }
+    }
+    return KeyEventResult.handled;
+  }
+
+  Widget _sidebarLabel(LibraryTab tab) {
+    if (!_sidebarFocus.hasPrimaryFocus) return Text(tab.label);
+    final at = tab.label.toLowerCase().indexOf(tab.letter);
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: tab.label.substring(0, at)),
+          TextSpan(
+            text: tab.label.substring(at, at + 1),
+            style: const TextStyle(decoration: TextDecoration.underline),
+          ),
+          TextSpan(text: tab.label.substring(at + 1)),
+        ],
+      ),
+    );
+  }
 
   /// Handles a library intent; false for one that means nothing here.
   bool handle(ReaderCommand c) {
@@ -542,9 +674,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         final i = index();
         if (i != null) _activate(_items[i]);
       case ReaderIntent.cycleModeForward:
-        _setTab(LibraryTab.values[(tab.index + 1) % LibraryTab.values.length]);
+        _cycleNavigation(1);
       case ReaderIntent.cycleModeBack:
-        _setTab(LibraryTab.values[(tab.index - 1) % LibraryTab.values.length]);
+        _cycleNavigation(-1);
       case ReaderIntent.search:
         _searchFocus.requestFocus();
         // Typing replaces the last search; arrows keep it. After the field
@@ -1610,6 +1742,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       builder: (context, box) {
         final wide = box.maxWidth >= 1000;
         final rail = box.maxWidth >= 600;
+        _hasSidebar = rail && !empty;
         final selectedItem = _selectedItem;
         final Widget body = empty
             ? EmptyLibrary(
@@ -1691,19 +1824,33 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                   if (rail && !empty)
                     // Scrolls when the tabs do not fit: a short window, or
                     // large text.
-                    LayoutBuilder(
-                      builder: (context, box) => SingleChildScrollView(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(minHeight: box.maxHeight),
-                          child: IntrinsicHeight(
-                            child: NavigationRail(
-                              selectedIndex: tab.index,
-                              labelType: NavigationRailLabelType.all,
-                              onDestinationSelected: (i) => _setTab(LibraryTab.values[i]),
-                              destinations: [
-                                for (final t in LibraryTab.values)
-                                  NavigationRailDestination(icon: Icon(t.icon), label: Text(t.label)),
-                              ],
+                    Focus(
+                      key: const Key('librarySidebar'),
+                      focusNode: _sidebarFocus,
+                      descendantsAreFocusable: false,
+                      onKeyEvent: _sidebarKey,
+                      onFocusChange: (_) {
+                        _sidebarTimer?.cancel();
+                        _sidebarResolver?.reset();
+                        setState(() {});
+                      },
+                      child: LayoutBuilder(
+                        builder: (context, box) => SingleChildScrollView(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(minHeight: box.maxHeight),
+                            child: IntrinsicHeight(
+                              child: NavigationRail(
+                                selectedIndex: tab.index,
+                                labelType: NavigationRailLabelType.all,
+                                onDestinationSelected: (i) {
+                                  _leaveSidebar();
+                                  _setTab(LibraryTab.values[i]);
+                                },
+                                destinations: [
+                                  for (final t in LibraryTab.values)
+                                    NavigationRailDestination(icon: Icon(t.icon), label: _sidebarLabel(t)),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -1718,7 +1865,16 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           ],
         );
         return Scaffold(
-          body: SafeArea(child: content),
+          body: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) {
+              if (_sidebarFocus.hasPrimaryFocus) _leaveSidebar();
+            },
+            onPointerSignal: (_) {
+              if (_sidebarFocus.hasPrimaryFocus) _leaveSidebar();
+            },
+            child: SafeArea(child: content),
+          ),
           bottomNavigationBar: rail || empty
               ? null
               : NavigationBar(

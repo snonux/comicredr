@@ -101,7 +101,7 @@ shot 03_gf_from_reader
 # 2. From the library: back to the collections, the Books tab, Bravo's
 # cover, *.
 key Escape
-key shift+Tab
+key Tab; key b; key Return
 key l; key l
 key asterisk
 shot 04_library_star

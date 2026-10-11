@@ -19,7 +19,9 @@ It is where the app opens, and `Esc` from a comic brings you back to it.
   window) there is no room for details beside the covers, so one click or
   tap on a book shows its details on a page of their own, with a **Read**
   button.
-- `Tab` and `Shift+Tab` go to the next and previous tab.
+- `Tab` or `Shift+Tab` moves between the left sidebar and the covers.
+  In a phone-wide window, with tabs along the bottom, they go to the
+  next and previous tab.
 - `Esc` backs out one step: out of a series, a folder or a search.
 
 On a wide window the selected book's details sit beside the covers: its
@@ -48,6 +50,30 @@ Small marks on the covers tell you where you are:
 - a **number** on a series or folder: how many comics are in it;
 - a **tick**: it is [marked](#several-comics-at-once);
 - a **cloud**: it is [on S3](13-s3-sync.md#the-cloud-on-a-cover).
+
+## Keyboard shortcuts in the sidebar
+
+Press `Tab` to give the left sidebar the keyboard focus. Each destination
+underlines its letter: `R` for Reading, `S` for Series, `B` for Books,
+`C` for Collections, `H` for History, `F` for Folders and `M` for
+Bookmarks (the **m** in Bookmarks, since Books already has `B`). Press
+the letter, with or without Shift, to show that destination. The letters
+work only while the sidebar has the focus and the underlines show.
+
+![The focused sidebar underlines each destination's shortcut](images/sidebar-keys.webp)
+
+For example, from the covers press `Tab`, `c`, `Enter` to go to
+Collections and return the keys to its covers. `Tab` itself changes
+focus without changing the destination. `↑` and `↓` (or `k` and `j`)
+move through destinations while the sidebar has the focus; `Home` and
+`End` select Reading and Bookmarks. `Enter`, `Esc`, `→`, or another
+`Tab` returns to the covers. Clicking a cover, the search box or a
+sidebar destination also leaves the sidebar's keyboard focus.
+
+These sidebar letters are local shortcuts. In the covers, the reader,
+the search box and dialogs, the usual keys and typing work as before.
+On a narrow window with the tabs at the bottom, `Tab` and `Shift+Tab`
+still cycle tabs; there is no sidebar to focus.
 
 ## Bigger and smaller covers
 

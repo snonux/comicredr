@@ -93,7 +93,7 @@ data="$h/Comics/.comicredr"
 start comics
 wait_files "$data/comicredr.sqlite" 2
 sleep 2; shot 01_comics_library
-key Tab Tab Tab Tab; shot 02_comics_folders_tab
+key Tab; key f; key Return; shot 02_comics_folders_tab
 key shift+slash; shot 03_comics_help_names_folder
 key Escape
 # A comic copied in while the app runs still arrives.
@@ -163,7 +163,7 @@ ln -s "$real" "$h/Comics"
 data="$real/.comicredr"
 start linked
 wait_files "$data/comicredr.sqlite" 2
-key Tab Tab Tab Tab; shot 07_linked_folders_tab
+key Tab; key f; key Return; shot 07_linked_folders_tab
 cbz "$h/Comics/Indie/Linked 2.cbz"
 wait_files "$data/comicredr.sqlite" 3
 stop
@@ -177,7 +177,7 @@ check "linked: nothing of the app's outside ~/Comics" "$(outside linked)" ""
 # "Take out of the library" button, as in e2e_default_folder.sh).
 start linked
 click 640 650
-key Tab Tab Tab Tab; key Right
+key Tab; key f; key Return; key Right
 click "${REMOVE_X:-1080}" "${REMOVE_Y:-528}"
 shot 08_linked_taken_out
 stop

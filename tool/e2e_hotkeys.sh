@@ -170,7 +170,7 @@ start --add-root "$comics"
 wait_q 'select count(*) from books' 6 || true
 check "the library has the comics" "$(q 'select count(*) from books')" 6
 sleep 3 # Covers.
-key Tab # Series -> Books.
+key Tab; key b; key Return # Sidebar -> Books.
 key l
 key Return
 sleep 3
@@ -332,8 +332,7 @@ check "u undoes that: a favourite again" "$(in_collection Favourites)" 1
 key Escape
 
 # 6. The Folders tab's filter. gf left the library on Collections.
-key Tab # History.
-key Tab # Folders.
+key Tab; key f; key Return # Sidebar -> Folders.
 sleep 6 # The notice of the undo gone.
 shot folders
 folders=$(sum "$last")

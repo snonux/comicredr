@@ -66,9 +66,9 @@ stop() {
 }
 
 start
-# The shelf opens on Series, one cover per series (Tab puts the keyboard
-# in the grid); the second is Reptisaurus #5.
-key Tab; key l; key l
+# The shelf opens on Series, one cover per series; Tab, S, Enter returns
+# to its grid. The second is Reptisaurus #5.
+key Tab; key s; key Return; key l; key l
 shot 01_book_detail
 # Its details on the right: Add to a collection, a new one called Charlton.
 click 1008 535; type Charlton; key Return

@@ -114,7 +114,7 @@ for _ in $(seq 1 120); do
   sleep 0.5
 done
 sleep 3 # The scan finishes with the refusals; covers land.
-key Tab;  shot 01_library_books
+key Tab; key b; key Return; shot 01_library_books
 check "books indexed" "$(sql 'select count(*) from books')" 5
 check "formats" "$(sql 'select format, count(*) from books group by format order by format')" "cbt|2 cbz|1 epub|2"
 check "Science Comics pages, every copy" "$(sql "select distinct b.page_count from books b join files f using (content_key) where f.rel_path like 'science-comics-001%'")" "$pages"

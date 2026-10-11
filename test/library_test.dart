@@ -168,6 +168,7 @@ void main() {
       WidgetTester tester, {
       Size size = const Size(1280, 800),
       String? initialPath,
+      Keymap? keymap,
     }) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
@@ -178,6 +179,7 @@ void main() {
             databaseProvider.overrideWithValue(db),
             coverDirProvider.overrideWithValue(covers),
             classicCvOnly,
+            if (keymap != null) keymapProvider.overrideWithValue(keymap),
           ],
           child: ComicRedrApp(initialPath: initialPath),
         ),
@@ -270,21 +272,258 @@ void main() {
       expect(find.text('Page 2'), findsOneWidget);
       expect(find.text('On page 2 of 3'), findsOneWidget);
 
-      // Esc leaves the series; Tab round to the Reading tab, which has it.
+      // Esc leaves the series; the sidebar's R goes to Reading.
       await key(tester, LogicalKeyboardKey.escape);
       expect(find.text('2 books'), findsOneWidget);
-      await key(tester, LogicalKeyboardKey.tab, character: '\t');
-      await key(tester, LogicalKeyboardKey.tab, character: '\t');
-      await key(tester, LogicalKeyboardKey.tab, character: '\t');
+      await key(tester, LogicalKeyboardKey.tab);
+      await key(tester, LogicalKeyboardKey.keyR);
+      await key(tester, LogicalKeyboardKey.enter);
       expect(find.text('The Spirit #2'), findsOneWidget);
       expect(find.text('Barefoot Bride'), findsNothing, reason: 'never opened');
+    });
+
+    bool sidebarFocused(WidgetTester tester) =>
+        tester.widget<Focus>(find.byKey(const Key('librarySidebar'))).focusNode!.hasPrimaryFocus;
+
+    int underlines(WidgetTester tester) => tester
+        .widgetList<Text>(find.descendant(of: find.byType(NavigationRail), matching: find.byType(Text)))
+        .where(
+          (text) =>
+              text.textSpan is TextSpan &&
+              (text.textSpan! as TextSpan).children!.any(
+                (span) => span is TextSpan && span.style?.decoration == TextDecoration.underline,
+              ),
+        )
+        .length;
+
+    LibraryTab current(WidgetTester tester) => tester.state<LibraryScreenState>(find.byType(LibraryScreen)).tab;
+
+    testWidgets('Tab focuses the sidebar; each letter works only there, with an underline', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      expect(underlines(tester), 0);
+      await key(tester, LogicalKeyboardKey.keyB);
+      expect(current(tester), LibraryTab.series, reason: 'B outside the sidebar is no navigation');
+      await key(tester, LogicalKeyboardKey.tab);
+      expect(current(tester), LibraryTab.series, reason: 'Tab moves focus, not the destination');
+      expect(sidebarFocused(tester), isTrue);
+      expect(underlines(tester), 7);
+      for (final (letter, destination) in [
+        (LogicalKeyboardKey.keyR, LibraryTab.reading),
+        (LogicalKeyboardKey.keyS, LibraryTab.series),
+        (LogicalKeyboardKey.keyB, LibraryTab.books),
+        (LogicalKeyboardKey.keyC, LibraryTab.collections),
+        (LogicalKeyboardKey.keyH, LibraryTab.history),
+        (LogicalKeyboardKey.keyF, LibraryTab.folders),
+        (LogicalKeyboardKey.keyM, LibraryTab.bookmarks),
+      ]) {
+        await key(tester, letter);
+        expect(current(tester), destination);
+        expect(sidebarFocused(tester), isTrue);
+        expect(underlines(tester), 7);
+        expect(c.read(readerProvider).book, isNull);
+      }
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB, character: 'B');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await settle(tester);
+      expect(current(tester), LibraryTab.books, reason: 'uppercase letters work too');
+      await key(tester, LogicalKeyboardKey.keyM);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await settle(tester);
+      expect(current(tester), LibraryTab.bookmarks, reason: 'Alt+B is no sidebar letter');
+      await key(tester, LogicalKeyboardKey.tab);
+      expect(sidebarFocused(tester), isFalse);
+      expect(underlines(tester), 0);
+      await key(tester, LogicalKeyboardKey.keyB);
+      expect(current(tester), LibraryTab.bookmarks);
+      await tester.tap(find.text('Series').first);
+      await settle(tester);
+      expect(sidebarFocused(tester), isFalse);
+      expect(underlines(tester), 0);
+      await key(tester, LogicalKeyboardKey.keyB);
+      expect(current(tester), LibraryTab.series, reason: 'a pointer-selected destination enables no hidden letters');
+    });
+
+    testWidgets('sidebar arrows, ends and exit keys; prefixes and pointer/search focus stay local', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await key(tester, LogicalKeyboardKey.tab);
+      await key(tester, LogicalKeyboardKey.arrowDown);
+      expect(current(tester), LibraryTab.books);
+      await key(tester, LogicalKeyboardKey.keyK);
+      expect(current(tester), LibraryTab.series);
+      await key(tester, LogicalKeyboardKey.end);
+      expect(current(tester), LibraryTab.bookmarks);
+      await key(tester, LogicalKeyboardKey.home);
+      expect(current(tester), LibraryTab.reading);
+      for (final exit in [LogicalKeyboardKey.enter, LogicalKeyboardKey.escape, LogicalKeyboardKey.arrowRight]) {
+        await key(tester, exit);
+        expect(sidebarFocused(tester), isFalse);
+        expect(underlines(tester), 0);
+        await key(tester, LogicalKeyboardKey.tab);
+      }
+      await key(tester, LogicalKeyboardKey.keyG); // Must not leave a global g prefix.
+      await key(tester, LogicalKeyboardKey.tab);
+      await key(tester, LogicalKeyboardKey.keyC);
+      expect(find.byKey(const Key('collectionDialog')), findsNothing);
+      await key(tester, LogicalKeyboardKey.tab);
+      await tester.tap(find.byKey(const Key('search')));
+      await settle(tester);
+      expect(underlines(tester), 0);
+      await tester.enterText(find.byKey(const Key('search')), 'bcfh');
+      expect(current(tester), LibraryTab.reading, reason: 'letters in search are text');
+      await key(tester, LogicalKeyboardKey.escape);
+      await key(tester, LogicalKeyboardKey.tab);
+      await key(tester, LogicalKeyboardKey.f11);
+      expect(c.read(readerProvider).fullscreen, isTrue, reason: 'non-character global keys still work');
+    });
+
+    testWidgets('configured cycle keys enter and leave sidebar; its prefix clears on blur', (tester) async {
+      writeShelf(root);
+      final map = Keymap([
+        for (final b in Keymap.defaults().bindings)
+          if (b.intent != ReaderIntent.cycleModeForward && b.intent != ReaderIntent.cycleModeBack) b,
+        const Binding(['g', 'y'], ReaderIntent.cycleModeForward),
+        const Binding(['C-t'], ReaderIntent.cycleModeBack),
+      ]);
+      final c = await pumpApp(tester, keymap: map);
+      await scan(tester, c);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyY);
+      await settle(tester);
+      expect(sidebarFocused(tester), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyY);
+      await settle(tester);
+      expect(sidebarFocused(tester), isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyY);
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.keyG);
+      await key(tester, LogicalKeyboardKey.escape);
+      expect(sidebarFocused(tester), isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyY);
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.keyB);
+      expect(current(tester), LibraryTab.books, reason: 'no old prefix takes B');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await settle(tester);
+      expect(sidebarFocused(tester), isFalse);
+    });
+
+    testWidgets('passive wide details pointer input leaves sidebar focus', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await key(tester, LogicalKeyboardKey.tab);
+      await key(tester, LogicalKeyboardKey.keyB);
+      await key(tester, LogicalKeyboardKey.enter);
+      await key(tester, LogicalKeyboardKey.keyL);
+      final title = find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Barefoot Bride'));
+      expect(title, findsOneWidget);
+      await key(tester, LogicalKeyboardKey.tab);
+      await tester.tap(title);
+      await settle(tester);
+      expect(sidebarFocused(tester), isFalse);
+      expect(underlines(tester), 0);
+      await key(tester, LogicalKeyboardKey.keyC);
+      expect(current(tester), LibraryTab.books, reason: 'passive details taps enable no hidden shortcut');
+      await key(tester, LogicalKeyboardKey.tab);
+      await tester.sendEventToBinding(
+        PointerScrollEvent(position: tester.getCenter(title), scrollDelta: const Offset(0, 20)),
+      );
+      await settle(tester);
+      expect(sidebarFocused(tester), isFalse, reason: 'scrolling the details also leaves keyboard navigation');
+      await key(tester, LogicalKeyboardKey.tab);
+      await key(tester, LogicalKeyboardKey.keyH);
+      await tester.tapAt(const Offset(500, 500)); // Blank space in an empty History pane.
+      await settle(tester);
+      expect(sidebarFocused(tester), isFalse);
+      expect(underlines(tester), 0);
+    });
+
+    testWidgets('ambiguous sidebar digit bindings finish on deadline and cancel on blur', (tester) async {
+      writeShelf(root);
+      final map = Keymap([
+        for (final b in Keymap.defaults().bindings)
+          if (b.intent != ReaderIntent.cycleModeForward &&
+              b.intent != ReaderIntent.cycleModeBack &&
+              b.keys.first != '1')
+            b,
+        const Binding(['1', '1'], ReaderIntent.cycleModeForward),
+        const Binding(['1', '1', '1'], ReaderIntent.cycleModeForward),
+        const Binding(['C-t'], ReaderIntent.cycleModeBack),
+      ]);
+      final c = await pumpApp(tester, keymap: map);
+      await scan(tester, c);
+      Future<void> toggle() async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+      }
+
+      await toggle();
+      expect(sidebarFocused(tester), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1, character: '1');
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1, character: '1');
+      expect(sidebarFocused(tester), isTrue, reason: 'the shorter binding waits for a possible third digit');
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(sidebarFocused(tester), isFalse, reason: '11 fires when 111 did not follow');
+      await toggle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1, character: '1');
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1, character: '1');
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(sidebarFocused(tester), isFalse);
+      await toggle();
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(sidebarFocused(tester), isTrue, reason: 'blur cancelled the old deadline');
+    });
+
+    testWidgets('resizing a focused sidebar to bottom tabs releases its letters', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await key(tester, LogicalKeyboardKey.tab);
+      expect(sidebarFocused(tester), isTrue);
+      tester.view.physicalSize = const Size(411, 800);
+      await settle(tester);
+      expect(find.byKey(const Key('librarySidebar')), findsNothing);
+      await key(tester, LogicalKeyboardKey.tab);
+      expect(current(tester), LibraryTab.books);
+      await key(tester, LogicalKeyboardKey.keyC);
+      expect(current(tester), LibraryTab.books);
+    });
+
+    testWidgets('phone bottom navigation keeps Tab cycling', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester, size: const Size(411, 800));
+      await scan(tester, c);
+      await key(tester, LogicalKeyboardKey.tab);
+      expect(current(tester), LibraryTab.books);
+      expect(find.byKey(const Key('librarySidebar')), findsNothing);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await key(tester, LogicalKeyboardKey.tab);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      expect(current(tester), LibraryTab.series);
     });
 
     testWidgets('/ searches, Enter returns to the covers, Esc clears', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester);
       await scan(tester, c);
-      await key(tester, LogicalKeyboardKey.tab, character: '\t'); // Books tab.
+      await key(tester, LogicalKeyboardKey.tab);
+      await key(tester, LogicalKeyboardKey.keyB);
+      await key(tester, LogicalKeyboardKey.enter); // Books tab.
       expect(find.text('The Spirit #1'), findsOneWidget);
       await key(tester, LogicalKeyboardKey.slash, character: '/');
       await tester.enterText(find.byKey(const Key('search')), 'eisner');

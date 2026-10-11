@@ -100,9 +100,8 @@ check "a comic copied in goes in Unread, a moved one does not" "$(unread)" "Delt
 
 # 3. The Collections tab shows Unread; Right selects it, Enter opens it,
 # Right and Enter the comic.
-# The library starts on Series; Tab goes on to Books, then Collections.
-key Tab
-key Tab
+# Tab focuses the sidebar; C selects Collections, Enter returns to covers.
+key Tab; key c; key Return
 shot 02_collections
 key Right; key Return
 shot 03_unread

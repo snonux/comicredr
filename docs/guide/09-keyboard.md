@@ -121,8 +121,11 @@ tab (`Backspace` goes up a folder at a time), **Read** in a series'
 details (`Enter` shows its books, `Enter` on one reads it), the **x** on
 a part of the [filter](03-library.md#filter-the-library)
 (`F`, then pick it off there), and **Note** and **Remove** on a bookmark
-in a book's details (`e` and `x` on the Bookmarks tab). The tabs are
-`Tab` and `Shift+Tab`, covers and pages the arrows and `Enter`.
+in a book's details (`e` and `x` on the Bookmarks tab).
+`Tab` and `Shift+Tab` focus the [left sidebar](03-library.md#keyboard-shortcuts-in-the-sidebar),
+where the underlined `R` `S` `B` `C` `H` `F` `M` pick destinations;
+on a phone-wide window they cycle the bottom tabs. Covers and pages use
+the arrows and `Enter`.
 
 **In a dialog** (Settings, a question before deleting, the filter, the
 sort, a name to type) the keys are the ones of any Linux desktop:

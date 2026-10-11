@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Keys in the library sidebar:** `Tab` gives the left sidebar focus,
+  where underlined R/S/B/C/H/F/M pick Reading, Series, Books, Collections,
+  History, Folders and Bookmarks. `Enter`, `Esc`, Right or another `Tab`
+  returns to covers. Phone-wide bottom tabs keep Tab cycling.
+
 - **Fullscreen in the page grid:** `f` and `F11` toggle fullscreen while
   `p` is open, keeping the grid and its selected page. `Esc` closes the
   grid without leaving fullscreen.
