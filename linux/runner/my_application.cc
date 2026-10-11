@@ -57,6 +57,78 @@ static gboolean window_state_cb(GtkWidget* widget, GdkEventWindowState* event,
   return FALSE;
 }
 
+// GTK's window close does not send Flutter an app-exit request. Keep the
+// window and its Dart isolate alive until the reader has flushed its sidecar.
+struct CloseRequest {
+  MyApplication* application;
+  GtkWidget* window;
+};
+
+static gboolean close_window_idle(gpointer user_data) {
+  CloseRequest* request = static_cast<CloseRequest*>(user_data);
+  if (g_object_get_data(G_OBJECT(request->window), "comicredr-destroyed") == nullptr) {
+    gtk_widget_destroy(request->window);
+  }
+  g_object_unref(request->window);
+  g_object_unref(request->application);
+  g_free(request);
+  return G_SOURCE_REMOVE;
+}
+
+static void close_flushed_cb(GObject* object, GAsyncResult* result,
+                             gpointer user_data) {
+  CloseRequest* request = static_cast<CloseRequest*>(user_data);
+  g_autoptr(GError) error = nullptr;
+  g_autoptr(FlMethodResponse) response = fl_method_channel_invoke_method_finish(
+      FL_METHOD_CHANNEL(object), result, &error);
+  if (response == nullptr) {
+    g_warning("Could not flush before closing: %s",
+              error == nullptr ? "no response" : error->message);
+  } else {
+    fl_method_response_get_result(response, &error);
+    if (error != nullptr) g_warning("Could not flush before closing: %s", error->message);
+  }
+  if (response != nullptr && error == nullptr) {
+    g_debug("ComicRedr reader flushed before window close");
+  }
+  // The response callback runs inside Flutter's messenger. Tearing its view
+  // down here reenters engine disposal (and can abort in g_mutex_clear).
+  g_idle_add(close_window_idle, request);
+}
+
+static gboolean window_delete_cb(GtkWidget* widget, GdkEvent* event,
+                                 gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  // A stalled Dart flush must not trap the window. A second close request
+  // explicitly gives up waiting; the pending reply then only releases refs.
+  if (g_object_get_data(G_OBJECT(widget), "comicredr-closing") != nullptr) {
+    g_debug("ComicRedr second close forced window destruction");
+    gtk_widget_destroy(widget);
+    return TRUE;
+  }
+  gpointer channel_data = g_object_get_data(G_OBJECT(widget), "comicredr-window-channel");
+  if (channel_data == nullptr) return FALSE;
+  FlMethodChannel* channel = FL_METHOD_CHANNEL(channel_data);
+  g_object_set_data(G_OBJECT(widget), "comicredr-closing", GINT_TO_POINTER(1));
+  // The flush snapshots the reader's current position. Stop further key,
+  // pointer and touch input from reaching Flutter while it is in flight;
+  // the window manager's close request can still force the second close.
+  GtkWidget* view = gtk_bin_get_child(GTK_BIN(widget));
+  if (view != nullptr) gtk_widget_set_sensitive(view, FALSE);
+  CloseRequest* request = g_new0(CloseRequest, 1);
+  request->application = MY_APPLICATION(g_object_ref(self));
+  request->window = GTK_WIDGET(g_object_ref(widget));
+  fl_method_channel_invoke_method(channel, "beforeClose", nullptr, nullptr,
+                                  close_flushed_cb, request);
+  return TRUE;
+}
+
+static void window_destroy_cb(GtkWidget* widget, gpointer user_data) {
+  MyApplication* self = MY_APPLICATION(user_data);
+  g_object_set_data(G_OBJECT(widget), "comicredr-destroyed", GINT_TO_POINTER(1));
+  if (self->window == GTK_WINDOW(widget)) self->window = nullptr;
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -68,6 +140,8 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
   self->window = window;
+  g_signal_connect(window, "delete-event", G_CALLBACK(window_delete_cb), self);
+  g_signal_connect(window, "destroy", G_CALLBACK(window_destroy_cb), self);
   g_signal_connect(window, "window-state-event", G_CALLBACK(window_state_cb),
                    self);
 
@@ -137,11 +211,14 @@ static void my_application_activate(GApplication* application) {
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
 
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  g_clear_object(&self->window_channel);
   self->window_channel = fl_method_channel_new(
       fl_engine_get_binary_messenger(fl_view_get_engine(view)),
       "org.snonux.comicredr/window", FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(self->window_channel,
                                             window_method_cb, self, nullptr);
+  g_object_set_data_full(G_OBJECT(window), "comicredr-window-channel",
+                         g_object_ref(self->window_channel), g_object_unref);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

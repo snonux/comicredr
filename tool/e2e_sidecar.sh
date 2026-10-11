@@ -24,6 +24,10 @@
 # Output: build/e2e-sidecar/*.png and a pass/fail line per check.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+if (( $# == 0 )); then
+  echo 'Usage: tool/e2e_sidecar.sh comic.cbz [another.pdf folder/ ...]' >&2
+  exit 2
+fi
 
 out=build/e2e-sidecar
 rm -rf "$out" && mkdir -p "$out/laptop-home" "$out/phone-home" "$out/laptop" "$out/phone"
@@ -33,11 +37,16 @@ model="${COMICREDR_MODEL:-$PWD/assets/models/comicredr-panels.onnx}"
 model=$(realpath "$model")
 unset COMICREDR_MODEL
 
-export DISPLAY=:97
-Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
+Xvfb -displayfd 3 -screen 0 1280x900x24 3>"$out/display" >/dev/null 2>&1 &
 xvfb=$!
 app=
 trap 'kill $app $xvfb 2>/dev/null || true; mountpoint -q "$PWD/$out/ro" && umount "$PWD/$out/ro"' EXIT
+for _ in $(seq 1 100); do [[ -s $out/display ]] && break; sleep 0.1; done
+[[ -s $out/display ]] || { echo "FAIL Xvfb did not select a display"; exit 1; }
+DISPLAY=":$(<"$out/display")"
+export DISPLAY
+for _ in $(seq 1 100); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
+xdotool getdisplaygeometry >/dev/null 2>&1 || { echo "FAIL Xvfb did not come up on $DISPLAY"; exit 1; }
 
 failed=0
 check() { # check "what" test-command...
@@ -45,16 +54,55 @@ check() { # check "what" test-command...
   if "$@"; then echo "PASS $what"; else echo "FAIL $what"; failed=1; fi
 }
 
-start() { # start laptop|phone book
+start() { # start laptop|phone book [readonly]
   local home="$PWD/$out/$1-home"
+  local ready_side written_before='' written_now=''
+  if [[ ${3:-} != readonly ]]; then
+    if [[ $1 == laptop ]]; then ready_side=$side; else ready_side=$copyside; fi
+    if [[ -f $ready_side ]]; then
+      written_before=$(q "$ready_side" 'select written_at from meta limit 1' 2>/dev/null || true)
+    fi
+  fi
   if [[ $1 == laptop ]]; then
-    COMICREDR_MODEL="$model" HOME="$home" build/linux/x64/release/bundle/comicredr "$2" >>"$out/$1.log" 2>&1 &
+    COMICREDR_MODEL="$model" HOME="$home" GDK_BACKEND=x11 G_MESSAGES_DEBUG=all \
+      build/linux/x64/release/bundle/comicredr "$2" >>"$out/$1.log" 2>&1 &
   else
-    HOME="$home" build/linux/x64/release/bundle/comicredr "$2" >>"$out/$1.log" 2>&1 &
+    HOME="$home" GDK_BACKEND=x11 G_MESSAGES_DEBUG=all \
+      build/linux/x64/release/bundle/comicredr "$2" >>"$out/$1.log" 2>&1 &
   fi
   app=$!
-  sleep 7 # Opening, the sidecar, detection of the page on screen.
-  win=$(xdotool search --name ComicRedr | tail -1)
+  # A busy container can need more than seven seconds for the first frame.
+  win=
+  for _ in $(seq 1 150); do
+    win=$(xdotool search --name ComicRedr 2>/dev/null | tail -1 || true)
+    [[ -n $win ]] && break
+    sleep 0.2
+  done
+  [[ -n $win ]] || { echo "FAIL ComicRedr window did not appear"; return 1; }
+  if [[ ${3:-} == readonly ]]; then
+    # Here no sidecar can be written. The book-specific refusal log proves
+    # that this launch got as far as trying to save the open comic.
+    for _ in $(seq 1 300); do
+      grep -Fq "Cannot write the sidecar of $2" "$out/$1.log" 2>/dev/null && break
+      sleep 0.1
+    done
+    grep -Fq "Cannot write the sidecar of $2" "$out/$1.log" ||
+      { echo "FAIL read-only comic did not open"; return 1; }
+  else
+    # open() writes the sidecar once it has installed the book and imported
+    # any incoming data. Reused sidecars must get a new written_at too; an
+    # existing progress row alone would say nothing about this launch.
+    for _ in $(seq 1 300); do
+      if [[ -f $ready_side ]]; then
+        written_now=$(q "$ready_side" 'select written_at from meta limit 1' 2>/dev/null || true)
+        [[ -n $written_now && $written_now != "$written_before" ]] && break
+      fi
+      sleep 0.1
+    done
+    [[ -n $written_now && $written_now != "$written_before" ]] ||
+      { echo "FAIL $1 did not open this comic and write its sidecar"; return 1; }
+  fi
+  sleep 1 # Let the page and, where offered, the position dialog paint.
   # Under Xvfb keys go to the window under the pointer.
   xdotool windowactivate --sync "$win" mousemove 640 400 2>/dev/null || true
   sleep 1
@@ -63,15 +111,43 @@ key() { xdotool key "$@" 2>/dev/null; sleep 0.9; }
 shot() { import -window root "$out/$1.png"; }
 stop() {
   "$PWD/$out/close_window" "$win"
-  for _ in $(seq 1 30); do kill -0 "$app" 2>/dev/null || { sleep 0.5; return 0; }; sleep 0.25; done
-  echo "the app did not quit on close"; failed=1; kill "$app"
+  for _ in $(seq 1 30); do
+    if ! kill -0 "$app" 2>/dev/null; then
+      if wait "$app"; then
+        echo 'PASS app closed cleanly'
+      else
+        echo "FAIL app exited abnormally: $?"
+        failed=1
+      fi
+      return
+    fi
+    sleep 0.25
+  done
+  echo 'FAIL the app did not quit on close'
+  failed=1
+  kill "$app"
+  wait "$app" 2>/dev/null || true
 }
 q() { sqlite3 -batch -noheader "$1" "$2"; }
 index() { echo "$PWD/$out/$1-home/.local/share/org.snonux.comicredr/comicredr.sqlite"; }
+spot() {
+  q "$(index "$1")" "select page || '/' || coalesce(cast(panel as text), '<null>') || '/' ||
+    coalesce(cast(json_extract(view_json, '$.guided') as text), '<null>')
+    from progress where content_key = '$bookkey'"
+}
+valid_spot() { [[ -n $1 && $1 != *'<null>'* ]]; }
+page_at() { q "$(index "$1")" "select page from progress where content_key = '$bookkey'"; }
+sidecar_spot() {
+  q "$1" "select page || '/' || coalesce(cast(panel as text), '<null>') || '/' ||
+    coalesce(cast(json_extract(view_json, '$.guided') as text), '<null>')
+    from progress where device = (select device from meta limit 1)"
+}
 # Two screenshots of the page area, the status line cropped off.
 same() {
   local diff
-  diff=$(tool/differ_px.sh 10% "$out/$1.png" "$out/$2.png" 1280x680+0+0)
+  # The two installs can paint different gutters around the page. Compare
+  # the artwork; the index checks below verify its page and panel position.
+  diff=$(tool/differ_px.sh 10% "$out/$1.png" "$out/$2.png" 400x550+430+40)
   echo "  $1 vs $2: $diff pixels differ"
   [[ "$diff" -lt 3000 ]]
 }
@@ -85,7 +161,7 @@ for src in "$@"; do
   if [[ -d $book ]]; then side="$book/.comicredr.crdb"; else side="$(dirname "$book")/.$(basename "$book").crdb"; fi
   echo "== $name"
 
-  # 1. The laptop: page 3, guided view, mark a, a bookmark, panel 2.
+  # 1. The laptop: start on page 3, read onward in guided view, mark a and a bookmark.
   start laptop "$book"
   key shift+g 3 Return; key v; sleep 4
   # A page guided view shows whole holds one step (e2e_pause_whole.sh checks
@@ -96,6 +172,11 @@ for src in "$@"; do
   shot "b${n}_laptop"
   stop
   check "laptop wrote the sidecar" test -f "$side"
+  bookkey=$(q "$side" 'select content_key from meta limit 1')
+  check "laptop has a progress row for this comic" test -n "$(spot laptop)"
+  check "laptop's page, panel and mode are present" valid_spot "$(spot laptop)"
+  check "laptop read on from page 3" test "$(page_at laptop)" -gt 2
+  check "laptop is in guided view" test "$(q "$(index laptop)" "select json_extract(view_json, '$.guided') from progress where content_key = '$bookkey'")" = 1
   check "sidecar has model panels for page 3" \
     test "$(q "$side" "select count(*) from analysed_pages where page = 2 and source = 'model'")" = 1
   check "sidecar has mark a and a bookmark" \
@@ -128,11 +209,24 @@ for src in "$@"; do
   check "phone has both bookmarks" \
     test "$(q "$(index phone)" "select count(*) from bookmarks where deleted_at is null \
       and content_key = (select content_key from progress order by updated_at desc limit 1)")" = 2
+  check "phone's page, panel and mode are present" valid_spot "$(spot phone)"
+  check "phone resumed at the laptop's page, panel and mode" test "$(spot phone)" = "$(spot laptop)"
 
   # 3. The phone reads on two pages; its sidecar goes back to the laptop.
   sleep 1 # Positions are kept to the second.
   start phone "$copy"
-  key Next; key Next; sleep 1
+  # The GTK close callback must receive Dart's successful flush reply. Its
+  # debug line identifies that close even when a slow machine lets the
+  # sidecar's timer fire before the window-close request.
+  flushes_before=$(grep -c 'ComicRedr reader flushed before window close' "$out/phone.log" || true)
+  xdotool key Next Next
+  stop
+  flushes_after=$(grep -c 'ComicRedr reader flushed before window close' "$out/phone.log" || true)
+  check "Linux close waited for the reader flush" test "$flushes_after" -gt "$flushes_before"
+  check "phone read on from its imported page" test "$(page_at phone)" -gt "$(page_at laptop)"
+  check "phone's close flushed its page, panel and mode to the sidecar" \
+    test "$(sidecar_spot "$copyside")" = "$(spot phone)"
+  start phone "$copy"
   shot "b${n}_phone_on"
   stop
   cp "$copyside" "$side"
@@ -141,9 +235,7 @@ for src in "$@"; do
   key Return; sleep 4
   shot "b${n}_taken"
   stop
-  check "laptop took the phone's page" \
-    test "$(q "$(index laptop)" "select page from progress order by updated_at desc limit 1")" = \
-      "$(q "$copyside" "select page from progress order by updated_at desc limit 1")"
+  check "laptop took the phone's page, panel and mode" test "$(spot laptop)" = "$(spot phone)"
   check "laptop shows the phone's spot" same "b${n}_phone_on" "b${n}_taken"
 done
 
@@ -151,17 +243,23 @@ done
 if [[ $EUID -eq 0 ]]; then
   mkdir -p "$out/ro-src" "$out/ro"
   cp -r "$1" "$out/ro-src/"
+  sidecars_before=$(find "$out/ro-src" -type f -name '*.crdb' -printf '%P\n' | sort)
   mount --bind "$out/ro-src" "$out/ro" && mount -o remount,bind,ro "$out/ro"
-  start laptop "$PWD/$out/ro/$(basename "$1")"
+  start laptop "$PWD/$out/ro/$(basename "$1")" readonly
   key shift+g 2 Return
   shot ro
   stop
   umount "$out/ro"
-  check "read-only shelf: no sidecar written" test "$(ls -A "$out/ro-src" | wc -l)" = 1
+  sidecars_after=$(find "$out/ro-src" -type f -name '*.crdb' -printf '%P\n' | sort)
+  check "read-only shelf: no sidecar written" test "$sidecars_after" = "$sidecars_before"
   check "read-only shelf: position kept in the index" \
     test "$(q "$(index laptop)" "select page from progress order by updated_at desc limit 1")" = 1
-  grep -q "Cannot write the sidecar" "$out/laptop.log" && echo "PASS read-only notice logged" ||
-    { echo "FAIL read-only notice"; failed=1; }
+  if grep -q "Cannot write the sidecar" "$out/laptop.log"; then
+    echo "PASS read-only notice logged"
+  else
+    echo "FAIL read-only notice"
+    failed=1
+  fi
 else
   echo "SKIP read-only shelf (needs root for a read-only bind mount)"
 fi
@@ -169,4 +267,9 @@ fi
 shots=()
 for i in $(seq 1 "$n"); do shots+=("$out/b${i}_laptop.png" "$out/b${i}_phone.png" "$out/b${i}_offer.png" "$out/b${i}_taken.png"); done
 montage "${shots[@]}" -tile 4x -geometry 640x450+4+4 "$out/contact.png" 2>/dev/null || true
-[[ $failed -eq 0 ]] && echo "ALL PASSED" || { echo "SOME CHECKS FAILED"; exit 1; }
+if [[ $failed -eq 0 ]]; then
+  echo "ALL PASSED"
+else
+  echo "SOME CHECKS FAILED"
+  exit 1
+fi

@@ -97,7 +97,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _storage = MethodChannel('org.snonux.comicredr/storage');
 
-  /// Linux: the GTK window's fullscreen, both ways (linux/runner).
+  /// Linux: the GTK window's fullscreen and close handshake (linux/runner).
   static const _window = MethodChannel('org.snonux.comicredr/window');
 
   /// How far up from the bottom the mouse brings the status line back in
@@ -171,6 +171,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _window.setMethodCallHandler((call) async {
       if (call.method == 'fullscreenChanged' && call.arguments is bool) {
         ref.read(readerProvider.notifier).setFullscreen(call.arguments as bool);
+      } else if (call.method == 'beforeClose') {
+        await ref.read(readerProvider.notifier).flush();
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _start());

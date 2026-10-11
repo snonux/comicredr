@@ -68,18 +68,36 @@ tap() { echo down 0 "$1" "$2" >>"$touches"; sleep 0.05; echo up 0 "$1" "$2" >>"$
 
 start() {
   : >"$touches"
-  TOUCH_INJECT_FILE="$touches" LD_PRELOAD="$PWD/$out/touch_inject.so" \
+  GDK_BACKEND=x11 TOUCH_INJECT_FILE="$touches" LD_PRELOAD="$PWD/$out/touch_inject.so" \
     HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr "$@" >>"$out/app.log" 2>&1 &
   app=$!
-  sleep 7
-  win=$(xdotool search --name ComicRedr | tail -1)
+  win=
+  for _ in $(seq 1 150); do
+    win=$(xdotool search --name ComicRedr 2>/dev/null | tail -1 || true)
+    [[ -n $win ]] && break
+    sleep 0.2
+  done
+  [[ -n $win ]] || { echo 'FAIL ComicRedr window did not appear'; return 1; }
   xdotool windowactivate --sync "$win" 2>/dev/null || true
   sleep 1
 }
 stop() {
   "$out/close_window" "$win"
-  for _ in $(seq 1 20); do kill -0 "$app" 2>/dev/null || { app=; return 0; }; sleep 0.25; done
+  for _ in $(seq 1 120); do
+    if ! kill -0 "$app" 2>/dev/null; then
+      if wait "$app"; then
+        app=
+        return
+      fi
+      fail 'app exited abnormally after close'
+      app=
+      return
+    fi
+    sleep 0.25
+  done
+  fail 'app did not quit after close'
   kill "$app"
+  wait "$app" 2>/dev/null || true
   app=
 }
 # The colour in the middle of the screen, as r,g,b.

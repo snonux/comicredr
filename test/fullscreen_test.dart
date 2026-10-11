@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
+import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/data/sidecar.dart';
+import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/providers.dart';
 import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reader_view.dart';
@@ -37,15 +41,26 @@ void main() {
     }
   }
 
-  Future<ProviderContainer> openBook(WidgetTester tester, {String name = 'Full.cbz'}) async {
+  Future<ProviderContainer> openBook(
+    WidgetTester tester, {
+    String name = 'Full.cbz',
+    bool pendingCloseTest = false,
+  }) async {
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(window, (call) async {
       asked.add(call);
       return null;
     });
+    final progress = ProgressStore(db, debounce: const Duration(days: 1));
+    final sidecars = SidecarSync(db, progress: progress, debounce: const Duration(days: 1));
     await tester.pumpWidget(
       ProviderScope(
         key: UniqueKey(),
-        overrides: [databaseProvider.overrideWithValue(db), classicCvOnly],
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          classicCvOnly,
+          if (pendingCloseTest) progressStoreProvider.overrideWithValue(progress),
+          if (pendingCloseTest) sidecarSyncProvider.overrideWithValue(sidecars),
+        ],
         child: const ComicRedrApp(),
       ),
     );
@@ -220,6 +235,32 @@ void main() {
     await settle(tester);
     expect(c.read(readerProvider).fullscreen, isFalse);
     expect(status(), findsOneWidget);
+  });
+
+  testWidgets('GTK close waits for the current position in the sidecar', (tester) async {
+    final c = await openBook(tester, pendingCloseTest: true);
+    final book = c.read(readerProvider).book!;
+    final sidecars = c.read(sidecarSyncProvider);
+    final device = (await tester.runAsync(() => sidecars.device()))!;
+    final sidecarFile = sidecarPath(book.path, folder: false);
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(c.read(readerProvider).page, 1);
+    expect((await tester.runAsync(() => c.read(progressStoreProvider).load(book.key)))?.page, isNot(1));
+    expect(readSidecar(sidecarFile)?.progress.where((p) => p.device == device.id).firstOrNull?.page, isNot(1));
+
+    await tester.runAsync(() async {
+      final replied = Completer<void>();
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        window.name,
+        const StandardMethodCodec().encodeMethodCall(const MethodCall('beforeClose')),
+        (_) => replied.complete(),
+      );
+      await replied.future;
+    });
+
+    final sidecar = readSidecar(sidecarFile)!;
+    expect(sidecar.progress.singleWhere((p) => p.device == device.id).page, 1);
+    expect((await tester.runAsync(() => c.read(progressStoreProvider).load(book.key)))!.page, 1);
   });
 
   testWidgets('a launch into the library comes back fullscreen', (tester) async {

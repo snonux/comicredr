@@ -25,7 +25,10 @@ inside a folder book. It holds:
 Because it sits beside the comic, it goes wherever the comic goes: copy
 both to the phone or another laptop and everything is there. ComicRedr
 recognises a comic by its content, not its name, so renaming or moving
-the file doesn't lose anything either.
+the file doesn't lose anything either. Closing the app normally saves
+your latest reading place to the sidecar before the window shuts. If a
+save stalls on Linux, close the window a second time to leave without
+waiting for it.
 
 When two copies of a sidecar meet (you read on the laptop and on the
 phone), ComicRedr merges them: bookmarks from both, the later edit of
