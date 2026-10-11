@@ -57,6 +57,9 @@ gets a green check, also when several steps at once (`3l`) land there.
 Jumping there (`G`, the page grid, a bookmark) does not: a look at the
 end is no reading to it. `gC` takes the mark off
 again, or puts it on a comic you are not going to read to the end here.
+It acts on the comic and page shown when you press it. For example, press
+`gC` on page 1, then jump to the last page while the library is busy:
+page 1's comic is marked completed.
 
 ## Back to the first page
 

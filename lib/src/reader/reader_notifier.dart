@@ -79,12 +79,18 @@ class ReaderNotifier extends Notifier<ReaderState> {
   @visibleForTesting
   Future<OpenBook> Function(String) openDocument = openBook;
 
+  /// Called before and after close or exit waits for completion writes.
+  @visibleForTesting
+  void Function(bool drained)? onCompletionBarrier;
+
   /// Pages waiting for detection, and whether the worker loop is running.
   final _wanted = <int>{};
   bool _detecting = false;
   int _detectionGeneration = 0;
   final _panelWrites = <Future<void>>{};
   final _unreadWrites = <Future<void>>{};
+  final _completedWrites = <Future<void>>{};
+  final _completionTails = <String, Future<void>>{};
   final _sidecarWrites = <Future<void>>{};
   final _attaches = <Future<SidecarImport?>>{};
   final _openPulls = <Future<bool?>>{};
@@ -400,16 +406,38 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// on screen stands in for the saved one ([LibraryBook.completed] goes by
   /// the progress row): saves are debounced, so the row may still say the
   /// page before.
-  Future<void> _toggleCompleted() async {
+  Future<void> _toggleCompleted() {
     final book = state.book!;
+    final onLastPage = _onLastPage;
+    return _queueCompleted(book.key, () => _changeCompleted(book, onLastPage));
+  }
+
+  /// Completion changes to one book follow the order of the commands, so a
+  /// later gC reads the mark left by an earlier gC or last-page arrival.
+  Future<void> _queueCompleted(String key, Future<void> Function() change) {
+    final previous = _completionTails[key];
+    final write = previous == null ? change() : previous.then((_) => change());
+    _completionTails[key] = write;
+    _completedWrites.add(write);
+    return write.whenComplete(() {
+      _completedWrites.remove(write);
+      if (identical(_completionTails[key], write)) _completionTails.remove(key);
+    });
+  }
+
+  Future<void> _changeCompleted(OpenBook book, bool onLastPage) async {
     final store = ref.read(libraryStoreProvider);
     try {
-      final on = !(await store.completedMarkOf(book.key) ?? _onLastPage);
+      final on = !(await store.completedMarkOf(book.key) ?? onLastPage);
       await store.setCompleted(book.key, on);
       _sidecars.touch(book.key);
       if (identical(state.book, book)) _notice(on ? 'Marked as completed' : 'Marked as not completed');
     } catch (e) {
-      _notice('Could not change the completed mark: $e');
+      if (identical(state.book, book)) {
+        _notice('Could not change the completed mark: $e');
+      } else {
+        debugPrint('Could not change the completed mark for ${book.path}: $e');
+      }
     }
   }
 
@@ -422,7 +450,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// completed when it is read again from the start, and another device
   /// would never hear of it (positions are per device, the mark is not).
   /// Says so only when nothing else is on the status line.
-  Future<void> _completeAtEnd(OpenBook book) async {
+  Future<void> _completeAtEnd(OpenBook book) => _queueCompleted(book.key, () => _markCompletedAtEnd(book));
+
+  Future<void> _markCompletedAtEnd(OpenBook book) async {
     final store = ref.read(libraryStoreProvider);
     try {
       if (await store.completedMarkOf(book.key) == true) return;
@@ -544,6 +574,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // The book was already displayed, so its Unread removal belongs in the
     // sidecar even when Back was pressed before that index write completed.
     await Future.wait(_unreadWrites.toList());
+    // A completion started before close may still be reading the old mark.
+    // Its write must reach the index before the final sidecar flush.
+    onCompletionBarrier?.call(false);
+    await Future.wait(_completedWrites.toList());
+    onCompletionBarrier?.call(true);
     await Future.wait(_sidecarWrites.toList());
     // Wait for the sidecar too: Reset must not overtake a close-time write.
     try {
@@ -1440,6 +1475,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
       await _endSitting();
       if (state.book?.key == s.key) _sitting = (key: s.key, start: DateTime.now(), pages: <int>{});
     }
+    onCompletionBarrier?.call(false);
+    await Future.wait(_completedWrites.toList());
+    onCompletionBarrier?.call(true);
     await _sidecars.flush();
     await ref.read(s3SyncProvider).flush(limit: const Duration(seconds: 3));
   }

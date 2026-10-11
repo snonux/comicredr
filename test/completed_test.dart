@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:comic_formats/comic_formats.dart';
@@ -62,6 +63,27 @@ class _FailingMarks extends LibraryStore {
   }
 }
 
+/// Holds one completed-mark read while the reader changes page or book.
+class _HeldCompletedMark extends LibraryStore {
+  _HeldCompletedMark(super.db, {this.fail = false});
+
+  final bool fail;
+  final entered = Completer<void>();
+  final release = Completer<void>();
+  int reads = 0;
+
+  @override
+  Future<bool?> completedMarkOf(String contentKey) async {
+    reads++;
+    if (reads == 1) {
+      entered.complete();
+      await release.future;
+    }
+    if (fail) throw StateError('the index is locked');
+    return super.completedMarkOf(contentKey);
+  }
+}
+
 extension on LibraryBook {
   /// This comic as the library lists it once it has the completed mark [on].
   LibraryBook marked(bool on) => LibraryBook(
@@ -112,6 +134,196 @@ void main() {
     for (final b in await store.books())
       if (b.completed) b.name,
   ]..sort();
+
+  group('reader completion while the index is busy', () {
+    (Completer<void>, Completer<void>) watchBarrier(ReaderNotifier reader) {
+      final before = Completer<void>();
+      final after = Completer<void>();
+      reader.onCompletionBarrier = (drained) => (drained ? after : before).complete();
+      return (before, after);
+    }
+
+    Future<(ProviderContainer, _HeldCompletedMark, String, String)> opened({
+      bool fail = false,
+      bool realSidecars = false,
+    }) async {
+      final a = writeBook(root, 'A.cbz', 3);
+      final b = writeBook(root, 'B.cbz', 4);
+      final store = _HeldCompletedMark(db, fail: fail);
+      final c = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          libraryStoreProvider.overrideWithValue(store),
+          if (realSidecars)
+            sidecarSyncProvider.overrideWith(
+              (ref) => SidecarSync(
+                db,
+                progress: ref.watch(progressStoreProvider),
+                debounce: Duration.zero,
+                storeDir: () async => null,
+              ),
+            )
+          else
+            noSidecars(db),
+          classicCvOnly,
+        ],
+      );
+      addTearDown(c.dispose);
+      await c.read(readerProvider.notifier).open(a);
+      expect(c.read(readerProvider).page, 0);
+      return (c, store, a, b);
+    }
+
+    test('uses the page shown when gC was pressed', () async {
+      final (c, held, a, _) = await opened();
+      final reader = c.read(readerProvider.notifier);
+      final key = c.read(readerProvider).book!.key;
+      final command = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+      await held.entered.future;
+      reader.jumpTo(2);
+      held.release.complete();
+      await command;
+      expect(c.read(readerProvider).book?.path, a);
+      expect(await LibraryStore(db).completedMarkOf(key), isTrue);
+    });
+
+    test('uses the last page shown when gC was pressed even after jumping to the first', () async {
+      final (c, held, _, _) = await opened();
+      final reader = c.read(readerProvider.notifier);
+      final key = c.read(readerProvider).book!.key;
+      reader.jumpTo(2);
+      final command = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+      await held.entered.future;
+      reader.jumpTo(0);
+      held.release.complete();
+      await command;
+      expect(await LibraryStore(db).completedMarkOf(key), isFalse);
+    });
+
+    test('an explicit mark still takes precedence over the page snapshot', () async {
+      final (c, held, _, _) = await opened();
+      final reader = c.read(readerProvider.notifier);
+      final key = c.read(readerProvider).book!.key;
+      await LibraryStore(db).setCompleted(key, true);
+      final command = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+      await held.entered.future;
+      reader.jumpTo(2);
+      held.release.complete();
+      await command;
+      expect(await LibraryStore(db).completedMarkOf(key), isFalse);
+    });
+
+    test('an automatic last-page mark finishes before a later gC reads it', () async {
+      final (c, held, _, _) = await opened();
+      final reader = c.read(readerProvider.notifier);
+      final key = c.read(readerProvider).book!.key;
+      reader.jumpTo(1);
+      await reader.handle(const ReaderCommand(ReaderIntent.nextPage));
+      await held.entered.future;
+      final toggle = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+      expect(held.reads, 1, reason: 'gC must wait for the automatic mark');
+      held.release.complete();
+      await toggle;
+      expect(held.reads, 2);
+      expect(await LibraryStore(db).completedMarkOf(key), isFalse);
+    });
+
+    test('two rapid gC presses toggle twice in their invocation order', () async {
+      final (c, held, _, _) = await opened();
+      final reader = c.read(readerProvider.notifier);
+      final key = c.read(readerProvider).book!.key;
+      final first = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+      await held.entered.future;
+      final second = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+      expect(held.reads, 1, reason: 'the second gC must wait for the first write');
+      held.release.complete();
+      await Future.wait([first, second]);
+      expect(held.reads, 2);
+      expect(await LibraryStore(db).completedMarkOf(key), isFalse);
+    });
+
+    test('a book switch keeps the command on its original book', () async {
+      final (c, held, _, b) = await opened();
+      final reader = c.read(readerProvider.notifier);
+      final oldKey = c.read(readerProvider).book!.key;
+      final command = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+      await held.entered.future;
+      final (before, after) = watchBarrier(reader);
+      final opening = reader.open(b);
+      await before.future;
+      expect(c.read(readerProvider).book, isNull, reason: 'the old book is closing while gC waits');
+      expect(after.isCompleted, isFalse);
+      held.release.complete();
+      await Future.wait([opening, command]);
+      final newKey = c.read(readerProvider).book!.key;
+      expect(await LibraryStore(db).completedMarkOf(oldKey), isTrue);
+      expect(await LibraryStore(db).completedMarkOf(newKey), isNull);
+      expect(c.read(readerProvider).message, isNot('Marked as completed'));
+    });
+
+    for (final closeBook in [true, false]) {
+      test('${closeBook ? 'close' : 'exit flush'} waits for gC and writes its mark to the real sidecar', () async {
+        final (c, held, a, _) = await opened(realSidecars: true);
+        final reader = c.read(readerProvider.notifier);
+        final key = c.read(readerProvider).book!.key;
+        final command = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+        await held.entered.future;
+        final (before, after) = watchBarrier(reader);
+        var finished = false;
+        final leaving = (closeBook ? reader.close() : reader.flush()).then((_) => finished = true);
+        try {
+          await before.future;
+          if (closeBook) expect(c.read(readerProvider).book, isNull);
+          expect(after.isCompleted, isFalse, reason: 'completion write is still held');
+          expect(finished, isFalse, reason: 'the final sidecar flush must wait for the pending mark');
+        } finally {
+          held.release.complete();
+        }
+        await after.future;
+        await Future.wait([leaving, command]);
+        expect(await LibraryStore(db).completedMarkOf(key), isTrue);
+        expect(completedMark(readSidecar(sidecarPath(a, folder: false))!.overrides[completedField]), isTrue);
+      });
+    }
+
+    test('closing after reading onto the last page waits for its mark and writes the sidecar', () async {
+      final (c, held, a, _) = await opened(realSidecars: true);
+      final reader = c.read(readerProvider.notifier);
+      final key = c.read(readerProvider).book!.key;
+      reader.jumpTo(1);
+      await reader.handle(const ReaderCommand(ReaderIntent.nextPage));
+      await held.entered.future;
+      final (before, after) = watchBarrier(reader);
+      final closing = reader.close();
+      try {
+        await before.future;
+        expect(after.isCompleted, isFalse);
+      } finally {
+        held.release.complete();
+      }
+      await after.future;
+      await closing;
+      expect(await LibraryStore(db).completedMarkOf(key), isTrue);
+      expect(completedMark(readSidecar(sidecarPath(a, folder: false))!.overrides[completedField]), isTrue);
+    });
+
+    for (final switchBook in [false, true]) {
+      test('a failed old-book command does not report on a ${switchBook ? 'new book' : 'closed reader'}', () async {
+        final (c, held, _, b) = await opened(fail: true);
+        final reader = c.read(readerProvider.notifier);
+        final command = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
+        await held.entered.future;
+        final (before, after) = watchBarrier(reader);
+        final leaving = switchBook ? reader.open(b) : reader.close();
+        await before.future;
+        expect(c.read(readerProvider).book, isNull);
+        expect(after.isCompleted, isFalse);
+        held.release.complete();
+        await Future.wait([leaving, command]);
+        expect(c.read(readerProvider).message, isNot(contains('Could not change the completed mark')));
+      });
+    }
+  });
 
   final t0 = DateTime(2026, 10, 1, 12);
   DateTime at(int minutes) => t0.add(Duration(minutes: minutes));
