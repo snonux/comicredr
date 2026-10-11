@@ -618,26 +618,32 @@ class S3Sync {
     String target,
     int remoteAt, {
     bool Function()? stillWanted,
+    void Function()? onImport,
   }) async {
-    await Directory(p.dirname(target)).create(recursive: true);
-    final tmp = p.join(p.dirname(target), '.${p.basename(target)}.s3');
-    final file = File(tmp);
-    final sink = file.openWrite();
-    bool ok;
+    final parent = Directory(p.dirname(target));
+    await parent.create(recursive: true);
+    // Each pull needs its own name: a timed-out download can still be
+    // finishing while the next open starts another pull of this book.
+    final temporary = await parent.createTemp('.${p.basename(target)}.s3.');
+    final tmp = p.join(temporary.path, 'download');
     try {
-      ok = await store.download(o.sidecar, sink);
+      final sink = File(tmp).openWrite();
+      bool ok;
+      try {
+        ok = await store.download(o.sidecar, sink);
+      } finally {
+        await sink.close();
+      }
+      if (!ok || readSidecar(tmp)?.contentKey != key || !(stillWanted?.call() ?? true)) return null;
+      onImport?.call();
+      final imported = await sidecars.replaceWith(key, target, tmp);
+      await (_db.update(
+        _db.s3Books,
+      )..where((t) => t.contentKey.equals(key))).write(S3BooksCompanion(sidecarAt: Value(remoteAt)));
+      return imported;
     } finally {
-      await sink.close();
+      await temporary.delete(recursive: true);
     }
-    if (!ok || readSidecar(tmp)?.contentKey != key || !(stillWanted?.call() ?? true)) {
-      if (file.existsSync()) file.deleteSync();
-      return null;
-    }
-    final imported = await sidecars.replaceWith(key, target, tmp);
-    await (_db.update(
-      _db.s3Books,
-    )..where((t) => t.contentKey.equals(key))).write(S3BooksCompanion(sidecarAt: Value(remoteAt)));
-    return imported;
   }
 
   /// Opening a comic that is on S3: when the bucket's sidecar is newer, it
@@ -651,6 +657,7 @@ class S3Sync {
     if (conn == null) return false;
     final (store, config) = conn;
     var wanted = true;
+    var importing = false;
     Future<bool> check() => _guard(() async {
       final o = BookObjects(config.prefix, contentKey);
       final at = await sidecars.placeOf(contentKey);
@@ -658,12 +665,31 @@ class S3Sync {
       final side = await sidecars.sidecarFor(at.path, folder: at.folder);
       final remote = int.tryParse((await store.head(o.sidecar))?.metadata[writtenAtMeta] ?? '');
       if (compareSidecars(local: sidecarWrittenAt(side), remote: remote) != SidecarMove.pull) return false;
-      return await _pull(store, o, contentKey, side, remote!, stillWanted: () => wanted) != null;
+      return await _pull(
+            store,
+            o,
+            contentKey,
+            side,
+            remote!,
+            stillWanted: () => wanted,
+            onImport: () => importing = true,
+          ) !=
+          null;
     });
+    final checking = check();
     try {
-      return await check().timeout(limit);
+      return await checking.timeout(limit);
     } on TimeoutException {
       wanted = false;
+      // Once replacement has started it can still import rows after this
+      // timeout. Finish that import before callers may close and reset.
+      if (importing) {
+        try {
+          await checking;
+        } catch (e) {
+          debugPrint('S3 check on open failed: $e');
+        }
+      }
       return false;
     } catch (e) {
       debugPrint('S3 check on open failed: $e');

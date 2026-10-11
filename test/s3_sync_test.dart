@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -16,6 +17,7 @@ import 'package:comicredr/src/library/scanner.dart';
 import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 
 import 'support/fixtures.dart';
 
@@ -131,6 +133,81 @@ void main() {
     expect((await laptop.book(key)).s3?.mark, S3Mark.synced);
     await pumpEventQueue();
     expect(laptop.notices, contains('Uploaded Weird Comics #4 to S3'));
+  });
+
+  test('open pull timeout cancels before import and waits once replacement starts', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    final sidecars = _HeldReplaceSidecars(db, progress: ProgressStore(db, debounce: Duration.zero));
+    final remote = _HeldDownloadStore();
+    final settings = S3Settings(SettingsStore(db), MemorySecretStore());
+    await settings.save(
+      S3Config(endpoint: Uri.parse('http://garage.lan:3900'), bucket: 'comics', accessKey: 'GK1', secretKey: 's'),
+    );
+    final s3 = S3Sync(db, sidecars: sidecars, settings: settings, storeFor: (_) => remote, coverDir: null);
+    addTearDown(() async {
+      await s3.dispose();
+      await db.close();
+    });
+    final path = writeBook(laptop.root, 'Timeout.cbz', 1);
+    final key = await contentKey(path);
+    await sidecars.attach(path, key, folder: false);
+    await db.into(db.s3Books).insert(S3BooksCompanion.insert(contentKey: key, manifest: '{}'));
+    final source = '${tmp.path}/remote.crdb';
+    writeSidecar(
+      source,
+      SidecarData(
+        contentKey: key,
+        bookmarks: [Bookmark(id: 'remote', contentKey: key, page: 0, createdAt: DateTime(2020))],
+      ),
+      device: 'other',
+    );
+    expect(readSidecar(source)?.contentKey, key);
+    final o = BookObjects('Comics/', key);
+    remote.objects[o.sidecar] = (
+      bytes: File(source).readAsBytesSync(),
+      metadata: {writtenAtMeta: '${sidecarWrittenAt(source)}'},
+    );
+
+    remote.holdDownload = true;
+    final early = s3.pullOnOpen(key, limit: const Duration(milliseconds: 20));
+    await Future.any([
+      remote.downloadEntered.future,
+      early.then((value) => throw StateError('pull returned $value before download')),
+    ]);
+    expect(await early.timeout(const Duration(seconds: 1)), isFalse);
+    expect((await db.select(db.bookmarks).get()).where((r) => r.contentKey == key), isEmpty);
+
+    // Retry while the old download still owns its temporary file. Its late
+    // cleanup must not delete the new download waiting at replaceWith.
+    sidecars.holdReplace = true;
+    var returned = false;
+    final latePull = s3.pullOnOpen(key, limit: const Duration(milliseconds: 20)).then((value) {
+      returned = true;
+      return value;
+    });
+    await Future.any([
+      sidecars.replaceEntered.future,
+      latePull.then((value) => throw StateError('late pull returned $value before replace')),
+    ]);
+    final target = sidecarPath(path, folder: false);
+    List<FileSystemEntity> temporaryDirs() =>
+        Directory(p.dirname(target))
+            .listSync()
+            .where((entry) => entry is Directory && p.basename(entry.path).startsWith('.${p.basename(target)}.s3.'))
+            .toList();
+    expect(temporaryDirs(), hasLength(2));
+    remote.downloadRelease.complete();
+    for (var i = 0; i < 100 && temporaryDirs().length > 1; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(temporaryDirs(), hasLength(1), reason: 'only the old download may be cleaned up');
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(returned, isFalse, reason: 'timeout must wait for an import already inside replaceWith');
+    sidecars.replaceRelease.complete();
+    expect(await latePull, isFalse);
+    expect((await db.select(db.bookmarks).get()).map((r) => r.id), contains('remote'));
+    expect(readSidecar(sidecarPath(path, folder: false))!.bookmarks.map((r) => r.id), contains('remote'));
+    expect(temporaryDirs(), isEmpty);
   });
 
   test('laptop to phone and back: the position follows, newest sidecar wins', () async {
@@ -496,6 +573,39 @@ void main() {
       expect(bucket.objects[o.comic('cbz')]!.bytes.length, isNot(broken));
     });
   });
+}
+
+class _HeldDownloadStore extends MemoryStore {
+  bool holdDownload = false;
+  final downloadEntered = Completer<void>();
+  final downloadRelease = Completer<void>();
+
+  @override
+  Future<bool> download(String key, IOSink sink, {void Function(int received)? onProgress}) async {
+    if (holdDownload) {
+      holdDownload = false;
+      downloadEntered.complete();
+      await downloadRelease.future;
+    }
+    return super.download(key, sink, onProgress: onProgress);
+  }
+}
+
+class _HeldReplaceSidecars extends SidecarSync {
+  _HeldReplaceSidecars(super.db, {required super.progress}) : super(debounce: Duration.zero);
+
+  bool holdReplace = false;
+  final replaceEntered = Completer<void>();
+  final replaceRelease = Completer<void>();
+
+  @override
+  Future<SidecarImport> replaceWith(String contentKey, String target, String downloaded) async {
+    if (holdReplace) {
+      replaceEntered.complete();
+      await replaceRelease.future;
+    }
+    return super.replaceWith(contentKey, target, downloaded);
+  }
 }
 
 /// Every file under [dir], sidecars too, as sorted paths from it.

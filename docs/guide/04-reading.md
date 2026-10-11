@@ -27,6 +27,12 @@ button to see its key. The
 arrow on the left does what `Esc` does: out of guided view, then back to
 the library (on the phone, the back gesture does that).
 
+If you return to the library while another comic is still opening, it
+stays closed. For example, press `]` to open the next comic, then `Esc`
+before it appears: ComicRedr leaves you in the library.
+If you opened it from a folder, `Esc` stops the loading and leaves you
+in that folder.
+
 ## Turning pages
 
 | Key | What it does |

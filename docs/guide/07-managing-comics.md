@@ -59,7 +59,9 @@ Press `X` in a comic or on a selected cover (or **Reset this comic** in
 its details) to start over. You get two choices:
 
 - **Redo panels** forgets the panels and balloons found in this comic and
-  finds them again. Useful if guided view goes wrong on a book.
+  finds them again. Any detection still running when you reset is discarded;
+  panels are found again when the comic opens (right away if you reset from
+  the reader). Useful if guided view goes wrong on a book.
 - **Reset everything** also forgets its bookmarks and marks, where you
   are in it (on every device), whether it is
   [completed](03-library.md#completed-comics), your edits and its reading

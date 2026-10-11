@@ -347,7 +347,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       root = dir;
       if (scan) unawaited(_rescan());
     }
-    if (ref.read(readerProvider).book != null) await ref.read(readerProvider.notifier).close();
+    final reading = ref.read(readerProvider);
+    if (reading.book != null || reading.loading) await ref.read(readerProvider.notifier).close();
     _library.currentState?.showFolder(dir, root: root);
   }
 
@@ -890,7 +891,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// time, and it leaves the app only from the library's top level. Without
   /// this, back in the reader closed the whole app.
   void _systemBack() {
-    if (_showKeymap || ref.read(readerProvider).book != null) {
+    final reading = ref.read(readerProvider);
+    if (_showKeymap || reading.book != null || reading.loading) {
       _onCommand(const ReaderCommand(ReaderIntent.back));
     } else if (!(_library.currentState?.back() ?? false)) {
       // As Esc: fullscreen goes first, then the app.
@@ -1126,6 +1128,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (ref.read(readerProvider).book == null) {
       final reader = ref.read(readerProvider.notifier);
+      if (c.intent == ReaderIntent.back && ref.read(readerProvider).loading) {
+        unawaited(reader.close());
+        return;
+      }
       if (c.intent == ReaderIntent.fullscreen) {
         reader.setFullscreen(!ref.read(readerProvider).fullscreen);
         return;
