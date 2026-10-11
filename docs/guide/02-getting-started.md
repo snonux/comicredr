@@ -19,13 +19,17 @@ your first comic.
 | CBZ (a ZIP of page images) | Reads it. The most common comic format. |
 | CBT (a tar of page images) | Reads it, like a CBZ. |
 | PDF | Renders each page at the size you look at it, so zooming in stays sharp. |
-| EPUB made of page images | Reads it like any comic. EPUBs that are mostly text are refused: they are ebooks, not comics. |
+| EPUB made of page images | Reads it like any comic. An SVG page that points to a PNG or JPEG shows that image. EPUBs that are mostly text are refused: they are ebooks, not comics. |
 | A folder of page images | One book. JPEG, PNG, WebP, GIF and BMP pages, in natural order (page 2 before page 10), subfolders included. |
 | A single PNG, JPEG or WebP | A one-page comic, with guided view like any other. |
 | CBR (a RAR archive) | Not read. Converting your CBR files to CBZ takes a moment: see [The CBR files you already have](01-installing.md#the-cbr-files-you-already-have). |
 
 ComicRedr looks at the first bytes of a file, not at its name, so a
 `.cbr` that is really a ZIP opens as it is.
+
+For example, a fixed-layout EPUB can put each page's artwork in a PNG
+and use an SVG page to place it. Open the EPUB as usual; ComicRedr reads
+the PNG as the page.
 
 ## Add your comics
 

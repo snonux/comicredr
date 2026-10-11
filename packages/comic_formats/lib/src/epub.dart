@@ -138,7 +138,7 @@ const _imagesOnlyTextLimit = 20;
   final pages = <ArchiveFile>[];
   var pageItems = 0, mixed = 0, cut = 0;
   for (final item in spine) {
-    if (item.mediaType.startsWith('image/') || isPageEntry(item.path)) {
+    if ((item.mediaType.startsWith('image/') && item.mediaType != 'image/svg+xml') || isPageEntry(item.path)) {
       final f = files[item.path];
       if (f != null) {
         pages.add(f);

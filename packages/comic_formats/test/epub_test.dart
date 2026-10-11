@@ -173,6 +173,58 @@ void main() {
     await doc.close();
   });
 
+  test('an SVG spine page yields the raster image it references', () async {
+    const opf = '''<package><metadata><meta property="rendition:layout">pre-paginated</meta></metadata>
+<manifest><item id="p" href="pages/page.svg" media-type="image/svg+xml"/>
+<item id="art" href="images/art.png" media-type="image/png"/></manifest>
+<spine><itemref idref="p"/></spine></package>''';
+    final path = writeEpub('svg-spine.epub', {
+      'META-INF/container.xml': utf8.encode(container),
+      'OEBPS/content.opf': utf8.encode(opf),
+      'OEBPS/pages/page.svg': utf8.encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600">'
+        '<image href="../images/art.png" width="400" height="600"/></svg>',
+      ),
+      'OEBPS/images/art.png': page(1),
+    });
+    final doc = await openDocument(path) as EpubDocument;
+    expect(doc.pageNames, ['OEBPS/images/art.png']);
+    expect(await doc.rawPage(0), page(1));
+    await doc.close();
+  });
+
+  test('an SVG spine page uses xlink:href and fixed-layout picks the largest raster image', () async {
+    const opf = '''<package><metadata><meta property="rendition:layout">pre-paginated</meta></metadata>
+<manifest><item id="p" href="page.svg" media-type="image/svg+xml"/></manifest>
+<spine><itemref idref="p"/></spine></package>''';
+    final path = writeEpub('svg-spine-xlink.epub', {
+      'META-INF/container.xml': utf8.encode(container),
+      'OEBPS/content.opf': utf8.encode(opf),
+      'OEBPS/page.svg': utf8.encode(
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">'
+        '<image xlink:href="logo.png"/><image xlink:href="art.png"/></svg>',
+      ),
+      'OEBPS/logo.png': page(1),
+      'OEBPS/art.png': page(2, pad: 500),
+    });
+    final doc = await openDocument(path) as EpubDocument;
+    expect(doc.pageNames, ['OEBPS/art.png']);
+    expect(await doc.rawPage(0), page(2, pad: 500));
+    await doc.close();
+  });
+
+  test('an SVG spine page without a raster image is refused', () async {
+    const opf = '''<package><metadata><meta property="rendition:layout">pre-paginated</meta></metadata>
+<manifest><item id="p" href="page.svg" media-type="image/svg+xml"/></manifest>
+<spine><itemref idref="p"/></spine></package>''';
+    final path = writeEpub('vector-only.epub', {
+      'META-INF/container.xml': utf8.encode(container),
+      'OEBPS/content.opf': utf8.encode(opf),
+      'OEBPS/page.svg': utf8.encode('<svg xmlns="http://www.w3.org/2000/svg"><rect width="20" height="20"/></svg>'),
+    });
+    expect(() => openDocument(path), throwsFormatException);
+  });
+
   test('a reflowable text EPUB is refused', () async {
     const opf = '''<package><manifest>
 <item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/>
