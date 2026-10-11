@@ -1060,7 +1060,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (_onOpenComic(c)) return;
     if (_showPages) {
-      _grid.currentState?.handle(c);
+      if (c.intent == ReaderIntent.fullscreen) {
+        final reader = ref.read(readerProvider.notifier);
+        reader.setFullscreen(!ref.read(readerProvider).fullscreen);
+      } else {
+        _grid.currentState?.handle(c);
+      }
       return;
     }
     if (_showBookmarks) {

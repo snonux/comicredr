@@ -1098,7 +1098,9 @@ refreshes right away instead of within six hours.
   status line and progress bar come over it on a notice, while keys are
   typed, or while the mouse is in the bottom 96 px, and the pointer hides
   1.5 s after the mouse stops. The library keeps its tabs and search in
-  fullscreen. Esc keeps its meanings (guided view, the book, the search, a
+  fullscreen. `HomeScreen._onCommand` also takes fullscreen while the `p`
+  grid is open, keeping its selection; other page commands stay blocked
+  by the grid. Esc keeps its meanings (guided view, the book, the search, a
   folder up) and leaves fullscreen only when the library has nothing left
   to back out of (`LibraryScreenState.handle` returns false).
 - The `?` help's text size (snonux, task 163): the help
@@ -1392,7 +1394,7 @@ tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manif
 tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
 tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 2 s (then 5 s, set in the index) turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
-tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, Esc, restart; makes its own book
+tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, page grid held and selection kept across both toggles, Esc, restart; makes its own book
 tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library

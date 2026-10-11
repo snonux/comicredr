@@ -89,6 +89,50 @@ void main() {
     expect(bar(), findsOneWidget);
   });
 
+  testWidgets('f and F11 keep the page grid and its selection while toggling fullscreen', (tester) async {
+    final c = await openBook(tester);
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    expect(c.read(readerProvider).page, 1);
+    await key(tester, LogicalKeyboardKey.keyP, character: 'p');
+    await key(tester, LogicalKeyboardKey.arrowRight);
+
+    await key(tester, LogicalKeyboardKey.keyF, character: 'f');
+    expect(c.read(readerProvider).fullscreen, isTrue);
+    expect(find.byKey(const Key('pageGrid')), findsOneWidget);
+    expect(c.read(readerProvider).page, 1, reason: 'fullscreen does not pick a page');
+    expect(windowAsked(), [true]);
+
+    await key(tester, LogicalKeyboardKey.f11);
+    expect(c.read(readerProvider).fullscreen, isFalse);
+    expect(find.byKey(const Key('pageGrid')), findsOneWidget);
+    expect(windowAsked(), [true, false]);
+    await key(tester, LogicalKeyboardKey.enter);
+    expect(find.byKey(const Key('pageGrid')), findsNothing);
+    expect(c.read(readerProvider).page, 2, reason: 'the selected page survives both fullscreen changes');
+  });
+
+  testWidgets('Esc closes a fullscreen page grid without closing the book or changing reading mode', (tester) async {
+    final c = await openBook(tester);
+    final book = c.read(readerProvider).book;
+    await key(tester, LogicalKeyboardKey.keyP, character: 'p');
+    await key(tester, LogicalKeyboardKey.f11);
+    expect(c.read(readerProvider).fullscreen, isTrue);
+    expect(windowAsked(), [true]);
+
+    await key(tester, LogicalKeyboardKey.keyV, character: 'v');
+    expect(c.read(readerProvider).guided, isFalse, reason: 'page commands remain blocked behind the grid');
+    await key(tester, LogicalKeyboardKey.arrowRight);
+    await key(tester, LogicalKeyboardKey.escape);
+    expect(find.byKey(const Key('pageGrid')), findsNothing);
+    expect(c.read(readerProvider).book, same(book));
+    expect(c.read(readerProvider).page, 0, reason: 'Esc does not pick the selected page');
+    expect(c.read(readerProvider).fullscreen, isTrue);
+    expect(windowAsked(), [true]);
+    await key(tester, LogicalKeyboardKey.keyF, character: 'f');
+    expect(c.read(readerProvider).fullscreen, isFalse);
+    expect(windowAsked(), [true, false]);
+  });
+
   testWidgets('Esc backs out of guided view and the book, staying fullscreen; at the top it leaves', (tester) async {
     final c = await openBook(tester);
     await key(tester, LogicalKeyboardKey.keyV, character: 'v');

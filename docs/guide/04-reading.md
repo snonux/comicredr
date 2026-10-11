@@ -341,6 +341,11 @@ when you stop moving it. `f` again leaves fullscreen. The library can be
 fullscreen too, and ComicRedr starts in fullscreen if you left it that
 way.
 
+`f` and `F11` also work while the [page grid](#see-every-page-at-once) is open.
+For example, press `p`, move to a page with the arrows, then press `F11`
+for more room: the grid stays open on your selection. `Enter` reads that
+page; `Esc` closes the grid and keeps the fullscreen setting.
+
 ## What time is it?
 
 In fullscreen there is no clock. Press `T` (or hold a finger on the

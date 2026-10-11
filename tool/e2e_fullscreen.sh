@@ -11,6 +11,8 @@
 # fullscreen, a book opened there is fullscreen, `f` in the search box is a
 # letter while F11 still works, Esc at the top leaves fullscreen, `f` goes
 # back in, and a launch into the library comes back fullscreen.
+# The page grid stays open across f and F11, keeping its selection; Esc
+# closes it without picking a page or leaving fullscreen.
 #
 #   tool/e2e_fullscreen.sh
 #
@@ -73,6 +75,20 @@ only_page() {
   bottom=$(share "$1" "$2" 1280x70+0+730)
   echo "  $1: page colour on $all of the screen, $top of the top rows, $bottom of the bottom rows"
   python3 -c "import sys; sys.exit(0 if $all > 0.99 and $top > 0.999 and $bottom > 0.999 else 1)"
+}
+# The grid shows several differently coloured thumbnails at once.
+grid_visible() {
+  python3 - "$run/$1.png" <<'EOF'
+import sys
+from PIL import Image
+colours = [(200, 40, 40), (40, 160, 60), (40, 80, 200),
+           (220, 180, 30), (160, 50, 170), (30, 170, 170)]
+counts = Image.open(sys.argv[1]).convert('RGB').getcolors(1280 * 800)
+shown = sum(sum(n for n, pixel in counts
+                if max(abs(a - b) for a, b in zip(pixel, colour)) < 10) > 500
+            for colour in colours)
+sys.exit(0 if shown >= 3 else 1)
+EOF
 }
 # Whether the X server's current cursor has no visible pixel.
 pointer_hidden() {
@@ -169,6 +185,37 @@ one_run() {
   fullscreen && ok "a restart comes back fullscreen" || fail "a restart forgot fullscreen"
   only_page 7_restart 4 && ok "on page 4, only the page" || fail "the restart does not show only page 4"
 
+  key p
+  key Right # grid selection: page 5; the reader stays on page 4
+  shot 7a_grid
+  grid_visible 7a_grid && ok "P shows the page grid" \
+    || fail "P did not show the grid"
+  key f
+  shot 7b_grid_windowed
+  fullscreen && fail "f in the grid did not leave fullscreen" \
+    || ok "f in the grid leaves fullscreen"
+  grid_visible 7b_grid_windowed && ok "f keeps the grid open" \
+    || fail "f closed the grid"
+  key F11
+  shot 7c_grid_fullscreen
+  fullscreen && ok "F11 in the grid enters fullscreen" \
+    || fail "F11 in the grid did nothing"
+  grid_visible 7c_grid_fullscreen && ok "F11 keeps the grid open" \
+    || fail "F11 closed the grid"
+  key Return
+  sleep 2
+  shot 7d_grid_picked
+  only_page 7d_grid_picked 5 && ok "Enter reads the selection kept across both toggles" \
+    || fail "the grid lost its selection or did not close"
+  key Left p
+  key Right Escape # grid closed, without picking page 5
+  sleep 2
+  shot 7e_grid_closed
+  fullscreen && ok "Esc from the grid keeps fullscreen" \
+    || fail "Esc from the grid left fullscreen"
+  only_page 7e_grid_closed 4 && ok "Esc closes the grid without turning or closing the book" \
+    || fail "Esc from the grid picked a page or closed the book"
+
   # The library is fullscreen too, and Esc keeps its meanings there.
   key Escape
   sleep 1
@@ -219,7 +266,8 @@ one_run header-bar
 
 montage -label '%d/%f' "$out"/openbox/*.png "$out"/header-bar/*.png -tile 4x -geometry 480x300+6+6 \
   -background '#222' -fill white "$out/contact.png" 2>/dev/null || true
-if grep -iE 'exception|error' "$out"/*/app.log | grep -viE 'libEGL|Atk-CRITICAL|dbind'; then
+if grep -iE 'exception|error' "$out"/*/app.log \
+  | grep -viE 'libEGL|Atk-CRITICAL|dbind|MESA-EGL: warning: DRI3 error: Could not get DRI3 device'; then
   fail "the app logged errors"
 fi
 [[ $failed == 0 ]] && echo "PASS" || { echo "FAILED"; exit 1; }

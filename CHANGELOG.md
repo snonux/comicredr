@@ -7,6 +7,9 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Fullscreen in the page grid:** `f` and `F11` toggle fullscreen while
+  `p` is open, keeping the grid and its selected page. `Esc` closes the
+  grid without leaving fullscreen.
 - **The filter is on every tab, not only the Folders tab:** `F`, and the
   funnel at the search box's right end (new: it used to be a wide button
   on a line under the header, which only the Folders tab had), open the
