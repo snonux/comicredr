@@ -15,6 +15,7 @@
 # closes it without picking a page or leaving fullscreen.
 #
 #   tool/e2e_fullscreen.sh
+#   COMICREDR_E2E_BUNDLE=/path/to/copied/bundle tool/e2e_fullscreen.sh
 #
 # Makes its own book: pages the size of the screen, one flat colour each,
 # so "only the page" is a pixel count.
@@ -27,7 +28,14 @@ cd "$(dirname "$0")/.."
 
 out=build/e2e-fullscreen
 rm -rf "$out" && mkdir -p "$out/Comics"
-[[ -x build/linux/x64/release/bundle/comicredr ]] || flutter build linux --release
+binary=${COMICREDR_E2E_BUNDLE:-build/linux/x64/release/bundle}/comicredr
+if [[ ! -x "$binary" ]]; then
+  if [[ -n ${COMICREDR_E2E_BUNDLE:-} ]]; then
+    echo "No ComicRedr executable in $COMICREDR_E2E_BUNDLE" >&2
+    exit 1
+  fi
+  flutter build linux --release
+fi
 
 python3 - "$out/Comics/Colours.cbz" <<'EOF'
 import io, sys, zipfile
@@ -113,7 +121,7 @@ EOF
 launch() {
   local book=("$PWD/$out/Comics/Colours.cbz")
   [[ ${1:-} == library ]] && book=()
-  HOME="$PWD/$out/home" build/linux/x64/release/bundle/comicredr --add-root "$PWD/$out/Comics" "${book[@]}" \
+  HOME="$PWD/$out/home" "$binary" --add-root "$PWD/$out/Comics" "${book[@]}" \
     >>"$run/app.log" 2>&1 &
   app=$!
   sleep 6
