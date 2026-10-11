@@ -5,6 +5,8 @@ import 'package:comic_formats/comic_formats.dart';
 import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/panel_store.dart';
+import 'package:comicredr/src/data/progress_store.dart';
+import 'package:comicredr/src/data/read_log_store.dart';
 import 'package:comicredr/src/data/s3_sync.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
@@ -67,6 +69,86 @@ class _HeldPanelStore extends PanelStore {
   }
 }
 
+class _HeldProgressStore extends ProgressStore {
+  _HeldProgressStore(super.db);
+
+  bool hold = false;
+  final entered = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<void> flush() async {
+    if (hold) {
+      if (!entered.isCompleted) entered.complete();
+      await release.future;
+    }
+    await super.flush();
+  }
+}
+
+class _HeldReadLogStore extends ReadLogStore {
+  _HeldReadLogStore(super.db);
+
+  final entered = Completer<void>();
+  final secondEntered = Completer<void>();
+  final release = Completer<void>();
+  int calls = 0;
+
+  @override
+  Future<void> record(String contentKey, DateTime start, DateTime end, int pages) {
+    calls++;
+    final write = super.record(contentKey, start, end, pages);
+    if (calls == 1) {
+      entered.complete();
+      return () async {
+        await release.future;
+        await write;
+      }();
+    }
+    if (calls == 2) secondEntered.complete();
+    return write;
+  }
+}
+
+class _HeldMarkStore extends MarkStore {
+  _HeldMarkStore(super.db);
+
+  final entered = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<void> save(String contentKey, String mark, int page, int panel) async {
+    entered.complete();
+    await release.future;
+    await super.save(contentKey, mark, page, panel);
+  }
+}
+
+class _TrackingSidecars extends SidecarSync {
+  _TrackingSidecars(super.db, {required super.progress});
+
+  final touches = <String>[];
+  Completer<void>? nextTouch;
+  Completer<void>? nextWrite;
+
+  @override
+  void touch(String contentKey) {
+    touches.add(contentKey);
+    nextTouch?.complete();
+    nextTouch = null;
+  }
+
+  @override
+  Future<void> flush() async {}
+
+  @override
+  Future<bool> write(String contentKey) async {
+    nextWrite?.complete();
+    nextWrite = null;
+    return true;
+  }
+}
+
 class _HeldAttachSidecars extends SidecarSync {
   _HeldAttachSidecars(super.db, {required super.progress, this.heldPath, this.realAttach = false});
 
@@ -111,6 +193,23 @@ class _HeldCloseFlushSidecars extends SidecarSync {
   }
 }
 
+class _HeldOpeningWriteSidecars extends SidecarSync {
+  _HeldOpeningWriteSidecars(super.db, {required super.progress}) : super(debounce: Duration.zero);
+
+  final entered = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  void touch(String contentKey) {}
+
+  @override
+  Future<bool> write(String contentKey) async {
+    entered.complete();
+    await release.future;
+    return super.write(contentKey);
+  }
+}
+
 class _HeldLeaveUnreadStore extends LibraryStore {
   _HeldLeaveUnreadStore(super.db);
 
@@ -122,6 +221,82 @@ class _HeldLeaveUnreadStore extends LibraryStore {
     entered.complete();
     await release.future;
     return super.leaveUnread(contentKey);
+  }
+}
+
+class _HeldCollectionStore extends LibraryStore {
+  _HeldCollectionStore(super.db);
+
+  final entered = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<bool> addToCollection(String contentKey, String name) async {
+    entered.complete();
+    await release.future;
+    return super.addToCollection(contentKey, name);
+  }
+}
+
+class _HeldFlagStore extends LibraryStore {
+  _HeldFlagStore(super.db);
+
+  final entered = Completer<void>();
+  final release = Completer<void>();
+
+  Future<void> _hold() async {
+    if (!entered.isCompleted) entered.complete();
+    await release.future;
+  }
+
+  @override
+  Future<void> setFavourite(String contentKey, bool on) async {
+    await _hold();
+    await super.setFavourite(contentKey, on);
+  }
+
+  @override
+  Future<void> setCompleted(String contentKey, bool? on, {DateTime? at}) async {
+    await _hold();
+    await super.setCompleted(contentKey, on, at: at);
+  }
+}
+
+class _HeldBookmarkStore extends LibraryStore {
+  _HeldBookmarkStore(super.db);
+
+  final entered = Completer<void>();
+  final release = Completer<void>();
+
+  Future<void> _hold() async {
+    if (!entered.isCompleted) entered.complete();
+    await release.future;
+  }
+
+  @override
+  Future<void> deleteBookmark(String id) async {
+    await _hold();
+    await super.deleteBookmark(id);
+  }
+
+  @override
+  Future<String?> setNote(String id, String note) async {
+    await _hold();
+    return super.setNote(id, note);
+  }
+}
+
+class _HeldSettingsStore extends SettingsStore {
+  _HeldSettingsStore(super.db);
+
+  final entered = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<bool?> loadBool(String key) async {
+    entered.complete();
+    await release.future;
+    return true;
   }
 }
 
@@ -197,6 +372,9 @@ class _HeldImportDatabase extends AppDatabase {
     await super.deleteBookRows(contentKey, tables);
   }
 }
+
+ProviderContainer readerScope(ProviderContainer parent) =>
+    ProviderContainer(parent: parent, overrides: [readerProvider.overrideWith(ReaderNotifier.new)]);
 
 void main() {
   late Directory tmp;
@@ -308,6 +486,61 @@ void main() {
     expect(readSidecar(sidecarPathAfterClose)!.panels, isEmpty);
   });
 
+  test('flush waits for a panel save before writing the real sidecar', () async {
+    final panels = _HeldPanelStore(db);
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sidecarSyncProvider.overrideWith(
+          (ref) => SidecarSync(db, progress: ref.watch(progressStoreProvider), debounce: Duration.zero),
+        ),
+        panelStoreProvider.overrideWithValue(panels),
+        panelDetectorProvider.overrideWith((ref) async => const FakeModel()),
+      ],
+    );
+    addTearDown(c.dispose);
+    final path = writeBookOf(tmp, 'Flushing panels 01.cbz', [grid4Page()]);
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+    await panels.entered.future;
+
+    var drained = false;
+    final flushing = reader.flush().then((_) => drained = true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(drained, isFalse);
+    panels.release.complete();
+    await flushing;
+    final side = readSidecar(sidecarPath(path, folder: false))!;
+    expect(side.analysed, isNotEmpty);
+    expect(side.panels, isNotEmpty);
+  });
+
+  test('flush waits for an opening write before it enters the sidecar queue', () async {
+    late _HeldOpeningWriteSidecars sidecars;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sidecarSyncProvider.overrideWith(
+          (ref) => sidecars = _HeldOpeningWriteSidecars(db, progress: ref.watch(progressStoreProvider)),
+        ),
+      ],
+    );
+    addTearDown(c.dispose);
+    final path = writeBookOf(tmp, 'Opening write 01.cbz', [grid4Page()]);
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+    await sidecars.entered.future;
+
+    var drained = false;
+    final flushing = reader.flush().then((_) => drained = true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(drained, isFalse);
+    sidecars.release.complete();
+    await flushing;
+
+    expect(readSidecar(sidecarPath(path, folder: false))!.progress, hasLength(1));
+  });
+
   test('two opens at once: the later book is the one shown', () async {
     final c = ProviderContainer(overrides: [databaseProvider.overrideWithValue(db), noSidecars(db)]);
     addTearDown(c.dispose);
@@ -342,6 +575,220 @@ void main() {
     expect(c.read(readerProvider).loading, isFalse);
     await expectLater(canceledBook.doc.page(0, targetWidth: 100, targetHeight: 100), throwsA(isA<FormatException>()));
   });
+
+  test('a pending first open closes its document after provider disposal', () async {
+    final c = ProviderContainer(overrides: [databaseProvider.overrideWithValue(db), noSidecars(db)]);
+    final path = writeBookOf(tmp, 'Disposed 01.cbz', [grid4Page()]);
+    final held = Completer<OpenBook>();
+    final reader = c.read(readerProvider.notifier);
+    reader.openDocument = (_) => held.future;
+
+    final opening = reader.open(path);
+    c.dispose();
+    final canceledBook = await openBook(path);
+    held.complete(canceledBook);
+    await opening;
+    await expectLater(canceledBook.doc.page(0, targetWidth: 100, targetHeight: 100), throwsA(isA<FormatException>()));
+  });
+
+  test('a pending Unread removal can finish after provider disposal', () async {
+    final store = _HeldLeaveUnreadStore(db);
+    final detectorRelease = Completer<void>();
+    late _TrackingSidecars sidecars;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sidecarSyncProvider.overrideWith(
+          (ref) => sidecars = _TrackingSidecars(db, progress: ref.watch(progressStoreProvider)),
+        ),
+        panelDetectorProvider.overrideWith((ref) async => _HeldModel(detectorRelease)),
+        libraryStoreProvider.overrideWithValue(store),
+      ],
+    );
+    addTearDown(c.dispose);
+    addTearDown(() => detectorRelease.complete());
+    final scope = readerScope(c);
+    final path = writeBookOf(tmp, 'Unread 01.cbz', [grid4Page()]);
+    final key = await contentKey(path);
+    await store.addToCollection(key, unreadCollection);
+    final reader = scope.read(readerProvider.notifier);
+    final opening = reader.open(path);
+    await store.entered.future;
+    final touched = sidecars.nextTouch = Completer<void>();
+    scope.dispose();
+    store.release.complete();
+    await opening;
+    await touched.future;
+    final rows = await db.select(db.collectionBooks).get();
+    expect(rows.singleWhere((r) => r.contentKey == key && r.name == unreadCollection).removedAt, isNotNull);
+  });
+
+  for (final note in [false, true]) {
+    test('${note ? 'note' : 'bookmark removal'} can finish after provider disposal', () async {
+      final store = _HeldBookmarkStore(db);
+      final detectorRelease = Completer<void>();
+      late _TrackingSidecars sidecars;
+      final c = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          sidecarSyncProvider.overrideWith(
+            (ref) => sidecars = _TrackingSidecars(db, progress: ref.watch(progressStoreProvider)),
+          ),
+          panelDetectorProvider.overrideWith((ref) async => _HeldModel(detectorRelease)),
+          libraryStoreProvider.overrideWithValue(store),
+        ],
+      );
+      addTearDown(c.dispose);
+      addTearDown(() => detectorRelease.complete());
+      final scope = readerScope(c);
+      final path = writeBookOf(tmp, 'Bookmark 01.cbz', [grid4Page()]);
+      final reader = scope.read(readerProvider.notifier);
+      await reader.open(path);
+      final key = scope.read(readerProvider).book!.key;
+      final id = await c.read(markStoreProvider).addBookmark(key, 0, null);
+
+      final write = note ? reader.setBookmarkNote(id, 'note') : reader.removeBookmark(id);
+      await store.entered.future;
+      final touched = sidecars.nextTouch = Completer<void>();
+      scope.dispose();
+      store.release.complete();
+      await write;
+      await touched.future;
+      final rows = await db.select(db.bookmarks).get();
+      expect(rows.singleWhere((row) => row.id == id).deletedAt, isNotNull);
+      if (note) expect(rows.where((row) => row.contentKey == key && row.note == 'note'), hasLength(1));
+    });
+  }
+
+  test('fullscreen load can finish after provider disposal', () async {
+    final settings = _HeldSettingsStore(db);
+    final c = ProviderContainer(
+      overrides: [databaseProvider.overrideWithValue(db), settingsStoreProvider.overrideWithValue(settings)],
+    );
+    final reader = c.read(readerProvider.notifier);
+    final loading = reader.loadFullscreen();
+    await settings.entered.future;
+    c.dispose();
+    settings.release.complete();
+    await loading;
+  });
+
+  test('a pending collection add can finish after provider disposal', () async {
+    final store = _HeldCollectionStore(db);
+    final detectorRelease = Completer<void>();
+    late _TrackingSidecars sidecars;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sidecarSyncProvider.overrideWith(
+          (ref) => sidecars = _TrackingSidecars(db, progress: ref.watch(progressStoreProvider)),
+        ),
+        panelDetectorProvider.overrideWith((ref) async => _HeldModel(detectorRelease)),
+        libraryStoreProvider.overrideWithValue(store),
+      ],
+    );
+    addTearDown(c.dispose);
+    addTearDown(() => detectorRelease.complete());
+    final scope = readerScope(c);
+    final path = writeBookOf(tmp, 'Collected 01.cbz', [grid4Page()]);
+    final reader = scope.read(readerProvider.notifier);
+    await reader.open(path);
+
+    final adding = reader.addToCollection('Saved');
+    await store.entered.future;
+    final touched = sidecars.nextTouch = Completer<void>();
+    scope.dispose();
+    store.release.complete();
+    await adding;
+    await touched.future;
+    final key = await contentKey(path);
+    final rows = await db.select(db.collectionBooks).get();
+    expect(rows.where((row) => row.contentKey == key && row.name == 'Saved' && row.removedAt == null), hasLength(1));
+  });
+
+  for (final close in [false, true]) {
+    test('${close ? 'close' : 'flush'} waits for a collection add before flushing its real sidecar', () async {
+      final store = _HeldCollectionStore(db);
+      Future<void>? databaseClose;
+      final c = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWith((ref) {
+            ref.onDispose(() => databaseClose = db.close());
+            return db;
+          }),
+          libraryStoreProvider.overrideWithValue(store),
+          s3SyncProvider.overrideWith(
+            (ref) =>
+                _NoPullS3Sync(db, sidecars: ref.watch(sidecarSyncProvider), settings: ref.watch(s3SettingsProvider)),
+          ),
+        ],
+      );
+      var disposed = false;
+      Future<void> disposeContainer() async {
+        if (!store.release.isCompleted) store.release.complete();
+        if (disposed) return;
+        disposed = true;
+        c.dispose();
+        await (databaseClose ?? db.close());
+      }
+
+      addTearDown(disposeContainer);
+      final path = writeBookOf(tmp, 'Closing collection 01.cbz', [grid4Page()]);
+      final reader = c.read(readerProvider.notifier);
+      await reader.open(path);
+
+      final adding = reader.addToCollection('Saved');
+      await store.entered.future;
+      var drained = false;
+      final draining = (close ? reader.close() : reader.flush()).then((_) => drained = true);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(drained, isFalse);
+      store.release.complete();
+      await Future.wait([adding, draining]);
+      await disposeContainer();
+      expect(databaseClose, isNotNull);
+
+      final side = readSidecar(sidecarPath(path, folder: false))!;
+      expect(side.collections.where((row) => row.name == 'Saved' && row.removedAt == null), hasLength(1));
+    });
+  }
+
+  for (final completed in [false, true]) {
+    test('${completed ? 'completed mark' : 'favourite'} touches its sidecar after provider disposal', () async {
+      final store = _HeldFlagStore(db);
+      final detectorRelease = Completer<void>();
+      late _TrackingSidecars sidecars;
+      final c = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          libraryStoreProvider.overrideWithValue(store),
+          sidecarSyncProvider.overrideWith(
+            (ref) => sidecars = _TrackingSidecars(db, progress: ref.watch(progressStoreProvider)),
+          ),
+          panelDetectorProvider.overrideWith((ref) async => _HeldModel(detectorRelease)),
+        ],
+      );
+      addTearDown(c.dispose);
+      addTearDown(() => detectorRelease.complete());
+      final scope = readerScope(c);
+      final path = writeBookOf(tmp, 'Flag 01.cbz', [grid4Page(), grid4Page()]);
+      final reader = scope.read(readerProvider.notifier);
+      await reader.open(path);
+      final key = scope.read(readerProvider).book!.key;
+
+      final changing = reader.handle(
+        ReaderCommand(completed ? ReaderIntent.toggleCompleted : ReaderIntent.toggleFavourite),
+      );
+      await store.entered.future;
+      final touched = sidecars.nextTouch = Completer<void>();
+      scope.dispose();
+      store.release.complete();
+      await changing;
+      await touched.future;
+
+      expect(completed ? await store.completedMarkOf(key) : await store.isFavourite(key), isTrue);
+    });
+  }
 
   test('close cancels a pending replacement while a book is shown', () async {
     final c = ProviderContainer(overrides: [databaseProvider.overrideWithValue(db), noSidecars(db)]);
@@ -573,41 +1020,43 @@ void main() {
     expect(readSidecar(sidecarFile)!.bookmarks, isEmpty);
   });
 
-  test('close waits for a real Unread removal and flushes it to the sidecar', () async {
-    final store = _HeldLeaveUnreadStore(db);
-    final c = ProviderContainer(
-      overrides: [
-        databaseProvider.overrideWithValue(db),
-        libraryStoreProvider.overrideWithValue(store),
-        sidecarSyncProvider.overrideWith(
-          (ref) => SidecarSync(db, progress: ref.watch(progressStoreProvider), debounce: Duration.zero),
-        ),
-        panelDetectorProvider.overrideWith((ref) async => const FakeModel()),
-      ],
-    );
-    addTearDown(c.dispose);
-    final path = writeBookOf(tmp, 'Waiting 01.cbz', [grid4Page()]);
-    final key = await contentKey(path);
-    await store.addToCollection(key, unreadCollection);
-    // Leave a real time gap, so this test isolates the close/flush race from
-    // collection merges whose two timestamps round to the same millisecond.
-    await db.customStatement("UPDATE collection_books SET added_at = added_at - 60 WHERE name = 'Unread'");
-    final reader = c.read(readerProvider.notifier);
-    final opening = reader.open(path);
-    await store.entered.future;
-    expect(c.read(readerProvider).book?.key, key);
-    var closed = false;
-    final closing = reader.close().then((_) => closed = true);
-    await Future<void>.delayed(const Duration(milliseconds: 20));
-    expect(closed, isFalse);
-    store.release.complete();
-    await Future.wait([opening, closing]);
-    expect(c.read(readerProvider).book, isNull);
-    final rows = await db.select(db.collectionBooks).get();
-    expect(rows.singleWhere((r) => r.name == unreadCollection).removedAt, isNotNull);
-    final side = readSidecar(sidecarPath(path, folder: false))!;
-    expect(side.collections.singleWhere((r) => r.name == unreadCollection).removedAt, isNotNull);
-  });
+  for (final close in [false, true]) {
+    test('${close ? 'close' : 'flush'} waits for a real Unread removal and flushes it to the sidecar', () async {
+      final store = _HeldLeaveUnreadStore(db);
+      final c = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          libraryStoreProvider.overrideWithValue(store),
+          sidecarSyncProvider.overrideWith(
+            (ref) => SidecarSync(db, progress: ref.watch(progressStoreProvider), debounce: Duration.zero),
+          ),
+          panelDetectorProvider.overrideWith((ref) async => const FakeModel()),
+        ],
+      );
+      addTearDown(c.dispose);
+      final path = writeBookOf(tmp, 'Waiting 01.cbz', [grid4Page()]);
+      final key = await contentKey(path);
+      await store.addToCollection(key, unreadCollection);
+      // Leave a real time gap, so this test isolates the close/flush race from
+      // collection merges whose two timestamps round to the same millisecond.
+      await db.customStatement("UPDATE collection_books SET added_at = added_at - 60 WHERE name = 'Unread'");
+      final reader = c.read(readerProvider.notifier);
+      final opening = reader.open(path);
+      await store.entered.future;
+      expect(c.read(readerProvider).book?.key, key);
+      var closed = false;
+      final closing = (close ? reader.close() : reader.flush()).then((_) => closed = true);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(closed, isFalse);
+      store.release.complete();
+      await Future.wait([opening, closing]);
+      expect(c.read(readerProvider).book == null, close);
+      final rows = await db.select(db.collectionBooks).get();
+      expect(rows.singleWhere((r) => r.name == unreadCollection).removedAt, isNotNull);
+      final side = readSidecar(sidecarPath(path, folder: false))!;
+      expect(side.collections.singleWhere((r) => r.name == unreadCollection).removedAt, isNotNull);
+    });
+  }
 
   test('back during a neighbour lookup does not open the next book', () async {
     final a = writeBookOf(tmp, 'First 01.cbz', [grid4Page()]);
@@ -629,6 +1078,347 @@ void main() {
     store.release.complete();
     await neighbour;
     expect(c.read(readerProvider).book, isNull);
+  });
+
+  test('back can finish closing after its provider is disposed', () async {
+    late _HeldCloseFlushSidecars sidecars;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sidecarSyncProvider.overrideWith(
+          (ref) => sidecars = _HeldCloseFlushSidecars(db, progress: ref.watch(progressStoreProvider)),
+        ),
+      ],
+    );
+    final reader = c.read(readerProvider.notifier);
+    final path = writeBookOf(tmp, 'Closing 01.cbz', [grid4Page()]);
+    await reader.open(path);
+
+    sidecars.hold = true;
+    final back = reader.handle(const ReaderCommand(ReaderIntent.back));
+    await sidecars.entered.future;
+    c.dispose();
+    sidecars.release.complete();
+    await back;
+  });
+
+  test('a neighbour command can finish after its provider is disposed', () async {
+    final path = writeBookOf(tmp, 'Turning 01.cbz', [grid4Page(), grid4Page()]);
+    final store = _HeldNeighbourStore(db, path);
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        noSidecars(db),
+        libraryStoreProvider.overrideWithValue(store),
+      ],
+    );
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+
+    final neighbour = reader.handle(const ReaderCommand(ReaderIntent.nextBook));
+    await store.entered.future;
+    c.dispose();
+    store.release.complete();
+    await neighbour;
+  });
+
+  test('flush can finish after its provider is disposed', () async {
+    late _HeldCloseFlushSidecars sidecars;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sidecarSyncProvider.overrideWith(
+          (ref) => sidecars = _HeldCloseFlushSidecars(db, progress: ref.watch(progressStoreProvider)),
+        ),
+      ],
+    );
+    final path = writeBookOf(tmp, 'Flushing 01.cbz', [grid4Page()]);
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+
+    sidecars.hold = true;
+    final flushing = reader.flush();
+    await sidecars.entered.future;
+    c.dispose();
+    sidecars.release.complete();
+    await flushing;
+  });
+
+  test('close logs a sitting after disposal during progress flush', () async {
+    final progress = _HeldProgressStore(db);
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        progressStoreProvider.overrideWithValue(progress),
+        noSidecars(db),
+      ],
+    );
+    addTearDown(c.dispose);
+    final scope = readerScope(c);
+    final path = writeBookOf(tmp, 'Read 01.cbz', [grid4Page(), grid4Page(), grid4Page()]);
+    final reader = scope.read(readerProvider.notifier);
+    await reader.open(path);
+    await reader.handle(const ReaderCommand(ReaderIntent.nextPage));
+
+    progress.hold = true;
+    final closing = reader.close();
+    await progress.entered.future;
+    scope.dispose();
+    progress.release.complete();
+    await closing;
+
+    final key = await contentKey(path);
+    final rows = await db.select(db.readLog).get();
+    expect(rows.where((row) => row.contentKey == key && row.pages >= 2), hasLength(1));
+  });
+
+  test('flush does not restart a sitting after close begins', () async {
+    final progress = _HeldProgressStore(db);
+    final readLog = _HeldReadLogStore(db);
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        progressStoreProvider.overrideWithValue(progress),
+        readLogStoreProvider.overrideWithValue(readLog),
+        noSidecars(db),
+      ],
+    );
+    addTearDown(c.dispose);
+    final path = writeBookOf(tmp, 'Sitting 01.cbz', [grid4Page(), grid4Page()]);
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+    await reader.handle(const ReaderCommand(ReaderIntent.nextPage));
+
+    final flushing = reader.flush();
+    await readLog.entered.future;
+    progress.hold = true;
+    final closing = reader.close();
+    await progress.entered.future;
+    readLog.release.complete();
+    await Future<void>.delayed(Duration.zero);
+    progress.release.complete();
+    await Future.wait([flushing, closing]);
+    await reader.flush();
+
+    expect(readLog.calls, 1);
+    final rows = await db.select(db.readLog).get();
+    expect(rows.single.pages, greaterThanOrEqualTo(2));
+  });
+
+  test('close waits for a sitting record started by flush', () async {
+    final readLog = _HeldReadLogStore(db);
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        readLogStoreProvider.overrideWithValue(readLog),
+        noSidecars(db),
+      ],
+    );
+    addTearDown(c.dispose);
+    addTearDown(() {
+      if (!readLog.release.isCompleted) readLog.release.complete();
+    });
+    final path = writeBookOf(tmp, 'History 01.cbz', [grid4Page(), grid4Page()]);
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+    await reader.handle(const ReaderCommand(ReaderIntent.nextPage));
+
+    final flushing = reader.flush();
+    await readLog.entered.future;
+    var closed = false;
+    final closing = reader.close().then((_) => closed = true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(closed, isFalse, reason: 'close must wait for the sitting already taken by flush');
+    readLog.release.complete();
+    await Future.wait([flushing, closing]);
+
+    expect(readLog.calls, 1);
+    final rows = await db.select(db.readLog).get();
+    expect(rows.single.pages, greaterThanOrEqualTo(2));
+  });
+
+  test('a second flush waits for a sitting record started by the first', () async {
+    final readLog = _HeldReadLogStore(db);
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        readLogStoreProvider.overrideWithValue(readLog),
+        noSidecars(db),
+      ],
+    );
+    addTearDown(c.dispose);
+    addTearDown(() {
+      if (!readLog.release.isCompleted) readLog.release.complete();
+    });
+    final path = writeBookOf(tmp, 'Two flushes 01.cbz', [grid4Page(), grid4Page()]);
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+    await reader.handle(const ReaderCommand(ReaderIntent.nextPage));
+
+    final first = reader.flush();
+    await readLog.entered.future;
+    var secondDone = false;
+    final second = reader.flush().then((_) => secondDone = true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(secondDone, isFalse, reason: 'the second flush must wait for the first history write');
+    readLog.release.complete();
+    await Future.wait([first, second]);
+
+    expect(readLog.calls, 1);
+    final rows = await db.select(db.readLog).get();
+    expect(rows.single.pages, greaterThanOrEqualTo(2));
+  });
+
+  test('a page turn during a held history write is logged by the next flush', () async {
+    final readLog = _HeldReadLogStore(db);
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        readLogStoreProvider.overrideWithValue(readLog),
+        noSidecars(db),
+      ],
+    );
+    addTearDown(c.dispose);
+    addTearDown(() {
+      if (!readLog.release.isCompleted) readLog.release.complete();
+    });
+    final path = writeBookOf(tmp, 'Turning while logging.cbz', List.generate(5, (_) => grid4Page()));
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+    reader.jumpTo(1);
+    reader.jumpTo(2);
+
+    final first = reader.flush();
+    await readLog.entered.future;
+    reader.jumpTo(3);
+    var secondDone = false;
+    final second = reader.flush().then((_) => secondDone = true);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(secondDone, isFalse, reason: 'the later sitting must wait for the earlier history write');
+    readLog.release.complete();
+    await Future.wait([first, second]);
+
+    expect(readLog.calls, 2);
+    final rows = await db.select(db.readLog).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.pages, 4);
+  });
+
+  test('clearing history waits for a second sitting queued behind a held first', () async {
+    final readLog = _HeldReadLogStore(db);
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        readLogStoreProvider.overrideWithValue(readLog),
+        noSidecars(db),
+      ],
+    );
+    addTearDown(c.dispose);
+    addTearDown(() {
+      if (!readLog.release.isCompleted) readLog.release.complete();
+    });
+    final path = writeBookOf(tmp, 'Clear while logging.cbz', List.generate(4, (_) => grid4Page()));
+    final reader = c.read(readerProvider.notifier);
+    await reader.open(path);
+    reader.jumpTo(1);
+    reader.jumpTo(2);
+
+    final first = reader.flush();
+    await readLog.entered.future;
+    reader.jumpTo(3);
+    final second = reader.flush();
+    await readLog.secondEntered.future.timeout(const Duration(seconds: 2));
+    await readLog.clear();
+    readLog.release.complete();
+    await Future.wait([first, second]);
+
+    expect(readLog.calls, 2);
+    expect(await db.select(db.readLog).get(), isEmpty);
+  });
+
+  test('a mark save touches its sidecar after provider disposal', () async {
+    final marks = _HeldMarkStore(db);
+    final detectorRelease = Completer<void>();
+    late _TrackingSidecars sidecars;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        markStoreProvider.overrideWithValue(marks),
+        sidecarSyncProvider.overrideWith(
+          (ref) => sidecars = _TrackingSidecars(db, progress: ref.watch(progressStoreProvider)),
+        ),
+        panelDetectorProvider.overrideWith((ref) async => _HeldModel(detectorRelease)),
+      ],
+    );
+    addTearDown(c.dispose);
+    addTearDown(() => detectorRelease.complete());
+    final scope = readerScope(c);
+    final path = writeBookOf(tmp, 'Marked 01.cbz', [grid4Page()]);
+    final reader = scope.read(readerProvider.notifier);
+    await reader.open(path);
+    final key = scope.read(readerProvider).book!.key;
+
+    await reader.handle(const ReaderCommand(ReaderIntent.setMark, register: 'a'));
+    await marks.entered.future;
+    final touched = sidecars.nextTouch = Completer<void>();
+    scope.dispose();
+    marks.release.complete();
+    await touched.future;
+
+    final rows = await db.select(db.bookmarks).get();
+    expect(rows.where((row) => row.contentKey == key && row.mark == 'a' && row.deletedAt == null), hasLength(1));
+  });
+
+  test('an opening sidecar write finishes after provider disposal', () async {
+    final progress = _HeldProgressStore(db)..hold = true;
+    late _TrackingSidecars sidecars;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        progressStoreProvider.overrideWithValue(progress),
+        sidecarSyncProvider.overrideWith(
+          (ref) => sidecars = _TrackingSidecars(db, progress: ref.watch(progressStoreProvider)),
+        ),
+      ],
+    );
+    addTearDown(c.dispose);
+    final scope = readerScope(c);
+    final path = writeBookOf(tmp, 'Writing 01.cbz', [grid4Page()]);
+    final reader = scope.read(readerProvider.notifier);
+    await reader.open(path);
+    await progress.entered.future;
+    final written = sidecars.nextWrite = Completer<void>();
+
+    scope.dispose();
+    progress.release.complete();
+    await written.future;
+  });
+
+  test('a saved panel touches its sidecar after provider disposal', () async {
+    final panels = _HeldPanelStore(db);
+    late _TrackingSidecars sidecars;
+    final c = ProviderContainer(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        panelStoreProvider.overrideWithValue(panels),
+        panelDetectorProvider.overrideWith((ref) async => const FakeModel()),
+        sidecarSyncProvider.overrideWith(
+          (ref) => sidecars = _TrackingSidecars(db, progress: ref.watch(progressStoreProvider)),
+        ),
+      ],
+    );
+    addTearDown(c.dispose);
+    final scope = readerScope(c);
+    final path = writeBookOf(tmp, 'Panels 01.cbz', [grid4Page()]);
+    final reader = scope.read(readerProvider.notifier);
+    await reader.open(path);
+    await panels.entered.future;
+    final touched = sidecars.nextTouch = Completer<void>();
+
+    scope.dispose();
+    panels.release.complete();
+    await touched.future;
+    expect(await db.select(db.analysedPages).get(), isNotEmpty);
   });
 
   for (final systemBack in [false, true]) {
@@ -711,12 +1501,11 @@ void main() {
     final doc = _TrackedDoc();
     reader.openDocument = (_) async => OpenBook(path: b, key: 'replacement', doc: doc);
     late Future<void> opening;
-    await tester.runAsync(() async {
-      opening = reader.open(b);
-      for (var i = 0; i < 100 && !sidecars.entered.isCompleted; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
-    });
+    opening = reader.open(b);
+    for (var i = 0; i < 100 && !sidecars.entered.isCompleted; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
     expect(sidecars.entered.isCompleted, isTrue);
     expect(c.read(readerProvider).book, isNull);
     expect(c.read(readerProvider).loading, isTrue);

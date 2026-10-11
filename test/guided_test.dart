@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:reader_input/reader_input.dart';
 
 import 'support/fixtures.dart';
+import 'support/waits.dart';
 
 void main() {
   late Directory tmp;
@@ -146,7 +147,7 @@ void main() {
       () => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.setMark, register: 'a')),
     );
     expect(status(tester), contains('panel 3'));
-    await tester.runAsync(() => c.read(readerProvider.notifier).close());
+    await whilePumping(tester, () => c.read(readerProvider.notifier).close());
 
     await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
     await tester.pump();

@@ -63,4 +63,99 @@ void main() {
       expect(r.endedAt.difference(r.startedAt).inMilliseconds, lessThan(2000));
     }
   });
+
+  test('a brief one-page continuation joins an existing history row', () async {
+    final log = ReadLogStore(db);
+    final start = DateTime(2026, 10, 12, 12);
+    await log.record('a', start, start.add(const Duration(seconds: 5)), 2);
+    await log.record('a', start.add(const Duration(seconds: 6)), start.add(const Duration(seconds: 7)), 1);
+
+    final rows = await db.select(db.readLog).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.pages, 3);
+    expect(rows.single.endedAt, start.add(const Duration(seconds: 7)));
+  });
+
+  test('a lone glance is hidden but two brief sittings become a history row', () async {
+    final log = ReadLogStore(db);
+    final start = DateTime(2026, 10, 12, 12);
+    await log.record('a', start, start.add(const Duration(seconds: 1)), 1);
+    expect(await db.select(db.readLog).get(), isEmpty);
+
+    await log.record('a', start.add(const Duration(seconds: 2)), start.add(const Duration(seconds: 3)), 1);
+    final rows = await db.select(db.readLog).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.pages, 2);
+    expect(rows.single.startedAt, start);
+
+    await log.record('b', start, start.add(const Duration(seconds: 1)), 1);
+    expect(await db.select(db.readLog).get(), hasLength(1), reason: 'an unrelated glance stays out of history');
+  });
+
+  test('clearing history also forgets a pending glance', () async {
+    final log = ReadLogStore(db);
+    final start = DateTime(2026, 10, 12, 12);
+    await log.record('a', start, start.add(const Duration(seconds: 1)), 1);
+    await log.clear();
+    await log.record('a', start.add(const Duration(seconds: 2)), start.add(const Duration(seconds: 3)), 1);
+    expect(await db.select(db.readLog).get(), isEmpty);
+
+    await log.record('a', start.add(const Duration(seconds: 4)), start.add(const Duration(seconds: 5)), 1);
+    final rows = await db.select(db.readLog).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.pages, 2);
+    expect(rows.single.startedAt, start.add(const Duration(seconds: 2)));
+  });
+
+  test('a glance expires before later reading of the same comic', () async {
+    final log = ReadLogStore(db);
+    final start = DateTime(2026, 10, 12, 12);
+    await log.record('a', start, start.add(const Duration(seconds: 1)), 1);
+    await log.record('b', start.add(const Duration(minutes: 3)), start.add(const Duration(minutes: 3, seconds: 1)), 1);
+    await log.record(
+      'a',
+      start.add(const Duration(minutes: 3, seconds: 2)),
+      start.add(const Duration(minutes: 3, seconds: 3)),
+      1,
+    );
+    expect(await db.select(db.readLog).get(), isEmpty);
+  });
+
+  test('a failed history insert leaves its pending glance available for retry', () async {
+    final log = ReadLogStore(db);
+    final start = DateTime(2026, 10, 12, 12);
+    await log.record('a', start, start.add(const Duration(seconds: 1)), 1);
+    await db.customStatement(
+      "CREATE TRIGGER refuse_history BEFORE INSERT ON read_log BEGIN SELECT RAISE(ABORT, 'forced'); END",
+    );
+    await expectLater(
+      log.record('a', start.add(const Duration(seconds: 2)), start.add(const Duration(seconds: 3)), 1),
+      throwsA(anything),
+    );
+    await db.customStatement('DROP TRIGGER refuse_history');
+
+    await log.record('a', start.add(const Duration(seconds: 2)), start.add(const Duration(seconds: 3)), 1);
+    final rows = await db.select(db.readLog).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.pages, 2);
+    expect(rows.single.startedAt, start);
+  });
+
+  test('a failed history clear retains pending glances and existing rows', () async {
+    final log = ReadLogStore(db);
+    final start = DateTime(2026, 10, 12, 12);
+    await log.record('a', start, start.add(const Duration(seconds: 5)), 2);
+    await log.record('b', start, start.add(const Duration(seconds: 1)), 1);
+    await db.customStatement(
+      "CREATE TRIGGER refuse_clear BEFORE DELETE ON read_log BEGIN SELECT RAISE(ABORT, 'forced'); END",
+    );
+    await expectLater(log.clear(), throwsA(anything));
+    await db.customStatement('DROP TRIGGER refuse_clear');
+
+    await log.record('b', start.add(const Duration(seconds: 2)), start.add(const Duration(seconds: 3)), 1);
+    final rows = await db.select(db.readLog).get();
+    expect(rows, hasLength(2));
+    expect(rows.singleWhere((row) => row.contentKey == 'a').pages, 2);
+    expect(rows.singleWhere((row) => row.contentKey == 'b').pages, 2);
+  });
 }

@@ -216,8 +216,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
       ),
     );
     if (ok != true) return;
-    final db = ref.read(databaseProvider);
-    await db.delete(db.readLog).go();
+    await ref.read(readLogStoreProvider).clear();
     if (mounted) showNotice(ScaffoldMessenger.of(context), 'Reading history cleared');
   }
 

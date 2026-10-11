@@ -265,9 +265,10 @@ the thick volumes: `gS`, `Alt+P`, `Esc`.
 
 The History tab lists every time you sat down with a comic, grouped by
 day: when you started, how long you read and how many pages you saw.
-Coming back to the same book within two minutes counts as the same
-sitting, and a quick glance (one page for a few seconds) is not
-listed. Click a row to open the book where you left off.
+Coming back to the same book within two minutes, even after a brief
+interruption, continues the sitting and its page count. A lone quick
+glance (one page for a few seconds) is not listed. Click a row to open
+the book where you left off.
 
 ![The History tab](images/history.webp)
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
 import '../data/progress_store.dart';
+import '../data/read_log_store.dart';
 import '../data/settings_store.dart';
 import '../data/sidecar_sync.dart';
 import '../library/library_store.dart';
@@ -58,16 +59,36 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// The sitting under way, for reading history: when the book was opened
   /// (or the app came back) and the pages shown since.
   ({String key, DateTime start, Set<int> pages})? _sitting;
+  final _sittingWrites = <Future<void>>{};
 
-  /// Ends the sitting under way and logs it.
-  Future<void> _endSitting() async {
+  /// Ends the sitting under way and logs it. A flush starts the next sitting
+  /// before waiting, so page turns during a slow history write are counted.
+  Future<void> _endSitting(ReadLogStore readLog, {bool restart = false}) async {
     final s = _sitting;
-    _sitting = null;
-    if (s == null) return;
+    final ended = DateTime.now();
+    _sitting = restart && s != null ? (key: s.key, start: ended, pages: <int>{}) : null;
+    final pending = _sittingWrites.toList();
+    if (s == null) {
+      await Future.wait(pending);
+      return;
+    }
+    if (s.pages.isEmpty) {
+      await Future.wait(pending);
+      return;
+    }
+    final write = () async {
+      try {
+        await readLog.record(s.key, s.start, ended, s.pages.length);
+      } catch (e) {
+        debugPrint('Could not log the sitting: $e');
+      }
+      await Future.wait(pending);
+    }();
+    _sittingWrites.add(write);
     try {
-      await ref.read(readLogStoreProvider).record(s.key, s.start, DateTime.now(), s.pages.length);
-    } catch (e) {
-      debugPrint('Could not log the sitting: $e');
+      await write;
+    } finally {
+      _sittingWrites.remove(write);
     }
   }
 
@@ -90,6 +111,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
   final _panelWrites = <Future<void>>{};
   final _unreadWrites = <Future<void>>{};
   final _completedWrites = <Future<void>>{};
+  final _markWrites = <Future<void>>{};
+  final _metadataWrites = <Future<void>>{};
   final _completionTails = <String, Future<void>>{};
   final _sidecarWrites = <Future<void>>{};
   final _attaches = <Future<SidecarImport?>>{};
@@ -104,7 +127,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // A later open (`]` twice, a drop while a book opens) wins: this one then
     // closes what it opened and stops, rather than leaving it open unseen.
     final opening = ++_opening;
-    bool superseded() => opening != _opening;
+    bool superseded() => !ref.mounted || opening != _opening;
     state = state.copyWith(loading: true);
     OpenBook book;
     try {
@@ -144,31 +167,37 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (superseded()) return book.doc.close();
     // Titles edited in the library, some perhaps just now from the sidecar.
     final edits = await _orNull(() => ref.read(libraryStoreProvider).edits(book.key));
+    if (superseded()) return book.doc.close();
     if (edits != null) book = book.withEdits(edits);
     // A broken index must not keep a book from opening: each of these falls
     // back to nothing saved.
     final saved = await _orNull(() => _progress.load(book.key));
+    if (superseded()) return book.doc.close();
     // A detector that failed to load leaves the cached panels unread; the
     // drain falls back to classic CV and finds them again.
     final detector = await _orNull(() => ref.read(panelDetectorProvider.future));
+    if (superseded()) return book.doc.close();
     final cached = detector == null
         ? const <int, DetectedPage>{}
         : await _orNull(
                 () => ref.read(panelStoreProvider).load(book.key, source: detector.source, version: detector.version),
               ) ??
               const <int, DetectedPage>{};
+    if (superseded()) return book.doc.close();
     final marks = await _orNull(() => ref.read(markStoreProvider).load(book.key)) ?? const {};
+    if (superseded()) return book.doc.close();
     final settings = ref.read(settingsStoreProvider);
+    final defaults = state;
     Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
-    final whole = await flag(SettingsStore.wholePageSteps, state.wholePageSteps);
-    final pause = await flag(SettingsStore.pauseWhole, state.pauseWhole);
+    final whole = await flag(SettingsStore.wholePageSteps, defaults.wholePageSteps);
+    final pause = await flag(SettingsStore.pauseWhole, defaults.pauseWhole);
     final seconds =
         SettingsStore.parseSeconds(await _orNull<String?>(() => settings.loadString(SettingsStore.pauseSeconds))) ??
-        state.pauseSeconds;
-    final night = await flag(SettingsStore.night, state.night);
-    final trim = await flag(SettingsStore.autoTrim, state.trim);
-    final cleanUp = await flag(SettingsStore.cleanUp, state.cleanUp);
-    final fullscreen = await flag(SettingsStore.fullscreen, state.fullscreen);
+        defaults.pauseSeconds;
+    final night = await flag(SettingsStore.night, defaults.night);
+    final trim = await flag(SettingsStore.autoTrim, defaults.trim);
+    final cleanUp = await flag(SettingsStore.cleanUp, defaults.cleanUp);
+    final fullscreen = await flag(SettingsStore.fullscreen, defaults.fullscreen);
     if (superseded()) return book.doc.close();
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
@@ -240,7 +269,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   Future<void> _leaveUnread(OpenBook book) async {
-    if (await _orNull(() => ref.read(libraryStoreProvider).leaveUnread(book.key)) ?? false) _sidecars.touch(book.key);
+    final sidecars = _sidecars;
+    final removed = await _orNull(() => ref.read(libraryStoreProvider).leaveUnread(book.key)) ?? false;
+    if (removed) sidecars.touch(book.key);
   }
 
   StreamSubscription<List<BookmarkInfo>>? _bookmarkWatch;
@@ -272,25 +303,31 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// Removes bookmark [id] of the open book, from the list (`M`).
-  Future<void> removeBookmark(String id) async {
+  Future<void> removeBookmark(String id) => _trackMetadataWrite(_removeBookmark(id));
+
+  Future<void> _removeBookmark(String id) async {
     final key = state.book?.key;
     if (key == null) return;
+    final sidecars = _sidecars;
     state = state.copyWith(bookmarks: [...state.bookmarks.where((b) => b.id != id)]);
     try {
       await ref.read(libraryStoreProvider).deleteBookmark(id);
-      _sidecars.touch(key);
+      sidecars.touch(key);
     } catch (e) {
       debugPrint('Could not remove the bookmark: $e');
     }
   }
 
   /// Gives bookmark [id] of the open book a note; empty takes it off.
-  Future<void> setBookmarkNote(String id, String note) async {
+  Future<void> setBookmarkNote(String id, String note) => _trackMetadataWrite(_setBookmarkNote(id, note));
+
+  Future<void> _setBookmarkNote(String id, String note) async {
     final key = state.book?.key;
     if (key == null) return;
+    final sidecars = _sidecars;
     try {
       await ref.read(libraryStoreProvider).setNote(id, note);
-      _sidecars.touch(key);
+      sidecars.touch(key);
     } catch (e) {
       debugPrint('Could not save the note: $e');
     }
@@ -338,8 +375,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// `mm`: bookmarks the page, or the panel in guided view; when what is
   /// shown already has one ([ReaderState.bookmarksHere]), takes it off.
-  Future<void> _toggleBookmark() async {
+  Future<void> _toggleBookmark() => _trackMetadataWrite(_toggleBookmarkWrite());
+
+  Future<void> _toggleBookmarkWrite() async {
     final book = state.book!;
+    final sidecars = _sidecars;
     final here = state.bookmarksHere;
     final store = ref.read(libraryStoreProvider);
     if (here.isNotEmpty) {
@@ -352,7 +392,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       );
       try {
         await store.deleteBookmarks(ids);
-        _sidecars.touch(book.key);
+        sidecars.touch(book.key);
       } catch (e) {
         debugPrint('Could not remove the bookmark: $e');
       }
@@ -364,9 +404,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _notice('Bookmarked page ${page + 1}${panel != null ? ', panel ${panel + 1}' : ''}  ·  M lists them');
     try {
       final id = await ref.read(markStoreProvider).addBookmark(book.key, page, panel);
-      _sidecars.touch(book.key);
+      sidecars.touch(book.key);
       // Shown at once; the index's own update follows.
-      if (identical(state.book, book) && !state.bookmarks.any((b) => b.id == id)) {
+      if (ref.mounted && identical(state.book, book) && !state.bookmarks.any((b) => b.id == id)) {
         state = state.copyWith(
           bookmarks: [
             ...state.bookmarks,
@@ -381,18 +421,21 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// `*`: puts the book in the Favourites collection, or takes it out.
-  Future<void> _toggleFavourite() async {
+  Future<void> _toggleFavourite() => _trackMetadataWrite(_toggleFavouriteWrite());
+
+  Future<void> _toggleFavouriteWrite() async {
     final book = state.book!;
     final store = ref.read(libraryStoreProvider);
+    final sidecars = _sidecars;
     try {
       final on = !await store.isFavourite(book.key);
       await store.setFavourite(book.key, on);
-      _sidecars.touch(book.key);
-      if (identical(state.book, book)) {
+      sidecars.touch(book.key);
+      if (ref.mounted && identical(state.book, book)) {
         _notice(on ? 'Added to Favourites  ·  gf lists them' : 'Taken out of Favourites');
       }
     } catch (e) {
-      _notice('Could not change the favourites: $e');
+      if (ref.mounted) _notice('Could not change the favourites: $e');
     }
   }
 
@@ -409,7 +452,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
   Future<void> _toggleCompleted() {
     final book = state.book!;
     final onLastPage = _onLastPage;
-    return _queueCompleted(book.key, () => _changeCompleted(book, onLastPage));
+    final store = ref.read(libraryStoreProvider);
+    final sidecars = _sidecars;
+    return _queueCompleted(book.key, () => _changeCompleted(book, onLastPage, store, sidecars));
+  }
+
+  Future<void> _trackMetadataWrite(Future<void> write) {
+    _metadataWrites.add(write);
+    return write.whenComplete(() => _metadataWrites.remove(write));
   }
 
   /// Completion changes to one book follow the order of the commands, so a
@@ -425,15 +475,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
     });
   }
 
-  Future<void> _changeCompleted(OpenBook book, bool onLastPage) async {
-    final store = ref.read(libraryStoreProvider);
+  Future<void> _changeCompleted(OpenBook book, bool onLastPage, LibraryStore store, SidecarSync sidecars) async {
     try {
       final on = !(await store.completedMarkOf(book.key) ?? onLastPage);
       await store.setCompleted(book.key, on);
-      _sidecars.touch(book.key);
-      if (identical(state.book, book)) _notice(on ? 'Marked as completed' : 'Marked as not completed');
+      sidecars.touch(book.key);
+      if (ref.mounted && identical(state.book, book)) _notice(on ? 'Marked as completed' : 'Marked as not completed');
     } catch (e) {
-      if (identical(state.book, book)) {
+      if (ref.mounted && identical(state.book, book)) {
         _notice('Could not change the completed mark: $e');
       } else {
         debugPrint('Could not change the completed mark for ${book.path}: $e');
@@ -450,15 +499,20 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// completed when it is read again from the start, and another device
   /// would never hear of it (positions are per device, the mark is not).
   /// Says so only when nothing else is on the status line.
-  Future<void> _completeAtEnd(OpenBook book) => _queueCompleted(book.key, () => _markCompletedAtEnd(book));
-
-  Future<void> _markCompletedAtEnd(OpenBook book) async {
+  Future<void> _completeAtEnd(OpenBook book) {
     final store = ref.read(libraryStoreProvider);
+    final sidecars = _sidecars;
+    return _queueCompleted(book.key, () => _markCompletedAtEnd(book, store, sidecars));
+  }
+
+  Future<void> _markCompletedAtEnd(OpenBook book, LibraryStore store, SidecarSync sidecars) async {
     try {
       if (await store.completedMarkOf(book.key) == true) return;
       await store.setCompleted(book.key, true);
-      _sidecars.touch(book.key);
-      if (identical(state.book, book) && state.message == null) _notice('Last page: marked as completed');
+      sidecars.touch(book.key);
+      if (ref.mounted && identical(state.book, book) && state.message == null) {
+        _notice('Last page: marked as completed');
+      }
     } catch (e) {
       debugPrint('Could not mark ${book.path} as completed: $e');
     }
@@ -469,24 +523,30 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// does. A collection it is in already is said so and left alone, row
   /// and sidecar: [LibraryStore.addToCollection] decides that, for the
   /// library's `gc` as for this one.
-  Future<void> addToCollection(String name) async {
+  Future<void> addToCollection(String name) => _trackMetadataWrite(_addToCollection(name));
+
+  Future<void> _addToCollection(String name) async {
     final book = state.book;
     if (book == null) return;
+    final sidecars = _sidecars;
     try {
       final added = await ref.read(libraryStoreProvider).addToCollection(book.key, name);
-      if (added) _sidecars.touch(book.key);
-      if (identical(state.book, book)) _notice(added ? 'Added to $name' : 'Already in $name');
+      if (added) sidecars.touch(book.key);
+      if (ref.mounted && identical(state.book, book)) _notice(added ? 'Added to $name' : 'Already in $name');
     } catch (e) {
-      _notice('Could not add it to $name: $e');
+      if (ref.mounted) _notice('Could not add it to $name: $e');
     }
   }
 
   /// Writes the sidecar as the book opens, so a folder that refuses it says
   /// so now rather than silently later.
   Future<void> _writeSidecar(OpenBook book) async {
+    final sidecars = _sidecars;
+    final progress = _progress;
     try {
-      await _progress.flush();
-      if (await _sidecars.write(book.key) || !identical(state.book, book)) return;
+      await progress.flush();
+      final written = await sidecars.write(book.key);
+      if (!ref.mounted || written || !identical(state.book, book)) return;
       _notice("Can't write beside this comic, so its panels and bookmarks stay in this app only");
     } catch (e) {
       debugPrint('Sidecar write failed: $e');
@@ -500,9 +560,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final closing = close();
     final reserved = _opening;
     await closing;
-    if (_opening != reserved) return;
+    if (!ref.mounted || _opening != reserved) return;
     await _sidecars.adopt(offer.contentKey, offer.at);
-    if (_opening != reserved) return;
+    if (!ref.mounted || _opening != reserved) return;
     await open(offer.path);
   }
 
@@ -545,28 +605,32 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // A model inference cannot be cancelled. Its answer must not reach the
     // index after this book closes, especially when Reset follows.
     _detectionGeneration++;
+    final sidecars = _sidecars;
+    final readLog = ref.read(readLogStoreProvider);
     unawaited(_bookmarkWatch?.cancel());
     _bookmarkWatch = null;
     await _progress.flush();
-    await _endSitting();
+    await _endSitting(readLog);
     _wanted.clear();
     _wake?.complete();
     _wake = null;
     _view = _restoreView = null;
-    state = ReaderState(
-      mode: state.mode,
-      guided: state.guided,
-      balloons: state.balloons,
-      wholePageSteps: state.wholePageSteps,
-      pauseWhole: state.pauseWhole,
-      pauseSeconds: state.pauseSeconds,
-      cue: state.cue,
-      fullscreen: state.fullscreen,
-      night: state.night,
-      trim: state.trim,
-      cleanUp: state.cleanUp,
-      loading: state.loading,
-    );
+    if (ref.mounted) {
+      state = ReaderState(
+        mode: state.mode,
+        guided: state.guided,
+        balloons: state.balloons,
+        wholePageSteps: state.wholePageSteps,
+        pauseWhole: state.pauseWhole,
+        pauseSeconds: state.pauseSeconds,
+        cue: state.cue,
+        fullscreen: state.fullscreen,
+        night: state.night,
+        trim: state.trim,
+        cleanUp: state.cleanUp,
+        loading: state.loading,
+      );
+    }
     await book.doc.close();
     // A save that began before close must finish before Reset deletes its
     // rows. Inference itself is allowed to finish later and is discarded.
@@ -579,11 +643,15 @@ class ReaderNotifier extends Notifier<ReaderState> {
     onCompletionBarrier?.call(false);
     await Future.wait(_completedWrites.toList());
     onCompletionBarrier?.call(true);
+    await Future.wait(_markWrites.toList());
+    await Future.wait(_metadataWrites.toList());
     await Future.wait(_sidecarWrites.toList());
     // Wait for the sidecar too: Reset must not overtake a close-time write.
     try {
-      await _sidecars.flush();
-      unawaited(ref.read(s3SyncProvider).flush().catchError((Object e) => debugPrint('S3 flush failed: $e')));
+      await sidecars.flush();
+      if (ref.mounted) {
+        unawaited(ref.read(s3SyncProvider).flush().catchError((Object e) => debugPrint('S3 flush failed: $e')));
+      }
     } catch (e) {
       debugPrint('Sidecar write failed: $e');
     }
@@ -598,18 +666,18 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final closing = close();
     final reserved = _opening;
     await closing;
-    if (_opening != reserved) return;
+    if (!ref.mounted || _opening != reserved) return;
     var ok = true;
     try {
       ok = await _sidecars.reset(book.key, everything: scope == ResetScope.everything);
     } catch (e) {
       debugPrint('Reset failed: $e');
-      if (_opening == reserved) state = state.copyWith(message: 'Could not reset ${book.title}: $e');
+      if (ref.mounted && _opening == reserved) state = state.copyWith(message: 'Could not reset ${book.title}: $e');
       return;
     }
-    if (_opening != reserved) return;
+    if (!ref.mounted || _opening != reserved) return;
     await open(book.path);
-    if (_opening != reserved + 1 || state.book?.key != book.key) return;
+    if (!ref.mounted || _opening != reserved + 1 || state.book?.key != book.key) return;
     _notice(
       !ok
           ? "Reset here, but the file beside the comic can't be changed, so the next open may bring it back"
@@ -637,7 +705,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       for (var i = 0; i < sizes.length; i++)
         if (sizes[i] case (final w, final h) when isWidePage(w, h)) i: w / h,
     };
-    if (aspects.isNotEmpty && identical(state.book, book)) {
+    if (aspects.isNotEmpty && ref.mounted && identical(state.book, book)) {
       state = state.copyWith(wide: aspects.keys.toSet(), wideAspects: aspects);
     }
   }
@@ -975,6 +1043,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// Takes up the fullscreen saved last time, at launch.
   Future<void> loadFullscreen() async {
     final on = await _orNull(() => ref.read(settingsStoreProvider).loadBool(SettingsStore.fullscreen));
+    if (!ref.mounted) return;
     if (on != null && on != state.fullscreen) state = state.copyWith(fullscreen: on);
   }
 
@@ -1098,11 +1167,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   Future<void> _savePanels(String key, int page, DetectedPage result) async {
+    final sidecars = _sidecars;
     try {
       await ref.read(panelStoreProvider).save(key, page, result);
       // Close waits for this save before flushing the sidecar. A save that
       // started before close still belongs in the sidecar unless Reset follows.
-      _sidecars.touch(key);
+      sidecars.touch(key);
     } catch (e) {
       debugPrint('Could not cache panels: $e');
     }
@@ -1139,6 +1209,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final book = state.book;
     final arrives = book != null && _readsOn(c) && !_onLastPage;
     await _dispatch(c);
+    if (!ref.mounted) return;
     if (arrives && identical(state.book, book) && _onLastPage) unawaited(_completeAtEnd(book));
   }
 
@@ -1281,13 +1352,14 @@ class ReaderNotifier extends Notifier<ReaderState> {
               'Mark ${c.register} set at page ${state.page + 1}'
               '${state.guided && i >= 0 ? ', panel ${i + 1}' : ''}',
         );
-        unawaited(
-          ref
-              .read(markStoreProvider)
-              .save(key, c.register!, place.page, place.panel)
-              .then((_) => _sidecars.touch(key))
-              .catchError((Object e) => debugPrint('Could not save mark: $e')),
-        );
+        final sidecars = _sidecars;
+        final write = ref
+            .read(markStoreProvider)
+            .save(key, c.register!, place.page, place.panel)
+            .then((_) => sidecars.touch(key))
+            .catchError((Object e) => debugPrint('Could not save mark: $e'));
+        _markWrites.add(write);
+        unawaited(write.whenComplete(() => _markWrites.remove(write)));
       case ReaderIntent.jumpMark:
         final target = state.marks[c.register];
         target == null ? _notice('Mark ${c.register} is not set') : _goTo(target.page, panel: target.panel, jump: true);
@@ -1404,6 +1476,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         break; // Handled by the screen, or only mean something in the library.
     }
     // A part of the page belongs to the view it was picked in.
+    if (!ref.mounted) return;
     if ((state.parts != null || state.region != null) && (state.guided, state.mode) != shownBefore) {
       state = state.copyWith(clearParts: true, message: state.message);
     }
@@ -1439,7 +1512,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   Future<void> _neighbour({required bool next}) async {
     final book = state.book!;
     final opening = _opening;
-    bool superseded() => opening != _opening || !identical(state.book, book);
+    bool superseded() => !ref.mounted || opening != _opening || !identical(state.book, book);
     final inSeries = await _orNull(() => ref.read(libraryStoreProvider).seriesNeighbour(book.key, next: next));
     if (superseded()) return;
     if (inSeries != null) {
@@ -1468,18 +1541,27 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   Future<void> flush() async {
+    final sidecars = _sidecars;
+    final readLog = ref.read(readLogStoreProvider);
+    final opening = _opening;
     await _progress.flush();
     // The app may not come back: log the sitting, and start a new one that
-    // a quick return joins back onto.
-    if (_sitting case final s?) {
-      await _endSitting();
-      if (state.book?.key == s.key) _sitting = (key: s.key, start: DateTime.now(), pages: <int>{});
+    // a quick return joins back onto. It must be live while the write waits.
+    if (_opening == opening) {
+      await _endSitting(readLog, restart: ref.mounted && state.book != null);
+    } else {
+      await Future.wait(_sittingWrites.toList());
     }
+    await Future.wait(_panelWrites.toList());
+    await Future.wait(_unreadWrites.toList());
     onCompletionBarrier?.call(false);
     await Future.wait(_completedWrites.toList());
     onCompletionBarrier?.call(true);
-    await _sidecars.flush();
-    await ref.read(s3SyncProvider).flush(limit: const Duration(seconds: 3));
+    await Future.wait(_markWrites.toList());
+    await Future.wait(_metadataWrites.toList());
+    await Future.wait(_sidecarWrites.toList());
+    await sidecars.flush();
+    if (ref.mounted) await ref.read(s3SyncProvider).flush(limit: const Duration(seconds: 3));
   }
 }
 
