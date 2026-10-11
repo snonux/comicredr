@@ -29,7 +29,9 @@ the file doesn't lose anything either.
 
 When two copies of a sidecar meet (you read on the laptop and on the
 phone), ComicRedr merges them: bookmarks from both, the later edit of
-each field, and a bookmark you took off stays off.
+each field, and a bookmark you took off stays off. For collections, the
+later add or removal wins. If they have the same time, the removal wins,
+so a comic you took out does not reappear.
 
 ### Keeping the sidecars in one folder
 

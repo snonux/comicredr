@@ -473,7 +473,8 @@ void writeSidecar(String path, SidecarData data, {required String device, String
 /// * Bookmarks are a union by id, and a removal wins over the bookmark. A
 ///   vi mark a–z points at one place: the latest one set.
 /// * Each device's position is its own; the later one wins per device.
-/// * Per collection, the later of adding and taking out wins.
+/// * Per collection, the later of adding and taking out wins; a removal
+///   wins when their times match.
 /// * Per metadata edit, the later one wins, an undo included (MetaEdit).
 /// * Book facts and the cover come from [b] when it has them.
 SidecarData mergeSidecars(SidecarData a, SidecarData b) {
@@ -523,7 +524,11 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
   DateTime changed(CollectionBook c) => c.removedAt ?? c.addedAt;
   for (final c in [...a.collections, ...b.collections]) {
     final have = collections[c.name];
-    if (have == null || changed(c).isAfter(changed(have))) collections[c.name] = c;
+    if (have == null ||
+        changed(c).isAfter(changed(have)) ||
+        (changed(c).isAtSameMomentAs(changed(have)) && c.removedAt != null && have.removedAt == null)) {
+      collections[c.name] = c;
+    }
   }
 
   return SidecarData(

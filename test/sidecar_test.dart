@@ -11,6 +11,7 @@ import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/scanner.dart';
 import 'package:comicredr/src/reader/panel_detector.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -58,6 +59,56 @@ void main() {
   });
 
   Directory dir(String name) => Directory('${tmp.path}/$name')..createSync(recursive: true);
+
+  test('a removal tied with a sidecar add stays removed in the index and sidecar', () async {
+    final path = writeBook(dir('tied-removal'), 'Book.cbz', 1);
+    final key = await contentKey(path);
+    await laptop.sync.attach(path, key, folder: false);
+    await laptop.library.addToCollection(key, 'Unread');
+    final tied = DateTime(2026, 10, 11, 23, 59, 9);
+    await laptop.db.update(laptop.db.collectionBooks).write(CollectionBooksCompanion(addedAt: Value(tied)));
+    expect(await laptop.sync.write(key), isTrue);
+    expect(readSidecar(hidden(path))!.collections.single.removedAt, isNull);
+
+    await laptop.library.removeFromCollection(key, 'Unread');
+    await laptop.db.update(laptop.db.collectionBooks).write(CollectionBooksCompanion(removedAt: Value(tied)));
+    expect((await laptop.db.select(laptop.db.collectionBooks).get()).single.removedAt, tied);
+    final stale = readSidecar(hidden(path))!;
+    final local = await laptop.sync.gather(key);
+    for (final merged in [mergeSidecars(stale, local), mergeSidecars(local, stale)]) {
+      expect(merged.collections.single.removedAt, tied);
+    }
+
+    // Import the stale active sidecar, then write the merged result back.
+    await laptop.sync.attach(path, key, folder: false);
+    expect((await laptop.db.select(laptop.db.collectionBooks).get()).single.removedAt, tied);
+    expect(await laptop.sync.write(key), isTrue);
+    expect(readSidecar(hidden(path))!.collections.single.removedAt, tied);
+  });
+
+  test('a genuinely later add survives an older sidecar removal', () async {
+    final path = writeBook(dir('later-add'), 'Book.cbz', 1);
+    final key = await contentKey(path);
+    await laptop.sync.attach(path, key, folder: false);
+    await laptop.library.addToCollection(key, 'Moore');
+    final first = DateTime(2026, 1, 1);
+    final removed = DateTime(2026, 1, 2);
+    final later = DateTime(2026, 1, 3);
+    await laptop.db.update(laptop.db.collectionBooks).write(CollectionBooksCompanion(addedAt: Value(first)));
+    await laptop.library.removeFromCollection(key, 'Moore');
+    await laptop.db.update(laptop.db.collectionBooks).write(CollectionBooksCompanion(removedAt: Value(removed)));
+    expect(await laptop.sync.write(key), isTrue);
+    expect(readSidecar(hidden(path))!.collections.single.removedAt, removed);
+
+    await laptop.library.addToCollection(key, 'Moore');
+    await laptop.db.update(laptop.db.collectionBooks).write(CollectionBooksCompanion(addedAt: Value(later)));
+    await laptop.sync.attach(path, key, folder: false);
+    final row = (await laptop.db.select(laptop.db.collectionBooks).get()).single;
+    expect((row.addedAt, row.removedAt), (later, null));
+    expect(await laptop.sync.write(key), isTrue);
+    final side = readSidecar(hidden(path))!.collections.single;
+    expect((side.addedAt, side.removedAt), (later, null));
+  });
 
   /// What the laptop does while reading: the model finds a frame and a
   /// balloon on page 2, mark a and a bookmark go in, and it stops on page
