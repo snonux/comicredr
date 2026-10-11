@@ -1,0 +1,4 @@
+* Library filters work on every tab; gF cycles completed status.
+* Tab focuses the sidebar, underlined letters select a tab, Enter returns to covers.
+* f and F11 toggle fullscreen in the page grid.
+* Optional AI panel imports can include balloons and captions for guided reading.

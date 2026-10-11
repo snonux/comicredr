@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.8.1
+
 - **Keys in the library sidebar:** `Tab` gives the left sidebar focus,
   where underlined R/S/B/C/H/F/M pick Reading, Series, Books, Collections,
   History, Folders and Bookmarks. `Enter`, `Esc`, Right or another `Tab`
