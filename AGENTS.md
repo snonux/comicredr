@@ -6,6 +6,9 @@ build internals, test scripts, detector work and conventions here.
 [docs/architecture.md](docs/architecture.md) is the overview with
 diagrams (parts, page pipeline, input, detection, the model, data); keep
 it in step when the architecture or the model changes.
+[docs/llm-panels.md](docs/llm-panels.md) is panels drawn by a large AI
+model (`tool/llm_panels.py`): how it works, the benchmark and how to rerun
+it.
 
 ## Conventions
 
@@ -1095,7 +1098,9 @@ refreshes right away instead of within six hours.
   `balloonsIn` skips it. `X` → Redo panels deletes them with the rest.
   Benchmark (2026-10-10, 40 eval pages, 32 of them the shipped model's
   misses): guided right / whole / wrong 31 / 0 / 9 for Claude against
-  8 / 17 / 15; /mnt/project-files/comicredr-llm-panels/report.md.
+  8 / 17 / 15. Method, results, Claude's boxes
+  (`spike/llm-boxes/claude-2026-10-10/`) and the rerun commands:
+  [docs/llm-panels.md](docs/llm-panels.md).
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
   it, while the camera frames the box.

@@ -166,7 +166,9 @@ On slanted pages Claude got all 12 right. It found balloons better on
 modern and slanted pages, and it keeps narration boxes apart, which
 balloon mode then skips. It takes Claude about half a minute a page; on a paid API plan
 that is roughly 3 to 5 cents a page, a dollar or so for a 30-page
-comic. On a subscription it comes out of your usage instead.
+comic. On a subscription it comes out of your usage instead. The full
+test is in [Panels from a large AI model](../llm-panels.md) in the
+developer notes.
 
 You need a copy of the ComicRedr source (the tool is
 `tool/llm_panels.py`), Python 3 with Pillow (`pip install pillow`,

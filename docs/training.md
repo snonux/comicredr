@@ -338,6 +338,10 @@ wrong):
 The runs since are under "Fake pages from your own comics";
 AGENTS.md ("Train the detector") has the older history.
 
+A large vision model's panels, drawn per comic and imported into the
+sidecar rather than trained, are compared the same way with
+`evaluate.py --boxes`: [llm-panels.md](llm-panels.md).
+
 ## Shipping a new model
 
 1. Train it fresh with `make train-model`, with any new clean books and

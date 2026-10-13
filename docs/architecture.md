@@ -251,7 +251,8 @@ flowchart TB
    already known. Panels imported into the sidecar by
    `tool/llm_panels.py` (drawn by a large vision model such as Claude)
    are stored as the source `manual`, which `PanelStore.load` prefers
-   over the built-in detector on the pages that have them.
+   over the built-in detector on the pages that have them
+   ([llm-panels.md](llm-panels.md)).
 
 Detection runs in the background for the open comic only, guided view on
 or off (`_ensurePanels` in `reader_notifier.dart`): the page being read,
