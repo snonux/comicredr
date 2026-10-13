@@ -122,6 +122,18 @@ The run was Opus 5.5 at medium effort, in the Claude Code session that
 wrote the tool. Effort is set in Claude Code with `/effort` (or `/model`)
 and in Codex with `-c model_reasoning_effort=high`.
 
+Blind redraws (2026-10-13): three fresh Claude sessions that never saw
+the labels drew the 40 pages again: the tool's prompt at medium effort,
+a sharper prompt (text-only boxes are no panels, an inset is its own
+panel, stricter reading order) at medium, and the same at high effort.
+All three came out 29 / 3 / 8. Three to four pages flip between runs
+(noise); the same nine disagreements came back in every run, so they are
+Claude's settled view against the labels, not chance. The sharper prompt
+and high effort bought nothing, so the tool keeps its prompt
+(`PROMPT_VERSION` 1) and medium effort is enough. The "whole" pages are
+the gate refusing a drawing: an inset overlapping its panel, or panels
+covering half the page.
+
 Caveats: one model's judgement on 40 pages, not a blind test. The page
 list used to pick them showed the labelled panel counts, and one page's
 labels were seen while checking the scoring (its answer was left as it
