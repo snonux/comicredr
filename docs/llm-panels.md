@@ -14,36 +14,57 @@ sidecar.
 
 ## How it works
 
-`tool/llm_panels.py` has three commands:
+A coding agent (Claude Code, Codex) opened in the checkout does the
+whole library by following the runbook at the top of
+[AGENTS.md](../AGENTS.md), "Drawing the library's panels with a large
+model": list the comics, ask the person which to do, then draw them ten
+pages at a time. `tool/llm_panels.py` has four commands:
 
 ```sh
-python3 tool/llm_panels.py pages  BOOK WORK                # WORK/page-001.jpg ... and WORK/PROMPT.md
-python3 tool/llm_panels.py check  BOOK WORK                # WORK/panels.json drawn into WORK/check/
-python3 tool/llm_panels.py import BOOK WORK/panels.json [--sidecar FILE]
+python3 tool/llm_panels.py library [FOLDER|BOOK ...] [--todo]   # the comics and their pages done
+python3 tool/llm_panels.py pages  BOOK WORK [--batch 10]        # WORK/page-NNN.jpg ... and WORK/PROMPT.md
+python3 tool/llm_panels.py check  BOOK WORK                     # WORK/panels.json drawn into WORK/check/
+python3 tool/llm_panels.py import BOOK WORK/panels.json --harness "Claude Code" --model claude-opus-5-5
 ```
 
-1. `pages` writes each page as a JPEG 1,100 px on its long side with a
-   grid over it, a line every 5% labelled every 10%, so the model can
-   read positions off the picture, and the prompt (the guide quotes it
-   in full).
-2. The model, run in WORK with that prompt, writes `panels.json`: per
+1. `library` finds the comics as the app's library does (comic files by
+   their first bytes, folder books, loose images; dot folders skipped)
+   under the app's library folders, read from its index, else under
+   `~/Comics`, or under the folders or comics given, and prints pages
+   done out of pages for each.
+2. `pages` writes each page not done yet (or the first N of them with
+   `--batch N`, chosen ones with `--pages`, done ones again with
+   `--all`) as a JPEG 1,100 px on its long side with a grid over it, a
+   line every 5% labelled every 10%, so the model can read positions off
+   the picture, and the prompt (the guide quotes it in full). A page is
+   done when the sidecar has imported panels for it, so a stopped run
+   goes on where it was.
+3. The model, run in WORK with that prompt, writes `panels.json`: per
    page (numbered from 1) the panels in reading order as
    `[x0, y0, x1, y1]` in percent of the page, or `{"outline": [[x, y],
    ...]}` for a slanted panel; balloons (speech, thought, unballooned
    speech); captions kept apart. `"panels": []` shows the page whole.
    It then runs `check` and fixes what does not sit on its edge.
-3. `import` writes the rows into the sidecar beside the comic (or the
-   one `--sidecar` names) as source `manual`, model version 1,
-   confidence 1. The app's `PanelStore.load` prefers `manual` over the
-   detector on the pages that have it and keeps the given order, so
-   guided view follows the model's reading order. Pages left out keep
-   the detector's panels. `X` → Redo panels deletes them.
+4. `import` writes the rows into the comic's sidecar where the app keeps
+   it (beside the comic, or under Settings → Sidecars → In one folder,
+   read from the app's index; `--sidecar` names one by hand) as source
+   `manual`, model version 1, confidence 1. It also adds the run to the
+   record of who drew the comic: an overrides row `panelImport` holding
+   `{"runs": [{"harness", "model", "prompt", "pages", "at"}]}` (the last
+   20 runs), with `prompt` the tool's `PROMPT_VERSION`. The app keeps,
+   merges and exports it like the completed mark, and the comic's
+   details (`I`) show it as "Drawn by". The app's `PanelStore.load`
+   prefers `manual` over the detector on the pages that have it and
+   keeps the given order, so guided view follows the model's reading
+   order. Pages left out keep
+   the detector's panels. `X` → Redo panels deletes them and the record.
 
 The tool reads CBZ, CBT, PDF (with pypdfium2), folders of pages and
 single images in the app's page order, and computes the content key the
 app does, both written again in Python; EPUB is not read. A change in
-Dart to the sidecar schema, `contentKey` or the page order
-(`packages/comic_formats`) must be made in the tool too.
+Dart to the sidecar schema, `contentKey`, the page order or `findBooks`
+(`packages/comic_formats`), the app's data folder or
+`storedSidecarPath` must be made in the tool too.
 `tool/e2e_llm_panels.sh` checks the whole path in the release build.
 
 ## The test, 2026-10-10
@@ -87,6 +108,19 @@ flashback strip on Pepper&Carrot e06 p001, a loose borderless layout
 (barefoot p021), I Villain's spreads, First Woman p006, weird p038, an
 inset circle (international p028). It never shows a page whole, so a
 miss is a wrong camera move.
+
+The labels are no independent truth: they were drawn by Claude
+subagents too, by the rules in `spike/LABELLING.md` (M5). So "wrong"
+here means Claude disagreed with an earlier Claude. Side by side
+(`/mnt/project-files/comicredr-llm-panels/misses/` in the project), the
+labels look wrong on international p028 (reading order) and weird p038
+(two panels merged), Claude on First Woman p006 (an inset merged) and
+on the two ad boxes; the rest are judgement calls. A person has to rule
+before a prompt change counts as better.
+
+The run was Opus 5.5 at medium effort, in the Claude Code session that
+wrote the tool. Effort is set in Claude Code with `/effort` (or `/model`)
+and in Codex with `-c model_reasoning_effort=high`.
 
 Caveats: one model's judgement on 40 pages, not a blind test. The page
 list used to pick them showed the labelled panel counts, and one page's

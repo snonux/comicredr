@@ -3,9 +3,14 @@
 into a comic's sidecar so guided view uses them instead of the built-in
 detector's, page by page.
 
-  python3 tool/llm_panels.py pages  BOOK WORK    # WORK/page-001.jpg ... with a percent grid, and the prompt
+  python3 tool/llm_panels.py library [FOLDER|BOOK ...] [--todo]  # the comics, and how many pages are done
+  python3 tool/llm_panels.py pages  BOOK WORK [--batch 10] [--pages 1-10] [--all]  # pages not done, with a grid, and the prompt
   python3 tool/llm_panels.py check  BOOK WORK    # WORK/check/page-001.jpg: WORK/panels.json drawn on the pages
-  python3 tool/llm_panels.py import BOOK WORK/panels.json [--sidecar FILE]
+  python3 tool/llm_panels.py import BOOK WORK/panels.json --harness NAME --model NAME [--sidecar FILE]
+
+`library` looks in the app's library folders (read from its index), else in
+~/Comics. A page is done once panels for it were imported; `pages` leaves
+done pages out unless --all, so a stopped run goes on where it was.
 
 BOOK is a CBZ, CBT, PDF, a folder of page images or one image, read in the
 app's page order (packages/comic_formats: natural order, junk skipped). EPUB
@@ -25,8 +30,11 @@ The import writes the rows as source "manual", which the app prefers over its
 detector on those pages (PanelStore.load), into the sidecar beside the comic
 (`.Book.cbz.crdb`, `.comicredr.crdb` inside a folder book), merged with what
 is there; the app reads it the next time the comic opens. With Settings ->
-Sidecars -> In one folder, pass that sidecar with --sidecar. X (Redo panels)
-in the app drops them again.
+Sidecars -> In one folder the sidecar there is used (read from the app's
+index; --sidecar names one by hand). It also records the run in the
+sidecar's overrides row "panelImport" (harness, model, prompt version, date,
+pages), which the comic's details (I) show. X (Redo panels) in the app drops
+the panels and the record again.
 """
 import argparse
 import functools
@@ -46,6 +54,11 @@ LONG_SIDE = 1100
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 SOURCE = "manual"
 MODEL_VER = 1
+# Raise when the drawing rules in PROMPT change, so a record says which rules drew a comic.
+PROMPT_VERSION = 1
+# panelImportField in lib/src/data/meta_edits.dart.
+RECORD_FIELD = "panelImport"
+RECORD_RUNS = 20
 SCHEMA_VERSION = 3  # sidecarSchemaVersion in lib/src/data/sidecar.dart
 
 # lib/src/data/sidecar.dart, _schema: a new sidecar is made exactly like the app's.
@@ -70,11 +83,11 @@ SCHEMA = [
 
 PROMPT = """\
 You are marking up the pages of a comic for a reader app's guided view.
-In this folder, page-001.jpg, page-002.jpg, ... are the pages in order, each
-with a grid drawn over it: a line every 5% of the page's width and height,
-labelled every 10%.
+In this folder, page-NNN.jpg is page NNN of the comic, each with a grid
+drawn over it: a line every 5% of the page's width and height, labelled
+every 10%. The pages to do are {todo}.
 
-For every page, look at the image and write down:
+For every one of those pages, look at the image and write down:
 - panels: every panel, in the order a reader reads them (left to right, top
   to bottom; a tall panel beside a stack is read first), as
   [x0, y0, x1, y1]: its left, top, right and bottom edges in percent of the
@@ -88,13 +101,17 @@ For every page, look at the image and write down:
 - captions: narration boxes, kept apart from balloons.
 Leave out sound effects and signs.
 
-Write it all to panels.json in this folder:
+Write it all to panels.json in this folder, keyed by the page's number:
 {"pages": {"1": {"panels": [...], "balloons": [...], "captions": [...]}, "2": ...}}
 
 Then run `python3 {tool} check {book} {work}` and look at
 check/page-NNN.jpg: green boxes are panels with their number, magenta
 balloons, blue captions. Fix any box that does not sit on its edge, and run
 check again until they all do.
+
+Then put it in the comic's sidecar, naming yourself and your model:
+`python3 {tool} import {book} panels.json --harness "Claude Code" --model claude-opus-5-5`
+(in Codex: --harness Codex and the model you run as).
 """
 
 
@@ -143,12 +160,25 @@ def is_page_entry(path):
     return dot > 0 and name[dot:].lower() in IMAGE_EXT
 
 
-def sniff(path):
+def kind_of(path):
+    """What the file's first bytes say it is: zip, epub, pdf, tar, image, or
+    None for anything else; a folder is "folder"."""
     if os.path.isdir(path):
         return "folder"
-    with open(path, "rb") as f:
-        head = f.read(512)
+    try:
+        with open(path, "rb") as f:
+            head = f.read(512)
+    except OSError:
+        return None
     if head.startswith(b"PK"):
+        try:
+            with zipfile.ZipFile(path) as z:
+                names = set(z.namelist())
+                if "META-INF/container.xml" in names or (
+                        "mimetype" in names and z.read("mimetype").strip() == b"application/epub+zip"):
+                    return "epub"
+        except (zipfile.BadZipFile, OSError):
+            return None
         return "zip"
     if head.startswith(b"%PDF"):
         return "pdf"
@@ -156,7 +186,14 @@ def sniff(path):
         return "tar"
     if head.startswith(b"\x89PNG") or head.startswith(b"\xff\xd8") or (head[:4] == b"RIFF" and head[8:12] == b"WEBP"):
         return "image"
-    sys.exit(f"{path}: not a CBZ, CBT, PDF, image or folder (EPUB is not read by this tool)")
+    return None
+
+
+def sniff(path):
+    kind = kind_of(path)
+    if kind in (None, "epub"):
+        sys.exit(f"{path}: not a CBZ, CBT, PDF, image or folder (EPUB is not read by this tool)")
+    return kind
 
 
 def folder_pages(root):
@@ -232,10 +269,206 @@ def content_key(book):
 
 
 def sidecar_path(book):
+    """sidecarPath in lib/src/data/sidecar.dart: beside the comic, hidden."""
     book = os.path.abspath(book).rstrip("/")
     if os.path.isdir(book):
         return os.path.join(book, ".comicredr.crdb")
     return os.path.join(os.path.dirname(book), "." + os.path.basename(book) + ".crdb")
+
+
+# ---------------------------------------------------------------- the app's index
+
+def index_path():
+    """The app's index database on Linux (appDirs in lib/src/data/data_dirs.dart):
+    the XDG data folder's when there is one, else ~/Comics/.comicredr's."""
+    home = os.path.expanduser("~")
+    data_home = os.environ.get("XDG_DATA_HOME") or os.path.join(home, ".local", "share")
+    for name in ("org.snonux.comicredr", "comicredr"):
+        f = os.path.join(data_home, name, "comicredr.sqlite")
+        if os.path.exists(f):
+            return f
+    f = os.path.join(home, "Comics", ".comicredr", "comicredr.sqlite")
+    return f if os.path.exists(f) else None
+
+
+class Index:
+    """What this tool needs from the app's index, read only: the library
+    folders and the "In one folder" sidecar setting. Empty without one."""
+
+    def __init__(self, path=None):
+        self.roots, self.sidecar_dir = [], None
+        path = path or index_path()
+        if not path or not os.path.exists(path):
+            return
+        try:
+            db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            self.roots = [(i, r) for i, r in db.execute("SELECT id, path FROM roots ORDER BY id")]
+            row = db.execute("SELECT value FROM settings WHERE key = 'sidecars.dir'").fetchone()
+            self.sidecar_dir = row[0] if row and row[0] else None
+            db.close()
+        except sqlite3.Error as e:
+            print(f"(could not read the app's index {path}: {e})", file=sys.stderr)
+
+    def sidecar(self, book):
+        """Where the app keeps [book]'s sidecar: storedSidecarPath with a
+        sidecar folder, else beside the comic."""
+        book = os.path.abspath(book).rstrip("/")
+        if not self.sidecar_dir:
+            return sidecar_path(book)
+        inside = [(i, r) for i, r in self.roots if book == r or book.startswith(r.rstrip("/") + "/")]
+        if not inside:
+            at = os.path.join(self.sidecar_dir, "elsewhere", book.lstrip("/"))
+        else:
+            i, r = max(inside, key=lambda ir: len(ir[1]))
+            name = os.path.basename(os.path.normpath(r)) or "root"
+            if sum(1 for _, o in self.roots if (os.path.basename(os.path.normpath(o)) or "root") == name) > 1:
+                name = f"{name}-{i}"
+            rel = os.path.relpath(book, r)
+            at = os.path.join(self.sidecar_dir, name) if rel == "." else os.path.join(self.sidecar_dir, name, rel)
+        if os.path.isdir(book):
+            return os.path.join(at, ".comicredr.crdb")
+        return os.path.join(os.path.dirname(at), "." + os.path.basename(at) + ".crdb")
+
+
+def sidecar_of(book, a):
+    return a.sidecar or Index(getattr(a, "index", None)).sidecar(book)
+
+
+def done_pages(sidecar, key):
+    """Pages (from 1) the sidecar has imported panels for, and the record of
+    the runs; nothing when the sidecar is missing or another comic's."""
+    if not os.path.exists(sidecar):
+        return set(), []
+    try:
+        db = sqlite3.connect(f"file:{sidecar}?mode=ro", uri=True)
+        have = db.execute("SELECT content_key FROM meta LIMIT 1").fetchone()
+        if not have or have[0] != key:
+            db.close()
+            return set(), []
+        done = {p + 1 for (p,) in db.execute("SELECT page FROM analysed_pages WHERE source = ?", (SOURCE,))}
+        row = db.execute("SELECT value FROM overrides WHERE field = ?", (RECORD_FIELD,)).fetchone()
+        db.close()
+    except sqlite3.Error:
+        return set(), []
+    return done, read_record(row[0] if row else None)
+
+
+def read_record(raw):
+    """The runs in an overrides row of RECORD_FIELD (a MetaEdit whose value
+    is JSON), or [] for none, an undone one or one that does not read."""
+    try:
+        edit = json.loads(raw) if raw else None
+        if not edit or edit.get("fromFile") or not edit.get("value"):
+            return []
+        return list(json.loads(edit["value"]).get("runs", []))
+    except (ValueError, AttributeError, TypeError):
+        return []
+
+
+def page_ranges(pages):
+    """[1, 2, 3, 5] as "1-3, 5"."""
+    out, run = [], []
+    for n in sorted(pages):
+        if run and n != run[-1] + 1:
+            out.append(run)
+            run = []
+        run.append(n)
+    if run:
+        out.append(run)
+    return ", ".join(str(r[0]) if len(r) == 1 else f"{r[0]}-{r[-1]}" for r in out)
+
+
+def parse_ranges(text, count):
+    pages = set()
+    for part in text.replace(" ", "").split(","):
+        if not part:
+            continue
+        lo, _, hi = part.partition("-")
+        lo, hi = int(lo), int(hi or lo)
+        if not 1 <= lo <= hi <= count:
+            sys.exit(f"--pages {text}: the comic has pages 1 to {count}")
+        pages.update(range(lo, hi + 1))
+    return pages
+
+
+# ---------------------------------------------------------------- the library
+
+COMIC_KINDS = {"zip", "pdf", "tar", "epub"}
+
+
+def find_books(roots):
+    """The comics under [roots] as the library finds them (findBooks in
+    comic_formats): comic files by their first bytes, folder books (page
+    images and no comic file anywhere under them), loose PNG/JPEG/WebP files
+    as one-page comics; dot folders skipped, each real folder once."""
+    seen, out = set(), []
+
+    def has_comic(d):
+        for sub, dirs, files in os.walk(d, followlinks=True):
+            dirs[:] = [x for x in dirs if not x.startswith(".")]
+            if any(not f.startswith(".") and kind_of(os.path.join(sub, f)) in COMIC_KINDS for f in files):
+                return True
+        return False
+
+    def walk(d):
+        real = os.path.realpath(d)
+        if real in seen:
+            return
+        seen.add(real)
+        try:
+            names = sorted(os.listdir(d))
+        except OSError:
+            return
+        files = [n for n in names if not n.startswith(".") and os.path.isfile(os.path.join(d, n))]
+        if any(is_page_entry(f) for f in files) and not has_comic(d):
+            out.append((d, "folder"))
+            return
+        for n in names:
+            if n.startswith("."):
+                continue
+            path = os.path.join(d, n)
+            if os.path.isdir(path):
+                walk(path)
+            elif os.path.isfile(path):
+                kind = kind_of(path)
+                if kind in COMIC_KINDS or kind == "image":
+                    out.append((path, kind))
+
+    for r in roots:
+        if os.path.isdir(r):
+            walk(os.path.abspath(r))
+        elif os.path.isfile(r):
+            out.append((os.path.abspath(r), kind_of(r)))
+    return out
+
+
+def cmd_library(a):
+    index = Index(a.index)
+    roots = a.paths or [r for _, r in index.roots] or [os.path.expanduser("~/Comics")]
+    books = find_books(roots)
+    print(f"Looking in {', '.join(roots)}" + (f"; sidecars in {index.sidecar_dir}" if index.sidecar_dir else ""))
+    total = todo = 0
+    for path, kind in books:
+        if kind == "epub" or kind is None:
+            if not a.todo:
+                print(f"  -      {path}  (EPUB: not read by this tool)")
+            continue
+        try:
+            count = page_count(path)
+            key = content_key(path)
+        except Exception as e:  # A broken file: say so and go on.
+            print(f"  ?      {path}  (could not read it: {e})")
+            continue
+        done, runs = done_pages(index.sidecar(path), key)
+        left = count - len(done & set(range(1, count + 1)))
+        total += count
+        todo += left
+        if a.todo and left == 0:
+            continue
+        by = f"  by {runs[-1].get('harness')} ({runs[-1].get('model')})" if runs else ""
+        state = "done" if left == 0 else f"{count - left}/{count}"
+        print(f"  {state:>7}  {path}{by}")
+    print(f"{len(books)} comics, {total} pages, {todo} pages not done")
 
 
 # ---------------------------------------------------------------- pages
@@ -264,13 +497,25 @@ def draw_grid(img):
 def cmd_pages(a):
     work = Path(a.work)
     work.mkdir(parents=True, exist_ok=True)
-    n = 0
+    count = page_count(a.book)
+    wanted = parse_ranges(a.pages, count) if a.pages else set(range(1, count + 1))
+    if not a.all:
+        wanted -= done_pages(sidecar_of(a.book, a), content_key(a.book))[0]
+    if a.batch:
+        wanted = set(sorted(wanted)[:a.batch])
+    for old in work.glob("page-*.jpg"):  # Pages of an earlier batch would be marked up again.
+        old.unlink()
+    if not wanted:
+        (work / "PROMPT.md").unlink(missing_ok=True)
+        print("Every page asked for is done already (--all draws them again)")
+        return
     for n, img in enumerate(pages(a.book), 1):
-        draw_grid(scaled(img)).save(work / f"page-{n:03d}.jpg", quality=85)
+        if n in wanted:
+            draw_grid(scaled(img)).save(work / f"page-{n:03d}.jpg", quality=85)
     prompt = PROMPT.replace("{tool}", os.path.abspath(__file__)).replace("{book}", _quote(os.path.abspath(a.book)))
-    prompt = prompt.replace("{work}", ".")
+    prompt = prompt.replace("{work}", ".").replace("{todo}", page_ranges(wanted))
     (work / "PROMPT.md").write_text(prompt)
-    print(f"{n} pages in {work}/, the prompt in {work}/PROMPT.md")
+    print(f"{len(wanted)} of {count} pages ({page_ranges(wanted)}) in {work}/, the prompt in {work}/PROMPT.md")
 
 
 def _quote(s):
@@ -353,8 +598,11 @@ def cmd_check(a):
 def cmd_import(a):
     book = a.book.rstrip("/")
     found = read_panels(a.panels, page_count(book))
+    if not found:
+        sys.exit("panels.json has no pages")
     key = content_key(book)
-    path = a.sidecar or sidecar_path(book)
+    path = sidecar_of(book, a)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = os.path.join(os.path.dirname(path), "." + os.path.basename(path) + ".tmp")
     if os.path.exists(tmp):
         os.remove(tmp)
@@ -391,17 +639,40 @@ def cmd_import(a):
                 db.execute("INSERT INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                            (p, i, x, y, w, h, kind, SOURCE, MODEL_VER, 1.0,
                             None if shape is None else ",".join(f"{v:.5f}" for v in shape)))
+        record(db, now, {"harness": a.harness, "model": a.model, "prompt": PROMPT_VERSION,
+                         "pages": page_ranges(found), "at": now})
     db.close()
     os.replace(tmp, path)
-    print(f"{len(found)} pages of panels written to {path}")
+    print(f"{len(found)} page{'s' if len(found) != 1 else ''} of panels written to {path}")
+
+
+def record(db, now, run):
+    """Adds [run] to the sidecar's record of imports: an overrides row, as the
+    app's completed mark is, so the app keeps it, it travels with the
+    sidecar, and the later record wins when two copies meet."""
+    row = db.execute("SELECT value FROM overrides WHERE field = ?", (RECORD_FIELD,)).fetchone()
+    runs = (read_record(row[0] if row else None) + [run])[-RECORD_RUNS:]
+    value = json.dumps({"runs": runs}, separators=(",", ":"))
+    db.execute("INSERT OR REPLACE INTO overrides VALUES (?, ?)",
+               (RECORD_FIELD, json.dumps({"value": value, "at": now}, separators=(",", ":"))))
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    p = sub.add_parser("pages", help="write the pages with a percent grid, and the prompt")
+    p = sub.add_parser("library", help="list the comics and how many of their pages are done")
+    p.add_argument("paths", nargs="*", help="folders or comics; the app's library folders, else ~/Comics")
+    p.add_argument("--todo", action="store_true", help="only comics with pages not done")
+    p.add_argument("--index", help="the app's comicredr.sqlite, when it is not in the usual place")
+    p.set_defaults(run=cmd_library)
+    p = sub.add_parser("pages", help="write the pages not done yet with a percent grid, and the prompt")
     p.add_argument("book")
     p.add_argument("work")
+    p.add_argument("--pages", help="only these pages, e.g. 1-10 or 3,5,7-9")
+    p.add_argument("--all", action="store_true", help="done pages too")
+    p.add_argument("--batch", type=int, help="only the first N of the pages left")
+    p.add_argument("--sidecar", help="the sidecar, when it is not where the app keeps it")
+    p.add_argument("--index", help="the app's comicredr.sqlite, when it is not in the usual place")
     p.set_defaults(run=cmd_pages)
     p = sub.add_parser("check", help="draw WORK/panels.json on the pages, into WORK/check/")
     p.add_argument("book")
@@ -410,7 +681,10 @@ def main():
     p = sub.add_parser("import", help="write panels.json into the comic's sidecar")
     p.add_argument("book")
     p.add_argument("panels")
-    p.add_argument("--sidecar", help="the sidecar to write, when it is not beside the comic")
+    p.add_argument("--harness", required=True, help='what drew them, e.g. "Claude Code" or Codex')
+    p.add_argument("--model", required=True, help="the model's name, e.g. claude-opus-5-5")
+    p.add_argument("--sidecar", help="the sidecar to write, when it is not where the app keeps it")
+    p.add_argument("--index", help="the app's comicredr.sqlite, when it is not in the usual place")
     p.set_defaults(run=cmd_import)
     a = ap.parse_args()
     try:

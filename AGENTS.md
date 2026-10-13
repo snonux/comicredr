@@ -10,6 +10,70 @@ it in step when the architecture or the model changes.
 model (`tool/llm_panels.py`): how it works, the benchmark and how to rerun
 it.
 
+## Drawing the library's panels with a large model
+
+When the person asks you (Claude Code, Codex or another agent that can
+look at images) to draw the panels and balloons of their comics, or to
+"do the library", follow these steps. You look at every page yourself;
+nothing is sent anywhere else. The built-in detector stays the default:
+what you draw is kept in each comic's sidecar and used on the pages you
+did. It costs your model's usage: about half a minute and, at API
+prices, 3 to 5 US cents a page (docs/llm-panels.md).
+
+1. Find the comics and what is left to do. Python 3 with Pillow is
+   needed, and pypdfium2 for PDFs (`python3 -m pip install --user pillow
+   pypdfium2` if `python3 -c 'import PIL, pypdfium2'` fails):
+
+   ```sh
+   python3 tool/llm_panels.py library --todo      # the app's library folders, else ~/Comics
+   python3 tool/llm_panels.py library ~/Comics/Marvel --todo   # or a folder or comic they name
+   ```
+
+   It lists each comic with pages done out of pages (`0/36`), and the
+   total of pages not done. EPUBs are listed as not read by the tool.
+
+2. Ask the person which comics to do before drawing anything: all of
+   them, some folders, some comics, or a few pages to try first. Say how
+   many pages that is and the rough cost, and wait for the answer.
+
+3. For each comic they chose, in batches of up to 10 pages so a stop
+   loses little (WORK is a scratch folder outside the library, one per
+   comic, e.g. `/tmp/comicredr-llm/<name>`):
+
+   ```sh
+   python3 tool/llm_panels.py pages "BOOK" WORK --batch 10   # the first 10 pages not done yet
+   ```
+
+   Read `WORK/PROMPT.md` and do what it says: look at each
+   `WORK/page-NNN.jpg` (Claude Code: the Read tool; Codex: its image
+   viewer, `view_image`), write `WORK/panels.json`, run the `check` it
+   names and look at `WORK/check/page-NNN.jpg`, fix what is off, then
+   import, naming yourself and your model:
+
+   ```sh
+   python3 tool/llm_panels.py import "BOOK" WORK/panels.json --harness "Claude Code" --model claude-opus-5-5
+   python3 tool/llm_panels.py import "BOOK" WORK/panels.json --harness Codex --model <your model>
+   ```
+
+   Then `pages` again for the next 10, until it says every page is
+   done. A comic stopped half way goes on where it was: done pages are
+   read from its sidecar. `--pages 3,7-9` redoes chosen pages with
+   `--all`. If the comic is open in the app meanwhile, the app uses the
+   new panels the next time it opens it.
+
+4. When done, tell the person which comics now have drawn panels and
+   that the app uses them the next time each comic opens. The comic's
+   details (`I`) show who drew them ("Drawn by"); `X` → Redo panels goes
+   back to the built-in detector for a comic.
+
+Rules: never change a comic file; write only through `import` (it checks
+the sidecar belongs to the comic and keeps everything else in it). The
+import finds the sidecar where the app keeps it, beside the comic or in
+the folder of Settings → Sidecars → In one folder (read from the app's
+index). Codex's default sandbox may refuse writes outside the checkout:
+the sidecars are beside the comics, so ask the person to allow the
+import command. Only the Claude Code route has been tried.
+
 ## Conventions
 
 - **Always update the usage guide** (snonux, 2026-09-26). Every PR that
@@ -38,8 +102,10 @@ it.
 - The README is as lean as it can be (snonux, 2026-09-26): an intro, a
   link to the usage guide near the top, a few highlights, the
   screenshots, a five-step quick start that ends with a link to carry on
-  in the guide, and the links to architecture.md, training.md, this file
-  and the changelog at the bottom. Nothing else: touch, data, CBR and the
+  in the guide, and the links to architecture.md, training.md,
+  llm-panels.md, this file and the changelog at the bottom; one highlight
+  gives the prompt for a coding agent to draw the panels (snonux,
+  2026-10-13). Nothing else: touch, data, CBR and the
   like are guide chapters. Install steps live in `docs/install-linux.md`
   and `docs/install-android.md` (F-Droid first, via snonux's repo
   github.com/snonux/fdroid, then building the APK); the README's quick
@@ -1092,9 +1158,16 @@ refreshes right away instead of within six hours.
   (model_ver 1, confidence 1), which `PanelStore.load` prefers over the
   detector on the pages that have them, and in the given order (scored
   with `evaluate.py --boxes DIR --keep-order`). The tool mirrors the
-  sidecar schema, `contentKey` and the page order of comic_formats in
-  Python (checked against Dart for CBZ and folder books); a schema or key
-  change must follow there. Kind `caption` exists only in imported rows;
+  sidecar schema, `contentKey`, the page order and `findBooks` of
+  comic_formats, the app's data folder (`appDirs`) and `storedSidecarPath`
+  in Python (checked against Dart for CBZ and folder books); a change to
+  any of them must follow there. Each import also writes an overrides row
+  `panelImport` (`panelImportField` in meta_edits.dart: harness, model,
+  prompt version, pages, time), kept, merged and exported like the
+  completed mark, shown as "Drawn by" in `ComicDetails`, and dropped by
+  Redo panels (`SidecarSync.reset`) with the panels. `pages` skips pages
+  with `manual` rows in the sidecar, which is what makes a run resumable;
+  raise `PROMPT_VERSION` in the tool when the drawing rules change. Kind `caption` exists only in imported rows;
   `balloonsIn` skips it. `X` → Redo panels deletes them with the rest.
   Benchmark (2026-10-10, 40 eval pages, 32 of them the shipped model's
   misses): guided right / whole / wrong 31 / 0 / 9 for Claude against
@@ -1431,7 +1504,7 @@ tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF
 tool/e2e_sidebar_keys.sh    # sidebar focus, underlined letters, context isolation, arrows and Tab exits; makes its own books
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
-tool/e2e_llm_panels.sh        # tool/llm_panels.py pages, check and import into the sidecar the app wrote: guided view follows the imported order, a page given none is whole, rows kept as source manual across the app's own sidecar writes and a restart, X Redo panels drops them; makes its own book
+tool/e2e_llm_panels.sh        # tool/llm_panels.py library, pages, check and import into the sidecar the app wrote: library and pages see what is done, guided view follows the imported order, a page given none is whole, rows and the run's record kept across the app's own sidecar writes and a restart, details (I) show it, X Redo panels drops both; makes its own book
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, L1-L4, Q1-Q4 and 11/00/21-54 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; then by touch alone, the parts picker (two-finger tap, a part, edge taps, Stop parts); reptisaurus-v2-005 page 3
 tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
 tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books

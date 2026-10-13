@@ -7,6 +7,16 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Panels for the whole library from a large AI model:** open Claude Code
+  or Codex in the ComicRedr folder and ask it to follow AGENTS.md and draw
+  your comics' panels and balloons. `tool/llm_panels.py library` lists the
+  comics (the app's library folders, else `~/Comics`) with how many pages
+  are done, the agent asks which to do, then draws ten pages at a time and
+  carries on where it stopped. Each comic's sidecar records who drew it
+  (harness, model, prompt version, pages, date), and its details (`I`)
+  show it as "Drawn by"; Redo panels drops it with the panels. The
+  built-in detector stays the default (guide, "Your whole library").
+
 ## 0.8.1
 
 - **Keys in the library sidebar:** `Tab` gives the left sidebar focus,

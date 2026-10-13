@@ -25,6 +25,12 @@ table of contents.
 
 - **Guided view** and **balloon mode**, found by a small detector built
   into the app that runs on your own CPU.
+- Or let **your coding agent draw the panels**: start Claude Code or
+  Codex in this folder and ask it *"Follow AGENTS.md and draw the panels
+  and balloons of my comics"*. It asks which comics, then saves its
+  panels beside each one
+  ([how it works](docs/guide/05-guided-view.md#your-whole-library),
+  [how well](docs/llm-panels.md)).
 - **CBZ, CBT, comic EPUB, PDF**, folders of page images and single PNG,
   JPEG or WebP pages.
 - Single pages or two-page spreads, with zoom, a night filter, margin
@@ -79,5 +85,6 @@ the phone, your data, settings and S3 sync, one chapter each.
 - How it works inside, with diagrams and the detector model explained:
   [docs/architecture.md](docs/architecture.md)
 - Training the panel detector: [docs/training.md](docs/training.md)
+- Panels drawn by a large AI model, tested and compared: [docs/llm-panels.md](docs/llm-panels.md)
 - Notes for developers, the test scripts and conventions: [AGENTS.md](AGENTS.md)
 - What changed in each version: [CHANGELOG.md](CHANGELOG.md)

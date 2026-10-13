@@ -433,6 +433,15 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
             '${n < d.pageCount ? '. The rest are found as you read.' : ''}',
         key: const Key('detailsAnalysed'),
       ),
+      if (d.imports.isNotEmpty)
+        _row(
+          'Drawn by',
+          [
+            for (final i in d.imports.reversed.take(3))
+              '${i.harness} (${i.model}), pages ${i.pages}${i.at == null ? '' : ', ${_date(i.at!)}'}, prompt v${i.prompt}',
+          ].join('\n'),
+          key: const Key('detailsDrawnBy'),
+        ),
       if (n > 0) ...[
         if (d.sources.length > 1 || d.sources.first.$1 != d.current)
           _row('Found by', [for (final (s, k) in d.sources) '$s: $k pages'].join('; ')),

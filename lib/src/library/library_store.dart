@@ -737,6 +737,15 @@ ORDER BY r.id, f.rel_path
     return completedMark(row?.value);
   }
 
+  /// Who drew the book [contentKey]'s imported panels, oldest run first
+  /// ([panelImportField]); none when the detector found them all.
+  Future<List<PanelImportRun>> panelImportsOf(String contentKey) async {
+    final row = await (db.select(
+      db.overrides,
+    )..where((o) => o.contentKey.equals(contentKey) & o.field.equals(panelImportField))).getSingleOrNull();
+    return PanelImportRun.decodeAll(row?.value);
+  }
+
   /// Marks the book [contentKey] completed or not completed, or with null
   /// takes the mark's say away again (an undo). A dated overrides row, so
   /// the later change wins when sidecars meet, taking the mark off

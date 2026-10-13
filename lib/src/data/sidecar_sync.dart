@@ -12,6 +12,7 @@ import 'package:sqlite3/sqlite3.dart' show SqliteException;
 import '../version.dart';
 import 'app_database.dart';
 import 'book_paths.dart';
+import 'meta_edits.dart';
 import 'progress_store.dart';
 import 'sidecar.dart';
 
@@ -469,6 +470,10 @@ class SidecarSync {
       final key = contentKey;
       await _db.transaction(() async {
         await _db.deleteBookRows(key, _db.detectionTables);
+        // The record of who drew imported panels goes with them.
+        await (_db.delete(
+          _db.overrides,
+        )..where((o) => o.contentKey.equals(key) & o.field.equals(panelImportField))).go();
         if (everything) await _db.deleteBookRows(key, _db.personalTables);
       });
       final places = {
@@ -653,7 +658,7 @@ void _resetSidecar(
           book: old.book,
           bookmarks: everything ? const [] : old.bookmarks,
           progress: everything ? const [] : old.progress,
-          overrides: everything ? const {} : old.overrides,
+          overrides: everything ? const {} : ({...old.overrides}..remove(panelImportField)),
           collections: old.collections,
           cover: old.cover,
         );

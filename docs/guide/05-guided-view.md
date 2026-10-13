@@ -176,9 +176,48 @@ and `pypdfium2` for PDFs), and Claude Code or Codex. Do it on a
 computer; the sidecar takes the panels to your phone. CBZ, CBT, PDF,
 folders of pages and single images work; EPUB does not.
 
-1. Make the pages and the prompt. This writes each page as a picture
-   with a grid of percent lines over it, so the model can read
-   positions off it, and the instructions as `PROMPT.md`:
+### Your whole library
+
+Open Claude Code or Codex in the ComicRedr folder and ask it:
+
+```
+Follow AGENTS.md and draw the panels and balloons of my comics.
+```
+
+It lists your comics (the app's library folders, or `~/Comics`) with
+how many pages of each are done, and asks which ones to do: all of
+them, some folders or comics, or a few pages to try first, with what
+that will cost. Then it goes through them ten pages at a time, checks
+its own drawing, and saves each batch in the comic's sidecar. If it
+stops, ask it again: it carries on where it was, because the pages
+already done are read back from the sidecars. Leave it to work; a
+30-page comic takes about a quarter of an hour.
+
+You can see where things stand yourself:
+
+```sh
+python3 tool/llm_panels.py library --todo
+```
+
+```
+Looking in /home/you/Comics
+     12/36  /home/you/Comics/Latuda.cbz  by Claude Code (claude-opus-5-5)
+      0/40  /home/you/Comics/Zombie Pandemic.pdf
+2 comics, 76 pages, 64 pages not done
+```
+
+The details of a comic (`I`) say who drew its panels, under
+**Panels and balloons**: for example "Drawn by: Claude Code
+(claude-opus-5-5), pages 1-36, 2026-10-13 18:19, prompt v1". Only Claude
+Code has been tried; with Codex, allow it to write beside your comics
+when it asks, since that is where the sidecars are.
+
+### One comic by hand
+
+1. Make the pages and the prompt. This writes each page not done yet
+   as a picture with a grid of percent lines over it, so the model can
+   read positions off it, and the instructions as `PROMPT.md`
+   (`--batch 10` for the first ten of them, `--all` to redo pages):
 
    ```sh
    python3 tool/llm_panels.py pages ~/Comics/Latuda.cbz /tmp/latuda
@@ -191,43 +230,38 @@ folders of pages and single images work; EPUB does not.
    ```
 
    With Codex, `codex "$(cat PROMPT.md)"` in the same folder the same
-   way (only Claude was tried). The model looks at every page, writes
-   `panels.json`, draws it on the pages with the tool's `check`
-   command and fixes what is off. Allow it to write files and run the
-   tool when it asks.
+   way. The model looks at every page, writes `panels.json`, draws it on
+   the pages with the tool's `check` command, fixes what is off and
+   saves it in the comic's sidecar with the tool's `import` command.
+   Allow it to write files and run the tool when it asks.
 
 3. Look for yourself: `check/page-001.jpg` and on show the panels in
    green with their number in reading order, balloons in magenta and
    narration boxes in blue. Ask the model to fix a page, or edit
-   `panels.json` by hand, and run the check again:
+   `panels.json` by hand, check again and import again:
 
    ```sh
    python3 tool/llm_panels.py check ~/Comics/Latuda.cbz /tmp/latuda
+   python3 tool/llm_panels.py import ~/Comics/Latuda.cbz /tmp/latuda/panels.json \
+       --harness "Claude Code" --model claude-opus-5-5
    ```
 
-4. Put it in the comic's sidecar:
+   The sidecar is found where the app keeps it, also when it keeps them
+   all in one folder (Settings → Sidecars).
 
-   ```sh
-   python3 tool/llm_panels.py import ~/Comics/Latuda.cbz /tmp/latuda/panels.json
-   ```
+4. Open the comic. Guided view follows the imported panels in the
+   model's order; a page given no panels is shown whole.
 
-   If you keep sidecars in one folder (Settings → Sidecars), name that
-   comic's sidecar with `--sidecar`.
-
-5. Open the comic. Guided view follows the imported panels in the
-   model's order; a page given no panels is shown whole. The details
-   view (`I`) names them as imported.
-
-The prompt the tool writes, word for word but for the last paragraph's
-paths:
+The prompt the tool writes, word for word but for the paths and the
+pages:
 
 ```
 You are marking up the pages of a comic for a reader app's guided view.
-In this folder, page-001.jpg, page-002.jpg, ... are the pages in order, each
-with a grid drawn over it: a line every 5% of the page's width and height,
-labelled every 10%.
+In this folder, page-NNN.jpg is page NNN of the comic, each with a grid
+drawn over it: a line every 5% of the page's width and height, labelled
+every 10%. The pages to do are 1-10.
 
-For every page, look at the image and write down:
+For every one of those pages, look at the image and write down:
 - panels: every panel, in the order a reader reads them (left to right, top
   to bottom; a tall panel beside a stack is read first), as
   [x0, y0, x1, y1]: its left, top, right and bottom edges in percent of the
@@ -241,13 +275,17 @@ For every page, look at the image and write down:
 - captions: narration boxes, kept apart from balloons.
 Leave out sound effects and signs.
 
-Write it all to panels.json in this folder:
+Write it all to panels.json in this folder, keyed by the page's number:
 {"pages": {"1": {"panels": [...], "balloons": [...], "captions": [...]}, "2": ...}}
 
 Then run `python3 tool/llm_panels.py check 'Latuda.cbz' .` and look at
 check/page-NNN.jpg: green boxes are panels with their number, magenta
 balloons, blue captions. Fix any box that does not sit on its edge, and run
 check again until they all do.
+
+Then put it in the comic's sidecar, naming yourself and your model:
+`python3 tool/llm_panels.py import 'Latuda.cbz' panels.json --harness "Claude Code" --model claude-opus-5-5`
+(in Codex: --harness Codex and the model you run as).
 ```
 
 A `panels.json` for a page of two panels side by side above a slanted

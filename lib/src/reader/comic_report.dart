@@ -234,6 +234,7 @@ class DetectionSummary {
     required this.pageCount,
     required this.pages,
     this.stale = 0,
+    this.imports = const [],
   });
 
   /// Which detector this install runs, in words.
@@ -249,6 +250,10 @@ class DetectionSummary {
   /// Pages only an older detector has looked at; they are analysed again
   /// when shown.
   final int stale;
+
+  /// The runs of a large model whose panels were imported (tool/llm_panels.py),
+  /// oldest first.
+  final List<PanelImportRun> imports;
 
   int get frames => pages.fold(0, (s, d) => s + d.frames);
   int get balloons => pages.fold(0, (s, d) => s + d.balloons);
@@ -424,6 +429,7 @@ Future<ComicReport> readComicReport(WidgetRef ref, OpenBook book) async {
     current: sourceLabel(detector.source, detector.version),
     pageCount: book.doc.pageCount,
     stale: stale,
+    imports: await ref.read(libraryStoreProvider).panelImportsOf(key),
     pages: [
       for (final page in found.keys.toList()..sort())
         PageDetection(

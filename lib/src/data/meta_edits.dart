@@ -111,3 +111,60 @@ bool? completedMark(String? raw) {
 /// A people list as typed: comma-separated, trimmed, blanks dropped.
 List<String> splitPeople(String? s) =>
     s?.split(',').map((w) => w.trim()).where((w) => w.isNotEmpty).toList() ?? const [];
+
+/// The `field` of the overrides row recording that a large model drew the
+/// comic's panels (tool/llm_panels.py writes it into the sidecar with the
+/// panels; docs/llm-panels.md). Its [MetaEdit] value is JSON,
+/// `{"runs": [{"harness", "model", "prompt", "pages", "at"}, ...]}`, oldest
+/// run first. An overrides row for the same reasons as [completedField]:
+/// the app keeps and merges it by content key and time without knowing it,
+/// and it travels in the sidecar and a settings export. Redo panels drops it
+/// with the panels; [activeEdits] leaves it out.
+const panelImportField = 'panelImport';
+
+/// One import of panels drawn by a large model, as [panelImportField] holds it.
+class PanelImportRun {
+  const PanelImportRun({
+    required this.harness,
+    required this.model,
+    required this.prompt,
+    required this.pages,
+    this.at,
+  });
+
+  /// What ran the model ("Claude Code", "Codex") and the model's name.
+  final String harness;
+  final String model;
+
+  /// The version of the tool's drawing rules (PROMPT_VERSION in the tool).
+  final int prompt;
+
+  /// The pages it drew, from 1, as ranges: "1-12, 15".
+  final String pages;
+  final DateTime? at;
+
+  /// The runs in the overrides row [raw], oldest first; none for no row, an
+  /// undone one, or one that does not read.
+  static List<PanelImportRun> decodeAll(String? raw) {
+    if (raw == null) return const [];
+    final edit = MetaEdit.decode(raw);
+    if (edit.fromFile || edit.value == null) return const [];
+    try {
+      if (jsonDecode(edit.value!) case {'runs': final List<Object?> runs}) {
+        return [
+          for (final r in runs.whereType<Map<String, Object?>>())
+            PanelImportRun(
+              harness: r['harness'] is String ? r['harness']! as String : 'unknown',
+              model: r['model'] is String ? r['model']! as String : 'unknown',
+              prompt: r['prompt'] is int ? r['prompt']! as int : 0,
+              pages: r['pages'] is String ? r['pages']! as String : '',
+              at: r['at'] is int ? DateTime.fromMillisecondsSinceEpoch(r['at']! as int) : null,
+            ),
+        ];
+      }
+    } on FormatException {
+      // Not JSON: no runs.
+    }
+    return const [];
+  }
+}

@@ -9,12 +9,14 @@
 #
 #   tool/e2e_llm_panels.sh
 #
-# Checks: `pages` and `check` make their files; the app finds red first on
-# its own; after `import` into the sidecar the app wrote, guided view goes
-# yellow, blue, green, red and shows page 2 whole; the index holds the
-# rows as source 'manual' and the sidecar keeps them after the app writes
-# it again; a restart still uses them; X → Redo panels drops them, back to
-# red first.
+# Checks: `library` lists the comic with no page done; `pages` and `check`
+# make their files; the app finds red first on its own; after `import` into
+# the sidecar the app wrote, guided view goes yellow, blue, green, red and
+# shows page 2 whole; the index holds the rows as source 'manual' and the
+# record of the run (harness, model), the details (I) show it, and the
+# sidecar keeps both after the app writes it again; `library` then says
+# done and `pages` has nothing left to do; a restart still uses them;
+# X → Redo panels drops the panels and the record, back to red first.
 #
 # Needs: Xvfb, xdotool, ImageMagick, sqlite3, Python with Pillow and a C
 # compiler with X11 headers (tool/close_window.c).
@@ -135,8 +137,14 @@ first_framed() {
 }
 expect() { [[ $2 == "$3" ]] && ok "$1 ($2)" || fail "$1: got '$2', want '$3'"; }
 
-echo "== the tool's pages and check"
+echo "== the tool's library, pages and check"
 work="$out/work"
+listed=$(python3 tool/llm_panels.py library "$out/books" --index /nonexistent)
+grep -q '0/2  .*Imported.cbz' <<<"$listed" && ok "library lists the comic, no page done" \
+  || fail "library: $listed"
+python3 tool/llm_panels.py pages "$book" "$work" --batch 1 >/dev/null
+[[ -f $work/page-001.jpg && ! -f $work/page-002.jpg ]] && grep -q 'pages to do are 1\.' "$work/PROMPT.md" \
+  && ok "pages --batch 1 wrote page 1 alone" || fail "pages --batch 1 did not write page 1 alone"
 python3 tool/llm_panels.py pages "$book" "$work" >/dev/null
 [[ -f $work/page-001.jpg && -f $work/page-002.jpg && -f $work/PROMPT.md ]] \
   && ok "pages wrote page-001.jpg, page-002.jpg and PROMPT.md" || fail "pages did not write its files"
@@ -156,7 +164,12 @@ for _ in $(seq 1 30); do [[ -f $side ]] && break; sleep 1; done
 stop
 
 echo "== imported into the sidecar the app wrote"
-python3 tool/llm_panels.py import "$book" "$out/books/panels.json"
+python3 tool/llm_panels.py import "$book" "$out/books/panels.json" --harness "Claude Code" --model claude-opus-5-5
+listed=$(python3 tool/llm_panels.py library "$out/books" --todo --index /nonexistent)
+grep -q 'Imported.cbz' <<<"$listed" && fail "library --todo still lists the comic: $listed" \
+  || ok "library --todo leaves the comic out"
+python3 tool/llm_panels.py pages "$book" "$work" | grep -q 'done already' && ok "pages has nothing left to do" \
+  || fail "pages would draw done pages again"
 n=$(q "$side" "select count(*) from panels where source = 'manual' and kind = 'frame'")
 expect "the sidecar holds the 4 imported panels" "$n" 4
 start "$book"
@@ -180,10 +193,20 @@ rows=$(q "$db" "select count(*) from analysed_pages where source = 'manual'")
 expect "the index holds both pages as source manual" "$rows" 2
 caps=$(q "$db" "select count(*) from panels where source = 'manual' and kind = 'caption'")
 expect "and the caption" "$caps" 1
+rec=$(q "$db" "select value from overrides where field = 'panelImport'")
+[[ $rec == *'Claude Code'*'claude-opus-5-5'* ]] && ok "the index holds the record of the run" \
+  || fail "no record in the index: $rec"
+key I; sleep 3
+shot 06_details
+key End; sleep 1
+shot 06_details_end
+key Escape; sleep 1
 sleep 4 # The sidecar is written two seconds after the last change.
 stop
 n=$(q "$side" "select count(*) from panels where source = 'manual'")
 expect "the sidecar still holds the 6 imported rows after the app wrote it" "$n" 6
+rec=$(q "$side" "select count(*) from overrides where field = 'panelImport'")
+expect "and the record" "$rec" 1
 
 echo "== a restart"
 start "$book"
@@ -196,6 +219,8 @@ key shift+x; sleep 3
 key Return; sleep 6
 rows=$(q "$db" "select count(*) from analysed_pages where source = 'manual'")
 expect "Redo panels dropped the imported rows from the index" "$rows" 0
+rec=$(q "$db" "select count(*) from overrides where field = 'panelImport'")
+expect "and the record" "$rec" 0
 key g g
 sleep 1
 expect "and guided view is back on the app's own: red first" "$(first_framed 08_redo_first)" red
@@ -203,6 +228,8 @@ sleep 4
 stop
 n=$(q "$side" "select count(*) from panels where source = 'manual'")
 expect "and from the sidecar" "$n" 0
+rec=$(q "$side" "select count(*) from overrides where field = 'panelImport'")
+expect "the record too" "$rec" 0
 
 montage -label '%t' "$out"/0*.png -tile 4x -geometry 400x250+6+6 -background '#222' -fill white \
   "$out/contact.png" 2>/dev/null || true
