@@ -283,6 +283,10 @@ keys)
 touch)
   open "all top"
   key g t; sleep 0.8; still touch-zones; sleep 4
+  # The menu over the comic, and the touch tutorial's page on the taps,
+  # its finger at rest (it moves three times, about five seconds).
+  key F10; sleep 1.5; park; still menu; key Escape
+  key g shift+t; sleep 1; key Return; sleep 6; park; still touch-guide; key Escape
   key Escape; key Escape; key Escape
   tab History; key g comma; sleep 2; still settings
   xdotool mousemove 640 400; for _ in $(seq 1 15); do xdotool click 5; done; sleep 1; still settings-touch

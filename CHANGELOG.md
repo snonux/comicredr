@@ -16,6 +16,19 @@ the `?` overlay.
   (harness, model, prompt version, pages, date), and its details (`I`)
   show it as "Drawn by"; Redo panels drops it with the panels. The
   built-in detector stays the default (guide, "Your whole library").
+- **Everything by touch:** a menu (⋮ at the end of the status line and
+  of the library's header, a swipe up on the page, or `F10`) has every
+  action the keys have and the buttons leave out: favourite, completed,
+  collections, the next and previous comic, the first and last page, the
+  next bookmark, two pages, right to left, turning, fit height, trimming,
+  the night filter, the clean-up, reset, delete, S3, the touch zones, the
+  keys and Settings; in the library opening a folder as a comic, the
+  filter, the Folders tab's sort, cover sizes and the rest. Each line
+  names its key. On a phone the status line's fullscreen button made
+  room for it (a tap in the middle does the same).
+- **Touch tutorial:** a few pages on every gesture, drawn for the touch
+  layout in use. It shows once at the first start on Android, and again
+  from the menu, Settings → Touch or `gT`.
 
 ## 0.8.1
 

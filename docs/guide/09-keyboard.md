@@ -114,6 +114,8 @@ them all. The buttons that had no key before have one now:
 | `gA` | **Take out of the library** in a library folder's details: select the folder at the top of the Folders tab first. Its comics stay on disk, and the notice has an **Undo** (`u`) that puts the folder back. |
 | `gD` | **Download** on a comic that is [only on S3](13-s3-sync.md#on-the-other-device), or on the marked ones. |
 | `g!` | The count of comics that could not be read, in the line at the bottom: which ones, and why. |
+| `F10`, `g.` | ⋮, [the menu](08-touch.md#the-menu-everything-without-a-keyboard), at the end of the status line and of the library's header. Each line in it names its key. |
+| `gT` | **Touch tutorial** in Settings → Touch and in the menu: [every gesture](08-touch.md#the-touch-tutorial), a page each. |
 
 A few buttons are shortcuts to something the keys reach in two steps,
 and have no key of their own: the names along the top of the Folders

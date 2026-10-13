@@ -1414,6 +1414,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.zoomReset:
       case ReaderIntent.zoomToggle:
       case ReaderIntent.showTouchZones:
+      case ReaderIntent.showTouchGuide:
+      case ReaderIntent.openMenu:
       case ReaderIntent.showTime:
       case ReaderIntent.openFile:
       case ReaderIntent.openFolder:

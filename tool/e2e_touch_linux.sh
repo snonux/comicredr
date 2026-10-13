@@ -151,7 +151,7 @@ expect "$(page)" 2 "the long press turned no page"
 swipe 100 666 900 666;     expect "$(page)" 9 "drag along the progress bar jumps"
 
 # 4. The page grid from its status-line button: pinch, scroll, tap a page.
-tap 1048 693; shot 11_grid
+tap 1000 693; shot 11_grid
 cols=$(q "select value from settings where key = 'grid.zoom'")
 pinch 640 400 60 300; shot 12_grid_pinched
 bigger=$(q "select value from settings where key = 'grid.zoom'")
@@ -164,19 +164,19 @@ tap 500 160;               expect "$(page)" 4 "tap a page in the grid opens it"
 # 5. The fit width button: the page fills the width, one finger scrolls
 # it down and turns no page, the button again shows the whole page.
 fit() { q "select json_extract(view_json, '$.view.fit') from progress order by updated_at desc limit 1"; }
-tap 1000 693; sleep 1; shot 14b_fit_width
+tap 952 693; sleep 1; shot 14b_fit_width
 expect "$(fit)" width "the fit width button"
 before=$(page)
 slow_drag 640 500 640 200; shot 14c_fit_width_scrolled
 expect "$(page)" "$before" "one finger scrolls the page fitted to the width, no page turn"
 changed 14b_fit_width 14c_fit_width_scrolled 20000 "one finger scrolls the page fitted to the width"
-tap 1000 693; sleep 1
+tap 952 693; sleep 1
 expect "$(fit)" page "the fit button again: the whole page"
 
 # 6. Guided view from its button, stepped by taps and swipes; one finger
 # pans without stepping; the back button leaves guided view, then the
 # comic.
-tap 920 693; sleep 3; shot 15_guided
+tap 872 693; sleep 3; shot 15_guided
 expect "$(guided)" 1 "the guided view button"
 tap 1200 340; shot 16_guided_panel
 expect "$(panel)" 0 "tap the right edge in guided view: the first panel"

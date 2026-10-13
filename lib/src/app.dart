@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
+import 'action_menu.dart';
 import 'android_storage.dart';
 import 'data/s3_sync.dart';
 import 'data/settings_file.dart';
@@ -46,6 +47,7 @@ import 'reader/region.dart';
 import 'reader/reset_dialog.dart';
 import 'reader/scroll_speed.dart';
 import 'reader/status_line.dart';
+import 'touch_guide.dart';
 import 'undo_notice.dart';
 
 class ComicRedrApp extends StatelessWidget {
@@ -239,6 +241,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _start() async {
     unawaited(ref.read(readerProvider.notifier).loadFullscreen());
+    // First, so it is up at once, whatever the scan takes.
+    unawaited(_touchGuideAtStart());
     final warnings = ref.read(keymapLoadProvider).load.warnings;
     if (warnings.isNotEmpty && mounted) {
       showNotice(
@@ -981,6 +985,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return false;
   }
 
+  /// The menu is up: a second F10 or swipe up does not stack another.
+  bool _menuOpen = false;
+
+  /// The menu (`F10`, ⋮, a swipe up on the page): every action of the open
+  /// comic, or of the library, by touch. What is picked runs once the menu
+  /// has gone, as its key would, so a question it asks comes up on top.
+  /// Over the page grid or the bookmark list a comic's action is about the
+  /// page, so they close first.
+  Future<void> _menu() async {
+    if (_menuOpen) return;
+    _menuOpen = true;
+    final ReaderIntent? intent;
+    try {
+      final s = ref.read(readerProvider);
+      final groups = s.book != null
+          ? readerMenu(s, s3: ref.read(s3StatusProvider).value?.on ?? false)
+          : _library.currentState?.menuGroups() ?? [MenuGroup('App', appEntries(fullscreen: s.fullscreen))];
+      if (_showParts) _setShowParts(false);
+      intent = await showActionMenu(context, groups);
+    } finally {
+      _menuOpen = false;
+    }
+    if (!mounted || intent == null) return;
+    if (ref.read(readerProvider).book != null && (_showPages || _showBookmarks)) {
+      setState(() => _showPages = _showBookmarks = false);
+    }
+    _onCommand(ReaderCommand(intent));
+  }
+
+  /// The touch tutorial (`gT`, the menu, Settings, and once on the first
+  /// start on Android), drawn for the touch preset in use.
+  Future<void> _touchGuide() async {
+    await ref.read(settingsStoreProvider).saveBool(SettingsStore.touchGuideSeen, true);
+    if (!mounted) return;
+    await showTouchGuide(context, map: ref.read(touchMapProvider), android: Platform.isAndroid);
+  }
+
+  /// The tutorial once, on the first start on Android: a phone has no
+  /// keyboard to find the rest with. Not on Linux, whose e2e scripts and
+  /// people start with keys.
+  Future<void> _touchGuideAtStart() async {
+    if (!Platform.isAndroid) return;
+    if (await ref.read(settingsStoreProvider).loadBool(SettingsStore.touchGuideSeen) ?? false) return;
+    if (mounted) await _touchGuide();
+  }
+
   void _onCommand(ReaderCommand c) {
     // The time, anywhere: the library, the reader, fullscreen.
     if (c.intent == ReaderIntent.showTime) {
@@ -999,7 +1049,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() => _showKeymap = !_showKeymap);
       return;
     }
+    if (c.intent == ReaderIntent.showTouchGuide) {
+      unawaited(_touchGuide());
+      return;
+    }
     if (_buttonKey(c) || _helpTook(c)) return;
+    if (c.intent == ReaderIntent.openMenu) {
+      unawaited(_menu());
+      return;
+    }
     // Shift+arrows mark covers in the library; in a comic they move as the
     // arrows alone do.
     if (ref.read(readerProvider).book != null) {
@@ -1269,6 +1327,8 @@ extension on _HomeScreenState {
         onOpenFile: _pickFile,
         onOpenFolder: _pickFolder,
         onContinue: _continueReading,
+        onMenu: () => _onCommand(const ReaderCommand(ReaderIntent.openMenu)),
+        onTouchGuide: () => _onCommand(const ReaderCommand(ReaderIntent.showTouchGuide)),
         // Also what puts a folder taken out with gA back (its Undo).
         onRescan: _rescan,
         keysFocus: _keys,

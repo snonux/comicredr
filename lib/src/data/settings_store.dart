@@ -106,6 +106,11 @@ class SettingsStore {
   /// The touch preset picked in Settings (a TouchPreset name).
   static const touchPreset = 'touch.preset';
 
+  /// The touch tutorial was shown (on Android it shows once at the first
+  /// start). Per install: a settings file leaves it out, so a new phone
+  /// shows it once too.
+  static const touchGuideSeen = 'touch.guideSeen';
+
   /// S3 sync (design plan section 13): where the bucket is and the access
   /// key id. The secret key is never a setting; it is in the keystore
   /// (S3Settings, SecretStore), so it stays out of settings files.

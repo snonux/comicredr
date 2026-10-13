@@ -174,6 +174,9 @@ class Keymap {
       Binding(['g', ','], ReaderIntent.showSettings),
       Binding(['?'], ReaderIntent.showKeymap, layer: s),
       Binding(['g', 't'], ReaderIntent.showTouchZones),
+      Binding(['g', 'T'], ReaderIntent.showTouchGuide),
+      Binding(['F10'], ReaderIntent.openMenu, layer: s),
+      Binding(['g', '.'], ReaderIntent.openMenu),
       Binding(['T'], ReaderIntent.showTime),
     ]);
   }

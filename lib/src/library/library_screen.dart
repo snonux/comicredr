@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
+import '../action_menu.dart';
 import '../data/settings_store.dart';
 import '../grid_zoom.dart';
 import '../hotkeys.dart';
@@ -74,6 +75,8 @@ class LibraryScreen extends ConsumerStatefulWidget {
     required this.onOpenFile,
     required this.onOpenFolder,
     this.onContinue,
+    this.onMenu,
+    this.onTouchGuide,
     this.onRescan,
     this.onExportSidecars,
     this.onExportSettings,
@@ -91,6 +94,12 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
   /// Opens the comic read last where it was left (`C`).
   final VoidCallback? onContinue;
+
+  /// Opens the menu (`F10`), for the header's ⋮.
+  final VoidCallback? onMenu;
+
+  /// Opens the touch tutorial (`gT`), for its button in Settings.
+  final VoidCallback? onTouchGuide;
 
   /// Scans the library folders and watches them anew, after a folder came
   /// back into the library (the Undo of taking it out).
@@ -431,6 +440,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         onExportSidecars: widget.onExportSidecars,
         onExportSettings: widget.onExportSettings,
         onImportSettings: widget.onImportSettings,
+        onTouchGuide: widget.onTouchGuide,
       );
     } finally {
       _settingsOpen = false;
@@ -622,6 +632,55 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   }
 
   /// Handles a library intent; false for one that means nothing here.
+  /// The library's menu (`F10`, the header's ⋮): what the header has no
+  /// room for on a phone, and the actions only keys reached before, so
+  /// every one of them has a way by touch.
+  List<MenuGroup> menuGroups() {
+    final recent = ref.read(recentBooksProvider).firstOrNull;
+    final s3 = ref.read(s3StatusProvider).value?.on ?? false;
+    return [
+      MenuGroup('Library', [
+        if (recent != null && widget.onContinue != null)
+          MenuEntry(ReaderIntent.continueReading, 'Continue ${recent.title}', Icons.play_circle_outline),
+        const MenuEntry(ReaderIntent.openFile, 'Open a comic without adding it', Icons.file_open_outlined),
+        const MenuEntry(ReaderIntent.openFolder, 'Open a folder of pages as a comic', Icons.folder_open_outlined),
+        const MenuEntry(ReaderIntent.addRoot, 'Add a folder to the library', Icons.create_new_folder_outlined),
+        const MenuEntry(ReaderIntent.rescan, 'Rescan the library folders', Icons.refresh),
+        const MenuEntry(ReaderIntent.showScanFailures, 'Comics the last scan could not read', Icons.report_outlined),
+        const MenuEntry(ReaderIntent.showFavourites, 'Favourites', Icons.star_outline),
+        if (s3 && _marked.isNotEmpty) ...const [
+          MenuEntry(ReaderIntent.uploadToS3, 'Upload the marked comics to S3', Icons.cloud_upload_outlined),
+          MenuEntry(ReaderIntent.downloadFromS3, 'Download the marked comics from S3', Icons.cloud_download_outlined),
+        ],
+      ]),
+      MenuGroup('Filter', [
+        const MenuEntry(ReaderIntent.filterFolders, 'Filter…', Icons.filter_list),
+        MenuEntry(
+          ReaderIntent.filterCompleted,
+          'Completed or not: next choice (now ${_filter.completed.label.toLowerCase()})',
+          Icons.task_alt,
+        ),
+      ]),
+      if (tab == LibraryTab.folders)
+        MenuGroup('Folders tab', [
+          const MenuEntry(ReaderIntent.sortFolders, 'Sort…', Icons.sort),
+          MenuEntry(ReaderIntent.nextSortOrder, 'Sort by the next order (now ${_sort.order.label})', Icons.swap_vert),
+          MenuEntry(ReaderIntent.reverseSort, 'Reverse the order', Icons.import_export, on: _sort.reversed),
+        ]),
+      if (_coverTab)
+        MenuGroup('Covers', [
+          MenuEntry(ReaderIntent.toggleShuffle, 'Shuffle: a random page of each comic', Icons.shuffle, on: _shuffle),
+          if (_shuffle) const MenuEntry(ReaderIntent.reshuffle, 'Other random pages', Icons.casino_outlined),
+          const MenuEntry(ReaderIntent.zoomIn, 'Bigger covers', Icons.zoom_in),
+          const MenuEntry(ReaderIntent.zoomOut, 'Smaller covers', Icons.zoom_out),
+          const MenuEntry(ReaderIntent.zoomReset, 'Covers at the usual size', Icons.crop_square),
+          if (_items.any((it) => it is BookItem))
+            const MenuEntry(ReaderIntent.markAll, 'Mark every comic shown', Icons.done_all),
+        ]),
+      MenuGroup('App', appEntries(fullscreen: ref.read(readerProvider).fullscreen)),
+    ];
+  }
+
   bool handle(ReaderCommand c) {
     _autoFirst = false;
     final n = _items.length;
@@ -1994,11 +2053,6 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
               tooltip: KeyHints.tip(context, 'Rescan the library folders', ReaderIntent.rescan),
               onPressed: () => ref.read(scannerProvider).scan(),
             ),
-          IconButton(
-            icon: const Icon(Icons.file_open_outlined),
-            tooltip: KeyHints.tip(context, 'Open a comic without adding it', ReaderIntent.openFile),
-            onPressed: widget.onOpenFile,
-          ),
           // Wider screens have Shift and Ctrl, and Mark in the details pane or page.
           if (narrow && !_listTab && tab != LibraryTab.bookmarks)
             IconButton(
@@ -2008,6 +2062,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
               tooltip: _selecting ? _tip('Stop marking', ReaderIntent.back) : _tip(_markHelp, ReaderIntent.markBook),
               onPressed: () => _selecting ? _clearMarks() : setState(() => _selecting = true),
             ),
+          // Where opening a comic without adding it was, which is its
+          // first line now; the gear stays last, where it always was.
+          IconButton(
+            key: const Key('menuButton'),
+            icon: const Icon(Icons.more_vert),
+            tooltip: KeyHints.tip(context, 'Menu', ReaderIntent.openMenu),
+            onPressed: widget.onMenu,
+          ),
           IconButton(
             key: const Key('settings'),
             icon: const Icon(Icons.settings_outlined),

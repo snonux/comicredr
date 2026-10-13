@@ -237,6 +237,10 @@ showSettings = ["g,"]
 showKeymap = ["?"]
 # Show the touch zones for a moment
 showTouchZones = ["gt"]
+# Touch tutorial: every gesture, a page each, in plain words; shown once on the first start on Android
+showTouchGuide = ["gT"]
+# Menu of every action for this comic or the library, for touch and mouse; a swipe up on the page opens it too
+openMenu = ["F10", "g."]
 # The time, large, for two seconds, then it fades
 showTime = ["T"]
 
@@ -272,7 +276,7 @@ showTime = ["T"]
 #
 # swipeRight = "prevStep"
 #
-# swipeUp = ""
+# swipeUp = "openMenu"
 #
 # swipeDown = ""
 #

@@ -86,6 +86,8 @@ come back here for a key you forgot.
    - [Delete a comic](07-managing-comics.md#delete-a-comic)
 8. [Touch](08-touch.md)
    - [Gestures](08-touch.md#gestures)
+   - [The menu: everything without a keyboard](08-touch.md#the-menu-everything-without-a-keyboard)
+   - [The touch tutorial](08-touch.md#the-touch-tutorial)
    - [The tap zones](08-touch.md#the-tap-zones)
    - [Your own gestures](08-touch.md#your-own-gestures)
 9. [The keyboard](09-keyboard.md)

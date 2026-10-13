@@ -27,6 +27,7 @@ Future<void> showSettings(
   VoidCallback? onExportSidecars,
   VoidCallback? onExportSettings,
   VoidCallback? onImportSettings,
+  VoidCallback? onTouchGuide,
 }) => showDialog<void>(
   context: context,
   builder: (_) => SettingsDialog(
@@ -34,11 +35,19 @@ Future<void> showSettings(
     onExportSidecars: onExportSidecars,
     onExportSettings: onExportSettings,
     onImportSettings: onImportSettings,
+    onTouchGuide: onTouchGuide,
   ),
 );
 
 class SettingsDialog extends ConsumerStatefulWidget {
-  const SettingsDialog({super.key, this.covers, this.onExportSidecars, this.onExportSettings, this.onImportSettings});
+  const SettingsDialog({
+    super.key,
+    this.covers,
+    this.onExportSidecars,
+    this.onExportSettings,
+    this.onImportSettings,
+    this.onTouchGuide,
+  });
 
   /// The library behind the dialog, for the Cover size buttons; without
   /// one the section is left out.
@@ -49,6 +58,9 @@ class SettingsDialog extends ConsumerStatefulWidget {
   /// Everything but the comics, to one file and back (Back up section).
   final VoidCallback? onExportSettings;
   final VoidCallback? onImportSettings;
+
+  /// Opens the touch tutorial over the settings (Touch section).
+  final VoidCallback? onTouchGuide;
 
   @override
   ConsumerState<SettingsDialog> createState() => _SettingsDialogState();
@@ -413,6 +425,20 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
   /// The touch preset, and Clear reading history (Alt+H).
   List<Widget> _touchAndHistoryPart(BuildContext context, ThemeData theme) => [
     _heading(theme, 'Touch'),
+    // The tutorial above the presets, so what the e2e scripts click below
+    // it, counted from the dialog's end, has not moved.
+    if (widget.onTouchGuide case final guide?) ...[
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          key: const Key('setting-touchGuide'),
+          onPressed: guide,
+          icon: const Icon(Icons.touch_app_outlined),
+          label: const Mnemonic('Touch tutorial', letter: 't'),
+        ),
+      ),
+      const SizedBox(height: 8),
+    ],
     _TouchPicker(),
     _heading(theme, 'Reading history'),
     Align(

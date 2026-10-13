@@ -133,6 +133,10 @@ class Device:
         time.sleep(5)
         for _ in range(12):
             try:
+                # A fresh install shows the touch tutorial once, first.
+                if self.find("Reading by touch") is not None:
+                    self.tap("Close")
+                    continue
                 if self.find("Settings") is not None:
                     return
             except RuntimeError:

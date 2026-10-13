@@ -63,8 +63,8 @@ page 1 the first time.
 
 You can also open a single comic without adding it to the library:
 
-- `o` in the app, or the open button at the top of the library, opens a
-  file picker.
+- `o` in the app, or **Open a comic without adding it** in the menu (⋮
+  at the top of the library), opens a file picker.
 - `comicredr book.cbz` from a terminal.
 - **Open With → ComicRedr** on a comic in the Files app.
 - Drag a comic onto the window.

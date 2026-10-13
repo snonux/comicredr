@@ -6,6 +6,7 @@ import 'package:reader_input/reader_input.dart';
 
 import 'grid_zoom.dart';
 import 'help_zoom.dart';
+import 'hotkeys.dart';
 import 'version.dart';
 
 /// The `?` overlay, generated from the same table the app binds from, so it
@@ -333,6 +334,20 @@ class KeymapOverlayState extends State<KeymapOverlay> {
             'Library, settings, covers and history are kept in $dir; '
             'everything else about a comic is in its sidecar.',
             key: const Key('app-data'),
+            style: theme.textTheme.bodySmall,
+          ),
+        ),
+      ),
+    if (!_filtering)
+      _item(
+        'touch',
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            'Without a keyboard: ⋮ on the status line or in the library (or a swipe up on a page) opens a menu of '
+            'every action, and ${KeyHints.tip(context, 'the touch tutorial', ReaderIntent.showTouchGuide)} '
+            'shows every gesture.',
+            key: const Key('keymap-touch'),
             style: theme.textTheme.bodySmall,
           ),
         ),

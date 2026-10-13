@@ -222,6 +222,8 @@ uitap() { # uitap LABEL [wait] [scroll]: taps it, scrolling down to find it when
   tap $(((x1 + x2) / 2)) $(((y1 + y2) / 2)) "${2:-3}"
 }
 sleep 30
+# A fresh install shows the touch tutorial once at the first start.
+[[ -z $(ui_find 'Reading by touch') ]] || uitap Close 3
 pshot 04_phone_empty
 
 # Settings (the gear in the header), scrolled down to "Set up S3 sync…".

@@ -28,6 +28,10 @@ String touchLabel(ReaderIntent intent, {bool rightToLeft = false}) {
       return 'Zones';
     case ReaderIntent.showTime:
       return 'Time';
+    case ReaderIntent.openMenu:
+      return 'Menu';
+    case ReaderIntent.showTouchGuide:
+      return 'Tutorial';
     case ReaderIntent.back:
       return 'Library';
     case ReaderIntent.pickPart:

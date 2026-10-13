@@ -1270,6 +1270,26 @@ refreshes right away instead of within six hours.
   `HomeScreen._helpTook` is the help's part of `_onCommand`: search,
   back, the size keys, and everything else but fullscreen kept from what
   is behind. No Settings entry and no touch button.
+- Everything without a keyboard (snonux, 2026-10-11): the menu,
+  `openMenu` (`F10`, `g.`; ⋮ `menuButton` last on the status line and before
+  the gear in the library header; a swipe up on the page in every preset).
+  `HomeScreen._menu` builds `readerMenu(state, s3:)` with a comic open,
+  else `LibraryScreenState.menuGroups()`, shows `ActionMenu` (a `Dialog`
+  in `DialogHotkeys`, bottom of the screen below 600 dp) and runs the
+  picked intent through `_onCommand` after the pop, closing the page grid
+  and bookmark list first. A new intent needs a menu line, a button or a
+  gesture: `test/touch_menu_test.dart` lists every intent's way and fails
+  otherwise. Below 600 dp the status line's fullscreen button gave its
+  room to ⋮ (the middle tap and the menu do fullscreen), and the library
+  header's open-file button went into the menu. The touch tutorial,
+  `showTouchGuide` (`gT`; the menu; Settings → Touch, `setting-touchGuide`,
+  Alt+T), is `lib/src/touch_guide.dart`: `guideSteps(map, android:)`
+  writes the pages from the live `TouchMap`, the pictures move three
+  times and then rest (a widget test's pump settles; reduced motion keeps
+  them still). Android shows it once at the first start
+  (`_touchGuideAtStart`, first thing in `_start`), setting `touch.guideSeen`, per
+  install and not exported. The Android e2e scripts close it (its
+  title "Reading by touch" found by uiautomator, then **Close**).
 - The time (`T`, and a long press in the middle zone of every touch
   preset): `ReaderIntent.showTime`, handled in `HomeScreen._onCommand`
   before the library or reader see it, flashes `ClockFlash`
@@ -1491,6 +1511,7 @@ tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided v
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 2 s (then 5 s, set in the index) turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, page grid held and selection kept across both toggles, Esc, restart; makes its own book
 tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
+tool/e2e_touch_menu.sh       # touch alone: ⋮ on the status line and a swipe up open the menu, its lines turn the comic and make it a favourite (index), the tutorial from the menu paged through and closed, the library header's ⋮ opens the sort; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e_completed.sh         # gC in the reader on and off, reading on to the last page marks a comic and G there does not, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, gC on a cover under the filter then Enter opens the cover next to it, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books

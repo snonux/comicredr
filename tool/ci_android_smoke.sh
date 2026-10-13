@@ -40,6 +40,16 @@ check_alive() {
 }
 
 sleep 30
+# A fresh install shows the touch tutorial once: its Close, found by
+# uiautomator, so the cover below can be tapped.
+adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+close=$(adb shell cat /sdcard/ui.xml 2>/dev/null | tr '<' '\n' | grep -E '(text|content-desc)="Close"' | head -1 |
+  sed -n 's/.*bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]".*/\1 \2 \3 \4/p')
+if [[ -n $close ]]; then
+  read -r x1 y1 x2 y2 <<<"$close"
+  adb shell input tap $(((x1 + x2) / 2)) $(((y1 + y2) / 2))
+  sleep 3
+fi
 shot 01_library
 check_alive "library"
 # The first cover sits top left in the library grid on a phone screen.

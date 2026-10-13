@@ -18,6 +18,7 @@ own gestures are the same on all of them.
 | Pinch | Zoom |
 | Drag with one finger | Move around a zoomed page, a page fitted to the width, or a panel in guided view |
 | Hold a finger on the middle | [The time](04-reading.md#what-time-is-it) |
+| Swipe up on the page | [The menu](#the-menu-everything-without-a-keyboard), with everything the buttons leave out |
 | Tap with two fingers | [Enlarge a part of the page](04-reading.md#by-touch): pick a half, third, strip or quarter, then tap the edges to go part by part |
 | Drag along the progress bar | Preview pages, and let go to jump |
 | Pinch the page grid | Bigger or smaller pages; drag to scroll, tap one to go there |
@@ -25,12 +26,13 @@ own gestures are the same on all of them.
 
 The buttons on the status line do the rest: guided view, balloons (in
 guided view), fit width (outside guided view, tap it again for the whole
-page), the page grid, a bookmark here, the list of bookmarks and
-fullscreen; on a wider screen also the comic's details, two pages side
-by side and the parts of a page. On Android, the back gesture works
-like `Esc`: it leaves guided view, then the book. On Linux the status
-line starts with a back arrow that does the same. In fullscreen, tap the
-middle first to bring the status line back.
+page), the page grid, a bookmark here, the list of bookmarks and ⋮, the
+menu; on a wider screen also the comic's details, two pages side by
+side, the parts of a page and fullscreen. On Android, the back gesture
+works like `Esc`: it leaves guided view, then the book. On Linux the
+status line starts with a back arrow that does the same. In fullscreen,
+tap the middle first to bring the status line back, or swipe up for the
+menu.
 
 In the library, on a wide screen, tap a cover to pick it and tap it
 again to open it. On a narrower one (a phone, a tablet held upright, a
@@ -40,6 +42,60 @@ long press shows a cover's details, a finger scrolls the covers, and two
 fingers spread apart or pinched together make them
 [bigger or smaller](03-library.md#bigger-and-smaller-covers); Settings
 has two buttons that do the same.
+
+## The menu: everything without a keyboard
+
+Whatever a key does, the menu does too, so a phone with no keyboard
+misses nothing. Tap ⋮ at the end of the status line, or swipe up on the
+page; in the library ⋮ is at the end of the header. `F10` (or `g.`)
+opens it with keys. Each line names its key, so the menu also teaches
+the keys as you go. Tap a line, or **Close** to leave it.
+
+![The menu over a comic](images/menu.webp)
+
+On a phone it comes up from the bottom of the screen, where your thumb is.
+
+Over a comic it has:
+
+- **This comic:** its details, favourite, completed, put in a
+  collection, the next and the previous comic, the comic read before
+  this one, upload to S3 and remove from S3 (when
+  [S3 sync](13-s3-sync.md) is set up), reset and delete.
+- **Go to:** the first and the last page, the next and the previous
+  bookmark (when the comic has some), and back to before a jump.
+- **View:** enlarge a part of the page; in guided view, balloon by
+  balloon, the whole page before and after its panels and holding on a
+  page shown whole; outside it, two pages side by side, pairing them the
+  other way, fit width, fit height and fit the whole page; right to
+  left, and turning the comic either way or back upright.
+- **Picture:** trim the scan margins, the night filter and the clean-up
+  of old scans. A tick shows what is on.
+- **App:** the touch zones, back to the library, fullscreen, the time,
+  [the touch tutorial](#the-touch-tutorial), the keys and Settings.
+
+In the library it has opening a comic or a folder of pages without
+adding it, adding a library folder, rescanning, the comics the last scan
+could not read and the Favourites; the filter, and the next choice of
+its Completed part (as `gF`); on the Folders tab the sort; with covers shown shuffle, bigger and smaller covers and marking
+every comic shown; and the same **App** lines. Everything about one
+comic is in its details: hold a cover, or tap it on a phone.
+
+## The touch tutorial
+
+The first time ComicRedr starts on Android it walks through every
+gesture, a page each: where to tap, swiping, zooming, guided view, the
+two-finger tap, holding a finger down, the status line's buttons, the
+menu and the library. Swipe or tap **Next** to go on, **Close** to stop
+at any point. It is drawn for the touch layout you picked, so a
+left-handed layout shows its own taps.
+
+| | |
+|---|---|
+| ![A page of the touch tutorial on the laptop](images/touch-guide.webp) | <img src="images/android-touch-guide.webp" width="260" alt="The touch tutorial on an Android phone"> |
+| The tutorial on the laptop | and on the phone |
+
+To see it again, pick **Touch tutorial** in the menu or in Settings →
+**Touch**, or press `gT`.
 
 ## The tap zones
 

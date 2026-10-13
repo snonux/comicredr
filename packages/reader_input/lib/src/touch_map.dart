@@ -91,6 +91,8 @@ class TouchMap {
       TouchGesture.swipeRight: [back],
       // The page parts the digit keys pick (21, 33, 54...), picked by touch.
       TouchGesture.twoFingerTap: [ReaderIntent.pickPart],
+      // Pulls up the menu of everything the buttons leave out.
+      TouchGesture.swipeUp: [ReaderIntent.openMenu],
     };
     return TouchMap({
       TouchGesture.tap: switch (preset) {

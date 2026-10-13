@@ -204,12 +204,17 @@ class StatusLine extends StatelessWidget {
               ReaderIntent.bookmarkList,
               on: bookmarksOpen,
             ),
-            button(
-              'fullscreenButton',
-              state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-              state.fullscreen ? 'Leave fullscreen' : 'Fullscreen',
-              ReaderIntent.fullscreen,
-            ),
+            // A phone taps the middle of the page for it, and has it in the
+            // menu: the room went to the menu.
+            if (!narrow)
+              button(
+                'fullscreenButton',
+                state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                state.fullscreen ? 'Leave fullscreen' : 'Fullscreen',
+                ReaderIntent.fullscreen,
+              ),
+            // Everything else there is to do, so no action needs a key.
+            button('menuButton', Icons.more_vert, 'Menu', ReaderIntent.openMenu),
           ],
         ];
         return Container(

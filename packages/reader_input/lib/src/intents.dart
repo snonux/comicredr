@@ -149,6 +149,12 @@ enum ReaderIntent {
   showSettings('Settings: pages, guided view, cover size, sidecars, touch, back-up and S3 sync'),
   showKeymap('Show the keymap'),
   showTouchZones('Show the touch zones for a moment'),
+  showTouchGuide(
+    'Touch tutorial: every gesture, a page each, in plain words; shown once on the first start on Android',
+  ),
+  openMenu(
+    'Menu of every action for this comic or the library, for touch and mouse; a swipe up on the page opens it too',
+  ),
   showTime('The time, large, for two seconds, then it fades');
 
   const ReaderIntent(this.description);

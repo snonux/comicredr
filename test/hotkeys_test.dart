@@ -2306,6 +2306,8 @@ void main() {
       await check('Collection', open: () => type(tester, 'gc'));
       await check('Filter', open: () => type(tester, 'F'));
       await check('Sort', open: () => type(tester, 'gS'));
+      await check('Menu', open: () => press(tester, LogicalKeyboardKey.f10));
+      await check('Touch tutorial', open: () => type(tester, 'gT'));
       await check('Edit', open: () => type(tester, 'e'));
       await check('Move', open: () => type(tester, 'gm'));
       await check(

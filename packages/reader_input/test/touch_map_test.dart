@@ -21,7 +21,7 @@ void main() {
     expect(m.action(TouchGesture.doubleTap, TouchZone.middle), ReaderIntent.zoomToggle);
     expect(m.action(TouchGesture.swipeLeft), next);
     expect(m.action(TouchGesture.swipeRight), back);
-    expect(m.action(TouchGesture.swipeUp), isNull);
+    expect(m.action(TouchGesture.swipeUp), ReaderIntent.openMenu);
     expect(m.action(TouchGesture.longPress, TouchZone.middle), ReaderIntent.showTime);
     expect(m.action(TouchGesture.longPress, TouchZone.topLeft), isNull);
     expect(m.action(TouchGesture.twoFingerTap), ReaderIntent.pickPart);

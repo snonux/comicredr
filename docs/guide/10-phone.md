@@ -25,6 +25,10 @@ These pictures are from the Android 14 emulator.
 4. `Comics` is now in the library. The folder button adds any other
    folder: type its path, for example `/storage/emulated/0/Manga`.
 
+The very first start also shows [the touch tutorial](08-touch.md#the-touch-tutorial):
+a few pages on every gesture. **Close** skips it; the menu and Settings
+have it again.
+
 If you decline, your comics stay where they are. Tap the folder button
 again to retry. If Android 7–10 no longer shows the permission dialog,
 open **Settings → Apps → ComicRedr → Permissions** and allow **Storage**,
@@ -55,10 +59,18 @@ Android 7–10 uses a permission dialog instead (Android 10 shown here):
   for the same.
 - The reader's status line puts the page number and the title on a line
   of their own above its buttons: guided view, balloons (in guided view),
-  fit width (outside guided view), the page grid, bookmarks and
-  fullscreen. Fit width fills the screen's width with the page and one
-  finger scrolls it; tap it again for the whole page; see [Touch](08-touch.md) for the
-  gestures.
+  fit width (outside guided view), the page grid, a bookmark here, your
+  bookmarks and ⋮, [the menu](08-touch.md#the-menu-everything-without-a-keyboard).
+  Fit width fills the screen's width with the page and one finger
+  scrolls it; tap it again for the whole page. Fullscreen is a tap in
+  the middle of the page. See [Touch](08-touch.md) for the gestures.
+- Everything the laptop does with a key is in the menu: favourites,
+  completed, collections, the next comic, the first and last page, two
+  pages, right to left, turning, trimming, the night filter, the
+  clean-up, reset, delete and S3. Swipe up on the page or tap ⋮.
+- The library's header has ⋮ too, beside the gear: opening a comic or
+  a folder without adding it, the filter and sort of the Folders tab,
+  rescanning and more.
 - The round play arrow at the top of the library's Reading tab carries
   on with the comic you read last, where you stopped, like `C` on the
   laptop.

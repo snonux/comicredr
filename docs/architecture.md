@@ -131,6 +131,13 @@ a phone's touchscreen and a laptop touchscreen all do the same things, and
 the `?` help and `docs/keys.toml` are generated from the one keymap. Pinch
 zoom and panning are the only gestures handled directly by the view.
 
+The menu (`lib/src/action_menu.dart`; ⋮, a swipe up, `F10`) is a list of
+intents too: a line picked is handed to `HomeScreen._onCommand` once the
+menu has gone, exactly as its key would be, so every action has a way
+without a keyboard (`test/touch_menu_test.dart` fails on an intent with
+neither a menu line, a button nor a gesture). The touch tutorial
+(`lib/src/touch_guide.dart`) writes its pages from the live `TouchMap`.
+
 That covers every button too. A button on a screen (the library, the
 reader and what lies over it: the page grid, the bookmark list, the parts
 picker) sends an intent, and its tooltip or label names that intent's key
