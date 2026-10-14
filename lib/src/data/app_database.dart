@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sqlite3/common.dart' show CommonDatabase;
 
 import 'data_dirs.dart';
 
@@ -262,9 +263,15 @@ class AppDatabase extends _$AppDatabase {
         executor ??
             driftDatabase(
               name: 'comicredr',
-              native: const DriftNativeOptions(databaseDirectory: appDataDirectory),
+              native: const DriftNativeOptions(databaseDirectory: appDataDirectory, setup: _waitForLocks),
             ),
       );
+
+  /// Another process reading the index (a second ComicRedr started by
+  /// Open With, `sqlite3` in a terminal, an e2e script) holds a lock for
+  /// a moment; without a busy timeout a write then failed at once with
+  /// "database is locked", and the scan lost the comic it was writing.
+  static void _waitForLocks(CommonDatabase db) => db.execute('PRAGMA busy_timeout = 5000');
 
   @override
   int get schemaVersion => 12;

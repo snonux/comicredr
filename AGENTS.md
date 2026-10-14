@@ -1219,6 +1219,10 @@ refreshes right away instead of within six hours.
   set up. `StallWatch` (`lib/src/stall_watch.dart`, `COMICREDR_STALLS=1`)
   logs a late event loop tick of 400 ms or a frame of 250 ms;
   `tool/e2e_freeze.sh` fails on a hold-up of 400 ms or a 500 ms frame.
+  The index sets `busy_timeout` (5 s, `AppDatabase._waitForLocks`):
+  without it a write while another process read the file (the e2e's own
+  sqlite3 polling, a second app instance) failed at once with "database
+  is locked" and the scan dropped that comic until the next start.
 - Fullscreen (`f`, F11, a status-line button, a tap in the middle):
   `ReaderState.fullscreen`, in the library as in the reader, saved as
   `reader.fullscreen` and loaded at launch and when a book opens. `HomeScreen._applyFullscreen` makes the window follow: on

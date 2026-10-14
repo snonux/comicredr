@@ -107,6 +107,13 @@ for _ in $(seq 1 1800); do
   sleep 1
 done
 [[ $(books) -ge $count ]] && ok "all $count comics in the index" || fail "only $(books) of $count comics scanned"
+# This script reads the index with sqlite3 while the app writes it, as a
+# second ComicRedr would: the app waits for the lock (busy_timeout).
+if grep -q 'database is locked' "$out/app.log"; then
+  fail "the app's writes failed with database is locked"
+else
+  ok "no write refused while sqlite3 read the index"
+fi
 sleep 3
 stop
 

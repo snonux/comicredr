@@ -26,6 +26,9 @@ the `?` overlay.
   window waits for each answer (a locked keyring waits for its password).
   It is now read once a run, and Settings no longer asks the keyring at
   all while S3 sync is off.
+- **Fixed:** a second ComicRedr (opened with Open With while one runs)
+  or anything else reading the library's index could make the scan lose
+  a comic with "database is locked"; the app now waits for the lock.
 - `COMICREDR_STALLS=1 comicredr` logs each time the app stopped answering
   for 400 ms or more (guide, "If the app stalls").
 - **Fit width by a swipe down:** on a phone or touchscreen, a swipe down
