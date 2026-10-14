@@ -1,0 +1,6 @@
+* Everything by touch: a ⋮ menu with every action, and a touch tutorial.
+* Swipe down to fit the page to the width.
+* ge goes to the last page; G12 to page 12.
+* Faster scans and openings; freezes in big libraries fixed.
+* Coding agents can draw panels for your whole library (AGENTS.md).
+* Fixes for EPUB SVG pages, closing and reset races.

@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.0
+
 - **`ge` goes to the last page**, as in Helix, beside `G` and `End`;
   `gg` and `Home` go to page 1 and `G12` to page 12. The `?` help says so
   on its First page and Last page lines, and the guide's "Going to a
@@ -77,6 +79,13 @@ the `?` overlay.
 - **Touch tutorial:** a few pages on every gesture, drawn for the touch
   layout in use. It shows once at the first start on Android, and again
   from the menu, Settings → Touch or `gT`.
+- **Fixed:** an EPUB whose SVG pages point to a PNG or
+  JPEG shows that image; closing the window saves the reading place to
+  the sidecar first (close it again to leave when a save stalls); `Esc`
+  while the next comic is opening stays in the library; Reset drops any
+  detection still running; `gC` acts on the page shown when pressed; a
+  sitting goes on after a brief interruption; a collection removal wins
+  a tie with an add when sidecars meet.
 
 ## 0.8.1
 
