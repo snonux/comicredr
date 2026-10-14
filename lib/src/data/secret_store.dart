@@ -32,39 +32,70 @@ abstract interface class SecretStore {
 /// the folder [fallbackDir] gives when that fails: a Linux session without a keyring
 /// running (a bare window manager, Xvfb) has no Secret Service. A keyring
 /// that does not answer within [timeout] counts as none.
+///
+/// On Linux the plugin asks libsecret on the window's own thread and waits
+/// for the answer there: while it waits the window takes no input and draws
+/// nothing, and a locked keyring waits for its password prompt. So the
+/// keyring is asked once a run: what it said (or the file) is kept in
+/// memory, and writes keep it up to date. The S3 sync reads the secret on
+/// every comic opened, every return to the window and every five minutes,
+/// and each of those froze the app while the keyring was slow or locked.
+/// A keyring that once did not answer in time is not asked again this run,
+/// since the window is still stuck behind that call.
 class KeyringSecretStore implements SecretStore {
-  KeyringSecretStore({required this.fallbackDir, this.timeout = const Duration(seconds: 3)});
+  KeyringSecretStore({
+    required this.fallbackDir,
+    this.timeout = const Duration(seconds: 3),
+    FlutterSecureStorage? storage,
+  }) : _storage = storage ?? const FlutterSecureStorage();
 
   final Future<String> Function() fallbackDir;
   final Duration timeout;
-  final _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage;
+
+  /// Each name's value and where it is, as last read or written this run.
+  final _known = <String, ({String? value, SecretPlace? place})>{};
+
+  /// The keyring did not answer in time once: asked no more this run.
+  bool _stuck = false;
 
   Future<File> _file(String name) async => File(p.join(await fallbackDir(), name));
 
   Future<T?> _keyring<T>(Future<T> Function() f) async {
+    if (_stuck) return null;
     try {
       return await f().timeout(timeout);
+    } on TimeoutException {
+      _stuck = true;
+      return null;
     } catch (_) {
       return null;
     }
   }
 
-  @override
-  Future<String?> read(String name) async {
+  Future<({String? value, SecretPlace? place})> _look(String name) async {
+    if (_known[name] case final known?) return known;
     final fromKeyring = await _keyring(() => _storage.read(key: name));
-    if (fromKeyring != null) return fromKeyring;
+    if (fromKeyring != null) return _known[name] = (value: fromKeyring, place: SecretPlace.keyring);
     final file = await _file(name);
-    return file.existsSync() ? file.readAsStringSync().trim() : null;
+    final fromFile = file.existsSync() ? file.readAsStringSync().trim() : null;
+    return _known[name] = (value: fromFile, place: fromFile == null ? null : SecretPlace.file);
   }
 
   @override
-  Future<SecretPlace?> placeOf(String name) async {
-    if (await _keyring(() => _storage.read(key: name)) != null) return SecretPlace.keyring;
-    return (await _file(name)).existsSync() ? SecretPlace.file : null;
-  }
+  Future<String?> read(String name) async => (await _look(name)).value;
+
+  @override
+  Future<SecretPlace?> placeOf(String name) async => (await _look(name)).place;
 
   @override
   Future<SecretPlace?> write(String name, String? value) async {
+    final place = await _write(name, value);
+    _known[name] = (value: value, place: place);
+    return place;
+  }
+
+  Future<SecretPlace?> _write(String name, String? value) async {
     final file = await _file(name);
     if (value == null) {
       await _keyring(() async => _storage.delete(key: name));

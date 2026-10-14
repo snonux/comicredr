@@ -22,6 +22,7 @@ come back here for a key you forgot.
    - [On an Android phone or tablet](01-installing.md#on-an-android-phone-or-tablet)
    - [The panel detector](01-installing.md#the-panel-detector)
    - [The CBR files you already have](01-installing.md#the-cbr-files-you-already-have)
+   - [If the app stalls](01-installing.md#if-the-app-stalls)
 2. [Getting started](02-getting-started.md)
    - [What it reads](02-getting-started.md#what-it-reads)
    - [Add your comics](02-getting-started.md#add-your-comics)

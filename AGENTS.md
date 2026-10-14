@@ -1196,6 +1196,29 @@ refreshes right away instead of within six hours.
   decode again at the new size a quarter second after the size settles.
   Android handles rotation in the running activity (`configChanges` in
   the manifest), so nothing restarts.
+- Freezes (2026-10-14). The library stays built under the reader
+  (`_libraryUnder`, app.dart), and every reader state change (a page
+  turn, each page the detector finished) rebuilt it, sorting the whole
+  library: about 1.1 s with 3,000 comics on the Folders tab, so reading
+  stalled each turn. `_libraryUnder` now keeps its widget while nothing
+  it passes changes (the performance work), and `LibraryScreen.hidden`
+  makes the library's own build give back its last widget while a comic
+  is open (still watching its providers). `_takeItems` keeps `_items`
+  while its inputs (`_itemsFrom`: the lists by identity, tab, query,
+  filter, sort, folder, series, the hour) are the same.
+  `LibraryStore._live` folds the table changes that come while a query
+  runs into one (`_folded`), so a burst is one more query, not one each;
+  it stays an async* generator (a StreamController version ran on while
+  Riverpod paused it under the library's disabled TickerMode and hung
+  widget tests). `naturalCompare` walks the strings in place (ten times
+  faster; `natural_sort_test.dart` holds it to the old regex version on
+  200,000 random pairs). On Linux flutter_secure_storage calls libsecret
+  synchronously on the GTK thread, so `KeyringSecretStore` asks the
+  keyring once a run per name (writes keep it current) and, after one
+  timeout, never again that run; `S3Settings.load` asks only when S3 is
+  set up. `StallWatch` (`lib/src/stall_watch.dart`, `COMICREDR_STALLS=1`)
+  logs a late event loop tick of 400 ms or a frame of 250 ms;
+  `tool/e2e_freeze.sh` fails on a hold-up of 400 ms or a 500 ms frame.
 - Fullscreen (`f`, F11, a status-line button, a tap in the middle):
   `ReaderState.fullscreen`, in the library as in the reader, saved as
   `reader.fullscreen` and loaded at launch and when a book opens. `HomeScreen._applyFullscreen` makes the window follow: on
@@ -1505,6 +1528,7 @@ tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, 
 tool/e2e_margins.sh           # guided view on eval pages padded with a wide scanned margin; checks the index records the trim
 tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
 tool/e2e_ahead.sh [corpus]     # panels found only for the open comic, ahead of the reader, guided view off; nothing with no comic open; stops on close; sidecar filled
+tool/e2e_freeze.sh [count]    # 3,000 made comics scanned, then a comic read with the library on Folders under it: pages, guided view, ], back to the covers; COMICREDR_STALLS=1 logs and any hold-up of 400 ms (or a 500 ms frame) fails it
 tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
 tool/e2e_touch_linux.sh       # touch alone, no key or mouse: a comic opened from the library, every default reader gesture, the progress bar, the page grid pinched, scrolled and tapped, guided view, the back arrow out to the library, a long press on a cover; checks the view selects touch events and the index with sqlite3
 tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3

@@ -11,6 +11,7 @@ import 'src/data/data_dirs.dart';
 import 'src/input/keys_file.dart';
 import 'src/library/providers.dart';
 import 'src/providers.dart';
+import 'src/stall_watch.dart';
 import 'src/timing.dart';
 
 /// `comicredr [book]` opens the book straight away; `comicredr folder`
@@ -19,6 +20,7 @@ import 'src/timing.dart';
 Future<void> main(List<String> args) async {
   appClock.start(); // Start-up times count from here (COMICREDR_TIMING=1).
   WidgetsFlutterBinding.ensureInitialized();
+  if (appEnvironment['COMICREDR_STALLS'] case final v? when v.isNotEmpty && v != '0') StallWatch().start();
   // The GPU keeps textures the app has let go of, for reuse, up to about a
   // dozen screenfuls. Pages decode at screen size and zoom with tiles of
   // many sizes, which would mostly fill that with old tiles, so on the

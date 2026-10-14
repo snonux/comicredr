@@ -58,4 +58,19 @@ done
 
 A `.cbr` that is really a ZIP opens as it is.
 
+## If the app stalls
+
+On Linux, start it from a terminal with `COMICREDR_STALLS=1` to see when
+and for how long it stopped answering:
+
+```sh
+COMICREDR_STALLS=1 comicredr 2> stalls.log
+```
+
+Each line has the time and what held it up, for example
+`[stall 2026-10-14T09:12:03] UI isolate blocked for 1048 ms`. Note what
+you were doing at that moment (turning a page, opening a comic, coming
+back to the window) and send the file with it. Without the variable
+nothing is logged.
+
 [Contents](README.md) · Next: [Getting started](02-getting-started.md)

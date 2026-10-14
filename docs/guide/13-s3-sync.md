@@ -207,6 +207,12 @@ again, never in the app's database or a sidecar, and never in an
 [exported settings file](11-your-data.md#back-up-and-restore-your-settings).
 To change it, type the new one; leave the field empty to keep it.
 
+The keyring is asked once each time the app starts, the first time
+anything needs the secret; the app keeps the answer until it closes. On
+Linux the window waits while the keyring answers, and a locked keyring
+asks for its password first. If you turned that prompt down, unlock the
+keyring and start the app again to sync.
+
 A settings file carries the rest (address, region, bucket, folder and
 access key id), so importing the laptop's settings on the phone leaves
 only the secret key to type. A settings file without S3 settings, like

@@ -11,6 +11,23 @@ the `?` overlay.
   `gg` and `Home` go to page 1 and `G12` to page 12. The `?` help says so
   on its First page and Last page lines, and the guide's "Going to a
   page" puts the three together.
+- **Fixed: freezes while reading over a big library (Linux).** Every page
+  turn, and every page the detector finished, rebuilt the library hidden
+  under the comic and sorted all its comics by name again: about a second
+  each time with 3,000 comics on the Folders tab, so reading stalled
+  over and over. The hidden library no longer rebuilds, the name sort is
+  ten times faster, a burst of index changes (a scan, a page turn) reads
+  the library once instead of once per change, and the library's list is
+  worked out again only when something in it changed, so the arrows move
+  at once in a big library too.
+- **Fixed: the window froze while the keyring answered (Linux, S3 sync
+  on).** The S3 secret was read from the keyring on every comic opened,
+  every return to the window and every five minutes, and on Linux the
+  window waits for each answer (a locked keyring waits for its password).
+  It is now read once a run, and Settings no longer asks the keyring at
+  all while S3 sync is off.
+- `COMICREDR_STALLS=1 comicredr` logs each time the app stopped answering
+  for 400 ms or more (guide, "If the app stalls").
 - **Fit width by a swipe down:** on a phone or touchscreen, a swipe down
   on the page fits it to the width (outside guided view), fullscreen or
   not; at the top of a page fitted to the width it brings the whole page

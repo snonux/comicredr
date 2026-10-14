@@ -41,15 +41,23 @@ class S3Settings {
   /// The secret's name in the keystore, and its file's when there is none.
   static const secretName = 's3-secret';
 
-  Future<S3Fields> load() async => S3Fields(
-    endpoint: await _settings.loadString(SettingsStore.s3Endpoint) ?? '',
-    region: await _settings.loadString(SettingsStore.s3Region) ?? S3Config.defaultRegion,
-    bucket: await _settings.loadString(SettingsStore.s3Bucket) ?? '',
-    prefix: await _settings.loadString(SettingsStore.s3Prefix) ?? S3Config.defaultPrefix,
-    accessKey: await _settings.loadString(SettingsStore.s3AccessKey) ?? '',
-    hasSecret: await _secrets.placeOf(secretName) != null,
-    secretPlace: await _secrets.placeOf(secretName),
-  );
+  /// Asks the keystore only when sync is set up: Settings loads this every
+  /// time it opens, and on Linux the keyring is asked on the window's own
+  /// thread ([KeyringSecretStore]).
+  Future<S3Fields> load() async {
+    final endpoint = await _settings.loadString(SettingsStore.s3Endpoint) ?? '';
+    final bucket = await _settings.loadString(SettingsStore.s3Bucket) ?? '';
+    final place = endpoint.isEmpty || bucket.isEmpty ? null : await _secrets.placeOf(secretName);
+    return S3Fields(
+      endpoint: endpoint,
+      region: await _settings.loadString(SettingsStore.s3Region) ?? S3Config.defaultRegion,
+      bucket: bucket,
+      prefix: await _settings.loadString(SettingsStore.s3Prefix) ?? S3Config.defaultPrefix,
+      accessKey: await _settings.loadString(SettingsStore.s3AccessKey) ?? '',
+      hasSecret: place != null,
+      secretPlace: place,
+    );
+  }
 
   /// The saved settings as a config to connect with, or null when sync is
   /// not set up or the secret is missing.

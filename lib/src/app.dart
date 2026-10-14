@@ -1349,6 +1349,7 @@ extension on _HomeScreenState {
         onRescan: _rescan,
         keysFocus: _keys,
         pending: pending,
+        hidden: open,
       ),
     ),
   );

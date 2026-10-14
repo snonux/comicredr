@@ -83,7 +83,13 @@ class LibraryScreen extends ConsumerStatefulWidget {
     this.onImportSettings,
     this.keysFocus,
     this.pending = '',
+    this.hidden = false,
   });
+
+  /// A comic covers the library: it keeps what it showed last and does not
+  /// build again until it shows. Each page turn and each page the detector
+  /// finished rebuilt it (sorting thousands of comics) while nobody saw it.
+  final bool hidden;
 
   /// Where keys go outside the search field, to hand focus back on Enter.
   final FocusNode? keysFocus;
@@ -1743,7 +1749,16 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// without setState.
   void _takeItems(List<LibraryBook> books, List<RootInfo> roots, List<BookmarkInfo> bookmarks) {
     final before = _items;
-    _items = _itemsFor(books, roots, bookmarks);
+    // A build with nothing new for the list (the selection moved, a mark
+    // set, the window resized) keeps it: working it out sorts the whole
+    // library, a tenth of a second for some thousands of comics. The lists
+    // come new from their providers whenever anything in them changes; the
+    // hour is there for the filter's dates, counted back from now.
+    final inputs = (books, roots, bookmarks, tab, _query, _filter, _favourites, _series, _folder, _sort, _hour());
+    if (inputs != _itemsFrom) {
+      _items = _itemsFor(books, roots, bookmarks);
+      _itemsFrom = inputs;
+    }
     // A folder just opened: its first item, even as a scan adds more.
     if (_autoFirst && _items.isNotEmpty) _selected = _items.first.id;
     if (_selected != null && !_items.any((it) => it.id == _selected)) {
@@ -1757,8 +1772,28 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     _selectedBooks = _books(_selectedItem);
   }
 
+  /// What [_items] was last worked out from, by [_takeItems].
+  Object? _itemsFrom;
+
+  static int _hour() => DateTime.now().millisecondsSinceEpoch ~/ Duration.millisecondsPerHour;
+
+  /// What [build] made last, given again while [LibraryScreen.hidden].
+  Widget? _built;
+
   @override
   Widget build(BuildContext context) {
+    final built = _built;
+    if (widget.hidden && built != null) {
+      // Still listened to, so nothing is read afresh when the comic closes.
+      ref.watch(booksProvider);
+      ref.watch(rootsProvider);
+      ref.watch(scanStatusProvider);
+      return built;
+    }
+    return _built = _build(context);
+  }
+
+  Widget _build(BuildContext context) {
     _tellSizer();
     final booksNow = ref.watch(booksProvider);
     final books = booksNow.value ?? const <LibraryBook>[];

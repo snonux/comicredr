@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:comic_formats/comic_formats.dart';
 import 'package:comic_sync/comic_sync.dart' show Manifest;
 import 'package:drift/drift.dart';
@@ -431,11 +433,40 @@ class LibraryStore {
   /// [query] now and again whenever one of [tables] changes. Drift's own
   /// watch() does the same, but leaves a timer behind when it is cancelled,
   /// which widget tests refuse.
+  ///
+  /// Changes that come while the query runs are answered by one more run,
+  /// not one each: a scan writes several tables a comic, and every answer
+  /// is the whole library, read and sorted on the UI isolate, so queueing a
+  /// run per change kept the app busy long after the writes ended.
   Stream<T> _live<T>(Set<TableInfo<Table, Object?>> tables, Future<T> Function() query) async* {
     yield await query();
-    await for (final _ in db.tableUpdates(TableUpdateQuery.onAllTables(tables))) {
+    await for (final _ in _folded(db.tableUpdates(TableUpdateQuery.onAllTables(tables)))) {
       yield await query();
     }
+  }
+
+  /// [changes], with those that come while the listener is paused (busy
+  /// with the last one) folded into one, given when it resumes.
+  static Stream<void> _folded(Stream<void> changes) {
+    late final StreamController<void> out;
+    StreamSubscription<void>? source;
+    var missed = false;
+    out = StreamController<void>(
+      onListen: () => source = changes.listen((_) {
+        if (out.isPaused) {
+          missed = true;
+        } else {
+          out.add(null);
+        }
+      }),
+      onResume: () {
+        if (!missed) return;
+        missed = false;
+        out.add(null);
+      },
+      onCancel: () => source?.cancel(),
+    );
+    return out.stream;
   }
 
   /// What the index knows about each file under [rootId]: size and mtime,
