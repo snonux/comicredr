@@ -96,6 +96,12 @@ stop() {
   app=
 }
 shot() { import -window root -crop 1280x800+0+0 +repage "$out/$1.png"; }
+# The status line of shot $1 as tesseract reads it, on one line: the bottom
+# 60 px of the window, blown up three times so its small letters read.
+status_of() {
+  convert "$out/$1.png" -crop 1280x60+0+740 +repage -resize 300% "$out/$1_status.png"
+  tesseract "$out/$1_status.png" - 2>/dev/null | tr -s ' \n' ' '
+}
 
 # Each colour's centre and size on screen (the top 740 px, above the status
 # line), as "name cx cy w h" lines.
@@ -183,6 +189,9 @@ sleep 2
 expect "guided view: yellow first, as imported" "$(first_framed 02_imported_first)" yellow
 key l; shot 03_blue
 expect "l: blue" "$(framed_in 03_blue)" blue
+st=$(status_of 03_blue)
+[[ $st == *'guided (drawn)'* ]] && ok "the status line says the panels are drawn ($st)" \
+  || fail "the status line does not say drawn: '$st'"
 key l; shot 04_green
 expect "l: green" "$(framed_in 04_green)" green
 key l; shot 05_red
@@ -230,6 +239,9 @@ expect "and the record" "$rec" 0
 key g g
 sleep 1
 expect "and guided view is back on the app's own: red first" "$(first_framed 08_redo_first)" red
+st=$(status_of 08_redo_first)
+[[ $st == *guided* && $st != *drawn* ]] && ok "the status line no longer says drawn ($st)" \
+  || fail "after Redo panels the status line reads: '$st'"
 sleep 4
 stop
 n=$(q "$side" "select count(*) from panels where source = 'manual'")
@@ -239,7 +251,7 @@ expect "the record too" "$rec" 0
 
 montage -label '%t' "$out"/0*.png -tile 4x -geometry 400x250+6+6 -background '#222' -fill white \
   "$out/contact.png" 2>/dev/null || true
-if grep -iE 'exception|error' "$out/app.log" | grep -viE 'libEGL|Atk-CRITICAL|dbind'; then
+if grep -iE 'exception|error' "$out/app.log" | grep -viE 'libEGL|MESA-EGL|Atk-CRITICAL|dbind'; then
   fail "the app logged errors"
 fi
 [[ $failed == 0 ]] && echo "PASS" || { echo "FAILED"; exit 1; }

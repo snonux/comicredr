@@ -1218,7 +1218,12 @@ refreshes right away instead of within six hours.
   `panelImport` (`panelImportField` in meta_edits.dart: harness, model,
   prompt version, pages, time), kept, merged and exported like the
   completed mark, shown as "Drawn by" in `ComicDetails`, and dropped by
-  Redo panels (`SidecarSync.reset`) with the panels. `PagePanels(...,
+  Redo panels (`SidecarSync.reset`) with the panels. Page by page, the
+  status line says `guided (drawn)` on a page whose panels are imported
+  (`PagePanels.imported`, `StatusLine._guided`) and each row of the
+  details' page list starts with the page's source (`_sourceShort`:
+  "drawn (imported)", "trained model", "classic CV"; no confidence or
+  time for drawn pages, which have none of their own). `PagePanels(...,
   imported)` (true for source `manual`) turns the gate's overlap rule off,
   since grown frames and insets overlap by design; `evaluate.py --boxes`
   does the same and traces no outline round them. `pages` skips pages

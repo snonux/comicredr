@@ -37,10 +37,15 @@ class PagePanels {
   /// frames fail to cover. [imported] panels, drawn by a large model
   /// (tool/llm_panels.py), may overlap: an inset sits in its panel, and a
   /// panel is grown to take in a balloon that sticks out of its frame.
-  PagePanels(this.frames, [this.balloons = const [], Trim trim = Trim.full, bool imported = false])
+  PagePanels(this.frames, [this.balloons = const [], Trim trim = Trim.full, this.imported = false])
     : gate = confidenceGate([for (final f in frames) trim.toTrim(f)], maxOverlap: imported ? double.infinity : 0.15);
 
   final List<Panel> frames;
+
+  /// Whether the panels were imported (source `manual`, drawn by a large
+  /// model or by hand) rather than found by this install's detector; the
+  /// status line says so on the page.
+  final bool imported;
 
   /// Speech, thought and caption balloons on the page; the trained detector
   /// finds them, classic CV does not.

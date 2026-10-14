@@ -170,6 +170,55 @@ void main() {
     expect(c.read(readerProvider).book, isNotNull, reason: 'the book opened again');
   });
 
+  testWidgets('each page says where its panels came from: drawn ones on the status line and in its row', (
+    tester,
+  ) async {
+    final path = writeBookOf(tmp, 'Drawn 01.cbz', [grid4Page(), grid4Page(), grid4Page()]);
+    const grid = [
+      Panel(0.05, 0.03, 0.42, 0.45),
+      Panel(0.52, 0.03, 0.42, 0.45),
+      Panel(0.05, 0.52, 0.42, 0.45),
+      Panel(0.52, 0.52, 0.42, 0.45),
+    ];
+    await tester.runAsync(() async {
+      final key = await contentKey(path);
+      // Page 1 drawn by a large model and imported (tool/llm_panels.py), page
+      // 2 found by the trained model.
+      final store = PanelStore(db);
+      await store.save(key, 0, const DetectedPage(grid, [], source: PanelSource.manual, version: 1, millis: 0));
+      await store.save(
+        key,
+        1,
+        const DetectedPage(grid, [], source: PanelSource.model, version: modelDetectorVersion, millis: 90),
+      );
+    });
+    final c = await pumpApp(tester);
+    await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
+    await settle(tester);
+    String status() => tester.widget<Text>(find.byKey(const Key('status'))).data!;
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await settle(tester);
+    expect(status(), contains('guided (drawn): panel 1 / 4'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await settle(tester);
+    expect(c.read(readerProvider).page, 1);
+    expect(status(), contains('guided: panel 1 / 4'));
+    expect(status(), isNot(contains('drawn')));
+
+    await typeI(tester);
+    final list = find.descendant(of: find.byKey(const Key('detailsList')), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byKey(const ValueKey('detailsPage1')), 200, scrollable: list);
+    final drawn = textOf(tester, const ValueKey('detailsPage0'));
+    expect(drawn, contains('drawn (imported) · guided'));
+    expect(drawn, isNot(contains('confidence')), reason: 'imported panels have no confidence of their own');
+    expect(drawn, isNot(contains(' ms')));
+    expect(
+      textOf(tester, const ValueKey('detailsPage1')),
+      contains('trained model · guided · confidence 1.00 · 90 ms'),
+    );
+  });
+
   test('page summary and verdicts', () {
     final s = PageSummary([
       const PageFacts(format: 'jpeg', width: 1000, height: 1500, quality: 60, bytes: 300000),

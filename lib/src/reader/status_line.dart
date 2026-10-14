@@ -29,18 +29,22 @@ class StatusLine extends StatelessWidget {
   /// whose back gesture does the same.
   static bool get showBack => !Platform.isAndroid;
 
-  /// Where guided view is on the page, or why it shows the whole page.
+  /// Where guided view is on the page, or why it shows the whole page. A
+  /// page whose panels were imported (drawn by a large model,
+  /// tool/llm_panels.py) says "guided (drawn)", so a reader can tell them
+  /// from the detector's page by page.
   static String _guided(ReaderState s) {
     final found = s.panels[s.page];
     if (found == null) return 'guided: finding panels…';
+    final guided = found.imported ? 'guided (drawn)' : 'guided';
     final stops = s.stopsOn(s.page);
-    if (stops.isEmpty) return 'guided: whole page (${found.gate.reasons.first})';
+    if (stops.isEmpty) return '$guided: whole page (${found.gate.reasons.first})';
     if (s.panelIndex < 0) {
       return s.panel >= pageEnd
-          ? 'guided: whole page, ${stops.length} panels read'
-          : 'guided: whole page, then ${stops.length} panels';
+          ? '$guided: whole page, ${stops.length} panels read'
+          : '$guided: whole page, then ${stops.length} panels';
     }
-    final panel = 'guided: panel ${s.panelIndex + 1} / ${stops.length}';
+    final panel = '$guided: panel ${s.panelIndex + 1} / ${stops.length}';
     if (!s.balloons) return panel;
     final n = s.balloonsOn(s.page, s.panelIndex).length;
     if (found.balloons.isEmpty) return '$panel  ·  no balloons found';

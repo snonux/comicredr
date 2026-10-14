@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -508,10 +509,15 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
         if (d.balloons > 0) '${d.balloons} balloon${d.balloons == 1 ? '' : 's'}',
         if (d.captions > 0) '${d.captions} caption${d.captions == 1 ? '' : 's'}',
       ].join(', ');
+      // Which source the page's panels came from leads the line. Imported
+      // panels have no confidence or time of their own (1.0 and 0 ms), so
+      // those are left out for them.
+      final drawn = d.found.source == PanelSource.manual;
       how = [
+        _sourceShort(d.found.source),
         d.guided ? 'guided' : 'whole: ${_why(d.panels.gate.reasons.first)}',
-        if (d.confidence != null) 'confidence ${d.confidence!.toStringAsFixed(2)}',
-        '${d.found.millis} ms',
+        if (!drawn && d.confidence != null) 'confidence ${d.confidence!.toStringAsFixed(2)}',
+        if (!drawn) '${d.found.millis} ms',
         if (d.trimmed) 'margins trimmed',
       ].join(' · ');
     }
@@ -537,6 +543,13 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
       onTap: widget.canJump ? () => _leave(_JumpTo(page)) : null,
     );
   }
+
+  /// A page's panel source in a word or two, for its row in the page list.
+  static String _sourceShort(PanelSource source) => switch (source) {
+    PanelSource.manual => 'drawn (imported)',
+    PanelSource.model => 'trained model',
+    PanelSource.classicCv => 'classic CV',
+  };
 
   Widget _heading(String text, {String? note}) => Padding(
     padding: const EdgeInsets.only(top: 18, bottom: 6),

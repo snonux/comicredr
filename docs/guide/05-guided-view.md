@@ -222,6 +222,14 @@ The details of a comic (`I`) say who drew its panels, under
 Code has been tried; with Codex, allow it to write beside your comics
 when it asks, since that is where the sidecars are.
 
+Page by page you can tell drawn panels from the detector's in two
+places. In guided view the status line says `guided (drawn): panel 2 / 6`
+on a page whose panels were drawn, and `guided: panel 2 / 6` on one the
+detector found. In the details (`I`) each page's row in the list of
+pages starts with where its panels came from: "drawn (imported)",
+"trained model" or "classic CV", for example "drawn (imported) ·
+guided" or "trained model · guided · confidence 0.91 · 140 ms".
+
 ### One comic by hand
 
 1. Make the pages and the prompt. This writes each page not done yet
