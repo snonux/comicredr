@@ -435,7 +435,12 @@ Future<ComicReport> readComicReport(WidgetRef ref, OpenBook book) async {
         PageDetection(
           page: page,
           found: found[page]!,
-          panels: PagePanels(found[page]!.frames, found[page]!.balloons, found[page]!.trim),
+          panels: PagePanels(
+            found[page]!.frames,
+            found[page]!.balloons,
+            found[page]!.trim,
+            found[page]!.source == PanelSource.manual,
+          ),
         ),
     ],
   );

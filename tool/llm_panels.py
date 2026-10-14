@@ -55,7 +55,7 @@ IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 SOURCE = "manual"
 MODEL_VER = 1
 # Raise when the drawing rules in PROMPT change, so a record says which rules drew a comic.
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 # panelImportField in lib/src/data/meta_edits.dart.
 RECORD_FIELD = "panelImport"
 RECORD_RUNS = 20
@@ -87,15 +87,31 @@ In this folder, page-NNN.jpg is page NNN of the comic, each with a grid
 drawn over it: a line every 5% of the page's width and height, labelled
 every 10%. The pages to do are {todo}.
 
+What matters most: someone reading the comic in guided view, one panel
+after another, can read it comfortably, misses no panel and no line of
+text, and gets them all in the order the story is told. Every rule below
+serves that; where one would get in its way, that comes first.
+
 For every one of those pages, look at the image and write down:
 - panels: every panel, in the order a reader reads them (left to right, top
-  to bottom; a tall panel beside a stack is read first), as
+  to bottom; a tall panel beside a stack is read first; where the layout
+  leaves the order open, read the words and follow the story: who answers
+  whom, what happens next), as
   [x0, y0, x1, y1]: its left, top, right and bottom edges in percent of the
-  page. A slanted or cut panel may be {"outline": [[x, y], ...]} instead,
-  its corners in percent, going round from the top left one. Borderless art
-  counts as a panel when it is a stop of its own. Panels should not overlap;
-  where art spills over a border, give the border. A cover, a pin-up or a
-  page of text gets "panels": [].
+  page. A panel with any border that is not straight across or straight
+  down (diagonal, slanted, only partly slanted, a cut corner) is
+  {"outline": [[x, y], ...]} instead: its corners in percent, going round
+  from the top left one, with a corner wherever the border bends, so the
+  outline runs along the real border on every side. Borderless art
+  counts as a panel when it is a stop of its own. Where art spills over a
+  border, give the border. But a balloon or caption that belongs to a panel
+  and sticks out over its border is taken in: grow that panel's box (or
+  outline) just enough to hold the whole balloon, even where it then
+  overlaps the next panel, so the reader sees all of its words. A frame
+  inside a frame (an inset, a close-up laid over a big panel): when it is
+  not clear whether it is a stop of its own, give both, the big panel and
+  then the inset right after it, so the reader sees the whole scene and
+  then the detail. Otherwise panels should not overlap. A cover, a pin-up or a page of text gets "panels": [].
 - balloons: speech and thought balloons, and speech written without a
   balloon, as [x0, y0, x1, y1] in percent.
 - captions: narration boxes, kept apart from balloons.
@@ -106,8 +122,9 @@ Write it all to panels.json in this folder, keyed by the page's number:
 
 Then run `python3 {tool} check {book} {work}` and look at
 check/page-NNN.jpg: green boxes are panels with their number, magenta
-balloons, blue captions. Fix any box that does not sit on its edge, and run
-check again until they all do.
+balloons, blue captions. Fix any box or outline that does not sit on its
+border (a panel grown for a balloon: on the balloon's edge), and any balloon
+that sticks out of its panel, and run check again until they all do.
 
 Then put it in the comic's sidecar, naming yourself and your model:
 `python3 {tool} import {book} panels.json --harness "Claude Code" --model claude-opus-5-5`

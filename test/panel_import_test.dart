@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/meta_edits.dart';
@@ -7,6 +8,7 @@ import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/library/library_store.dart';
+import 'package:comicredr/src/reader/guided.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -56,6 +58,14 @@ void main() {
     expect(PanelImportRun.decodeAll(null), isEmpty);
     expect(PanelImportRun.decodeAll('not json'), isEmpty);
     expect(PanelImportRun.decodeAll(MetaEdit.undo(at: DateTime(2026)).encode()), isEmpty);
+  });
+
+  test('imported panels may overlap, a detector\'s may not', () {
+    // The top panel grown to take in a balloon hanging over the one below it, beside an inset.
+    const frames = [Panel(0.05, 0.05, 0.9, 0.5), Panel(0.05, 0.4, 0.9, 0.55), Panel(0.6, 0.45, 0.3, 0.2)];
+    expect(PagePanels(frames).gate.passed, isFalse);
+    expect(PagePanels(frames, const [], Trim.full, true).gate.passed, isTrue);
+    expect(PagePanels(frames, const [], Trim.full, true).stops(rightToLeft: false), frames);
   });
 
   Future<(String, String)> bookWithImport() async {

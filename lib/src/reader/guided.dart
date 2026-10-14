@@ -34,9 +34,11 @@ class PagePanels {
   /// the page, so it knew a two-page spread from a single page. [trim] is
   /// the part of the page the detector looked at; the gate judges the
   /// frames against it, so a wide blank margin does not count as page the
-  /// frames fail to cover.
-  PagePanels(this.frames, [this.balloons = const [], Trim trim = Trim.full])
-    : gate = confidenceGate([for (final f in frames) trim.toTrim(f)]);
+  /// frames fail to cover. [imported] panels, drawn by a large model
+  /// (tool/llm_panels.py), may overlap: an inset sits in its panel, and a
+  /// panel is grown to take in a balloon that sticks out of its frame.
+  PagePanels(this.frames, [this.balloons = const [], Trim trim = Trim.full, bool imported = false])
+    : gate = confidenceGate([for (final f in frames) trim.toTrim(f)], maxOverlap: imported ? double.infinity : 0.15);
 
   final List<Panel> frames;
 

@@ -158,9 +158,10 @@ def _overlap(a, b, pa, pb):
     return float(area)
 
 
-def gate(panels, shapes=None):
+def gate(panels, shapes=None, imported=False):
     """The app's confidence gate (packages/comic_analysis/lib/src/gate.dart).
-    [shapes] holds each panel's outline (N x 2, same coordinates) or None."""
+    [shapes] holds each panel's outline (N x 2, same coordinates) or None.
+    [imported] panels (drawn by a large model) may overlap, as in PagePanels."""
     shapes = shapes or [None] * len(panels)
     reasons, n = [], len(panels)
     if n < 2:
@@ -170,7 +171,7 @@ def gate(panels, shapes=None):
     for i in range(n):
         for j in range(i + 1, n):
             a, b = panels[i], panels[j]
-            if _overlap(a, b, shapes[i], shapes[j]) > 0.15 * min(a[2] * a[3], b[2] * b[3]):
+            if not imported and _overlap(a, b, shapes[i], shapes[j]) > 0.15 * min(a[2] * a[3], b[2] * b[3]):
                 reasons.append(f"panels {i + 1} and {j + 1} overlap")
         if n > 1 and panels[i][2] * panels[i][3] > 0.92:
             reasons.append(f"panel {i + 1} is the whole page")
@@ -353,9 +354,10 @@ def clip(boxes):
 
 
 def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL, shapes=None,
-               keep_order=False):
+               keep_order=False, imported=False):
     """[shapes]: each detected panel's outline on the page (N x 2, 0..1) or None.
-    [keep_order]: score the panels in the order given instead of the app's reading order."""
+    [keep_order]: score the panels in the order given instead of the app's reading order.
+    [imported]: panels drawn by a large model, which the gate lets overlap."""
     found = panels
     panels = clip(panels) if keep_order else reading_order(clip(panels), aspect=aspect)
     pm = match(panels, gt_panels)
@@ -369,7 +371,7 @@ def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotr
             s = shapes[k]
             crop_shapes.append(None if s is None else (s - [trim[0], trim[1]]) / [tw, th])
     # The app judges a trimmed page by the part it detected on.
-    passed, reasons = gate(autotrim.to_crop(panels, trim), crop_shapes)
+    passed, reasons = gate(autotrim.to_crop(panels, trim), crop_shapes, imported)
     story = len(gt_panels) >= 2
     exact = len(pm) == len(panels) == len(gt_panels) and all(i == j for i, j in pm)
     if not story:
@@ -537,11 +539,12 @@ def main():
                 polys = frame_outlines.outlines(d_img, [px(p) for p in panels], [px(b) for b in balloons])
                 tw, th = dt[2] - dt[0], dt[3] - dt[1]
                 shapes = [None if q is None else np.asarray(q) / [dw, dh] * [tw, th] + [dt[0], dt[1]] for q in polys]
-                if d is boxes and d.shapes:
-                    shapes = [s if g is None else np.asarray(g, float) for s, g in zip(shapes, d.shapes)]
+                if d is boxes:
+                    # The app traces no outline round imported panels: only the ones given.
+                    shapes = [None if g is None else np.asarray(g, float) for g in (d.shapes or [None] * len(panels))]
             panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
             res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt, shapes=shapes,
-                             keep_order=d is boxes and a.keep_order)
+                             keep_order=d is boxes and a.keep_order, imported=d is boxes)
             res["outlines"] = sum(q is not None for q in shapes or [])
             score_captions(res, autotrim.to_page(getattr(d, "captions", []), dt), gt["captions"])
             res["ms"] = ms

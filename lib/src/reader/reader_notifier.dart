@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:comic_analysis/comic_analysis.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
@@ -227,7 +228,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
       trim: trim,
       cleanUp: cleanUp,
       panels: {
-        for (final MapEntry(:key, :value) in cached.entries) key: PagePanels(value.frames, value.balloons, value.trim),
+        for (final MapEntry(:key, :value) in cached.entries)
+          key: PagePanels(value.frames, value.balloons, value.trim, value.source == PanelSource.manual),
       },
       marks: marks,
       message: at != null
