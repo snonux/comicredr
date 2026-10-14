@@ -1,0 +1,2 @@
+* Guided view says "guided (drawn)" on pages whose panels a large AI model drew.
+* The details (I) show each page's panel source: drawn, trained model or classic CV.

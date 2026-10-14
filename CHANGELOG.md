@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.1
+
+- **Which pages have drawn panels, page by page.** In guided view the
+  status line says `guided (drawn)` on a page whose panels were drawn by
+  a large AI model and imported (`tool/llm_panels.py`), and plain
+  `guided` on one the built-in detector found. In the details (`I`) each
+  page's row starts with where its panels came from: drawn (imported),
+  trained model or classic CV.
+
 ## 0.9.0
 
 - **`ge` goes to the last page**, as in Helix, beside `G` and `End`;
