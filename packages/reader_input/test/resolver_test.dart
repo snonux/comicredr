@@ -163,6 +163,7 @@ void main() {
     expect(press('g'), isNull);
     expect(r.pendingDisplay, 'g');
     expect(press('g'), const ReaderCommand(ReaderIntent.firstPage));
+    expect(type('ge'), const ReaderCommand(ReaderIntent.lastPage));
     expect(type('zw'), const ReaderCommand(ReaderIntent.fitWidth));
     expect(type('zz'), const ReaderCommand(ReaderIntent.fitPage));
   });

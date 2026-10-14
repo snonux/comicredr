@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+- **`ge` goes to the last page**, as in Helix, beside `G` and `End`;
+  `gg` and `Home` go to page 1 and `G12` to page 12. The `?` help says so
+  on its First page and Last page lines, and the guide's "Going to a
+  page" puts the three together.
 - **Fit width by a swipe down:** on a phone or touchscreen, a swipe down
   on the page fits it to the width (outside guided view), fullscreen or
   not; at the top of a page fitted to the width it brings the whole page

@@ -40,7 +40,7 @@ in that folder.
 | `→` `Space` `l` | Next page (next panel in guided view) |
 | `←` `Shift+Space` `h` | Previous page |
 | `PageDown` `PageUp` (or `Ctrl+f` `Ctrl+b`) | Next or previous page, even in guided view |
-| `Home` `End` (or `gg` `G`) | First or last page |
+| `Home` `End` (or `gg` `G`, or `gg` `ge`) | First or last page |
 | `G12` | Page 12: `G`, then the number (Enter or a short pause ends it) |
 | `]` `[` | Next or previous book in the series (or in the same folder) |
 | `Esc` | Back to the library |
@@ -61,7 +61,22 @@ It acts on the comic and page shown when you press it. For example, press
 `gC` on page 1, then jump to the last page while the library is busy:
 page 1's comic is marked completed.
 
-## Back to the first page
+## Going to a page
+
+Three keys take you anywhere in a comic, the way Helix and vi move
+through a file:
+
+| Key | Goes to |
+|---|---|
+| `gg` or `Home` | page 1 |
+| `G`, `ge` or `End` | the last page |
+| `G12` | page 12: `G`, then the page number |
+
+The number ends with `Enter`, a short pause (half a second) or the next
+key; the status line shows `G12` while you type it, and `Esc` drops it.
+`G` alone waits that half second for a number, so `End` and `ge` are the
+quicker ways to the last page. In the `?` help these are the **First
+page** and **Last page** lines; type `/` and `page` to find them.
 
 `Home` (or `gg`, two quick presses of `g`) takes you straight to page 1
 from anywhere in the comic; `End` (or `G`) goes to the last page. Guided

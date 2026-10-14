@@ -55,6 +55,7 @@ class Keymap {
       Binding(['C-u'], ReaderIntent.halfPageUp),
       Binding(['g', 'g'], ReaderIntent.firstPage),
       Binding(['G'], ReaderIntent.lastPage),
+      Binding(['g', 'e'], ReaderIntent.lastPage),
       Binding(['Home'], ReaderIntent.firstPage, layer: s),
       Binding(['End'], ReaderIntent.lastPage, layer: s),
       Binding(['p'], ReaderIntent.pageGrid),
