@@ -93,6 +93,9 @@ class TouchMap {
       TouchGesture.twoFingerTap: [ReaderIntent.pickPart],
       // Pulls up the menu of everything the buttons leave out.
       TouchGesture.swipeUp: [ReaderIntent.openMenu],
+      // Fits the width, and at the top of a page fitted to it the whole page
+      // again: a swipe counts only where the drag scrolled nothing.
+      TouchGesture.swipeDown: [ReaderIntent.toggleFitWidth],
     };
     return TouchMap({
       TouchGesture.tap: switch (preset) {

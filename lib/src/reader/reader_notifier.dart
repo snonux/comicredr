@@ -1407,6 +1407,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.scrollSmoother:
       case ReaderIntent.scrollCrisper:
       case ReaderIntent.fitWidth:
+      case ReaderIntent.toggleFitWidth:
       case ReaderIntent.fitHeight:
       case ReaderIntent.fitPage:
       case ReaderIntent.zoomIn:

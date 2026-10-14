@@ -62,7 +62,9 @@ Android 7–10 uses a permission dialog instead (Android 10 shown here):
   fit width (outside guided view), the page grid, a bookmark here, your
   bookmarks and ⋮, [the menu](08-touch.md#the-menu-everything-without-a-keyboard).
   Fit width fills the screen's width with the page and one finger
-  scrolls it; tap it again for the whole page. Fullscreen is a tap in
+  scrolls it up and down only; tap it again for the whole page. A swipe
+  down on the page does the same in fullscreen, and a swipe down at the
+  page's top brings the whole page back. Fullscreen is a tap in
   the middle of the page. See [Touch](08-touch.md) for the gestures.
 - Everything the laptop does with a key is in the menu: favourites,
   completed, collections, the next comic, the first and last page, two

@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Fit width by a swipe down:** on a phone or touchscreen, a swipe down
+  on the page fits it to the width (outside guided view), fullscreen or
+  not; at the top of a page fitted to the width it brings the whole page
+  back. `zf` does the same from the keyboard. Fitted to the width, one
+  finger scrolls up and down only (a test now holds it), and a swipe
+  sideways turns the page.
+- **Fixed:** a page turned soon after a scroll or a drag opened scrolled
+  down to where the page before had been left, since the drag's glide
+  went on over the new page. Each new page now starts at its top.
 - **Panels for the whole library from a large AI model:** open Claude Code
   or Codex in the ComicRedr folder and ask it to follow AGENTS.md and draw
   your comics' panels and balloons. `tool/llm_panels.py library` lists the

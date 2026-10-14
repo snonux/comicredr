@@ -76,6 +76,10 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
       if (map.action(g) case final i?) '${g.label}: ${label(i)}.',
   ];
   final zoom = zonesOf(map, TouchGesture.doubleTap, ReaderIntent.zoomToggle);
+  final fit = [
+    for (final g in const [TouchGesture.swipeDown, TouchGesture.swipeUp])
+      if (map.action(g) == ReaderIntent.toggleFitWidth) g.label,
+  ].firstOrNull;
   final holds = [
     for (final i in {...map.actions(TouchGesture.longPress).nonNulls})
       'Hold a finger on ${zonesOf(map, TouchGesture.longPress, i)}: ${label(i)}.',
@@ -113,6 +117,9 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
         'Pinch with two fingers to zoom in and out.',
         if (zoom != null) 'Double-tap $zoom to zoom in on that spot, and again to zoom out.',
         'On a zoomed page one finger moves it around.',
+        if (fit != null)
+          '$fit on the page fits it to the width, where one finger scrolls up and down only; $fit at its top '
+              'for the whole page again.',
       ].join(' '),
       motion: GuideMotion.pinch,
     ),

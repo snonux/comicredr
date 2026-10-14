@@ -19,6 +19,7 @@ own gestures are the same on all of them.
 | Drag with one finger | Move around a zoomed page, a page fitted to the width, or a panel in guided view |
 | Hold a finger on the middle | [The time](04-reading.md#what-time-is-it) |
 | Swipe up on the page | [The menu](#the-menu-everything-without-a-keyboard), with everything the buttons leave out |
+| Swipe down on the page | Fit the width, outside guided view; one finger then scrolls up and down only, and a swipe down at the top of the page brings the whole page back |
 | Tap with two fingers | [Enlarge a part of the page](04-reading.md#by-touch): pick a half, third, strip or quarter, then tap the edges to go part by part |
 | Drag along the progress bar | Preview pages, and let go to jump |
 | Pinch the page grid | Bigger or smaller pages; drag to scroll, tap one to go there |
@@ -31,8 +32,8 @@ menu; on a wider screen also the comic's details, two pages side by
 side, the parts of a page and fullscreen. On Android, the back gesture
 works like `Esc`: it leaves guided view, then the book. On Linux the
 status line starts with a back arrow that does the same. In fullscreen,
-tap the middle first to bring the status line back, or swipe up for the
-menu.
+tap the middle first to bring the status line back, swipe up for the
+menu, or swipe down for fit width.
 
 In the library, on a wide screen, tap a cover to pick it and tap it
 again to open it. On a narrower one (a phone, a tablet held upright, a

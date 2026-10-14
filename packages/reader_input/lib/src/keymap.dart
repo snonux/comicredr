@@ -78,6 +78,7 @@ class Keymap {
       Binding(['z', 'w'], ReaderIntent.fitWidth),
       Binding(['z', 'h'], ReaderIntent.fitHeight),
       Binding(['z', 'z'], ReaderIntent.fitPage),
+      Binding(['z', 'f'], ReaderIntent.toggleFitWidth),
       Binding(['+'], ReaderIntent.zoomIn, layer: s),
       Binding(['-'], ReaderIntent.zoomOut, layer: s),
       Binding(['='], ReaderIntent.zoomReset, layer: s),

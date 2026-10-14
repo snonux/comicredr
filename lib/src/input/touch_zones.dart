@@ -36,6 +36,8 @@ String touchLabel(ReaderIntent intent, {bool rightToLeft = false}) {
       return 'Library';
     case ReaderIntent.pickPart:
       return 'Page parts';
+    case ReaderIntent.toggleFitWidth:
+      return 'Fit width';
     default:
       // The description up to its first clause, which names the action.
       final d = intent.description.split(RegExp('[,;]')).first;

@@ -120,6 +120,9 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
   /// selves: the camera stays where it is, though their size in pixels,
   /// and so the fitted size by a hair, changed.
   bool _keepView = false;
+
+  /// The InteractiveViewer's key, bumped for each new page.
+  int _viewerGeneration = 0;
   bool _measuring = false;
   int _request = 0;
   Fit _fit = Fit.page;
@@ -292,6 +295,9 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
             _cameraKey = null; // A new page: the camera jumps rather than glides.
             _focus = null;
             _transform.value = Matrix4.identity();
+            // A fresh viewer, so a drag's inertia on the page before stops
+            // here: it went on moving the new page to the old one's scroll.
+            _viewerGeneration++;
           }
         });
         _disposeImages(old);
@@ -397,6 +403,12 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         _recentre(); // zz re-centres the panel in guided view.
       case ReaderIntent.fitWidth:
         _setFit(Fit.width);
+      // Guided view frames panels and has no fit (a flick down there is no
+      // reason to leave it).
+      case ReaderIntent.toggleFitWidth when guided:
+        return true;
+      case ReaderIntent.toggleFitWidth:
+        _setFit(_fit == Fit.width && _scale <= 1.01 ? Fit.page : Fit.width);
       case ReaderIntent.fitHeight:
         _setFit(Fit.height);
       case ReaderIntent.fitPage:
@@ -1149,6 +1161,7 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
         }
         final child = _childSize;
         return InteractiveViewer(
+          key: ValueKey(_viewerGeneration),
           transformationController: _transform,
           constrained: false,
           minScale: s.guided ? 0.5 : 1,

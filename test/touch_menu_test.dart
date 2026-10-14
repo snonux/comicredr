@@ -94,6 +94,7 @@ void main() {
     ReaderIntent.zoomToggle: 'double-tap the middle',
     ReaderIntent.showTime: 'hold the middle',
     ReaderIntent.pickPart: 'two-finger tap',
+    ReaderIntent.toggleFitWidth: 'swipe down; the Fit width button',
     ReaderIntent.nextPage: 'swipe outside guided view; the page grid',
     ReaderIntent.prevPage: 'swipe outside guided view; the page grid',
     ReaderIntent.panDown: 'one finger moves a zoomed page',
@@ -143,6 +144,7 @@ void main() {
     // The keys that only spelled a touch way out above are really gestures.
     final standard = TouchMap.preset(TouchPreset.standard);
     expect(standard.action(TouchGesture.swipeUp), ReaderIntent.openMenu);
+    expect(standard.action(TouchGesture.swipeDown), ReaderIntent.toggleFitWidth);
     expect(standard.action(TouchGesture.twoFingerTap), ReaderIntent.pickPart);
     expect(standard.action(TouchGesture.longPress, TouchZone.middle), ReaderIntent.showTime);
     expect(standard.action(TouchGesture.doubleTap, TouchZone.middle), ReaderIntent.zoomToggle);
@@ -199,6 +201,8 @@ void main() {
     expect(standard, contains('Tap the right edge: next.'));
     expect(standard, contains('Tap the middle: status line.'));
     expect(standard, contains('Swipe up: menu.'));
+    expect(standard, contains('Swipe down: fit width.'));
+    expect(standard, contains('Swipe down on the page fits it to the width'));
     expect(standard, contains('Double-tap the middle to zoom in'));
     expect(standard, contains('Hold a finger on the middle: time.'));
     expect(standard, contains('Tap with two fingers to pick a half'));
@@ -210,9 +214,11 @@ void main() {
     final bare = TouchMap.preset(TouchPreset.standard).withOverrides({
       TouchGesture.swipeUp: [null],
       TouchGesture.twoFingerTap: [null],
+      TouchGesture.swipeDown: [null],
     });
     final steps = guideSteps(bare, android: true);
     expect(steps.map((s) => s.title), isNot(contains('Two fingers')));
+    expect(all(steps), isNot(contains('fits it to the width')));
     expect(all(steps), contains('Tap ⋮ for the menu.'));
     expect(zonesOf(bare, TouchGesture.tap, ReaderIntent.openMenu), isNull);
   });

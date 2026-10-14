@@ -43,6 +43,7 @@ enum ReaderIntent {
   fitWidth('Fit width'),
   fitHeight('Fit height'),
   fitPage('Fit whole page; re-centre the panel in guided view'),
+  toggleFitWidth('Fit width, or the whole page when fitted to the width; one finger then scrolls up and down only'),
   zoomIn('Zoom in; bigger pages in the page grid, bigger covers in the library, bigger text in the ? help'),
   zoomOut('Zoom out; smaller pages in the page grid, smaller covers in the library, smaller text in the ? help'),
   zoomReset('Reset zoom; the usual size in the page grid, the library and the ? help'),

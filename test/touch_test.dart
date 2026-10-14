@@ -199,6 +199,47 @@ void main() {
     expect(button, findsNothing);
   });
 
+  testWidgets('a swipe down fits the width; there one finger scrolls up and down only', (tester) async {
+    final c = await openBook(tester);
+    ReaderViewState v() => tester.state<ReaderViewState>(find.byType(ReaderView));
+    final r = view(tester);
+    await swipe(tester, r.center - const Offset(0, 150), const Offset(0, 300));
+    expect(v().spot.fit, 'width');
+    expect(c.read(viewFitProvider), Fit.width);
+    expect(c.read(readerProvider).page, 0);
+    // A drag aslant: the page goes up, never sideways.
+    final before = v().transform.getTranslation();
+    await swipe(tester, r.center, const Offset(-120, -160));
+    final after = v().transform.getTranslation();
+    expect(after.y, lessThan(before.y));
+    expect(after.x, before.x);
+    expect(c.read(readerProvider).page, 0);
+    // A page turned by key while the drag's inertia still runs starts at
+    // its top too, and back again.
+    await swipe(tester, r.center, const Offset(0, -100));
+    await c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.nextStep));
+    await settle(tester);
+    expect(v().transform.getTranslation().y, 0, reason: 'the next page starts at its top');
+    await c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.prevStep));
+    await settle(tester);
+    await swipe(tester, r.center, const Offset(0, -160));
+    // A swipe sideways turns the page, as on a page that fits, and the
+    // next page starts at its top, still fitted to the width.
+    await swipe(tester, r.center + const Offset(100, 0), const Offset(-300, 0));
+    expect(c.read(readerProvider).page, 1);
+    expect(v().spot.fit, 'width');
+    expect(v().transform.getTranslation().x, 0);
+    expect(v().transform.getTranslation().y, 0, reason: 'the next page starts at its top');
+    // A swipe down scrolls back up while there is page above; at the top it
+    // brings the whole page back.
+    await swipe(tester, r.center, const Offset(0, -200));
+    await swipe(tester, r.center - const Offset(0, 150), const Offset(0, 300));
+    expect(v().spot.fit, 'width', reason: 'the swipe scrolled the page back to its top');
+    expect(v().transform.getTranslation().y, 0);
+    await swipe(tester, r.center - const Offset(0, 150), const Offset(0, 300));
+    expect(v().spot.fit, 'page');
+  });
+
   testWidgets('a touchpad pinch zooms', (tester) async {
     await openBook(tester);
     final m = view(tester).center;

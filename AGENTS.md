@@ -735,7 +735,15 @@ refreshes right away instead of within six hours.
   only when the drag moved nothing along it. The status line's
   `fitButton` (outside guided view; left out below 600 dp when the back
   arrow is there, for room) sends `fitWidth`, or `fitPage` when the fit
-  is width, which ReaderView tells it through `viewFitProvider`.
+  is width, which ReaderView tells it through `viewFitProvider`. A swipe
+  down is `toggleFitWidth` (`zf`) in every preset: fit width, or the
+  whole page when fitted to the width and not zoomed; nothing in guided
+  view. Since a swipe counts only where the drag moved nothing, it scrolls
+  a page fitted to the width back up first and gives the whole page at
+  the top. Fitted to the width one finger cannot move sideways (the child
+  is the screen's width at scale 1); a pinch frees it. Each new page gets
+  a new InteractiveViewer (`_viewerGeneration`): the old one's inertia
+  went on moving the new page to the old one's scroll.
   Nothing in it is per platform: Flutter's Linux engine turns GTK touch
   events into touch pointers (`FlTouchManager`; the view selects
   `GDK_TOUCH_MASK`, which `tool/touch_inject.c` reports), so a Linux
@@ -1511,6 +1519,7 @@ tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided v
 tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 2 s (then 5 s, set in the index) turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
 tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, page grid held and selection kept across both toggles, Esc, restart; makes its own book
 tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
+tool/e2e_fit_width.sh        # touch alone in fullscreen: a swipe down fits the width, a drag aslant scrolls only down, a swipe sideways turns to a page that starts at its top, a swipe down at the top gives the whole page, a pinch frees sideways moves; reads the view from the index with sqlite3; makes its own book
 tool/e2e_touch_menu.sh       # touch alone: ⋮ on the status line and a swipe up open the menu, its lines turn the comic and make it a favourite (index), the tutorial from the menu paged through and closed, the library header's ⋮ opens the sort; makes its own books
 tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library

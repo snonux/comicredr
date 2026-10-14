@@ -165,6 +165,7 @@ direction) opens that way by itself.
 | `=` | Undo the zoom: back to the fit you picked (the whole page, unless you chose `zw` or `zh`) |
 | `Z` | Zoom in on the middle of the screen, or back out |
 | `zw` `zh` `zz` | Fit the width, the height, or the whole page; remembered for the comic, and a new comic starts with the fit you last used |
+| `zf` | Fit the width, or the whole page again when the page already fits the width |
 | `j` `k` (or `↓` `↑`) | Move down and up a zoomed page |
 | `←` `→` | Move left and right across a zoomed page, then turn the page from its edge |
 
@@ -172,8 +173,13 @@ With the mouse, drag a zoomed page to move around. On a touchscreen,
 pinch with two fingers to zoom, drag with one finger to move, and
 double-tap the middle to zoom in on that spot. Without a keyboard, the
 status line's **Fit width** button does `zw`: the page fills the width
-of the screen and one finger scrolls it up and down. Tap it again for
-the whole page, as `zz` does. A zoomed page stays sharp: ComicRedr
+of the screen and one finger scrolls it up and down, never sideways, so
+a page turns with a swipe left or right as usual. Tap it again for the
+whole page, as `zz` does. A swipe down on the page does the same in
+fullscreen, where the status line is hidden: swipe down for fit width,
+and swipe down again at the top of the page for the whole page (lower
+down, a swipe down scrolls back up first). Pinch to zoom further in and
+one finger moves the page every way again. A zoomed page stays sharp: ComicRedr
 redraws the part you look at in full detail.
 
 ### Smooth scrolling
