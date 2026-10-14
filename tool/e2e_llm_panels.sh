@@ -4,8 +4,9 @@
 # here: two pages of four bordered panels in a 2x2 grid, red, green, blue
 # and yellow in reading order, which classic CV finds exactly. The
 # panels.json given to the tool lists page 1's panels backwards (yellow,
-# blue, green, red) and page 2 as having none, so which panel guided view
-# frames first tells whose panels it uses.
+# blue, green, red), yellow grown into green as for a balloon that sticks
+# out, and page 2 as having none, so which panel guided view frames first
+# tells whose panels it uses, and that overlapping imported panels guide.
 #
 #   tool/e2e_llm_panels.sh
 #
@@ -50,6 +51,9 @@ with zipfile.ZipFile(f'{sys.argv[1]}/Imported.cbz', 'w') as z:
 # What an agent would write: percent of the page, panels in its own order.
 pct = lambda x, y: [round(x / 6, 2), round(y / 9, 2), round((x + 259) / 6, 2), round((y + 409) / 9, 2)]
 panels = [pct(*corners[k]) for k in (3, 2, 1, 0)]
+# Yellow grown up into green's bottom (69 px of its 409), as for a balloon hanging over the border: the
+# detector's gate would refuse an overlap that big and show the page whole; imported panels may overlap.
+panels[0][1] = round(370 / 9, 2)
 json.dump({"pages": {"1": {"panels": panels, "balloons": [[10, 8, 30, 14]], "captions": [[55, 5, 80, 9]]},
                      "2": {"panels": []}}}, open(f'{sys.argv[1]}/panels.json', 'w'))
 EOF2
@@ -117,10 +121,11 @@ EOF2
 }
 size() { boxes "$2" | awk -v c="$1" '$1 == c {print $4 > $5 ? $4 : $5}'; }
 # The colour framed in shot $1: the one far bigger than a quarter of a page
-# shown whole, or "whole" when all four show at about the same size.
+# shown whole (a grown panel framed shows some 560 px tall), or "whole" when
+# all four show at about the same size (some 350 px).
 framed_in() {
   boxes "$1" | awk '{s[$1] = ($4 > $5 ? $4 : $5); n++}
-    END {best = ""; for (k in s) if (s[k] > 600) best = k
+    END {best = ""; for (k in s) if (s[k] > 480 && (best == "" || s[k] > s[best])) best = k
          if (best == "" && s["red"] > 100 && s["yellow"] > 100) best = "whole"; print best}'
 }
 # Steps with l until a panel is framed, at most 3 steps (whole-page steps
@@ -130,6 +135,7 @@ first_framed() {
   for n in 0 1 2 3; do
     [[ $n -gt 0 ]] && key l
     shot "$1"
+    cp "$out/$1.png" "$out/$1_step$n.png"
     f=$(framed_in "$1")
     [[ $f != whole && -n $f ]] && { echo "$f"; return 0; }
   done

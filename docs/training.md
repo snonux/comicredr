@@ -9,6 +9,11 @@ of your own, and the notes of every run so far, are in
 [comicredr-training-assets](https://github.com/snonux/comicredr-training-assets)
 (its TRAINING.md), checked out beside this repository.
 
+Not this page: having a large AI model (Claude, Codex) draw the panels
+and balloons of your own comics. That trains nothing; it writes each
+comic's sidecar, which the app then prefers over this detector. See
+[llm-panels.md](llm-panels.md) and the top of [AGENTS.md](../AGENTS.md).
+
 ## Which model to train, and how
 
 There is one model to train for the app: D-FINE-S, started from its COCO

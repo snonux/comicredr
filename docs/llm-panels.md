@@ -134,6 +134,23 @@ and high effort bought nothing, so the tool keeps its prompt
 the gate refusing a drawing: an inset overlapping its panel, or panels
 covering half the page.
 
+Round 2 (2026-10-14, prompt version 2, snonux's rules): snonux looked
+at the nine pages and found Claude mostly right; what he did miss was
+balloons sticking out of their panel, cut off by the camera. The prompt
+now puts comfortable reading first (no panel or line missed, the story's
+order), grows a panel to hold its own balloons even across the next
+panel, lets the words settle an open order, follows diagonal and
+half-diagonal borders with outlines, and gives a big panel and its inset
+as two stops when unsure. The app's confidence gate lets imported panels
+overlap, since grown frames and insets do. Four fresh sessions, ten pages
+each, redrew the 40 pages: 27 / 0 / 13 against the old labels, which is
+expected, since the new rules draw differently from them on purpose
+(grown frames, insets twice, text boxes kept so no text is missed).
+snonux judged the drawings side by side and was happy with them
+(`/mnt/project-files/comicredr-llm-panels/round2/` in the project). One
+lesson: a single session drawing all 40 pages hit Claude Code's image
+limit; ten pages a session did not.
+
 Caveats: one model's judgement on 40 pages, not a blind test. The page
 list used to pick them showed the labelled panel counts, and one page's
 labels were seen while checking the scoring (its answer was left as it

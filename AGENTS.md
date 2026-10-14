@@ -13,12 +13,20 @@ it.
 ## Drawing the library's panels with a large model
 
 When the person asks you (Claude Code, Codex or another agent that can
-look at images) to draw the panels and balloons of their comics, or to
-"do the library", follow these steps. You look at every page yourself;
-nothing is sent anywhere else. The built-in detector stays the default:
-what you draw is kept in each comic's sidecar and used on the pages you
-did. It costs your model's usage: about half a minute and, at API
-prices, 3 to 5 US cents a page (docs/llm-panels.md).
+look at images) to draw the panels and balloons of their comics, to
+"detect the frames and bubbles", or to "do the library", follow these
+steps. You look at every page yourself; nothing is sent anywhere else.
+
+**This is not training.** Nothing learns and no model file changes: you
+draw each page's frames, balloons and captions once and they are written
+into that comic's sidecar (`.crdb`), where the app reads them instead of
+running its detector on those pages. The built-in detector
+(`assets/models/comicredr-panels.onnx`) stays the default for every
+other comic and page. Training that detector is a different job, done
+with `make train-model` and described in "Train the detector" below and
+in [docs/training.md](docs/training.md); do not start it when asked to
+draw panels. It costs your model's usage: about half a minute and, at
+API prices, 3 to 5 US cents a page (docs/llm-panels.md).
 
 1. Find the comics and what is left to do. Python 3 with Pillow is
    needed, and pypdfium2 for PDFs (`python3 -m pip install --user pillow
@@ -47,8 +55,8 @@ prices, 3 to 5 US cents a page (docs/llm-panels.md).
    Read `WORK/PROMPT.md` and do what it says: look at each
    `WORK/page-NNN.jpg` (Claude Code: the Read tool; Codex: its image
    viewer, `view_image`), write `WORK/panels.json`, run the `check` it
-   names and look at `WORK/check/page-NNN.jpg`, fix what is off, then
-   import, naming yourself and your model:
+   names and look at every `WORK/check/page-NNN.jpg`, fix what is off,
+   then import, naming yourself and your model:
 
    ```sh
    python3 tool/llm_panels.py import "BOOK" WORK/panels.json --harness "Claude Code" --model claude-opus-5-5
@@ -57,14 +65,45 @@ prices, 3 to 5 US cents a page (docs/llm-panels.md).
 
    Then `pages` again for the next 10, until it says every page is
    done. A comic stopped half way goes on where it was: done pages are
-   read from its sidecar. `--pages 3,7-9` redoes chosen pages with
-   `--all`. If the comic is open in the app meanwhile, the app uses the
-   new panels the next time it opens it.
+   read from its sidecar. `pages "BOOK" WORK --all --pages 3,7-9` redoes
+   chosen pages. Every page image and check image stays in your context,
+   so a long run can hit your harness's image limit (seen with Claude
+   Code at about 80 images): give each batch, or each comic, a fresh
+   session or subagent when you can. If the comic is open in the app
+   meanwhile, the app uses the new panels the next time it opens it.
 
 4. When done, tell the person which comics now have drawn panels and
    that the app uses them the next time each comic opens. The comic's
    details (`I`) show who drew them ("Drawn by"); `X` → Redo panels goes
    back to the built-in detector for a comic.
+
+What to draw (PROMPT.md has the full wording, snonux 2026-10-14). First
+of all, someone reading in guided view, one panel after another, must
+read the comic comfortably, miss no panel and no line of text, and get
+them in the story's order. So:
+
+- Frames in reading order; where the layout leaves the order open, the
+  words and the story decide (who answers whom, what happens next).
+- A balloon or caption that belongs to a panel and sticks out over its
+  border grows that panel's box or outline to hold it, even if it then
+  overlaps the next panel.
+- A border that is not straight across or down (diagonal, half
+  diagonal, a cut corner) is an outline along the real border.
+- A frame inside a frame (an inset), when unsure: both, the big panel
+  first and the inset right after it.
+- Speech and thought balloons, and speech without a balloon, as
+  balloons; narration boxes as captions; no sound effects or signs.
+
+What `import` writes into the comic's sidecar (and nothing else): for
+each page, an `analysed_pages` row with source `manual`, model version 1,
+and `panels` rows of kind `frame` (in the order given, `shape` holding an
+outline), `balloon` and `caption`; and an overrides row `panelImport`
+with the run (harness, model, prompt version, pages, time). The app
+prefers `manual` rows over its detector page by page, keeps their order,
+lets them overlap (the confidence gate's overlap rule is off for them),
+skips captions in balloon mode, and carries all of it like any sidecar
+data (copies, S3, settings export). To look at what is there:
+`sqlite3 '.book.cbz.crdb' "select page, idx, kind, x, y, w, h from panels where source='manual'"`.
 
 Rules: never change a comic file; write only through `import` (it checks
 the sidecar belongs to the comic and keeps everything else in it). The
@@ -1179,7 +1218,10 @@ refreshes right away instead of within six hours.
   `panelImport` (`panelImportField` in meta_edits.dart: harness, model,
   prompt version, pages, time), kept, merged and exported like the
   completed mark, shown as "Drawn by" in `ComicDetails`, and dropped by
-  Redo panels (`SidecarSync.reset`) with the panels. `pages` skips pages
+  Redo panels (`SidecarSync.reset`) with the panels. `PagePanels(...,
+  imported)` (true for source `manual`) turns the gate's overlap rule off,
+  since grown frames and insets overlap by design; `evaluate.py --boxes`
+  does the same and traces no outline round them. `pages` skips pages
   with `manual` rows in the sidecar, which is what makes a run resumable;
   raise `PROMPT_VERSION` in the tool when the drawing rules change. Kind `caption` exists only in imported rows;
   `balloonsIn` skips it. `X` → Redo panels deletes them with the rest.
@@ -1568,7 +1610,7 @@ tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF
 tool/e2e_sidebar_keys.sh    # sidebar focus, underlined letters, context isolation, arrows and Tab exits; makes its own books
 tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
-tool/e2e_llm_panels.sh        # tool/llm_panels.py library, pages, check and import into the sidecar the app wrote: library and pages see what is done, guided view follows the imported order, a page given none is whole, rows and the run's record kept across the app's own sidecar writes and a restart, details (I) show it, X Redo panels drops both; makes its own book
+tool/e2e_llm_panels.sh        # tool/llm_panels.py library, pages, check and import into the sidecar the app wrote: library and pages see what is done, guided view follows the imported order (a panel grown into its neighbour, which the detector's gate would refuse, included), a page given none is whole, rows and the run's record kept across the app's own sidecar writes and a restart, details (I) show it, X Redo panels drops both; makes its own book
 tool/e2e_page_jumps.sh        # gg Home, G ge End, G12 ended by Enter, a pause or the next key, Esc dropping it, G99 past the end; the ? help searched for first and last page; reads the page from the index with sqlite3; makes its own book
 tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, L1-L4, Q1-Q4 and 11/00/21-54 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; then by touch alone, the parts picker (two-finger tap, a part, edge taps, Stop parts); reptisaurus-v2-005 page 3
 tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
@@ -1657,7 +1699,10 @@ carries a per-style summary.
 ## Train the detector
 
 The full recipe, for people and agents alike, is
-[docs/training.md](docs/training.md): which model to train and how (only
+[docs/training.md](docs/training.md). Not to be mixed up with drawing a
+library's panels with a large model (the section at the top): that writes
+each comic's sidecar and trains nothing; this builds the model file every
+comic uses. Training covers which model to train and how (only
 a fresh `make train-model` ships; `FROM=` runs are tests), how the shipped
 model was trained, comparing models and when one is better, the licence
 rules, adding books and labels, and shipping. The notes below add the

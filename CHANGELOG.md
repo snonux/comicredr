@@ -59,6 +59,11 @@ the `?` overlay.
   (harness, model, prompt version, pages, date), and its details (`I`)
   show it as "Drawn by"; Redo panels drops it with the panels. The
   built-in detector stays the default (guide, "Your whole library").
+  The model is told to put comfortable reading first: a panel is drawn
+  big enough to hold its own balloons where they stick out, the words
+  settle an unclear order, slanted borders are followed, and an inset is
+  a stop of its own after its big panel; guided view now lets such
+  panels overlap instead of showing the page whole.
 - **Everything by touch:** a menu (⋮ at the end of the status line and
   of the library's header, a swipe up on the page, or `F10`) has every
   action the keys have and the buttons leave out: favourite, completed,
