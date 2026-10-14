@@ -82,12 +82,14 @@ class BackgroundDocument implements ComicDocument {
 }
 
 /// [readBookInfo] off the calling isolate: a PDF on the isolate every PDF
-/// shares (see [BackgroundDocument]), anything else on a short-lived one.
-Future<BookInfo> readBookInfoInBackground(String path, {required String coverDir}) async {
+/// shares (see [BackgroundDocument]), with its cover, which PDFium renders
+/// at the cover's size; anything else on a short-lived one, leaving the
+/// cover to the caller unless [makeCover].
+Future<BookInfo> readBookInfoInBackground(String path, {required String coverDir, bool makeCover = true}) async {
   if (_isPdf(path)) {
     return await (await _Host.shared()).call(_Op.info, path: path, coverDir: coverDir) as BookInfo;
   }
-  return Isolate.run(() => readBookInfo(path, coverDir: coverDir));
+  return Isolate.run(() => readBookInfo(path, coverDir: coverDir, makeCover: makeCover));
 }
 
 /// Whether [path] is a PDF; a file that cannot be read is left for the

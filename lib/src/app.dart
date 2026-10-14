@@ -47,6 +47,7 @@ import 'reader/region.dart';
 import 'reader/reset_dialog.dart';
 import 'reader/scroll_speed.dart';
 import 'reader/status_line.dart';
+import 'timing.dart';
 import 'touch_guide.dart';
 import 'undo_notice.dart';
 
@@ -120,6 +121,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   StreamSubscription<S3Notice>? _s3Notices;
   String _pending = '';
   bool _showKeymap = false;
+
+  /// The library under the reader as last built, and what it was built
+  /// for (a comic open, the keys typed so far): the same widget again tells
+  /// Flutter to leave the library alone, which otherwise relaid it out on
+  /// every step of the reader, some half of each frame's time.
+  Widget? _libraryWidget;
+  (bool, String)? _libraryFor;
 
   /// The page grid (`p`) is open over the reader.
   bool _showPages = false;
@@ -305,7 +313,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       await _watch?.cancel();
       _watch = await scanner.watch();
-      await scanner.scan();
+      await timed('scan', scanner.scan);
     } catch (e) {
       debugPrint('Library scan failed: $e');
     }
@@ -1314,10 +1322,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 extension on _HomeScreenState {
   /// The library, which stays built under the reader, so Esc comes back
   /// to the same tab, search and cover.
-  Widget _libraryUnder(ReaderState s) => Offstage(
-    offstage: s.book != null,
+  Widget _libraryUnder(ReaderState s) {
+    final open = s.book != null;
+    final pending = open ? '' : _pending;
+    if (_libraryFor == (open, pending)) return _libraryWidget!;
+    _libraryFor = (open, pending);
+    return _libraryWidget = _libraryBuilt(open: open, pending: pending);
+  }
+
+  Widget _libraryBuilt({required bool open, required String pending}) => Offstage(
+    offstage: open,
     child: TickerMode(
-      enabled: s.book == null,
+      enabled: !open,
       child: LibraryScreen(
         key: _library,
         onAddRoot: _addRoot,
@@ -1332,7 +1348,7 @@ extension on _HomeScreenState {
         // Also what puts a folder taken out with gA back (its Undo).
         onRescan: _rescan,
         keysFocus: _keys,
-        pending: s.book == null ? _pending : '',
+        pending: pending,
       ),
     ),
   );

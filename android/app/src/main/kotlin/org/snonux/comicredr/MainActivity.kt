@@ -64,6 +64,9 @@ class MainActivity : FlutterActivity() {
                         type = "*/*"
                     }, result)
                     "pickFolder" -> pick(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), result)
+                    // When this APK was installed: the model built into it
+                    // is copied out again only after an update brought one.
+                    "installedAt" -> result.success(packageManager.getPackageInfo(packageName, 0).lastUpdateTime)
                     else -> result.notImplemented()
                 }
             }

@@ -132,6 +132,19 @@ void main() {
     expect(info.cover, isNotNull);
   });
 
+  test('leaves the cover to the caller when asked', () async {
+    final path = write('Later.cbt', [...tarEntry('a.png', page(1)), ...tarEntry('b.png', page(2)), ...tarEnd()]);
+    final info = await readBookInfoInBackground(path, coverDir: '${tmp.path}/covers', makeCover: false);
+    expect(info.cover, isNull);
+    expect(info.coverPage, 0);
+    expect(Directory('${tmp.path}/covers').existsSync(), isFalse);
+    expect(info.withCover('x.jpg').cover, 'x.jpg');
+    // A cover made before is still named.
+    final made = await readBookInfoInBackground(path, coverDir: '${tmp.path}/covers');
+    final again = await readBookInfoInBackground(path, coverDir: '${tmp.path}/covers', makeCover: false);
+    expect(again.cover, made.cover);
+  });
+
   test('page sizes come from the image headers', () async {
     final wide = img.encodePng(img.Image(width: 30, height: 12));
     final path = write('sizes.cbt', [

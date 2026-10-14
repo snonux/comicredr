@@ -11,11 +11,13 @@ import 'src/data/data_dirs.dart';
 import 'src/input/keys_file.dart';
 import 'src/library/providers.dart';
 import 'src/providers.dart';
+import 'src/timing.dart';
 
 /// `comicredr [book]` opens the book straight away; `comicredr folder`
 /// shows a folder of comics on the library's Folders tab.
 /// `comicredr --add-root ~/Comics` adds a folder to the library first.
 Future<void> main(List<String> args) async {
+  appClock.start(); // Start-up times count from here (COMICREDR_TIMING=1).
   WidgetsFlutterBinding.ensureInitialized();
   // The GPU keeps textures the app has let go of, for reuse, up to about a
   // dozen screenfuls. Pages decode at screen size and zoom with tiles of
@@ -40,6 +42,9 @@ Future<void> main(List<String> args) async {
   await Directory(dirs.data).create(recursive: true);
   final cache = await Directory(dirs.cache).create(recursive: true);
   final keys = await loadKeymap();
+  timing('start: before the first build', appClock);
+  timeFrames();
+  WidgetsBinding.instance.addPostFrameCallback((_) => timing('start: first frame', appClock));
   runApp(
     ProviderScope(
       overrides: [

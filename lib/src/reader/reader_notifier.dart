@@ -10,6 +10,7 @@ import '../data/settings_store.dart';
 import '../data/sidecar_sync.dart';
 import '../library/library_store.dart';
 import '../library/providers.dart';
+import '../timing.dart';
 import 'guided.dart';
 import 'layout.dart';
 import 'open_book.dart';
@@ -129,6 +130,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final opening = ++_opening;
     bool superseded() => !ref.mounted || opening != _opening;
     state = state.copyWith(loading: true);
+    final clock = Stopwatch()..start(); // COMICREDR_TIMING=1 prints the steps, counted from here.
     OpenBook book;
     try {
       book = await openDocument(path);
@@ -140,8 +142,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
       return;
     }
     if (superseded()) return book.doc.close();
+    timing('open: document', clock);
     await _closeCurrent();
     if (superseded()) return book.doc.close();
+    timing('open: previous comic closed', clock);
     // Closing the old book reset ReaderState; the replacement is still loading.
     state = state.copyWith(loading: true);
     // A newer sidecar from the other device, when the comic is on S3 and
@@ -165,6 +169,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       _attaches.remove(attaching);
     }
     if (superseded()) return book.doc.close();
+    timing('open: sidecar', clock);
     // Titles edited in the library, some perhaps just now from the sidecar.
     final edits = await _orNull(() => ref.read(libraryStoreProvider).edits(book.key));
     if (superseded()) return book.doc.close();
@@ -175,8 +180,10 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (superseded()) return book.doc.close();
     // A detector that failed to load leaves the cached panels unread; the
     // drain falls back to classic CV and finds them again.
+    timing('open: position', clock);
     final detector = await _orNull(() => ref.read(panelDetectorProvider.future));
     if (superseded()) return book.doc.close();
+    timing('open: detector', clock);
     final cached = detector == null
         ? const <int, DetectedPage>{}
         : await _orNull(
@@ -186,19 +193,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (superseded()) return book.doc.close();
     final marks = await _orNull(() => ref.read(markStoreProvider).load(book.key)) ?? const {};
     if (superseded()) return book.doc.close();
-    final settings = ref.read(settingsStoreProvider);
-    final defaults = state;
-    Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
-    final whole = await flag(SettingsStore.wholePageSteps, defaults.wholePageSteps);
-    final pause = await flag(SettingsStore.pauseWhole, defaults.pauseWhole);
-    final seconds =
-        SettingsStore.parseSeconds(await _orNull<String?>(() => settings.loadString(SettingsStore.pauseSeconds))) ??
-        defaults.pauseSeconds;
-    final night = await flag(SettingsStore.night, defaults.night);
-    final trim = await flag(SettingsStore.autoTrim, defaults.trim);
-    final cleanUp = await flag(SettingsStore.cleanUp, defaults.cleanUp);
-    final fullscreen = await flag(SettingsStore.fullscreen, defaults.fullscreen);
+    final (:whole, :pause, :seconds, :night, :trim, :cleanUp, :fullscreen) = await _loadSettings(state);
     if (superseded()) return book.doc.close();
+    timing('open: panels, marks and settings', clock);
     final page = (at?.page ?? saved?.page ?? 0).clamp(0, book.doc.pageCount - 1);
     // The saved spot wins; a book never read, or saved before the view was,
     // keeps the mode the reader is in.
@@ -1051,18 +1048,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// them: one that is not saved goes back to its default. The open book
   /// stays where it is.
   Future<void> reloadSettings() async {
-    final settings = ref.read(settingsStoreProvider);
-    const defaults = ReaderState();
-    Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
-    final whole = await flag(SettingsStore.wholePageSteps, defaults.wholePageSteps);
-    final pause = await flag(SettingsStore.pauseWhole, defaults.pauseWhole);
-    final seconds =
-        SettingsStore.parseSeconds(await _orNull<String?>(() => settings.loadString(SettingsStore.pauseSeconds))) ??
-        defaults.pauseSeconds;
-    final night = await flag(SettingsStore.night, defaults.night);
-    final trim = await flag(SettingsStore.autoTrim, defaults.trim);
-    final cleanUp = await flag(SettingsStore.cleanUp, defaults.cleanUp);
-    final fullscreen = await flag(SettingsStore.fullscreen, defaults.fullscreen);
+    final (:whole, :pause, :seconds, :night, :trim, :cleanUp, :fullscreen) = await _loadSettings(const ReaderState());
     if (!ref.mounted) return;
     state = state.copyWith(
       wholePageSteps: whole,
@@ -1073,6 +1059,33 @@ class ReaderNotifier extends Notifier<ReaderState> {
       cleanUp: cleanUp,
       fullscreen: fullscreen,
       message: state.message,
+    );
+  }
+
+  /// The saved settings a comic is read with, [defaults]' where one is not
+  /// saved or cannot be read. Asked for all at once: one after another,
+  /// they took some 50 ms of opening a comic.
+  Future<({bool whole, bool pause, double seconds, bool night, bool trim, bool cleanUp, bool fullscreen})>
+  _loadSettings(ReaderState defaults) async {
+    final settings = ref.read(settingsStoreProvider);
+    Future<bool> flag(String key, bool fallback) async => await _orNull(() => settings.loadBool(key)) ?? fallback;
+    final (whole, pause, seconds, night, trim, cleanUp, fullscreen) = await (
+      flag(SettingsStore.wholePageSteps, defaults.wholePageSteps),
+      flag(SettingsStore.pauseWhole, defaults.pauseWhole),
+      _orNull<String?>(() => settings.loadString(SettingsStore.pauseSeconds)),
+      flag(SettingsStore.night, defaults.night),
+      flag(SettingsStore.autoTrim, defaults.trim),
+      flag(SettingsStore.cleanUp, defaults.cleanUp),
+      flag(SettingsStore.fullscreen, defaults.fullscreen),
+    ).wait;
+    return (
+      whole: whole,
+      pause: pause,
+      seconds: SettingsStore.parseSeconds(seconds) ?? defaults.pauseSeconds,
+      night: night,
+      trim: trim,
+      cleanUp: cleanUp,
+      fullscreen: fullscreen,
     );
   }
 
@@ -1143,6 +1156,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
         try {
           final detector = await ref.read(panelDetectorProvider.future);
           final result = await detector.detect(book.doc, page);
+          timing('detect: page ${page + 1}', sw);
           if (!ref.mounted || !identical(state.book, book) || generation != _detectionGeneration) return;
           found = PagePanels(result.frames, result.balloons, result.trim);
           final write = _savePanels(book.key, page, result);

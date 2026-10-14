@@ -20,6 +20,7 @@ import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
 
 import 'support/fixtures.dart';
+import 'support/waits.dart';
 
 /// A CBZ with a ComicInfo.xml naming its series and number.
 String writeInfoBook(Directory dir, String name, int pages, {required String series, required String number}) {
@@ -1037,7 +1038,8 @@ void main() {
       expect((await LibraryStore(db).roots()).length, 1);
       await key(tester, LogicalKeyboardKey.backspace); // Up to Comics.
       expect(find.text('Indie'), findsWidgets);
-      expect(find.text('The Spirit #1'), findsWidgets);
+      // Read last by the scan, which may still be making covers.
+      await eventually(tester, () => expect(find.text('The Spirit #1'), findsWidgets), settle: settle);
     });
 
     testWidgets('a folder outside the library given at start is added and shown', (tester) async {

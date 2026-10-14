@@ -564,7 +564,8 @@ the Folders tab, mark them with `Shift` and the arrows, press `gm`, type
   or to a folder of comics inside a library folder is listed like the
   real thing.
 
-The first scan reads each comic once, about a third of a second a book.
+The first scan reads each comic once, about a tenth of a second a book on
+a laptop.
 After that, starting the app only checks what changed. The line at the
 bottom shows the scan's progress. When a file can't be read (a broken
 download, a text-only ebook), it says how many; click that, or press

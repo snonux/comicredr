@@ -176,7 +176,8 @@ shows 09_library_button $blue2 && fail "Blue opened at start with the setting of
 # the leftmost of the run at its right end, just left of the Favourites
 # star; the search box is further left. Not a fixed place: buttons were
 # added to the header since this was written, and 1090 became the star.
-# CONTINUE_X overrides.
+# The menu's ⋮ is too narrow to count, so the run bridges its gap (80 px
+# from the shuffle button to the gear). CONTINUE_X overrides.
 continue_x() {
   import -window "$win" "$out/09_header.png"
   convert "$out/09_header.png" -crop 1280x24+0+16 +repage -colorspace gray -threshold 45% -scale '1280x1!' \
@@ -185,7 +186,7 @@ continue_x() {
       on && !run { start = NR - 1 }
       !on && run { w = NR - 1 - start; if (w >= 14 && w <= 28) seg[++n] = int((start + NR - 2) / 2) }
       { run = on }
-      END { if (!n) exit; x = seg[n]; for (i = n - 1; i >= 1 && x - seg[i] <= 56; i--) x = seg[i]; print x }'
+      END { if (!n) exit; x = seg[n]; for (i = n - 1; i >= 1 && x - seg[i] <= 90; i--) x = seg[i]; print x }'
 }
 cx=${CONTINUE_X:-$(continue_x)}
 [[ -n "$cx" ]] || { fail "the header's buttons are not on the screenshot"; cx=1052; }

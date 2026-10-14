@@ -288,7 +288,13 @@ refreshes right away instead of within six hours.
   after `--add-root`, so the e2e scripts are unaffected. Taking it out of
   the library sets `library.defaultFolderRemoved` and it stays out.
 - The library's first scan reads each book once in the background (about a
-  third of a second a book); later starts only compare sizes and dates. A
+  tenth of a second a book on a laptop); later starts only compare sizes
+  and dates. The worker leaves the cover to `makeCover`
+  (`lib/src/library/make_cover.dart`, through `LibraryScanner.makeCover`):
+  Flutter's decoder scales a JPEG down as it decodes it, where
+  `package:image` in the worker took 0.3 s (1000 px scan) to 4 s (4400 px)
+  a cover. PDFs keep theirs from the PDF worker, which renders at cover
+  size. A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
   Symlinked comics and folders are followed (`findBooks`, the watcher,
   `FolderDocument`, `isFolderBook`), each real folder once (`firstVisit`
@@ -1550,9 +1556,58 @@ tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then 
 tool/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
 tool/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; in a comic I, End and Alt+P redo its panels (analysed_pages newer than before) with the app still there (mm bookmarks the page and takes it off again, Esc the library as it was); gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), d without Alt and Enter delete nothing, Alt+C cancels, Alt+D deletes; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out and u puts it back with its comics found again; the app has no session bus (no keyring) and no XDG folders of the caller; checks the index with sqlite3 and the comics on disk; makes its own books
 tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
+tool/e2e_perf.sh [label]     # speed: a first and a second start over 120 made comics and the corpus, the covers scrolled, a CBZ and a PDF opened, paged and stepped in guided view; prints each step's time (COMICREDR_TIMING=1) and frame times into build/e2e-perf/<label>/summary.txt; see "Speed"
 python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot; the app's HOME is /tmp/comicredr-guide/home (GUIDE_HOME), never under the checkout, since the ? help and Settings show the data folder's path and with it the name of whoever took the pictures
 ```
+
+## Speed
+
+`COMICREDR_TIMING=1` (Android: build with `--dart-define=COMICREDR_TIMING=true`
+and read `adb logcat -s flutter`) makes the app print `timing: <step> <ms>
+ms` for start-up, the scan, each step of opening a comic (counted from the
+start of `ReaderNotifier.open`), each page decoded and shown, each page
+detected, and every two seconds a sum of frame times (build and raster
+p50/p90/max, frames over 16.7 ms); `lib/src/timing.dart`. Off, nothing is
+measured. `tool/e2e_perf.sh LABEL` runs the same steps on the Linux
+release build; run it before and after a change and compare the two
+`summary.txt`. For where the time goes, run a profile build with the
+engine switches `vm-service-port=8181`, `disable-service-auth-codes` and
+`enable-dart-profiling` (`FLUTTER_ENGINE_SWITCHES=3`,
+`FLUTTER_ENGINE_SWITCH_1=...`) and take a CPU profile over the VM
+service (package:vm_service `getCpuSamples`).
+
+The audit of 2026-10-14 (Linux under Xvfb, 4 cores; e2e_perf, 143
+comics) found and fixed:
+
+- Covers were made in pure Dart (`package:image`), 0.3 to 4.4 s a cover,
+  which also loaded the UI thread during a scan. The scanner now reads a
+  book without its cover (`readBookInfo(makeCover: false)`) and makes it
+  with `makeCover` (`lib/src/library/make_cover.dart`): Flutter's own
+  decoder, which shrinks a JPEG while decoding, then the thumbnail's JPEG
+  encode. PDFs keep making theirs on the PDFium isolate. First scan 41.6
+  to 17.1 s, build p50 during it 17 to 4 ms.
+- The model's version (`modelVersion`, a hash of the 40 MB file) was
+  computed on every open, 190 to 310 ms (24 to 36 s on the no-KVM
+  emulator). It is now kept in `<cache>/comicredr-panels.onnx.version`
+  with the file's path, size and mtime (`cachedModelVersion`). On Android
+  the built-in model was also read out of the APK on every open; it is
+  now copied once per app install (`installedAt` on the storage channel,
+  the stamp `comicredr-panels.onnx.installed`, `keptModel`). The worker
+  that runs the model starts while the first page decodes (`warm`).
+- Opening imported the sidecar into the index even when nothing in it
+  was new; `SidecarSync._import` now writes only on a change
+  (`_changes`), and `gather` and the reader's settings
+  (`_loadSettings`) read their rows side by side.
+- Every guided-view step rebuilt the whole library under the reader.
+  HomeScreen keeps the offstage library widget (`_libraryUnder`) while
+  nothing it shows changed: build p90 while reading 9.3 to 2.5 ms (CBZ).
+
+Left as they are: moving the selection over covers rebuilds the visible
+tiles (build p90 about 7 ms, under a frame); detection itself (about
+0.6 s a page) is the model's. Real phones, a real GPU and touch were not
+measured: the Android emulator here has no KVM and is some 50 times
+slower than a phone.
 
 ## Detection spike (M1)
 

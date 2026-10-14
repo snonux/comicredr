@@ -6,6 +6,7 @@ import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
 import 'package:flutter/foundation.dart';
 
+import '../timing.dart';
 import 'decode_image.dart';
 import 'model_detector.dart';
 
@@ -65,7 +66,9 @@ class PanelDetector {
     if (model != null) {
       try {
         final sw = Stopwatch()..start();
+        model.warm(); // The first page's model loads while the page decodes.
         final (rgba, w, h, trim) = await trimmedPageRgba(doc, page, model.inputSize);
+        timing('detect: page ${page + 1} pixels', sw);
         final found = await model.detect(rgba, w, h);
         return DetectedPage(
           [for (final f in found.frames) trim.toPage(f)],

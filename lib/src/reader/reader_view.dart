@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
 import '../data/progress_store.dart';
+import '../timing.dart';
 import 'guided.dart';
 import 'layout.dart';
 import 'page_cache.dart';
@@ -259,8 +260,10 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
     }
     final request = ++_request;
     final cache = _cache!;
+    final clock = Stopwatch()..start();
     _decodeAll(cache, unit, box, sharpen).then(
       (images) async {
+        timing('page: ${unit.first + 1} decoded', clock);
         if (!mounted || request != _request) {
           _disposeImages(images);
           return;
@@ -301,6 +304,9 @@ class ReaderViewState extends ConsumerState<ReaderView> with TickerProviderState
           }
         });
         _disposeImages(old);
+        if (timingOn) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => timing('page: ${unit.first + 1} shown', clock));
+        }
         // The view stayed put, so its sharp tiles come back for the new pages.
         if (samePages) _scheduleTiles();
         // Warm the next two units and the previous one.

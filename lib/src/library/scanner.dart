@@ -15,6 +15,10 @@ import 'library_store.dart';
 /// Called for each book a scan reads, to merge its sidecar into the index.
 typedef OnBookRead = Future<void> Function(String path, String contentKey, {required bool folder});
 
+/// Makes the cover of the book at `path` from page `page` into `file`;
+/// false when it could not.
+typedef MakeCover = Future<bool> Function(String path, int page, String file);
+
 /// Where a scan is, for the library's status line.
 class ScanStatus {
   const ScanStatus({this.running = false, this.done = 0, this.total = 0, this.failed = const []});
@@ -39,12 +43,17 @@ typedef Candidate = ({String relPath, int size, int mtimeMs});
 /// each. Books land in the index one by one, so the library fills in while
 /// the scan runs.
 class LibraryScanner {
-  LibraryScanner(this.store, {required this.coverDir, this.onBookRead, int? workers})
+  LibraryScanner(this.store, {required this.coverDir, this.onBookRead, this.makeCover, int? workers})
     : workers = workers ?? math.max(1, math.min(3, Platform.numberOfProcessors - 2));
 
   final LibraryStore store;
   final String coverDir;
   final OnBookRead? onBookRead;
+
+  /// Makes covers with a faster decoder than the worker's (the app's:
+  /// Flutter's own, makeCover in make_cover.dart); without it the worker
+  /// makes them.
+  final MakeCover? makeCover;
   final int workers;
 
   final _status = StreamController<ScanStatus>.broadcast();
@@ -118,7 +127,7 @@ class LibraryScanner {
         final (rootId, rootPath, c, added) = todo[next++];
         final path = bookPath(rootPath, c.relPath);
         try {
-          final info = await _read(path, coverDir);
+          final info = await _read(path);
           await store.putBook(rootId, c.relPath, c.size, DateTime.fromMillisecondsSinceEpoch(c.mtimeMs), info);
           try {
             await onBookRead?.call(path, info.contentKey, folder: info.kind == BookKind.folder);
@@ -138,6 +147,15 @@ class LibraryScanner {
     await store.removeOrphans();
     await store.markScanned(scanned);
     _emit(ScanStatus(done: done, total: todo.length, failed: failed));
+  }
+
+  /// What the library needs to know of the book at [path], with its cover.
+  Future<BookInfo> _read(String path) async {
+    final make = makeCover;
+    final info = await readBookInfoInBackground(path, coverDir: coverDir, makeCover: make == null);
+    if (info.cover != null || make == null) return info;
+    final file = coverFile(coverDir, info.contentKey);
+    return info.withCover(await make(path, info.coverPage, file) ? file : null);
   }
 
   /// Notes [contentKey] as seen, and puts it in the Unread collection when
@@ -242,8 +260,6 @@ Future<List<String>> _folders(String root) => Isolate.run(() {
   walk(Directory(root));
   return out;
 });
-
-Future<BookInfo> _read(String path, String coverDir) => readBookInfoInBackground(path, coverDir: coverDir);
 
 /// Phase one for one root: every comic file under [root], and every folder
 /// book ([isFolderBook]: page images directly, no other book anywhere under

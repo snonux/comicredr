@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers.dart';
 import '../reader/reader_notifier.dart';
 import 'library_store.dart';
+import 'make_cover.dart';
 import 'scanner.dart';
 
 /// Where covers go: `<cache>/covers`, set at startup from the platform's
@@ -19,6 +20,7 @@ final scannerProvider = Provider<LibraryScanner>((ref) {
     ref.watch(libraryStoreProvider),
     coverDir: ref.watch(coverDirProvider),
     onBookRead: (path, key, {required folder}) => sidecars.attach(path, key, folder: folder),
+    makeCover: makeCover,
   );
   ref.onDispose(scanner.dispose);
   return scanner;

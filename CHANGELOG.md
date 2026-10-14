@@ -20,6 +20,16 @@ the `?` overlay.
 - **Fixed:** a page turned soon after a scroll or a drag opened scrolled
   down to where the page before had been left, since the drag's glide
   went on over the new page. Each new page now starts at its top.
+- **Snappier:** a comic opens sooner. The detector's model is no
+  longer hashed at every start (some 0.2 s on a laptop) and, on Android,
+  no longer read out of the APK at every start either; the settings and
+  the comic's rows are read side by side; a sidecar with nothing new is
+  no longer written back into the library. The first scan makes covers
+  with the system's image decoder, which shrinks a page as it decodes it:
+  120 made-up comics and the test corpus scanned in 17 s instead of 42,
+  and a big scan's cover takes a fraction of the 4 s it took. While
+  reading, the library under the comic is no longer rebuilt at every
+  step. `tool/e2e_perf.sh` measures it all (`COMICREDR_TIMING=1`).
 - **Panels for the whole library from a large AI model:** open Claude Code
   or Codex in the ComicRedr folder and ask it to follow AGENTS.md and draw
   your comics' panels and balloons. `tool/llm_panels.py library` lists the

@@ -60,6 +60,8 @@ const bundledModelAsset = 'assets/models/$modelFileName';
 /// so ONNX Runtime opens the bundled file where it is. On Android they are
 /// inside the APK: the model is copied out once into the app's private
 /// data folder, and again only when an update brings a different model.
+/// Until the APK is updated the copy is taken as it is: reading the 40 MB
+/// out of the APK and hashing them at every start held up the first comic.
 Future<String?> bundledModel() async {
   try {
     if (!Platform.isAndroid) {
@@ -67,19 +69,33 @@ Future<String?> bundledModel() async {
       final f = File('$exe/data/flutter_assets/$bundledModelAsset');
       return f.existsSync() ? f.path : null;
     }
+    final dir = '${(await appDataDirectory()).path}/bundled-model';
+    final installed = await _android.invokeMethod<int>('installedAt').catchError((Object _) => null);
+    if (keptModel(dir, installed) case final kept?) return kept;
     final bytes = (await rootBundle.load(bundledModelAsset)).buffer.asUint8List();
-    final dir = Directory('${(await appDataDirectory()).path}/bundled-model');
-    return await Isolate.run(() => extractModel(bytes, dir.path));
+    return await Isolate.run(() => extractModel(bytes, dir, installed: installed));
   } catch (_) {
     // No asset (built without the model) or no data folder.
     return null;
   }
 }
 
-/// Writes [bytes] to [dir] unless the copy there is already this model,
-/// and returns the file.
+const _android = MethodChannel('org.snonux.comicredr/storage');
+
+/// The model copied out into [dir] by the APK installed at [installed], or
+/// null when it was copied by another install, or not at all.
 @visibleForTesting
-String extractModel(Uint8List bytes, String dir) {
+String? keptModel(String dir, int? installed) {
+  final f = File('$dir/$modelFileName');
+  final stamp = File('$dir/$modelFileName.installed');
+  if (installed == null || !f.existsSync() || !stamp.existsSync()) return null;
+  return stamp.readAsStringSync() == '$installed' ? f.path : null;
+}
+
+/// Writes [bytes] to [dir] unless the copy there is already this model,
+/// and returns the file. [installed], when known, is noted for [keptModel].
+@visibleForTesting
+String extractModel(Uint8List bytes, String dir, {int? installed}) {
   final f = File('$dir/$modelFileName');
   final stamp = File('$dir/$modelFileName.version');
   final version = '${modelVersion(bytes)}';
@@ -89,7 +105,38 @@ String extractModel(Uint8List bytes, String dir) {
     tmp.renameSync(f.path);
     stamp.writeAsStringSync(version);
   }
+  final kept = File('$dir/$modelFileName.installed');
+  if (installed != null) {
+    kept.writeAsStringSync('$installed');
+  } else if (kept.existsSync()) {
+    kept.deleteSync();
+  }
   return f.path;
+}
+
+/// [modelVersion] of the model file at [path]. Hashing its 40 MB took some
+/// 0.2 s at every start before the first comic could open, so the result
+/// is kept in the file [cache] with the model's path, size and time, and
+/// read from there while they match. Runs on a worker isolate.
+@visibleForTesting
+int cachedModelVersion(String path, String cache) {
+  final model = File(path).statSync();
+  final stamp = '$path\n${model.size}\n${model.modified.microsecondsSinceEpoch}';
+  final file = File(cache);
+  try {
+    final lines = file.readAsLinesSync();
+    if (lines.length == 4 && lines.take(3).join('\n') == stamp) return int.parse(lines[3]);
+  } catch (_) {
+    // Not kept yet, or a broken file: hash.
+  }
+  final version = modelVersion(File(path).readAsBytesSync());
+  try {
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync('$stamp\n$version');
+  } catch (_) {
+    // Kept or not, the version is right.
+  }
+  return version;
 }
 
 /// The trained panel and balloon detector (design plan section 9), run by
@@ -104,11 +151,25 @@ class ModelDetector {
     : threads = threads ?? (Platform.numberOfProcessors - 2).clamp(1, 8);
 
   /// Loads the detector for the model at [path], hashing the file off the
-  /// UI isolate for its [version].
+  /// UI isolate for its [version], or reading it from where the hash was
+  /// kept last time ([cachedModelVersion]).
   static Future<ModelDetector> open(String path) async {
-    final version = await Isolate.run(() => modelVersion(File(path).readAsBytesSync()));
+    String? cache;
+    try {
+      cache = '${(await appDirs()).cache}/$modelFileName.version';
+    } catch (_) {
+      // No cache folder (tests): hash every time.
+    }
+    final version = await Isolate.run(
+      () => cache == null ? modelVersion(File(path).readAsBytesSync()) : cachedModelVersion(path, cache),
+    );
     return ModelDetector(path, version: version);
   }
+
+  /// Starts the worker and loads the model (some 0.4 s on a laptop) unless
+  /// that has been done, so it can go on while the first page decodes. A
+  /// model that fails to load fails the next [detect], as it would anyway.
+  void warm() => unawaited((_worker ??= _spawn()).then((_) {}, onError: (Object _) {}));
 
   /// The .onnx file.
   final String path;

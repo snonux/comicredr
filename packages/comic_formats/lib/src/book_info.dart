@@ -20,6 +20,7 @@ class BookInfo {
     required this.meta,
     required this.fromComicInfo,
     this.cover,
+    this.coverPage = 0,
   });
 
   final String contentKey;
@@ -32,16 +33,38 @@ class BookInfo {
   /// Whether the book carried a ComicInfo.xml.
   final bool fromComicInfo;
 
-  /// The cover image written, or null if the cover page could not be read.
+  /// The cover image written, or null if the cover page could not be read,
+  /// or was left to the caller to make (readBookInfo's `makeCover`).
   final String? cover;
+
+  /// The page the cover is made from.
+  final int coverPage;
+
+  /// This book with its cover at [cover].
+  BookInfo withCover(String? cover) => BookInfo(
+    contentKey: contentKey,
+    kind: kind,
+    pageCount: pageCount,
+    meta: meta,
+    fromComicInfo: fromComicInfo,
+    cover: cover,
+    coverPage: coverPage,
+  );
 }
 
 /// Opens the book at [path] on the calling isolate (the scan runs it on a
 /// worker) and reads what the library needs. Writes the cover, [coverWidth]
 /// pixels wide, as a JPEG into [coverDir] named after the content key, unless
-/// it is already there. Throws [FormatException] for a file that is not a
-/// readable book, including a RAR.
-Future<BookInfo> readBookInfo(String path, {required String coverDir, int coverWidth = 512}) async {
+/// it is already there, or [makeCover] is false: the caller then makes it
+/// from [BookInfo.coverPage], with a faster decoder than this package has.
+/// Throws [FormatException] for a file that is not a readable book,
+/// including a RAR.
+Future<BookInfo> readBookInfo(
+  String path, {
+  required String coverDir,
+  int coverWidth = 512,
+  bool makeCover = true,
+}) async {
   final kind = bookKind(path);
   final doc = await openDocument(path);
   try {
@@ -55,9 +78,10 @@ Future<BookInfo> readBookInfo(String path, {required String coverDir, int coverW
     final name = path.split(Platform.pathSeparator).where((s) => s.isNotEmpty).last;
     final meta = mergeMeta(embedded, parseFileName(name));
     final coverPath = '$coverDir/$key.jpg';
-    String? cover = coverPath;
-    if (!File(coverPath).existsSync()) {
-      final page = (embedded?.frontCoverPage ?? 0).clamp(0, doc.pageCount - 1);
+    final page = (embedded?.frontCoverPage ?? 0).clamp(0, doc.pageCount - 1);
+    final have = File(coverPath).existsSync();
+    String? cover = have || makeCover ? coverPath : null;
+    if (!have && makeCover) {
       try {
         final bytes = await coverJpeg(doc, page, width: coverWidth);
         Directory(coverDir).createSync(recursive: true);
@@ -81,6 +105,7 @@ Future<BookInfo> readBookInfo(String path, {required String coverDir, int coverW
       meta: meta,
       fromComicInfo: embedded != null,
       cover: cover,
+      coverPage: page,
     );
   } finally {
     await doc.close();
