@@ -51,7 +51,7 @@ class DetectedPage {
 /// such a page covered too little of it and the page was shown whole (see
 /// [detectionTrimArea] for the numbers). Classic CV keeps the whole page:
 /// on trimmed pages it passed the gate with wrong frames far more often
-/// than it got another page right (spike/evaluate.py).
+/// than it got another page right (detector/evaluate.py).
 class PanelDetector {
   const PanelDetector({this.model});
 

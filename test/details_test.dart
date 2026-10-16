@@ -196,15 +196,22 @@ void main() {
     await tester.runAsync(() => c.read(readerProvider.notifier).open(path));
     await settle(tester);
     String status() => tester.widget<Text>(find.byKey(const Key('status'))).data!;
+    Color? line() => tester.widget<Container>(find.byKey(const Key('statusLine'))).color;
+    final colours = Theme.of(tester.element(find.byKey(const Key('status')))).colorScheme;
 
+    // Outside guided view a drawn page has the tertiary colour and says so.
+    expect(status(), contains('drawn panels'));
+    expect(line(), colours.tertiaryContainer);
     await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
     await settle(tester);
     expect(status(), contains('guided (drawn): panel 1 / 4'));
+    expect(line(), colours.tertiaryContainer);
     await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
     await settle(tester);
     expect(c.read(readerProvider).page, 1);
     expect(status(), contains('guided: panel 1 / 4'));
     expect(status(), isNot(contains('drawn')));
+    expect(line(), colours.surfaceContainer, reason: "the detector's page keeps the usual colour");
 
     await typeI(tester);
     final list = find.descendant(of: find.byKey(const Key('detailsList')), matching: find.byType(Scrollable)).first;

@@ -145,7 +145,7 @@ const detectionTrimPad = 0.03;
 /// eval and modern pages score as before, and with an 8% or 12% blank
 /// margin added to every page, guided view gets 67 and 68 of the 100 eval
 /// pages right instead of 44 and 28, and 47 and 46 of the 66 modern pages
-/// instead of 36 and 16 (spike/evaluate.py --trim --add-margin).
+/// instead of 36 and 16 (detector/evaluate.py --trim --add-margin).
 const detectionTrimArea = 0.8;
 
 /// [findTrim] on an RGBA page of any size, leaving [pad]: shrunk to

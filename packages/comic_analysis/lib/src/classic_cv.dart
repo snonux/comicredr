@@ -71,7 +71,7 @@ const _bridgeFrac = 0.5; // ...or if the component covers at most this share of 
 const _sliverFrac = 0.035; // of the long side: thinner boxes are text lines and rules, not panels
 
 /// Classic computer-vision panel detection, ported from the M1 spike
-/// (`spike/detect_cv.py`), which is the reference for what it should find:
+/// (`detector/detect_cv.py`), which is the reference for what it should find:
 ///
 ///  1. foreground = anything that is not paper-coloured gutter, plus dilated
 ///     Canny edges so thin panel borders close

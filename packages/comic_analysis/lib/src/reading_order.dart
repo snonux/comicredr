@@ -20,7 +20,7 @@ import 'panel.dart';
 /// leading page reads before the other, instead of rows running across
 /// both pages.
 ///
-/// The same order is used for balloons inside a panel. spike/evaluate.py
+/// The same order is used for balloons inside a panel. detector/evaluate.py
 /// carries a Python copy that the eval set is scored with.
 List<Panel> readingOrder(
   Iterable<Panel> panels, {

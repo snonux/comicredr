@@ -6,7 +6,7 @@ The panel detector built into the app
 (assets/models/comicredr-panels.onnx)
 -------------------------------------
 
-The model is a fine-tune of D-FINE-S, made with spike/train.py and
+The model is a fine-tune of D-FINE-S, made with detector/train.py and
 released under the Apache License 2.0, like the rest of ComicRedr.
 
 - D-FINE, by Yansong Peng, Hebei Li, Peixi Wu, Yueyi Zhang, Xiaoyan Sun
@@ -18,8 +18,8 @@ released under the Apache License 2.0, like the rest of ComicRedr.
   https://cocodataset.org.
 
 Fine-tuned on pages from these comics, labelled by the ComicRedr project
-(spike/labels/train/, listed with their sources in
-test/train.manifest.toml):
+(detector/labels/train/, listed with their sources in
+test/manifests/train.manifest.toml):
 
 - Pepper&Carrot by David Revoy, CC BY 4.0, https://www.peppercarrot.com
 - Rogan of the North #7, #8 and #9 by David D. Lanciani, CC BY 4.0

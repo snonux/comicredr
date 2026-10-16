@@ -39,6 +39,8 @@ API prices, 3 to 5 US cents a page (docs/llm-panels.md).
 
    It lists each comic with pages done out of pages (`0/36`), and the
    total of pages not done. EPUBs are listed as not read by the tool.
+   To pick the comics where drawing helps most, triage first ("Triage:
+   which comics to draw" below).
 
 2. Ask the person which comics to do before drawing anything: all of
    them, some folders, some comics, or a few pages to try first. Say how
@@ -113,6 +115,65 @@ index). Codex's default sandbox may refuse writes outside the checkout:
 the sidecars are beside the comics, so ask the person to allow the
 import command. Only the Claude Code route has been tried.
 
+## Triage: which comics to draw
+
+When the person asks you to "triage comic panels", to find which comics
+are worth drawing, or which comics have no straight frame borders or no
+obvious speech balloons, follow these steps (snonux, 2026-10-16). It
+picks the comics where the built-in detector does worst, so the large
+model's work (the section above) goes where it helps most. It sends
+nothing anywhere and writes nothing into the library.
+
+1. Rank the library. This needs numpy, OpenCV, onnxruntime, Pillow and
+   pypdfium2 (`python3 -m pip install --user numpy opencv-python-headless
+   onnxruntime pillow pypdfium2`, or a venv):
+
+   ```sh
+   python3 tool/triage_panels.py                       # the app's library folders, else ~/Comics
+   python3 tool/triage_panels.py ~/Comics/Marvel       # or the folders or comics they name
+   ```
+
+   It samples 8 pages from the middle of each comic, runs the built-in
+   detector on them, and writes `/tmp/comicredr-triage/ranking.txt`
+   (every comic, best candidate first) and `sheets/NN.jpg` (the sampled
+   pages of the best 40, three comics a sheet). Columns: `story` is the
+   share of sampled pages with two or more frames, `bal/p` balloons found
+   a page, `slant` pages with a frame that is not a rectangle, `ovl`
+   pages whose frames overlap, `gate✗` pages the confidence gate shows
+   whole, `done` pages already drawn. About ten seconds a comic; run it
+   in the background for a big library. Comics already done are listed
+   as done and get no sheet.
+
+2. Look at every sheet yourself (Claude Code: the Read tool). The score
+   is a lead: judge each comic by its pages. Sort them into
+   - **best fits**: frames that are not straight (curved, slanted,
+     torn, borderless, insets over a splash) and few or no obvious
+     balloons (captions, loose lettering, wordless pages);
+   - **slanted frames but full of balloons**: drawing mainly fixes the
+     frames, the detector already finds balloons;
+   - **near misses**: straight frames with loose lettering, and cover
+     galleries, pin-up and photo books, which score high (one frame,
+     refused by the gate) but have no panels to draw.
+
+3. Tell the person the groups, each comic with its page count, the
+   pages and rough cost of each group (3 to 5 US cents a page) and which
+   pages you saw that might be judged otherwise, and ask which to draw.
+   Then draw what they chose as the section above says: one subagent a
+   comic for up to 30 pages (three batches of 10, keeping under the
+   image limit), a chain of them, one after the other, for a longer
+   comic, comics side by side. Pass each next subagent the calls the
+   last one reported (which pages got no panels, how insets and loose
+   text were treated), so a comic is drawn one way throughout.
+
+4. Comics synced to S3 (`s3_books` in the app's index) do not upload
+   their sidecar by themselves after an import, since the app did not
+   write it: see "Drawn panels and S3" in docs/llm-panels.md.
+
+The first triage (2026-10-16, 196 comics in ~/Comics) put seven comics
+in the first group, 366 pages: Enuma 1 and 2, Khulan #1, Aphrodite IX
+#0, HyperGeist 01, Vampirella Masters Vol. 6 and An Entity Observes All
+Things, all drawn since.
+
 ## Conventions
 
 - **Always update the usage guide** (snonux, 2026-09-26). Every PR that
@@ -128,7 +189,7 @@ import command. Only the Claude Code route has been tried.
   The guide is `docs/guide/`: a contents page and one chapter a file,
   written for people, starting with installing.
 
-- Every PR gets a real end-to-end test (see the `tool/e2e_*.sh` scripts
+- Every PR gets a real end-to-end test (see the `tool/e2e/e2e_*.sh` scripts
   below) before it is marked ready. If something can't be tested in a
   cloud container (a real phone, a real touchscreen, GNOME Shell), say so
   plainly in the PR.
@@ -190,7 +251,7 @@ disposal and a keymap change cancel it. The resolver resets on blur.
 Pointer input into the content or choosing
 a destination releases sidebar focus. Under 600 dp the bottom tabs retain
 cycleModeForward/Back's old cycling. `test/library_test.dart` and
-`tool/e2e_sidebar_keys.sh` cover the boundary and context isolation.
+`tool/e2e/e2e_sidebar_keys.sh` cover the boundary and context isolation.
 
 ## Releases
 
@@ -446,7 +507,7 @@ refreshes right away instead of within six hours.
   (`ReaderNotifier.open`, after the sidecar is attached) calls
   `leaveUnread` and writes the sidecar when it was in, so the removal
   travels. The scan writes no sidecar for the add. No setting and no key;
-  `test/unread_test.dart`, `tool/e2e_unread.sh`.
+  `test/unread_test.dart`, `tool/e2e/e2e_unread.sh`.
 - The collection question (`lib/src/library/collection_dialog.dart`) has
   one path for every asker: `askCollection(context, ref, what:, keys:)`,
   used by `gc` in the reader (`_collect`), `gc` and the marks bar's
@@ -718,7 +779,7 @@ refreshes right away instead of within six hours.
   Not done, for follow-up tasks: Settings' rows have no letters of their
   own (Tab and Space; only its buttons have); help sentences that spell
   keys (Settings' subtitles, the empty library's paragraph, empty tabs)
-  are fixed text, not read from the keymap; `tool/e2e_touch_zones.sh`
+  are fixed text, not read from the keymap; `tool/e2e/e2e_touch_zones.sh`
   does not parse ImageMagick 7's output; the collection chips of the
   collection question and the pages of the details list are reached by
   Tab only; the dialogs only Android shows (storage access, the folder
@@ -730,7 +791,7 @@ refreshes right away instead of within six hours.
   else that opens over the screen, a sheet, a menu, a dropdown, a route
   made by hand, unless it is in `knownOverlays` with its reason); the
   system's file pickers are GTK's own.
-  `tool/guide_shots.sh`, `tool/e2e_hotkeys.sh`, `e2e_favourites`,
+  `tool/guide_shots.sh`, `tool/e2e/e2e_hotkeys.sh`, `e2e_favourites`,
   `e2e_folder_filter` and `e2e_delete` start the app with
   the XDG data, config and cache folders unset, `GDK_BACKEND=x11` and
   `DBUS_SESSION_BUS_ADDRESS` set to a socket that is not there: with the
@@ -791,7 +852,7 @@ refreshes right away instead of within six hours.
   went on moving the new page to the old one's scroll.
   Nothing in it is per platform: Flutter's Linux engine turns GTK touch
   events into touch pointers (`FlTouchManager`; the view selects
-  `GDK_TOUCH_MASK`, which `tool/touch_inject.c` reports), so a Linux
+  `GDK_TOUCH_MASK`, which `tool/e2e/touch_inject.c` reports), so a Linux
   touchscreen gets every gesture. Android's back gesture is the one thing
   Linux lacked; there the status line starts with a back arrow sending
   `ReaderIntent.back` (`_StatusLine.showBack`).
@@ -1220,7 +1281,9 @@ refreshes right away instead of within six hours.
   completed mark, shown as "Drawn by" in `ComicDetails`, and dropped by
   Redo panels (`SidecarSync.reset`) with the panels. Page by page, the
   status line says `guided (drawn)` on a page whose panels are imported
-  (`PagePanels.imported`, `StatusLine._guided`) and each row of the
+  (`PagePanels.imported`, `StatusLine._guided`), `drawn panels` outside
+  guided view, and takes the tertiary colour there (`StatusLine.drawnPage`,
+  widget key `statusLine`; e2e_llm_panels reads its colour) and each row of the
   details' page list starts with the page's source (`_sourceShort`:
   "drawn (imported)", "trained model", "classic CV"; no confidence or
   time for drawn pages, which have none of their own). `PagePanels(...,
@@ -1233,7 +1296,7 @@ refreshes right away instead of within six hours.
   Benchmark (2026-10-10, 40 eval pages, 32 of them the shipped model's
   misses): guided right / whole / wrong 31 / 0 / 9 for Claude against
   8 / 17 / 15. Method, results, Claude's boxes
-  (`spike/llm-boxes/claude-2026-10-10/`) and the rerun commands:
+  (`detector/llm-boxes/claude-2026-10-10/`) and the rerun commands:
   [docs/llm-panels.md](docs/llm-panels.md).
 - Non-rectangular panels: the detector outputs boxes; `refineOutlines`
   traces the real outline along the gutter and the reader dims outside
@@ -1265,7 +1328,7 @@ refreshes right away instead of within six hours.
   timeout, never again that run; `S3Settings.load` asks only when S3 is
   set up. `StallWatch` (`lib/src/stall_watch.dart`, `COMICREDR_STALLS=1`)
   logs a late event loop tick of 400 ms or a frame of 250 ms;
-  `tool/e2e_freeze.sh` fails on a hold-up of 400 ms or a 500 ms frame.
+  `tool/e2e/e2e_freeze.sh` fails on a hold-up of 400 ms or a 500 ms frame.
   The index sets `busy_timeout` (5 s, `AppDatabase._waitForLocks`):
   without it a write while another process read the file (the e2e's own
   sqlite3 polling, a second app instance) failed at once with "database
@@ -1480,7 +1543,7 @@ refreshes right away instead of within six hours.
   `tool/garage_local.sh start` runs a one-node Garage (static binary
   from garagehq.deuxfleurs.fr) and `eval "$(tool/garage_local.sh env)"`
   points them at it; `stop` plays a switched-off home cluster.
-  `tool/e2e_s3_android.sh` needs the emulator (it reaches the host's
+  `tool/e2e/e2e_s3_android.sh` needs the emulator (it reaches the host's
   Garage at 10.0.2.2). Never commit or post real bucket credentials.
   Android declares INTERNET and clear text (a home Garage is often plain
   http).
@@ -1528,8 +1591,17 @@ packages/comic_formats    ComicDocument, the CBZ, CBT, EPUB, PDF and folder adap
 packages/comic_analysis   Panel model, classic-CV detection, reading order, the confidence gate
 packages/reader_input     ReaderIntents, default keymap, vi key-sequence resolver
 packages/comic_sync       S3 sync: RemoteStore, the S3 client, the connection check, the bucket layout
-spike/                    M1 throwaway: classic-CV panel detection and overlays
-test/corpus.manifest.toml Free test comics, fetched into git-ignored test/corpus/
+assets/models/            The detector built into the app (comicredr-panels.onnx)
+android/ linux/           Flutter's platform runners; linux/packaging/ has the launcher, icons and install script
+fastlane/                 F-Droid store listing and changelogs (F-Droid reads it from the top level)
+docs/                     Architecture, training, large-model panels, install pages; docs/guide/ is the usage guide
+test/                     Flutter widget and unit tests; test/support/ helpers
+test/manifests/           Free test and training comics, fetched into git-ignored test/corpus*/
+detector/                 Python: classic-CV reference, labels, labelling kit, training, evaluation (was spike/)
+tool/                     llm_panels.py, triage_panels.py, guide_shots.sh, garage_local.sh
+tool/e2e/                 The end-to-end scripts (e2e_*.sh) and their helpers (differ_px.sh, touch_inject.c, ...)
+tool/ci/                  CI setup scripts; tool/ci/workflows/ is the CI waiting to move to .github/workflows
+tool/model/               train_model.sh, fetch_model.sh, score_model.sh (make train-model, score-model)
 ```
 
 ## Develop and test
@@ -1553,7 +1625,7 @@ waits for good. Key sequences time out by `clock.now()`
 (`ReaderKeyboard`), the test's clock in a widget test, so a test pumps
 (`tester.pump(Duration)`) to let one lapse, and sends a sequence's keys
 with no long pump between them. The e2e scripts count differing pixels
-with `tool/differ_px.sh FUZZ A B [CROP]`, not compare's printed AE,
+with `tool/e2e/differ_px.sh FUZZ A B [CROP]`, not compare's printed AE,
 which ImageMagick 7 prints scaled and in exponent form.
 
 The e2e scripts use the detector built into the release build (and pass
@@ -1569,70 +1641,70 @@ flutter analyze && flutter test
 for p in packages/*; do (cd $p && dart test); done   # make test runs all three
 make version                     # the version in pubspec.yaml; bump lib/src/version.dart and CHANGELOG.md with it
 make icons                       # re-render linux/packaging/icons/*.png after editing the SVG
-(cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with spike/detect_cv.py
-tool/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
-tool/e2e_modern.sh            # guided view on real modern comics from test/corpus-modern, screenshots in build/e2e-modern/
-tool/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
-tool/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
-tool/e2e_m8_library.sh        # collections made from book details, a sitting in the history, the settings dialog, a restart; checks the index and a sidecar with sqlite3
-tool/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
-tool/e2e_margins.sh           # guided view on eval pages padded with a wide scanned margin; checks the index records the trim
-tool/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
-tool/e2e_ahead.sh [corpus]     # panels found only for the open comic, ahead of the reader, guided view off; nothing with no comic open; stops on close; sidecar filled
-tool/e2e_freeze.sh [count]    # 3,000 made comics scanned, then a comic read with the library on Folders under it: pages, guided view, ], back to the covers; COMICREDR_STALLS=1 logs and any hold-up of 400 ms (or a 500 ms frame) fails it
-tool/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
-tool/e2e_touch_linux.sh       # touch alone, no key or mouse: a comic opened from the library, every default reader gesture, the progress bar, the page grid pinched, scrolled and tapped, guided view, the back arrow out to the library, a long press on a cover; checks the view selects touch events and the index with sqlite3
-tool/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3
-tool/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart, grid zoom with + and Ctrl+wheel kept across a restart
-tool/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
-tool/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
-tool/e2e_hidden_sidecars.sh   # sidecars written hidden; a fresh install renames old visible ones and merges a pair, keeping bookmarks and position; makes its own books
-tool/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
-tool/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
-tool/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
-tool/e2e_open_folder.sh       # comicredr FOLDER: inside the library, outside it (added), a folder book and a CBZ still read; Backspace up
-tool/e2e_default_folder.sh    # ~/Comics as the default library folder, fresh HOMEs: with it, without it (empty library, Settings from there, made later), taken out and restarted, a folder of one's own; makes its own books
-tool/e2e_folders_live.sh      # Folders tab open while comics, sub-folders and the shown folder are added, moved and deleted
-tool/e2e_formats.sh           # CBT and EPUB: real files from test/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
+(cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with detector/detect_cv.py
+tool/e2e/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
+tool/e2e/e2e_modern.sh            # guided view on real modern comics from test/corpus-modern, screenshots in build/e2e-modern/
+tool/e2e/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
+tool/e2e/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
+tool/e2e/e2e_m8_library.sh        # collections made from book details, a sitting in the history, the settings dialog, a restart; checks the index and a sidecar with sqlite3
+tool/e2e/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
+tool/e2e/e2e_margins.sh           # guided view on eval pages padded with a wide scanned margin; checks the index records the trim
+tool/e2e/e2e_whole_page.sh book.cbz [page]  # guided view's whole-page steps with keys and touches, both ways, w on and off, across restarts; fails if a step shows the wrong view
+tool/e2e/e2e_ahead.sh [corpus]     # panels found only for the open comic, ahead of the reader, guided view off; nothing with no comic open; stops on close; sidecar filled
+tool/e2e/e2e_freeze.sh [count]    # 3,000 made comics scanned, then a comic read with the library on Folders under it: pages, guided view, ], back to the covers; COMICREDR_STALLS=1 logs and any hold-up of 400 ms (or a 500 ms frame) fails it
+tool/e2e/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
+tool/e2e/e2e_touch_linux.sh       # touch alone, no key or mouse: a comic opened from the library, every default reader gesture, the progress bar, the page grid pinched, scrolled and tapped, guided view, the back arrow out to the library, a long press on a cover; checks the view selects touch events and the index with sqlite3
+tool/e2e/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3
+tool/e2e/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart, grid zoom with + and Ctrl+wheel kept across a restart
+tool/e2e/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times
+tool/e2e/e2e_resize.sh book.cbz   # resizes the window while zoomed, mid-drag and in guided view, then back; fails if the view differs
+tool/e2e/e2e_hidden_sidecars.sh   # sidecars written hidden; a fresh install renames old visible ones and merges a pair, keeping bookmarks and position; makes its own books
+tool/e2e/e2e_sidecar_dir.sh       # Settings → In one folder via the GTK picker: sidecars moved there and back, a fresh install reads them; makes its own books
+tool/e2e/e2e_spreads.sh book.cbz [spreads.pdf]  # two-page mode with a scanned spread joined into the book: pairing around it, full height, reopen, guided view; a PDF of wide pages (I, Villain) steps page by page
+tool/e2e/e2e_reset.sh book.cbz     # X: redo panels, then reset everything from the reader, then from the library's book details; checks the index and the sidecar
+tool/e2e/e2e_open_folder.sh       # comicredr FOLDER: inside the library, outside it (added), a folder book and a CBZ still read; Backspace up
+tool/e2e/e2e_default_folder.sh    # ~/Comics as the default library folder, fresh HOMEs: with it, without it (empty library, Settings from there, made later), taken out and restarted, a folder of one's own; makes its own books
+tool/e2e/e2e_folders_live.sh      # Folders tab open while comics, sub-folders and the shown folder are added, moved and deleted
+tool/e2e/e2e_formats.sh           # CBT and EPUB: real files from test/manifests/formats.manifest.toml; library, same pixels as the CBZ, refused ebooks
 (cd packages/comic_formats && dart run tool/inspect_book.dart book.epub)  # what the format layer makes of a book, or why it refuses it
-tool/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
-tool/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
-tool/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 2 s (then 5 s, set in the index) turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
-tool/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, page grid held and selection kept across both toggles, Esc, restart; makes its own book
-tool/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
-tool/e2e_fit_width.sh        # touch alone in fullscreen: a swipe down fits the width, a drag aslant scrolls only down, a swipe sideways turns to a page that starts at its top, a swipe down at the top gives the whole page, a pinch frees sideways moves; reads the view from the index with sqlite3; makes its own book
-tool/e2e_touch_menu.sh       # touch alone: ⋮ on the status line and a swipe up open the menu, its lines turn the comic and make it a favourite (index), the tutorial from the menu paged through and closed, the library header's ⋮ opens the sort; makes its own books
-tool/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
-tool/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
-tool/e2e_completed.sh         # gC in the reader on and off, reading on to the last page marks a comic and G there does not, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, gC on a cover under the filter then Enter opens the cover next to it, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
-tool/e2e_unread.sh            # a comic copied into a running library goes in Unread, a moved one and the first scan do not; opened from the Collections tab it leaves (index and sidecar); after a restart a copy is not new and a comic in a new folder is; makes its own books
-tool/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star (found by comparing two screenshots, not at a fixed place), x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
-tool/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books
-tool/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
-tool/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
-tool/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
-tool/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
-tool/e2e_sidebar_keys.sh    # sidebar focus, underlined letters, context isolation, arrows and Tab exits; makes its own books
-tool/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
-tool/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
-tool/e2e_llm_panels.sh        # tool/llm_panels.py library, pages, check and import into the sidecar the app wrote: library and pages see what is done, guided view follows the imported order (a panel grown into its neighbour, which the detector's gate would refuse, included), a page given none is whole, rows and the run's record kept across the app's own sidecar writes and a restart, details (I) show it, X Redo panels drops both; makes its own book
-tool/e2e_page_jumps.sh        # gg Home, G ge End, G12 ended by Enter, a pause or the next key, Esc dropping it, G99 past the end; the ? help searched for first and last page; reads the page from the index with sqlite3; makes its own book
-tool/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, L1-L4, Q1-Q4 and 11/00/21-54 on a page shown whole, in guided view and out: each part framed (tool/region_check.py), stepped, held, Esc; then by touch alone, the parts picker (two-finger tap, a part, edge taps, Stop parts); reptisaurus-v2-005 page 3
-tool/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
-tool/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
-tool/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
-tool/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
-tool/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
-tool/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
-tool/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
-tool/e2e_folder_filter.sh     # F and the funnel in the search box: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x on the filter line and the funnel clicked, Clear all; the Books tab filtered too; gC marks a cover and gF cycles the completed part (not completed, completed only, every comic), each proved by the comic that opens first; checks the index with sqlite3; makes its own books
-tool/e2e_folder_sort.sh       # gS and Alt+P, S, M, L in its window, gO and go, each proved by the comic that opens first; kept across a restart; the sort button clicked; checks the index with sqlite3; makes its own books
-tool/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
-tool/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
-tool/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; in a comic I, End and Alt+P redo its panels (analysed_pages newer than before) with the app still there (mm bookmarks the page and takes it off again, Esc the library as it was); gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), d without Alt and Enter delete nothing, Alt+C cancels, Alt+D deletes; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out and u puts it back with its comics found again; the app has no session bus (no keyring) and no XDG folders of the caller; checks the index with sqlite3 and the comics on disk; makes its own books
-tool/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
-tool/e2e_perf.sh [label]     # speed: a first and a second start over 120 made comics and the corpus, the covers scrolled, a CBZ and a PDF opened, paged and stepped in guided view; prints each step's time (COMICREDR_TIMING=1) and frame times into build/e2e-perf/<label>/summary.txt; see "Speed"
-python3 tool/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
+tool/e2e/e2e_bookmarks.sh book.cbz  # mm on and off, a guided panel bookmark, } {, the M list with a note, the library's Bookmarks tab, the sidecar, a fresh install, phone layout
+tool/e2e/e2e_images.sh            # one-page PNG/JPEG/WebP comics: library, guided view, sidecars, ], the launcher's Open With without taking the image default
+tool/e2e/e2e_pause_whole.sh book.cbz [page]  # a page shown whole is wine red on arrival, a quick step zooms and holds once, a step after 2 s (then 5 s, set in the index) turns at once; keys and touches, both ways, a count, W across a restart (reptisaurus-v2-005 page 3)
+tool/e2e/e2e_fullscreen.sh        # f and F11 under Openbox in Xvfb, plain and posing as GNOME Shell (header bar): window state, only the page, pointer, bottom edge, page grid held and selection kept across both toggles, Esc, restart; makes its own book
+tool/e2e/e2e_continue.sh         # C and the library's Continue button (tapped): the last comic's page after a restart, back and forth between two, guided view kept, a moved comic found, a deleted one skipped; makes its own books
+tool/e2e/e2e_fit_width.sh        # touch alone in fullscreen: a swipe down fits the width, a drag aslant scrolls only down, a swipe sideways turns to a page that starts at its top, a swipe down at the top gives the whole page, a pinch frees sideways moves; reads the view from the index with sqlite3; makes its own book
+tool/e2e/e2e_touch_menu.sh       # touch alone: ⋮ on the status line and a swipe up open the menu, its lines turn the comic and make it a favourite (index), the tutorial from the menu paged through and closed, the library header's ⋮ opens the sort; makes its own books
+tool/e2e/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
+tool/e2e/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
+tool/e2e/e2e_completed.sh         # gC in the reader on and off, reading on to the last page marks a comic and G there does not, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, gC on a cover under the filter then Enter opens the cover next to it, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
+tool/e2e/e2e_unread.sh            # a comic copied into a running library goes in Unread, a moved one and the first scan do not; opened from the Collections tab it leaves (index and sidecar); after a restart a copy is not new and a comic in a new folder is; makes its own books
+tool/e2e/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star (found by comparing two screenshots, not at a fixed place), x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
+tool/e2e/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books
+tool/e2e/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
+tool/e2e/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
+tool/e2e/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
+tool/e2e/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
+tool/e2e/e2e_sidebar_keys.sh    # sidebar focus, underlined letters, context isolation, arrows and Tab exits; makes its own books
+tool/e2e/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
+tool/e2e/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
+tool/e2e/e2e_llm_panels.sh        # tool/llm_panels.py library, pages, check and import into the sidecar the app wrote: library and pages see what is done, guided view follows the imported order (a panel grown into its neighbour, which the detector's gate would refuse, included), a page given none is whole, rows and the run's record kept across the app's own sidecar writes and a restart, details (I) show it, X Redo panels drops both; makes its own book
+tool/e2e/e2e_page_jumps.sh        # gg Home, G ge End, G12 ended by Enter, a pause or the next key, Esc dropping it, G99 past the end; the ? help searched for first and last page; reads the page from the index with sqlite3; makes its own book
+tool/e2e/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, L1-L4, Q1-Q4 and 11/00/21-54 on a page shown whole, in guided view and out: each part framed (tool/e2e/region_check.py), stepped, held, Esc; then by touch alone, the parts picker (two-finger tap, a part, edge taps, Stop parts); reptisaurus-v2-005 page 3
+tool/e2e/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books
+tool/e2e/e2e_settings_backup.sh   # Settings → Export settings via the GTK save dialog with every setting changed (keys, the dialog, the index), keys.toml, folders, a position, bookmarks, a favourite, an edit, history; HOME wiped; Import via the open dialog: all back and live (fullscreen, scan, a keys.toml key), a restart, refused files, another device's file that must not touch the folders or sidecar place; checks the index with sqlite3; makes its own books
+tool/e2e/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
+tool/e2e/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
+tool/e2e/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
+tool/e2e/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
+tool/e2e/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
+tool/e2e/e2e_folder_filter.sh     # F and the funnel in the search box: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x on the filter line and the funnel clicked, Clear all; the Books tab filtered too; gC marks a cover and gF cycles the completed part (not completed, completed only, every comic), each proved by the comic that opens first; checks the index with sqlite3; makes its own books
+tool/e2e/e2e_folder_sort.sh       # gS and Alt+P, S, M, L in its window, gO and go, each proved by the comic that opens first; kept across a restart; the sort button clicked; checks the index with sqlite3; makes its own books
+tool/e2e/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
+tool/e2e/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
+tool/e2e/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; in a comic I, End and Alt+P redo its panels (analysed_pages newer than before) with the app still there (mm bookmarks the page and takes it off again, Esc the library as it was); gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), d without Alt and Enter delete nothing, Alt+C cancels, Alt+D deletes; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out and u puts it back with its comics found again; the app has no session bus (no keyring) and no XDG folders of the caller; checks the index with sqlite3 and the comics on disk; makes its own books
+tool/e2e/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
+tool/e2e/e2e_perf.sh [label]     # speed: a first and a second start over 120 made comics and the corpus, the covers scrolled, a CBZ and a PDF opened, paged and stepped in guided view; prints each step's time (COMICREDR_TIMING=1) and frame times into build/e2e-perf/<label>/summary.txt; see "Speed"
+python3 tool/e2e/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md
 tool/guide_shots.sh [section...]  # the usage guide's screenshots and GIFs into docs/guide/images/, from the fetched corpus and Pepper&Carrot; the app's HOME is /tmp/comicredr-guide/home (GUIDE_HOME), never under the checkout, since the ? help and Settings show the data folder's path and with it the name of whoever took the pictures
 ```
 
@@ -1644,7 +1716,7 @@ ms` for start-up, the scan, each step of opening a comic (counted from the
 start of `ReaderNotifier.open`), each page decoded and shown, each page
 detected, and every two seconds a sum of frame times (build and raster
 p50/p90/max, frames over 16.7 ms); `lib/src/timing.dart`. Off, nothing is
-measured. `tool/e2e_perf.sh LABEL` runs the same steps on the Linux
+measured. `tool/e2e/e2e_perf.sh LABEL` runs the same steps on the Linux
 release build; run it before and after a change and compare the two
 `summary.txt`. For where the time goes, run a profile build with the
 engine switches `vm-service-port=8181`, `disable-service-auth-codes` and
@@ -1686,12 +1758,15 @@ slower than a phone.
 
 ## Detection spike (M1)
 
+The first spike grew into `detector/` (it was `spike/` until 2026-10-14);
+`run_spike.py` is still the M1 overlay run.
+
 ```sh
 pip install opencv-python-headless numpy pillow pypdfium2 huggingface_hub ultralytics
-python3 spike/make_synthetic.py                       # synthetic pages with ground truth
-python3 spike/fetch_corpus.py --manga109-model        # real comics + the Manga109 model (comparison only)
-python3 spike/extract_pages.py test/corpus spike/pages
-cd spike && python3 run_spike.py pages out --weights ../test/corpus/models/<model>.pt
+python3 detector/make_synthetic.py                       # synthetic pages with ground truth
+python3 detector/fetch_corpus.py --manga109-model        # real comics + the Manga109 model (comparison only)
+python3 detector/extract_pages.py test/corpus detector/pages
+cd detector && python3 run_spike.py pages out --weights ../test/corpus/models/<model>.pt
 ```
 
 `out/contact.jpg` shows every overlay: green boxes passed the confidence
@@ -1719,28 +1794,28 @@ on Hugging Face) on our own labels, and committed at
 `assets/models/comicredr-panels.onnx`. Keep it clean: no Ultralytics code
 or weights (they are AGPL, trained models included), no Objects365
 checkpoints (academic use only) and nothing trained on Manga109. Only
-public-domain, CC0 and CC BY books go in `test/train.manifest.toml`, each
+public-domain, CC0 and CC BY books go in `test/manifests/train.manifest.toml`, each
 credited in NOTICE; NC, ND and share-alike books live in
-`test/train-local.manifest.toml` with labels in `spike/labels/train-local/`,
-for a model kept at home. The test sets (`test/corpus.manifest.toml`,
-`test/modern.manifest.toml`) only score models and never ship.
+`test/manifests/train-local.manifest.toml` with labels in `detector/labels/train-local/`,
+for a model kept at home. The test sets (`test/manifests/corpus.manifest.toml`,
+`test/manifests/modern.manifest.toml`) only score models and never ship.
 
-Everything runs on the CPU. `make train-model` (tool/train_model.sh) runs
+Everything runs on the CPU. `make train-model` (tool/model/train_model.sh) runs
 the steps that build the shipped model, from fetching the training comics
 to exporting the ONNX file, then (a fresh run without `LOCAL` only)
-validates it and puts it in `assets/models/` through tool/fetch_model.sh (the check loads the file with
+validates it and puts it in `assets/models/` through tool/model/fetch_model.sh (the check loads the file with
 onnxruntime and wants a [1, 300, 6] output). The export folds constants
 with onnxslim, without which the ONNX Runtime 1.15 the app bundles cannot
-load it. The labels are committed in `spike/labels/` (how they were drawn:
-`spike/LABELLING.md`); the comics are fetched.
+load it. The labels are committed in `detector/labels/` (how they were drawn:
+`detector/LABELLING.md`); the comics are fetched.
 
 Train only through `make train-model` (docs/training.md, "Runs and
 checkpoints"): every run is a kept folder (`CHECKPOINTS`, by default
 `../comicredr-training-assets/checkpoints/`) with `last/`, `best/`,
 `state.pt`, `run.json`, the ONNX file and `scores/summary.md` against the
-shipped model (`tool/score_model.sh`), written every epoch, and the same
+shipped model (`tool/model/score_model.sh`), written every epoch, and the same
 `RUN=` resumes a killed run. `FROM=shipped` or `FROM=RUN/last` trains on
-top (8 epochs at 3e-5 by default); `spike/onnx_to_checkpoint.py` rebuilds
+top (8 epochs at 3e-5 by default); `detector/onnx_to_checkpoint.py` rebuilds
 a trainable checkpoint from any exported ONNX file, checked by exporting
 it again (within 1.2e-7 for the shipped model), which is how the
 2026-10-10 run went on from the shipped model whose checkpoint was lost.
@@ -1748,31 +1823,31 @@ In a cloud container set `CHECKPOINTS=/mnt/project-files/comicredr-checkpoints`
 so the run outlives the container, and install the CPU torch wheel first
 (`--index-url https://download.pytorch.org/whl/cpu`); the default wheel
 pulls some 3 GB of CUDA. All 109 pages of the diagonal training set
-(`spike/labels/diagonal/` on the old branch claude/library-subfolders-301e1l)
-are in `spike/labels/train/` and `test/train.manifest.toml`, so the shipped
+(`detector/labels/diagonal/` on the old branch claude/library-subfolders-301e1l)
+are in `detector/labels/train/` and `test/manifests/train.manifest.toml`, so the shipped
 model learned from them. The 2026-10-10 runs on top of the shipped model,
 with and without the fake pages of comicredr-training-assets, beat
 nothing (docs/training.md, "Fake pages from your own comics"); they are
 kept in `/mnt/project-files/comicredr-checkpoints/`.
 
 ```sh
-python3 -m pip install --user -r spike/requirements-train.txt   # the versions the shipped model used
-python3 spike/fetch_corpus.py                                   # eval comics
-python3 spike/fetch_corpus.py --manifest test/train.manifest.toml --out test/corpus-train
-python3 spike/fetch_corpus.py --manifest test/modern.manifest.toml --out test/corpus-modern
-python3 spike/fetch_corpus.py --manifest test/diagonal-eval.manifest.toml --out test/corpus-diagonal-eval
-python3 spike/extract_pages.py test/corpus spike/eval_pages --per-book 400
-python3 spike/extract_pages.py test/corpus-train spike/train_pages --per-book 400 --manifest test/train.manifest.toml
-python3 spike/extract_pages.py test/corpus-modern spike/modern_pages --per-book 400 --manifest test/modern.manifest.toml
-python3 spike/extract_pages.py test/corpus-diagonal-eval spike/diagonal_pages --per-book 400 --manifest test/diagonal-eval.manifest.toml
-python3 spike/labelkit.py import spike/labels/eval spike/eval_pages
-python3 spike/labelkit.py import spike/labels/train spike/train_pages
-python3 spike/labelkit.py import spike/labels/modern spike/modern_pages
-python3 spike/labelkit.py import spike/labels/diagonal-eval spike/diagonal_pages
-python3 spike/synth_modern.py spike/train_pages spike/synth_pages --count 400 --seed 1
-python3 spike/train.py spike/train_pages spike/synth_pages --out spike/out/train --epochs 30 --imgsz 640   # -> spike/out/train/last/
-python3 spike/train.py --export spike/out/train/last --out-onnx spike/out/comicredr-panels.onnx
-cd spike && python3 evaluate.py eval_pages --out out/eval --no-cv --trim \
+python3 -m pip install --user -r detector/requirements-train.txt   # the versions the shipped model used
+python3 detector/fetch_corpus.py                                   # eval comics
+python3 detector/fetch_corpus.py --manifest test/manifests/train.manifest.toml --out test/corpus-train
+python3 detector/fetch_corpus.py --manifest test/manifests/modern.manifest.toml --out test/corpus-modern
+python3 detector/fetch_corpus.py --manifest test/manifests/diagonal-eval.manifest.toml --out test/corpus-diagonal-eval
+python3 detector/extract_pages.py test/corpus detector/eval_pages --per-book 400
+python3 detector/extract_pages.py test/corpus-train detector/train_pages --per-book 400 --manifest test/manifests/train.manifest.toml
+python3 detector/extract_pages.py test/corpus-modern detector/modern_pages --per-book 400 --manifest test/manifests/modern.manifest.toml
+python3 detector/extract_pages.py test/corpus-diagonal-eval detector/diagonal_pages --per-book 400 --manifest test/manifests/diagonal-eval.manifest.toml
+python3 detector/labelkit.py import detector/labels/eval detector/eval_pages
+python3 detector/labelkit.py import detector/labels/train detector/train_pages
+python3 detector/labelkit.py import detector/labels/modern detector/modern_pages
+python3 detector/labelkit.py import detector/labels/diagonal-eval detector/diagonal_pages
+python3 detector/synth_modern.py detector/train_pages detector/synth_pages --count 400 --seed 1
+python3 detector/train.py detector/train_pages detector/synth_pages --out detector/out/train --epochs 30 --imgsz 640   # -> detector/out/train/last/
+python3 detector/train.py --export detector/out/train/last --out-onnx detector/out/comicredr-panels.onnx
+cd detector && python3 evaluate.py eval_pages --out out/eval --no-cv --trim \
     --trained out/comicredr-panels.onnx                          # out/eval/report.md
 ```
 
@@ -1803,7 +1878,7 @@ the app, it finds slanted frames' outlines before the gate
 
 Results (2026-09-26, `--no-cv --trim`), guided right / whole / wrong on
 the original 100, the modern 66 and the diagonal 24 eval pages
-(`test/diagonal-eval.manifest.toml`), with balloon stops on captions:
+(`test/manifests/diagonal-eval.manifest.toml`), with balloon stops on captions:
 
 | Model | Original | Modern | Diagonal | Balloon stops on captions |
 |---|---|---|---|---|
@@ -1835,8 +1910,8 @@ faster here. Its wrong pages are mostly one missed narrow caption panel on
 dense golden-age pages, plus one page whose panels are all right but read
 in a debatable order. Black-and-white and modern indie art stay weakest.
 
-**Modern layouts (2026-09-24).** A second test set, `test/modern.manifest.toml`
-(labels in `spike/labels/modern/`), holds 66 pages from six modern books
+**Modern layouts (2026-09-24).** A second test set, `test/manifests/modern.manifest.toml`
+(labels in `detector/labels/modern/`), holds 66 pages from six modern books
 never trained on (NASA's First Woman, the CDC's Zombie Pandemic, Wolf's
 Head, I Villain, IHOW, Stigkland) plus four Pepper&Carrot episodes, tagged
 modern-digital, modern-indie and modern-painted. The shipped model guided
@@ -1858,13 +1933,13 @@ painted 11 of 12 either way. Still missed: IHOW's rounded frames on black
 (0 of 9, nothing like it in training).
 
 **Frame outlines (2026-09-24).** `refineOutlines` (Dart, in
-`packages/comic_analysis`) and its Python twin `spike/outlines.py` find
+`packages/comic_analysis`) and its Python twin `detector/outlines.py` find
 the outline of non-rectangular frames. On the labelled sets (379 pages,
 2,181 frames) they reshape 52 frames: 11 of 292 modern, 14 of 440 in the
 original set and 27 of 1,449 in training. Every one was checked by eye;
 none cuts into a panel's own art. About 9 more non-rectangular modern
 frames are missed, mostly a collage page of tilted thin-lined panels in
-I Villain. `python3 spike/outlines.py eval PAGES --crops DIR` writes a
+I Villain. `python3 detector/outlines.py eval PAGES --crops DIR` writes a
 review crop of each reshaped frame.
 
 **Wide scanned margins (2026-09-24).** A page scanned with a wide blank

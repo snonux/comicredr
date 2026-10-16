@@ -2,10 +2,10 @@
 # Screenshots and animated GIFs for the usage guide (docs/guide/), taken
 # from the release build under Xvfb and driven by real keys, the way the
 # e2e scripts do it. The library is made of free comics only: the
-# public-domain books of test/corpus.manifest.toml and Pepper&Carrot
+# public-domain books of test/manifests/corpus.manifest.toml and Pepper&Carrot
 # episode 6 by David Revoy (CC BY 4.0), fetched from peppercarrot.com.
 #
-#   python3 spike/fetch_corpus.py --skip-model   # once, for test/corpus/
+#   python3 detector/fetch_corpus.py --skip-model   # once, for test/corpus/
 #   tool/guide_shots.sh [section...]             # all sections by default
 #
 # Sections: library sidebar filter marks unread reader guided guided-more parts keys touch

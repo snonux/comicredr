@@ -230,18 +230,18 @@ endif
 # the fake pages alone): that model may not be published, so it is never
 # put in assets/; `make install-model` uses it. Only a fresh run without
 # LOCAL (the shipped recipe) replaces the built-in model in assets/ (git
-# checkout puts it back); a run with FROM is a test and stays in spike/out/.
-# Variables given on the command line reach tool/train_model.sh as they are.
+# checkout puts it back); a run with FROM is a test and stays in detector/out/.
+# Variables given on the command line reach tool/model/train_model.sh as they are.
 train-model:
-	tool/train_model.sh
+	tool/model/train_model.sh
 	@if [ -n "$(LOCAL)" ]; then \
-	  echo "Local model in spike/out/local/comicredr-panels.onnx (not for publishing):"; \
-	  echo "  make install-model MODEL=spike/out/local/comicredr-panels.onnx"; \
+	  echo "Local model in detector/out/local/comicredr-panels.onnx (not for publishing):"; \
+	  echo "  make install-model MODEL=detector/out/local/comicredr-panels.onnx"; \
 	  echo "  (and make install KEEP_MODEL=1 from then on, or make install puts the built-in one back)"; \
 	elif [ -n "$(FROM)" ]; then \
-	  echo "Model in spike/out/comicredr-panels.onnx, trained on top: a test, not for shipping (docs/training.md)."; \
-	  echo "  make install-model MODEL=spike/out/comicredr-panels.onnx tries it in the app"; \
-	else tool/fetch_model.sh spike/out/comicredr-panels.onnx && \
+	  echo "Model in detector/out/comicredr-panels.onnx, trained on top: a test, not for shipping (docs/training.md)."; \
+	  echo "  make install-model MODEL=detector/out/comicredr-panels.onnx tries it in the app"; \
+	else tool/model/fetch_model.sh detector/out/comicredr-panels.onnx && \
 	  echo "It replaced $(BUNDLED_MODEL); to keep the shipped one: git checkout -- $(BUNDLED_MODEL)"; fi
 
 model:
@@ -249,10 +249,10 @@ model:
 	install -Dm644 "$(MODEL)" $(BUNDLED_MODEL)
 	@echo "Model in $(BUNDLED_MODEL); the next make packs it into the app."
 
-# The three test sets, the built-in model against MODEL, into spike/out/score/summary.md.
+# The three test sets, the built-in model against MODEL, into detector/out/score/summary.md.
 score-model:
 	@test -f "$(MODEL)" || { echo "No model at $(MODEL); pass MODEL=/path/to/comicredr-panels.onnx"; exit 1; }
-	tool/score_model.sh spike/out/score shipped=$(BUNDLED_MODEL) new=$(MODEL)
+	tool/model/score_model.sh detector/out/score shipped=$(BUNDLED_MODEL) new=$(MODEL)
 
 # A model here wins over the one built into the app, for trying another
 # model without rebuilding.

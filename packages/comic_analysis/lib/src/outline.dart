@@ -21,7 +21,7 @@ import 'raster.dart';
 /// art first, since they often bridge a gutter, and put back afterwards.
 /// Runs in tens of milliseconds, on the detector's worker isolate.
 ///
-/// Tuned on the labelled test pages (spike/outlines.py mirrors this): of
+/// Tuned on the labelled test pages (detector/outlines.py mirrors this): of
 /// 2,181 frames on 379 pages it reshapes 52, all right or harmless on
 /// review. Borderless art on paper, rounded corners and thin-lined tilted
 /// panels keep their boxes.

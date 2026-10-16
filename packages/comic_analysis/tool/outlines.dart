@@ -1,5 +1,5 @@
 // Runs refineOutlines on pages dumped as raw RGBA plus a JSON of normalised
-// frames and balloons (spike/outlines.py --dump), and prints the outlines
+// frames and balloons (detector/outlines.py --dump), and prints the outlines
 // as JSON, so the Dart port can be checked against the Python prototype.
 //
 //   dart run tool/outlines.dart DUMP_DIR > dart.json

@@ -4,7 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'data/data_dirs.dart';
 
 /// How long the steps a reader waits on take, for measuring the app's speed
-/// (`tool/e2e_perf.sh`). With `COMICREDR_TIMING=1` in the environment, or
+/// (`tool/e2e/e2e_perf.sh`). With `COMICREDR_TIMING=1` in the environment, or
 /// on Android built with `--dart-define=COMICREDR_TIMING=true` (an app has
 /// no environment of its own there; the lines go to `adb logcat`), each step
 /// prints a line `timing: <what> <ms> ms` on standard output, and frames are

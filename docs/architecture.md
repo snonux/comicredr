@@ -357,25 +357,25 @@ The app's side of the contract (`packages/comic_analysis/lib/src/model_io.dart`)
 ```mermaid
 flowchart LR
   subgraph data["Training data"]
-    real["~1,000 labelled pages<br/>public-domain, CC0 and CC BY comics<br/>(test/train.manifest.toml, labels in spike/labels/)"]
-    synth["400 synthetic modern pages<br/>spike/synth_modern.py:<br/>art cut from labelled frames, laid out as<br/>touching grids, slanted gutters, panels on black,<br/>rounded frames, tilted collages, bleeds"]
+    real["~1,000 labelled pages<br/>public-domain, CC0 and CC BY comics<br/>(test/manifests/train.manifest.toml, labels in detector/labels/)"]
+    synth["400 synthetic modern pages<br/>detector/synth_modern.py:<br/>art cut from labelled frames, laid out as<br/>touching grids, slanted gutters, panels on black,<br/>rounded frames, tilted collages, bleeds"]
     real --> synth
   end
   base[/"D-FINE-S<br/>COCO checkpoint"/] --> train
-  real --> train["spike/train.py<br/>fine-tune on the CPU<br/>30 epochs, 640 px,<br/>scan-fade augmentation"]
+  real --> train["detector/train.py<br/>fine-tune on the CPU<br/>30 epochs, 640 px,<br/>scan-fade augmentation"]
   synth --> train
   train --> export["export to ONNX<br/>[1,3,800,800] in, [1,300,6] out<br/>opset 17, simplified with onnxslim"]
   export --> ship[/"assets/models/<br/>comicredr-panels.onnx"/]
-  ship --> eval["spike/evaluate.py<br/>scored on held-out books"]
+  ship --> eval["detector/evaluate.py<br/>scored on held-out books"]
 ```
 
 - **Real pages.** About 1,000 pages from public-domain golden- and
   silver-age comics and CC BY modern books (Pepper&Carrot among them),
   labelled with panels, captions and balloons. The comics themselves are
   fetched, never committed; the labels are. How labels are drawn is in
-  `spike/LABELLING.md`.
+  `detector/LABELLING.md`.
 - **Synthetic pages.** Free modern comics are rare, so
-  `spike/synth_modern.py` builds 400 modern-style layouts from the art of
+  `detector/synth_modern.py` builds 400 modern-style layouts from the art of
   the labelled real frames. Their labels are exact by construction. They
   are added on top of the real pages, never instead of them.
 - **Augmentation.** Brightness, contrast and saturation are varied so the
@@ -386,10 +386,10 @@ flowchart LR
   requirements are in [docs/training.md](training.md).
 - **Kept runs.** Every run keeps its checkpoint, its data and command,
   and its scores against the shipped model, so the next run can train on
-  top of it (`FROM=`); `spike/onnx_to_checkpoint.py` turns a model file
+  top of it (`FROM=`); `detector/onnx_to_checkpoint.py` turns a model file
   back into a checkpoint when a run's own was lost.
 
-**How good is it?** `spike/evaluate.py` runs a model over labelled pages
+**How good is it?** `detector/evaluate.py` runs a model over labelled pages
 from books it never trained on and asks, per page, whether guided view
 would move the camera right, show the page whole, or move it wrong. The
 shipped model gets 73 of 100 golden-age pages right and 47 of 66 modern

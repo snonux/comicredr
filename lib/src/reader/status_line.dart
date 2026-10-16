@@ -29,10 +29,15 @@ class StatusLine extends StatelessWidget {
   /// whose back gesture does the same.
   static bool get showBack => !Platform.isAndroid;
 
+  /// Whether the page on screen has imported panels (drawn by a large
+  /// model, tool/llm_panels.py) rather than the detector's. The status line
+  /// then takes the theme's tertiary colour, guided view on or off, so a
+  /// reader sees at a glance which pages were drawn (snonux, 2026-10-16).
+  static bool drawnPage(ReaderState s) => s.book != null && (s.panels[s.page]?.imported ?? false);
+
   /// Where guided view is on the page, or why it shows the whole page. A
-  /// page whose panels were imported (drawn by a large model,
-  /// tool/llm_panels.py) says "guided (drawn)", so a reader can tell them
-  /// from the detector's page by page.
+  /// page whose panels were imported says "guided (drawn)", so the colour
+  /// is not the only sign of them.
   static String _guided(ReaderState s) {
     final found = s.panels[s.page];
     if (found == null) return 'guided: finding panels…';
@@ -95,6 +100,7 @@ class StatusLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final book = state.book;
+    final drawn = drawnPage(state);
     final unit = state.unit;
     final pages = unit.isEmpty
         ? ''
@@ -104,6 +110,8 @@ class StatusLine extends StatelessWidget {
     final details = [
       if (book != null) pages,
       if (book != null && state.guided) _guided(state),
+      // Outside guided view the words go with the colour too.
+      if (drawn && !state.guided) 'drawn panels',
       if (book != null && !state.guided && state.mode == PageMode.spread) 'spread',
       if (book != null && state.region != null) describeRegion(state.region!, rightToLeft: state.rightToLeft),
       if (state.rightToLeft) 'RTL',
@@ -221,32 +229,49 @@ class StatusLine extends StatelessWidget {
             button('menuButton', Icons.more_vert, 'Menu', ReaderIntent.openMenu),
           ],
         ];
+        final colours = theme.colorScheme;
+        // On a phone the buttons left the text a dozen characters, so a
+        // notice or why guided view shows the page whole could not be
+        // read: there the text has a line of its own above the buttons.
+        final line = narrow && book != null
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(children: [status, pendingKeys]),
+                  Row(children: [?back, const Spacer(), ...buttons]),
+                ],
+              )
+            : Row(
+                children: [
+                  if (back != null) ...[back, const SizedBox(width: 4)],
+                  status,
+                  pendingKeys,
+                  if (book != null && fileName) ...[
+                    const SizedBox(width: 12),
+                    Text(
+                      p.basename(book.path),
+                      style: theme.textTheme.bodySmall?.copyWith(color: drawn ? colours.onTertiaryContainer : null),
+                    ),
+                  ],
+                  ...buttons,
+                ],
+              );
         return Container(
-          color: theme.colorScheme.surfaceContainer,
+          key: const Key('statusLine'),
+          color: drawn ? colours.tertiaryContainer : colours.surfaceContainer,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          // On a phone the buttons left the text a dozen characters, so a
-          // notice or why guided view shows the page whole could not be
-          // read: there the text has a line of its own above the buttons.
-          child: narrow && book != null
-              ? Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(children: [status, pendingKeys]),
-                    Row(children: [?back, const Spacer(), ...buttons]),
-                  ],
+          // A page with drawn panels has the line in the tertiary colour,
+          // its text and icons in the colour made to go on it; every other
+          // page keeps the usual surface.
+          child: drawn
+              ? DefaultTextStyle.merge(
+                  style: TextStyle(color: colours.onTertiaryContainer),
+                  child: IconTheme.merge(
+                    data: IconThemeData(color: colours.onTertiaryContainer),
+                    child: line,
+                  ),
                 )
-              : Row(
-                  children: [
-                    if (back != null) ...[back, const SizedBox(width: 4)],
-                    status,
-                    pendingKeys,
-                    if (book != null && fileName) ...[
-                      const SizedBox(width: 12),
-                      Text(p.basename(book.path), style: theme.textTheme.bodySmall),
-                    ],
-                    ...buttons,
-                  ],
-                ),
+              : line,
         );
       },
     );

@@ -7,7 +7,7 @@
 #   tool/garage_local.sh wipe    # stop and delete its data
 #
 # The key is made up for this local node only. The tests in packages/comic_sync and
-# tool/e2e_s3_settings.sh read GARAGE_TEST_*; set them to a real bucket instead to test against one.
+# tool/e2e/e2e_s3_settings.sh read GARAGE_TEST_*; set them to a real bucket instead to test against one.
 set -euo pipefail
 
 VERSION=${GARAGE_VERSION:-v2.1.0}

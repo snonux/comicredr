@@ -203,6 +203,20 @@ stops, ask it again: it carries on where it was, because the pages
 already done are read back from the sidecars. Leave it to work; a
 30-page comic takes about a quarter of an hour.
 
+Not sure which comics are worth it? Ask it first:
+
+```
+Follow AGENTS.md and triage comic panels.
+```
+
+It runs the built-in detector over a few pages of every comic, looks
+at the comics where it does worst, those with slanted, curved or
+borderless frames and few obvious speech balloons, and tells you which
+are worth drawing, how many pages and roughly what they would cost,
+before drawing anything. It needs a few more Python packages, which it
+installs or asks you to (numpy, OpenCV, onnxruntime); a library of 200
+comics takes about half an hour.
+
 You can see where things stand yourself:
 
 ```sh
@@ -223,9 +237,11 @@ Code has been tried; with Codex, allow it to write beside your comics
 when it asks, since that is where the sidecars are.
 
 Page by page you can tell drawn panels from the detector's in two
-places. In guided view the status line says `guided (drawn): panel 2 / 6`
-on a page whose panels were drawn, and `guided: panel 2 / 6` on one the
-detector found. In the details (`I`) each page's row in the list of
+places. On a page whose panels were drawn the status line takes another
+colour (a muted purple in the dark theme, a light one in the light
+theme), guided view on or off, and says so: `guided (drawn): panel 2 / 6`
+in guided view, `drawn panels` outside it. On a page the detector found
+it keeps its usual colour and says `guided: panel 2 / 6`. In the details (`I`) each page's row in the list of
 pages starts with where its panels came from: "drawn (imported)",
 "trained model" or "classic CV", for example "drawn (imported) ·
 guided" or "trained model · guided · confidence 0.91 · 140 ms".

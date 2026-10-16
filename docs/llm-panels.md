@@ -65,7 +65,71 @@ app does, both written again in Python; EPUB is not read. A change in
 Dart to the sidecar schema, `contentKey`, the page order or `findBooks`
 (`packages/comic_formats`), the app's data folder or
 `storedSidecarPath` must be made in the tool too.
-`tool/e2e_llm_panels.sh` checks the whole path in the release build.
+`tool/e2e/e2e_llm_panels.sh` checks the whole path in the release build.
+
+## Which comics to draw: triage
+
+Drawing a whole library costs a lot, and on most comics the built-in
+detector already does well. The comics worth a large model are the ones
+whose frames are not straight (curved, slanted, torn, borderless, insets
+over a splash page) and whose words are not in obvious balloons
+(captions, loose lettering, wordless pages). Asked to "triage comic
+panels", an agent follows "Triage: which comics to draw" in
+[AGENTS.md](../AGENTS.md):
+
+```sh
+python3 tool/triage_panels.py [FOLDER|BOOK ...] [--out /tmp/comicredr-triage] [--samples 8] [--sheets 40]
+```
+
+The tool samples 8 pages from the middle of each comic (10% to 90%, so
+covers and back matter mostly stay out) and runs the built-in detector
+on them exactly as `detector/evaluate.py` does: frames, balloons and
+captions, the frames whose outline is not a rectangle
+(`detector/outlines.py`), and the confidence gate with its reasons. Its
+score rewards pages with two or more frames that are slanted or overlap
+(which the gate refuses) and is divided down by the balloons found a
+page:
+
+```
+story × (slanted + overlapping + ½ refused) / (1 + balloons a page / 3)
+```
+
+It writes `ranking.txt` (every comic, best first; comics already drawn
+are listed as done) and contact sheets of the best 40 (`sheets/NN.jpg`,
+three comics a sheet, eight sampled pages each). The score is only a
+lead: cover galleries and pin-up books score high too, with one frame
+the gate refuses and no balloons, and have nothing to draw. So the
+agent looks at every sheet and sorts the comics into best fits, slanted
+frames full of balloons, and near misses, then asks which to draw.
+
+The first triage, 2026-10-16, looked at 196 comics in ~/Comics in about
+half an hour on 4 cores. Of the 37 best-ranked, seven were best fits
+(366 pages: Enuma 1 and 2, Khulan #1, Aphrodite IX #0, HyperGeist 01,
+Vampirella Masters Vol. 6 and An Entity Observes All Things), eleven had
+slanted frames but many balloons, and the rest were straight layouts
+with balloons, cover galleries or pin-ups. Claude Code drew the seven
+with one subagent a comic (a chain of them for the two long books, 30
+pages each), each importing as it went.
+
+## Drawn panels and S3
+
+`import` stamps the sidecar's `written_at` with the time of the import,
+so a comic synced to S3 has the newer sidecar here and the app never
+pulls the bucket's older one over it. Nor does it upload the new one by
+itself, since the app did not write it: it goes up the next time the app
+writes that sidecar (reading the comic moves the position), with `gu`
+on the comic (a sync of its sidecar, the newer one winning), or, with
+the app running, by queueing it in the index for the next sync (every 5
+minutes):
+
+```sh
+sqlite3 ~/Comics/.comicredr/comicredr.sqlite \
+  "update s3_books set pending='sidecar', pending_since=strftime('%s','now') where content_key='KEY' and pending is null"
+```
+
+The sync compares the two `written_at`s again before it sends anything,
+so queueing a comic whose bucket sidecar is newer pulls that one
+instead, as for any comic.
 
 ## The test, 2026-10-10
 
@@ -73,8 +137,8 @@ Claude (Opus, in a Claude Code session) drew 40 pages of the labelled
 test sets the way the tool asks: 14 of the original set, 14 modern and
 12 diagonal. 32 of them were picked because the shipped model gets them
 wrong or shows them whole, 8 because it gets them right. Its answers
-are committed in `spike/llm-boxes/claude-2026-10-10/` and scored by
-`spike/evaluate.py --boxes`, the same labels and the same gate, trim and
+are committed in `detector/llm-boxes/claude-2026-10-10/` and scored by
+`detector/evaluate.py --boxes`, the same labels and the same gate, trim and
 outlines as the shipped model.
 
 Guided view, right / whole / wrong:
@@ -110,7 +174,7 @@ inset circle (international p028). It never shows a page whole, so a
 miss is a wrong camera move.
 
 The labels are no independent truth: they were drawn by Claude
-subagents too, by the rules in `spike/LABELLING.md` (M5). So "wrong"
+subagents too, by the rules in `detector/LABELLING.md` (M5). So "wrong"
 here means Claude disagreed with an earlier Claude. Side by side
 (`/mnt/project-files/comicredr-llm-panels/misses/` in the project), the
 labels look wrong on international p028 (reading order) and weird p038
@@ -168,7 +232,7 @@ With the test sets in place (`make score-model` fetches and extracts
 them the first time, see [training.md](training.md#comparing-models)):
 
 ```sh
-cd spike
+cd detector
 for set in eval modern diagonal; do
   python3 evaluate.py ${set}_pages --out out/llm-$set --no-cv --trim \
       --trained ../assets/models/comicredr-panels.onnx \
@@ -184,8 +248,8 @@ Only pages with a boxes file are scored, for both detectors. Leave out
 To test another model or a newer prompt: make the pages and prompt with
 `tool/llm_panels.py pages` from the comic, have the model write
 `panels.json`, and turn each page into a boxes file,
-`spike/llm-boxes/NAME/<style>/<page stem>.json` (the style and stem of
-the page in `spike/*_pages/`), with every box as a share of the page
+`detector/llm-boxes/NAME/<style>/<page stem>.json` (the style and stem of
+the page in `detector/*_pages/`), with every box as a share of the page
 `[x, y, w, h]`:
 
 ```json

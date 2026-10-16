@@ -30,7 +30,9 @@ table of contents.
   and balloons of my comics"*. It asks which comics, then saves its
   panels beside each one
   ([how it works](docs/guide/05-guided-view.md#your-whole-library),
-  [how well](docs/llm-panels.md)).
+  [how well](docs/llm-panels.md)). To find the comics worth it first
+  (slanted or borderless frames, few speech balloons), ask *"Follow
+  AGENTS.md and triage comic panels"*.
 - **CBZ, CBT, comic EPUB, PDF**, folders of page images and single PNG,
   JPEG or WebP pages.
 - Single pages or two-page spreads, with zoom, a night filter, margin

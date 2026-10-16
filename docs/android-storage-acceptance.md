@@ -27,7 +27,7 @@ Player and personal AVDs were left alone. The activity was launched with
 
 ## Procedure and evidence
 
-Run `python3 tool/e2e_android_storage.py SERIAL APK` on a fully booted dedicated
+Run `python3 tool/e2e/e2e_android_storage.py SERIAL APK` on a fully booted dedicated
 AVD. The harness refuses other AVD names before clearing ComicRedr's data.
 It makes three disposable JPEG CBZs, one in `Comics` and one each under
 `Download/ComicRedrAcceptance` and `Documents/ComicRedrAcceptance`.

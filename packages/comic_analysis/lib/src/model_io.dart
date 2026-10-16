@@ -44,7 +44,7 @@ class ModelDetection {
 /// The model's input: an RGBA image of [w] x [h] (the page, already scaled
 /// so its long side is at most [size]) placed top-left on a [size] x [size]
 /// grey (114) canvas, as float32 planes R, G, B in 0..1. This is the
-/// letterbox the model was trained and exported with (spike/train.py).
+/// letterbox the model was trained and exported with (detector/train.py).
 Float32List letterboxTensor(Uint8List rgba, int w, int h, int size) {
   final plane = size * size;
   final out = Float32List(3 * plane)..fillRange(0, 3 * plane, 114 / 255);

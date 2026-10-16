@@ -7,6 +7,27 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Drawn pages stand out on the status line.** On a page whose panels
+  were drawn by a large AI model and imported, the status line takes
+  another colour (the theme's tertiary colour), in guided view and out
+  of it, and outside guided view it says `drawn panels`. Pages the
+  built-in detector found keep the usual colour.
+- **Which comics to give a large model: triage.** Ask a coding agent
+  *"Follow AGENTS.md and triage comic panels"*: `tool/triage_panels.py`
+  runs the built-in detector over a few pages of every comic, ranks them
+  by slanted, overlapping or borderless frames and few balloons, and
+  makes contact sheets of the best candidates, which the agent looks at
+  before saying which comics are worth drawing and what they would cost.
+- **Fixed: `tool/llm_panels.py` and comics with `#` in their name.** It
+  read their sidecar as missing (pages done were offered again) and left
+  an empty file named up to the `#` beside the comic.
+- **The repository is laid out more clearly.** `spike/` is now
+  `detector/` (the Python detector, labels, training and evaluation); the
+  end-to-end scripts moved to `tool/e2e/`, the CI scripts and the parked
+  workflows (`ci/workflows/`) to `tool/ci/`, the model scripts to
+  `tool/model/`, and the comic manifests to `test/manifests/`. Paths in
+  older entries below are the old ones.
+
 ## 0.9.1
 
 - **Which pages have drawn panels, page by page.** In guided view the

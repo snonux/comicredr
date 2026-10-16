@@ -1,5 +1,5 @@
 // Runs the classic-CV detector over greyscale PGM files and prints one JSON
-// line per page. Used to check the Dart port against spike/detect_cv.py:
+// line per page. Used to check the Dart port against detector/detect_cv.py:
 //
 //   dart run tool/detect_pgm.dart page1.pgm page2.pgm ...
 import 'dart:convert';

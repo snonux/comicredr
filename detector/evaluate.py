@@ -1,0 +1,569 @@
+#!/usr/bin/env python3
+"""Score panel and balloon detectors against the labelled eval set (M5).
+
+  python3 detector/evaluate.py PAGES_DIR --out detector/out/eval \
+      [--pretrained test/corpus/models/best.pt] [--trained model.onnx|model.pt] [--overlays]
+
+PAGES_DIR holds page images in one folder per style, each with its label
+(<page>.json, from detector/labelkit.py). Up to three detectors run on every
+page:
+
+  cv          classic CV, the detector the app ships since M4
+  pretrained  the Manga109 checkpoint, as downloaded
+  trained     the western fine-tune (an .onnx file is run exactly the way
+              the app runs it: same letterbox, same thresholds)
+
+Panels and balloons are scored as F1 at IoU 0.5. Balloons are speech and
+thought only: labelled captions (narration boxes) are scored on their own,
+for a model that has a caption class, and a balloon found on a caption
+counts against balloon precision. Guided view is scored per
+page, because a wrong camera move is worse than none (design plan section 5):
+
+  right   the gate passed and the panels match the labels one for one, in
+          reading order; or the page has no story layout and is shown whole
+  whole   a story page shown whole because the gate failed (a lost chance,
+          not a mistake)
+  wrong   the gate passed with panels that don't match, or a non-story page
+          (cover, text, ad) got a camera
+
+With --trim the model looks at each page with its blank scanned margins cut
+off when they are wide (detector/trim.py), and the gate judges its frames
+against that part of the page, as the app does; classic CV keeps the whole
+page. --add-margin pads every page with a blank margin first, to test pages
+scanned with a wide one.
+
+Writes results.json and report.md into --out, and with --overlays one
+<page>.<detector>.jpg per page.
+"""
+import argparse
+import json
+import time
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+import detect_cv
+import outlines as frame_outlines
+import trim as autotrim
+
+IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp"}
+PANEL_CONF = 0.3
+# Wider than this (width over height) and a page is a two-page spread.
+SPREAD_ASPECT = 1.2
+BALLOON_CONF = 0.4
+
+
+# ---------------------------------------------------------------- geometry
+
+def iou(a, b):
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    ix = max(0.0, min(ax + aw, bx + bw) - max(ax, bx))
+    iy = max(0.0, min(ay + ah, by + bh) - max(ay, by))
+    inter = ix * iy
+    return inter / (aw * ah + bw * bh - inter + 1e-12)
+
+
+def match(pred, gt, thr=0.5):
+    """Greedy one-to-one matching by IoU. Returns [(pred_i, gt_j)]."""
+    pairs = sorted(((iou(p, g), i, j) for i, p in enumerate(pred) for j, g in enumerate(gt)), reverse=True)
+    used_p, used_g, out = set(), set(), []
+    for v, i, j in pairs:
+        if v < thr:
+            break
+        if i not in used_p and j not in used_g:
+            used_p.add(i)
+            used_g.add(j)
+            out.append((i, j))
+    return out
+
+
+def reading_order(boxes, tol=0.01, aspect=1.0):
+    """Western reading order by recursive XY-cut over normalised [x, y, w, h].
+
+    [aspect] is the page's width over its height. A landscape page is a
+    two-page spread: when no box crosses the spine, the left page reads
+    before the right one.
+
+    Cut the set by a horizontal gutter no box crosses (rows, top to bottom);
+    failing that, peel off the leftmost column by a vertical one; recurse. A
+    tall panel beside a grid reads first, then the grid row by row. When nothing
+    can be cut, fall back to rows by vertical overlap, the M4 rule. [tol] lets
+    boxes overlap a cut by that share of the page. Mirrors readingOrder() in
+    packages/comic_analysis.
+    """
+    def cut(items, axis):
+        lo, hi = (1, 3) if axis == "y" else (0, 2)
+        s = sorted(items, key=lambda b: b[lo])
+        groups, cur, end = [], [s[0]], s[0][lo] + s[0][hi]
+        for b in s[1:]:
+            if b[lo] >= end - tol:
+                groups.append(cur)
+                cur = [b]
+            else:
+                cur.append(b)
+            end = max(end, b[lo] + b[hi])
+        groups.append(cur)
+        return groups
+
+    def rec(items):
+        if len(items) <= 1:
+            return list(items)
+        groups = cut(items, "y")
+        if len(groups) > 1:
+            return [b for g in groups for b in rec(g)]
+        # Peel off only the leftmost column: what is to its right may still
+        # read in rows (a tall panel beside a 2x2 grid reads first, then the
+        # grid row by row).
+        groups = cut(items, "x")
+        if len(groups) > 1:
+            return rec(groups[0]) + rec([b for g in groups[1:] for b in g])
+        return rows(items)
+
+    def rows(items):
+        out = []
+        for b in sorted(items, key=lambda b: b[1]):
+            for row in out:
+                top, bottom = min(r[1] for r in row), max(r[1] + r[3] for r in row)
+                overlap = min(bottom, b[1] + b[3]) - max(top, b[1])
+                if overlap > 0.5 * min(b[3], bottom - top):
+                    row.append(b)
+                    break
+            else:
+                out.append([b])
+        out.sort(key=lambda r: min(b[1] for b in r))
+        return [b for row in out for b in sorted(row, key=lambda b: b[0])]
+
+    boxes = [list(b) for b in boxes]
+    if aspect > SPREAD_ASPECT and boxes:
+        left = [b for b in boxes if b[0] + b[2] <= 0.5 + tol]
+        right = [b for b in boxes if b[0] >= 0.5 - tol]
+        if left and right and len(left) + len(right) == len(boxes):
+            return rec(left) + rec(right)
+    return rec(boxes)
+
+
+def _overlap(a, b, pa, pb):
+    """Shared area of two panels, by their outlines when either has one
+    (Panel.overlap in the app): slanted panels' boxes overlap, they don't."""
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+    iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    if ix * iy == 0 or (pa is None and pb is None):
+        return ix * iy
+    box = lambda r: np.array([[r[0], r[1]], [r[0] + r[2], r[1]], [r[0] + r[2], r[1] + r[3]], [r[0], r[1] + r[3]]])
+    pa = box(a) if pa is None else pa
+    pb = box(b) if pb is None else pb
+    area, _ = cv2.intersectConvexConvex(np.float32(pa), np.float32(pb))
+    return float(area)
+
+
+def gate(panels, shapes=None, imported=False):
+    """The app's confidence gate (packages/comic_analysis/lib/src/gate.dart).
+    [shapes] holds each panel's outline (N x 2, same coordinates) or None.
+    [imported] panels (drawn by a large model) may overlap, as in PagePanels."""
+    shapes = shapes or [None] * len(panels)
+    reasons, n = [], len(panels)
+    if n < 2:
+        reasons.append(f"{n} panel(s)")
+    if n > 20:
+        reasons.append(f"{n} panels")
+    for i in range(n):
+        for j in range(i + 1, n):
+            a, b = panels[i], panels[j]
+            if not imported and _overlap(a, b, shapes[i], shapes[j]) > 0.15 * min(a[2] * a[3], b[2] * b[3]):
+                reasons.append(f"panels {i + 1} and {j + 1} overlap")
+        if n > 1 and panels[i][2] * panels[i][3] > 0.92:
+            reasons.append(f"panel {i + 1} is the whole page")
+    if sum(1 for p in panels if p[2] * p[3] < 0.02) > 4:
+        reasons.append("scraps")
+    g = 200
+    ys, xs = np.mgrid[0:g, 0:g]
+    xs, ys = (xs + 0.5) / g, (ys + 0.5) / g
+    cover = np.zeros((g, g), bool)
+    for x, y, w, h in panels:
+        cover |= (xs >= x) & (xs < x + w) & (ys >= y) & (ys < y + h)
+    if cover.mean() < 0.6:
+        reasons.append(f"covers {cover.mean():.0%}")
+    return not reasons, reasons
+
+
+# ---------------------------------------------------------------- detectors
+
+class ClassicCv:
+    name = "cv"
+
+    def __call__(self, img):
+        return detect_cv.detect(img).panels, []
+
+
+class Ultralytics:
+    """A .pt checkpoint through Ultralytics, classes by name."""
+
+    def __init__(self, weights, name):
+        from ultralytics import YOLO
+        self.model, self.name = YOLO(weights), name
+
+    def __call__(self, img):
+        r = self.model.predict(img, imgsz=1024, device="cpu", verbose=False, conf=min(PANEL_CONF, BALLOON_CONF))[0]
+        h, w = img.shape[:2]
+        panels, balloons, self.captions = [], [], []
+        for (x0, y0, x1, y1), c, conf in zip(r.boxes.xyxy.tolist(), r.boxes.cls.tolist(), r.boxes.conf.tolist()):
+            box = [x0 / w, y0 / h, (x1 - x0) / w, (y1 - y0) / h]
+            kind = r.names[int(c)]
+            if kind == "frame" and conf >= PANEL_CONF:
+                panels.append(box)
+            elif kind == "balloon" and conf >= BALLOON_CONF:
+                balloons.append(box)
+            elif kind == "caption" and conf >= BALLOON_CONF:
+                self.captions.append(box)
+        return panels, balloons
+
+
+class Onnx:
+    """The exported model, run the way lib/src/reader/model_detector.dart runs it.
+
+    Letterbox: scale the long side to the input size, keep the aspect, pad
+    right and bottom with grey 114. Input float32 NCHW RGB in 0..1. Output
+    [1, N, 6]: x0, y0, x1, y1 in input pixels, score, class.
+    """
+
+    def __init__(self, path, name="trained"):
+        import onnxruntime as ort
+        self.sess = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
+        inp = self.sess.get_inputs()[0]
+        self.input, self.size = inp.name, inp.shape[2]
+        meta = self.sess.get_modelmeta().custom_metadata_map
+        self.names = eval(meta.get("names", "{0: 'frame', 1: 'text', 2: 'balloon'}"))
+        self.name = name
+
+    def __call__(self, img):
+        h, w = img.shape[:2]
+        s = self.size / max(h, w)
+        nw, nh = round(w * s), round(h * s)
+        canvas = np.full((self.size, self.size, 3), 114, np.uint8)
+        canvas[:nh, :nw] = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
+        x = canvas[:, :, ::-1].transpose(2, 0, 1)[None].astype(np.float32) / 255
+        out = self.sess.run(None, {self.input: x})[0][0]
+        found = {"frame": ([], []), "balloon": ([], []), "caption": ([], [])}
+        for x0, y0, x1, y1, conf, c in out:
+            kind = self.names.get(int(c))
+            if kind in found and conf >= (PANEL_CONF if kind == "frame" else BALLOON_CONF):
+                found[kind][0].append([float(v) for v in (x0 / s / w, y0 / s / h, (x1 - x0) / s / w, (y1 - y0) / s / h)])
+                found[kind][1].append(float(conf))
+        self.captions = dedupe(*found["caption"])
+        return drop_containers(dedupe(*found["frame"])), dedupe(*found["balloon"])
+
+
+class Boxes:
+    """Panels and balloons drawn elsewhere (by hand, or by a vision LLM), read
+    from DIR/<style>/<page stem>.json: {"panels": [[x, y, w, h], ...],
+    "balloons": [...], "captions": [...]}, each box a share of the page's
+    width and height, panels in reading order. "shapes" may give each
+    panel's outline ([[x, y], ...] in the same terms, or null) for slanted
+    frames; panels without one have it found the way the model's are.
+    Pages without a file there are skipped. The boxes are scored like any
+    detector's: reading order (unless --keep-order), outlines and the gate
+    are the app's."""
+
+    name = "boxes"
+
+    def __init__(self, folder):
+        self.folder = Path(folder)
+        self.page = None
+
+    def has(self, page):
+        return (self.folder / page.parent.name / (page.stem + ".json")).exists()
+
+    def __call__(self, img):
+        d = json.loads((self.folder / self.page.parent.name / (self.page.stem + ".json")).read_text())
+        self.captions = d.get("captions", [])
+        self.shapes = d.get("shapes")
+        return [list(map(float, b)) for b in d.get("panels", [])], [list(map(float, b)) for b in d.get("balloons", [])]
+
+
+def dedupe(boxes, scores, thr=0.7):
+    """Fold near-duplicates into the higher-scoring box, as decodeDetections() does."""
+    kept = []
+    for i in sorted(range(len(boxes)), key=lambda i: -scores[i]):
+        if all(iou(boxes[i], boxes[k]) <= thr for k in kept):
+            kept.append(i)
+    return [boxes[i] for i in kept]
+
+
+def drop_containers(boxes, inside=0.85, cover=0.6):
+    """Drop a frame that wraps two or more smaller ones, as dropContainers() does.
+
+    Mirrors packages/comic_analysis: each smaller frame at least [inside]
+    within it, together filling at least [cover] of it (a 50 x 50 grid).
+    """
+    def inter(a, b):
+        ix = max(0.0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+        iy = max(0.0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+        return ix * iy
+
+    out = []
+    for i, a in enumerate(boxes):
+        kids = [b for j, b in enumerate(boxes)
+                if j != i and b[2] * b[3] < a[2] * a[3] and inter(a, b) >= inside * b[2] * b[3]]
+        if len(kids) >= 2:
+            g = 50
+            gx = a[0] + (np.arange(g) + 0.5) / g * a[2]
+            gy = a[1] + (np.arange(g) + 0.5) / g * a[3]
+            xs, ys = np.meshgrid(gx, gy)
+            hit = np.zeros((g, g), bool)
+            for x, y, w, h in kids:
+                hit |= (xs >= x) & (xs < x + w) & (ys >= y) & (ys < y + h)
+            if hit.sum() >= cover * g * g:
+                continue
+        out.append(a)
+    return out
+
+
+def add_margin(img, gt, share, colour=None):
+    """[img] with [share] of its size added as blank margin on every side,
+    and its labels moved to match."""
+    h, w = img.shape[:2]
+    mx, my = round(w * share), round(h * share)
+    if colour:
+        fill = [int(v) for v in colour.split(",")]
+    else:
+        edge = np.concatenate([img[0], img[-1], img[:, 0], img[:, -1]])
+        fill = [int(v) for v in np.median(edge, axis=0)]
+    out = cv2.copyMakeBorder(img, my, my, mx, mx, cv2.BORDER_CONSTANT, value=fill)
+    W, H = w + 2 * mx, h + 2 * my
+    moved = {k: [[(mx + x * w) / W, (my + y * h) / H, bw * w / W, bh * h / H] for x, y, bw, bh in v]
+             for k, v in gt.items()}
+    return out, W, H, moved
+
+
+def load_trained(path):
+    return Onnx(path) if str(path).endswith(".onnx") else Ultralytics(path, "trained")
+
+
+# ---------------------------------------------------------------- scoring
+
+def clip(boxes):
+    out = []
+    for x, y, w, h in boxes:
+        x0, y0 = max(0.0, x), max(0.0, y)
+        x1, y1 = min(1.0, x + w), min(1.0, y + h)
+        if x1 > x0 and y1 > y0:
+            out.append([x0, y0, x1 - x0, y1 - y0])
+    return out
+
+
+def score_page(panels, balloons, gt_panels, gt_balloons, aspect=1.0, trim=autotrim.FULL, shapes=None,
+               keep_order=False, imported=False):
+    """[shapes]: each detected panel's outline on the page (N x 2, 0..1) or None.
+    [keep_order]: score the panels in the order given instead of the app's reading order.
+    [imported]: panels drawn by a large model, which the gate lets overlap."""
+    found = panels
+    panels = clip(panels) if keep_order else reading_order(clip(panels), aspect=aspect)
+    pm = match(panels, gt_panels)
+    bm = match(clip(balloons), gt_balloons)
+    crop_shapes = None
+    if shapes:
+        tw, th = trim[2] - trim[0], trim[3] - trim[1]
+        crop_shapes = []
+        for p in panels:
+            k = max(range(len(found)), key=lambda i: iou(p, found[i]))
+            s = shapes[k]
+            crop_shapes.append(None if s is None else (s - [trim[0], trim[1]]) / [tw, th])
+    # The app judges a trimmed page by the part it detected on.
+    passed, reasons = gate(autotrim.to_crop(panels, trim), crop_shapes, imported)
+    story = len(gt_panels) >= 2
+    exact = len(pm) == len(panels) == len(gt_panels) and all(i == j for i, j in pm)
+    if not story:
+        outcome = "wrong" if passed else "right"
+    elif passed:
+        outcome = "right" if exact else "wrong"
+    else:
+        outcome = "whole"
+    return {
+        "panels": panels, "balloons": balloons, "gate": passed, "reasons": reasons, "outcome": outcome,
+        "p_tp": len(pm), "p_fp": len(panels) - len(pm), "p_fn": len(gt_panels) - len(pm),
+        "b_tp": len(bm), "b_fp": len(balloons) - len(bm), "b_fn": len(gt_balloons) - len(bm),
+    }
+
+
+def score_captions(res, captions, gt_captions):
+    """Caption matches, and how many found balloons sit on a labelled caption."""
+    cm = match(clip(captions), gt_captions)
+    res.update(captions=captions, c_tp=len(cm), c_fp=len(captions) - len(cm), c_fn=len(gt_captions) - len(cm),
+               b_on_c=sum(any(iou(b, c) > 0.5 for c in gt_captions) for b in clip(res["balloons"])))
+
+
+def f1(tp, fp, fn):
+    p = tp / (tp + fp) if tp + fp else 1.0
+    r = tp / (tp + fn) if tp + fn else 1.0
+    return p, r, (2 * p * r / (p + r) if p + r else 0.0)
+
+
+def summarise(rows):
+    s = {k: sum(r.get(k, 0) for r in rows) for k in ("p_tp", "p_fp", "p_fn", "b_tp", "b_fp", "b_fn",
+                                                    "c_tp", "c_fp", "c_fn")}
+    out = {"pages": len(rows)}
+    out["panel_p"], out["panel_r"], out["panel_f1"] = f1(s["p_tp"], s["p_fp"], s["p_fn"])
+    out["balloon_p"], out["balloon_r"], out["balloon_f1"] = f1(s["b_tp"], s["b_fp"], s["b_fn"])
+    out["caption_p"], out["caption_r"], out["caption_f1"] = f1(s["c_tp"], s["c_fp"], s["c_fn"])
+    # Balloons that landed on a labelled caption: the old mistake, counted apart.
+    out["balloon_on_caption"] = sum(r.get("b_on_c", 0) for r in rows)
+    for o in ("right", "whole", "wrong"):
+        out[o] = sum(r["outcome"] == o for r in rows)
+    out["ms"] = sum(r["ms"] for r in rows) / max(1, len(rows))
+    return out
+
+
+# ---------------------------------------------------------------- output
+
+def overlay(img, gt, res, dest):
+    img = img.copy()
+    h, w = img.shape[:2]
+    t = max(2, round(w / 400))
+
+    def draw(boxes, colour, thick, label):
+        for i, (x, y, bw, bh) in enumerate(boxes):
+            p0, p1 = (int(x * w), int(y * h)), (int((x + bw) * w), int((y + bh) * h))
+            cv2.rectangle(img, p0, p1, colour, thick)
+            if label:
+                cv2.putText(img, str(i + 1), (p0[0] + 6, p0[1] + 12 * t), cv2.FONT_HERSHEY_SIMPLEX, t / 2, colour, t)
+
+    draw(gt["panels"], (160, 160, 160), t, False)
+    draw(res["panels"], (60, 170, 40) if res["gate"] else (40, 40, 220), t * 2, True)
+    draw(res["balloons"], (160, 40, 180), t, True)
+    cv2.putText(img, res["outcome"] + (" " + "; ".join(res["reasons"]) if res["reasons"] else ""),
+                (10, 20 * t), cv2.FONT_HERSHEY_SIMPLEX, t / 2, (0, 0, 200), t)
+    s = 900 / max(h, w)
+    cv2.imwrite(str(dest), cv2.resize(img, None, fx=s, fy=s), [cv2.IMWRITE_JPEG_QUALITY, 80])
+
+
+def report(summary, out):
+    lines = ["# M5 detector evaluation", ""]
+    dets = list(summary["all"].keys())
+    lines += ["| Detector | Pages | Panel F1 | Balloon F1 | Balloon P | Balloon R | Balloons on captions | "
+              "Caption P | Caption R | Guided right | Whole page | Wrong camera | ms/page |",
+              "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for d in dets:
+        s = summary["all"][d]
+        lines.append(f"| {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_f1']:.3f} | {s['balloon_p']:.3f} | "
+                     f"{s['balloon_r']:.3f} | {s['balloon_on_caption']} | {s['caption_p']:.3f} | "
+                     f"{s['caption_r']:.3f} | {s['right']} | {s['whole']} | {s['wrong']} | {s['ms']:.0f} |")
+    lines += ["", "## Per style", "", "| Style | Detector | Pages | Panel F1 | Balloon P | Balloon R | Caption P | "
+              "Caption R | Right | Whole | Wrong |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for style, per in summary["styles"].items():
+        for d, s in per.items():
+            lines.append(f"| {style} | {d} | {s['pages']} | {s['panel_f1']:.3f} | {s['balloon_p']:.3f} | "
+                         f"{s['balloon_r']:.3f} | {s['caption_p']:.3f} | {s['caption_r']:.3f} | "
+                         f"{s['right']} | {s['whole']} | {s['wrong']} |")
+    (out / "report.md").write_text("\n".join(lines) + "\n")
+    print("\n".join(lines))
+
+
+def main():
+    global PANEL_CONF, BALLOON_CONF
+    ap = argparse.ArgumentParser()
+    ap.add_argument("pages")
+    ap.add_argument("--out", default="detector/out/eval")
+    ap.add_argument("--pretrained")
+    ap.add_argument("--trained")
+    ap.add_argument("--no-cv", action="store_true")
+    ap.add_argument("--boxes", help="score boxes drawn elsewhere: DIR/<style>/<page>.json (see Boxes); "
+                                    "only pages with a file there are scored")
+    ap.add_argument("--keep-order", action="store_true", help="score --boxes panels in their own order")
+    ap.add_argument("--overlays", action="store_true")
+    ap.add_argument("--panel-conf", type=float, default=PANEL_CONF)
+    ap.add_argument("--balloon-conf", type=float, default=BALLOON_CONF)
+    ap.add_argument("--no-outlines", action="store_true",
+                    help="judge overlap by boxes only, not by slanted frames' outlines as the app does")
+    ap.add_argument("--trim", action="store_true",
+                    help="detect on the page with its scanned margins cut off, as the app does")
+    ap.add_argument("--trim-pad", type=float, default=autotrim.DETECT_PAD,
+                    help="margin left around the art when trimming for detection")
+    ap.add_argument("--trim-below", type=float, default=autotrim.DETECT_BELOW,
+                    help="only trim when what is left is at most this share of the page's area")
+    ap.add_argument("--add-margin", type=float, default=0.0,
+                    help="first pad every page with this share of blank margin on each side, "
+                         "in its own paper colour (a wide scanner margin)")
+    ap.add_argument("--margin-colour", help="B,G,R of that margin instead, e.g. 30,30,30 for a scanner bed")
+    a = ap.parse_args()
+    PANEL_CONF, BALLOON_CONF = a.panel_conf, a.balloon_conf
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    dets = [] if a.no_cv else [ClassicCv()]
+    if a.pretrained:
+        dets.append(Ultralytics(a.pretrained, "pretrained"))
+    if a.trained:
+        dets.append(load_trained(a.trained))
+    boxes = Boxes(a.boxes) if a.boxes else None
+    if boxes:
+        dets.append(boxes)
+
+    pages = sorted(p for p in Path(a.pages).rglob("*") if p.suffix.lower() in IMAGE_EXT
+                   and p.with_suffix(".json").exists()
+                   and not any(t in p.name for t in (".cv.", ".yolo.", ".show.", ".check."))
+                   and (boxes is None or boxes.has(p)))
+    results = []
+    for page in pages:
+        lab = json.loads(page.with_suffix(".json").read_text())
+        W, H = lab["w"], lab["h"]
+        gt = {k: [[x / W, y / H, w / W, h / H] for x, y, w, h in lab.get(k, [])]
+              for k in ("panels", "balloons", "captions")}
+        img = cv2.imread(str(page))
+        if a.add_margin:
+            img, W, H, gt = add_margin(img, gt, a.add_margin, a.margin_colour)
+        row = {"page": str(page.relative_to(a.pages)), "style": page.parent.name,
+               "gt_panels": len(gt["panels"]), "gt_balloons": len(gt["balloons"]), "det": {}}
+        t = autotrim.FULL
+        page_img = img
+        if a.trim:
+            page_img, t = autotrim.crop(img, autotrim.detection_trim(img, pad=a.trim_pad, below=a.trim_below))
+            row["trim"] = t
+        if boxes:
+            boxes.page = page
+        for d in dets:
+            # Classic CV keeps the whole page, as in the app.
+            dt, d_img = (autotrim.FULL, img) if d.name == "cv" else (t, page_img)
+            t0 = time.perf_counter()
+            panels, balloons = d(d_img)
+            if d is boxes:
+                # Drawn on the whole page: into the trimmed part's terms, so the gate judges them as the app would.
+                panels, balloons = autotrim.to_crop(panels, dt), autotrim.to_crop(balloons, dt)
+                d.captions = autotrim.to_crop(d.captions, dt)
+            ms = (time.perf_counter() - t0) * 1000
+            shapes = None
+            if d.name != "cv" and not a.no_outlines:
+                # The app finds slanted frames' outlines on the page it detected on.
+                dh, dw = d_img.shape[:2]
+                px = lambda r: [r[0] * dw, r[1] * dh, (r[0] + r[2]) * dw, (r[1] + r[3]) * dh]
+                polys = frame_outlines.outlines(d_img, [px(p) for p in panels], [px(b) for b in balloons])
+                tw, th = dt[2] - dt[0], dt[3] - dt[1]
+                shapes = [None if q is None else np.asarray(q) / [dw, dh] * [tw, th] + [dt[0], dt[1]] for q in polys]
+                if d is boxes:
+                    # The app traces no outline round imported panels: only the ones given.
+                    shapes = [None if g is None else np.asarray(g, float) for g in (d.shapes or [None] * len(panels))]
+            panels, balloons = autotrim.to_page(panels, dt), autotrim.to_page(balloons, dt)
+            res = score_page(panels, balloons, gt["panels"], gt["balloons"], W / H, trim=dt, shapes=shapes,
+                             keep_order=d is boxes and a.keep_order, imported=d is boxes)
+            res["outlines"] = sum(q is not None for q in shapes or [])
+            score_captions(res, autotrim.to_page(getattr(d, "captions", []), dt), gt["captions"])
+            res["ms"] = ms
+            row["det"][d.name] = res
+            if a.overlays:
+                (out / "overlays").mkdir(exist_ok=True)
+                overlay(img, gt, res, out / "overlays" / f"{page.parent.name}__{page.stem}.{d.name}.jpg")
+        results.append(row)
+        print(page.name, " ".join(f"{k}:{v['outcome']}" for k, v in row["det"].items()), flush=True)
+
+    summary = {"all": {}, "styles": {}}
+    for d in dets:
+        summary["all"][d.name] = summarise([r["det"][d.name] for r in results])
+    for style in sorted({r["style"] for r in results}):
+        summary["styles"][style] = {d.name: summarise([r["det"][d.name] for r in results if r["style"] == style])
+                                    for d in dets}
+    (out / "results.json").write_text(json.dumps({"summary": summary, "pages": results}, indent=1))
+    report(summary, out)
+
+
+if __name__ == "__main__":
+    main()
