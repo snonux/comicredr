@@ -47,6 +47,7 @@ import sqlite3
 import sys
 import tarfile
 import time
+import urllib.parse
 import zipfile
 from pathlib import Path
 
@@ -318,7 +319,7 @@ class Index:
         if not path or not os.path.exists(path):
             return
         try:
-            db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+            db = read_only(path)
             self.roots = [(i, r) for i, r in db.execute("SELECT id, path FROM roots ORDER BY id")]
             row = db.execute("SELECT value FROM settings WHERE key = 'sidecars.dir'").fetchone()
             self.sidecar_dir = row[0] if row and row[0] else None
@@ -351,13 +352,20 @@ def sidecar_of(book, a):
     return a.sidecar or Index(getattr(a, "index", None)).sidecar(book)
 
 
+def read_only(path):
+    """Opens a database read-only. The path is percent-encoded for the URI:
+    a raw "#" or "?" in a comic's name (Khulan_#1.cbz) cut the path short,
+    so sqlite opened, and made, an empty file named up to it."""
+    return sqlite3.connect(f"file:{urllib.parse.quote(os.path.abspath(path))}?mode=ro", uri=True)
+
+
 def done_pages(sidecar, key):
     """Pages (from 1) the sidecar has imported panels for, and the record of
     the runs; nothing when the sidecar is missing or another comic's."""
     if not os.path.exists(sidecar):
         return set(), []
     try:
-        db = sqlite3.connect(f"file:{sidecar}?mode=ro", uri=True)
+        db = read_only(sidecar)
         have = db.execute("SELECT content_key FROM meta LIMIT 1").fetchone()
         if not have or have[0] != key:
             db.close()
