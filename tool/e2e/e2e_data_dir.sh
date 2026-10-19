@@ -6,7 +6,9 @@
 #      of the app's lands in ~/.local/share, ~/.cache or ~/.config, and the
 #      library (index, Folders tab, watcher) never shows .comicredr. A comic
 #      copied in while it runs still arrives; a restart keeps the place.
-#   2. No ~/Comics: the XDG folders, as before.
+#   2. No ~/Comics: the XDG folders, as before. Moves, renames and copies
+#      reuse covers; same-named different comics keep separate covers;
+#      a missing cover is rebuilt on the next scan.
 #   3. A database in the XDG folder already, then ~/Comics appears: the
 #      database stays where it is, ~/Comics joins it, no .comicredr is made.
 #   4. ~/Comics a symlink to a folder elsewhere: as 1, through the link,
@@ -135,6 +137,50 @@ check "database in ~/.local/share" "$(exists "$xdg")" yes
 check "covers in ~/.cache" "$(find "$h/.cache/org.snonux.comicredr/covers" -maxdepth 1 -name '*.jpg' | wc -l)" 1
 check "keys.toml read from ~/.config" "$(grep -c 'no action called "fromConfig"' "$log")" 1
 check "no ~/Comics made" "$(exists "$h/Comics")" no
+
+# Covers belong to contents, independently of the directory and file name.
+cache="$h/.cache/org.snonux.comicredr/covers"
+cover=$(find "$cache" -maxdepth 1 -name '*.jpg')
+touch -t 200101010000 "$cover"
+stamp=$(stat -c %Y "$cover")
+mkdir -p "$top/$out/Elsewhere/Read" "$top/$out/Elsewhere/Copies"
+mv "$top/$out/Elsewhere/Elsewhere 1.cbz" \
+  "$top/$out/Elsewhere/Read/Renamed.cbz"
+cp "$top/$out/Elsewhere/Read/Renamed.cbz" \
+  "$top/$out/Elsewhere/Copies/Copy.cbz"
+python3 - "$top/$out/Elsewhere/Renamed.cbz" <<'EOF'
+import io, sys, zipfile
+from PIL import Image
+image = io.BytesIO()
+Image.new('RGB', (100, 150), 'red').save(image, format='PNG')
+with zipfile.ZipFile(sys.argv[1], 'w') as book:
+    book.writestr('01.png', image.getvalue())
+EOF
+start plain
+wait_files "$xdg" 3
+shot 05a_relocated_and_same_name
+stop
+check "moved, renamed and copied files indexed" \
+  "$(sql "$xdg" 'select count(*) from files')" 3
+check "copies share a comic, same-name different comic stays separate" \
+  "$(sql "$xdg" 'select count(*) from books')" 2
+check "copies use the same content key" \
+  "$(sql "$xdg" "select count(distinct content_key) from files where rel_path in ('Read/Renamed.cbz', 'Copies/Copy.cbz')")" 1
+check "same file name keeps distinct content keys" \
+  "$(sql "$xdg" "select count(distinct content_key) from files where rel_path in ('Read/Renamed.cbz', 'Renamed.cbz')")" 2
+check "existing cover reused without rewriting" "$(stat -c %Y "$cover")" "$stamp"
+check "two distinct cached covers" \
+  "$(find "$cache" -maxdepth 1 -name '*.jpg' | wc -l)" 2
+rm "$cover"
+start plain
+for _ in $(seq 1 40); do
+  [[ -f "$cover" ]] && break
+  sleep 0.5
+done
+stop
+check "missing cover rebuilt on restart" "$(exists "$cover")" yes
+check "regeneration keeps two covers" \
+  "$(find "$cache" -maxdepth 1 -name '*.jpg' | wc -l)" 2
 
 # 3. An XDG database already (an empty library), then ~/Comics appears:
 # the database stays, and ~/Comics joins it as the default folder.

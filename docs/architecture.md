@@ -430,6 +430,14 @@ flowchart LR
 - **The index database** is the working store the library and the reader
   read and write. It is rebuilt from the files and their sidecars, so it
   is really a cache of them plus this install's settings.
+- **Cover files** are `<cache>/covers/<content key>.jpg`, shared by the
+  scanner's worker and Flutter decoders, sidecar imports and S3. Neither
+  the comic's parent directory nor its file name enters that key: moves,
+  renames and copies reuse a cover, while different content with the same
+  file name has its own cover. Folder books use relative page names in
+  their key, so moving or renaming their enclosing folder keeps it too.
+  A scan rebuilds a missing cover even when the book's size and date have
+  not changed. Page thumbnails live separately under `covers/pages/`.
 - **Sidecars** (`.book.cbz.crdb`, hidden, beside each comic; or all in one
   folder if chosen in Settings) are small SQLite files that make a comic
   self-contained: copy the comic and its sidecar to the phone and it opens

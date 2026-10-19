@@ -163,6 +163,13 @@ subfolders and comics, as they are on disk.
   place and bookmarks are shared, and the other tabs show it once; open,
   move or delete it from a folder and that folder's copy is the one used.
 
+Moving or renaming a comic also keeps its cached cover. For example, move
+`Unread/Saga 01.cbz` to `Read/Saga 01.cbz`, or rename it: the next scan
+reuses the cover. Copies share it too. ComicRedr recognises the comic by
+its contents, so two different comics both called `Issue 01.cbz` keep
+their own covers. A missing cached cover is made again on the next scan
+(`R`).
+
 ![Inside a folder: its comics](images/folders-inside.webp)
 
 #### Filter the library

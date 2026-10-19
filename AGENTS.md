@@ -417,7 +417,11 @@ refreshes right away instead of within six hours.
   Flutter's decoder scales a JPEG down as it decodes it, where
   `package:image` in the worker took 0.3 s (1000 px scan) to 4 s (4400 px)
   a cover. PDFs keep theirs from the PDF worker, which renders at cover
-  size. A
+  size. Cover files are `<cache>/covers/<content key>.jpg`, independent
+  of the comic's directory and file name; moves, renames and copies reuse
+  them, while same-named comics with different contents stay separate.
+  A missing cover is rebuilt even when the comic's size and date match
+  the index (`test/cover_cache_test.dart` tests both cover decoders). A
   watcher picks up file changes; `R` rescans; Android rescans on resume.
   Symlinked comics and folders are followed (`findBooks`, the watcher,
   `FolderDocument`, `isFolderBook`), each real folder once (`firstVisit`
