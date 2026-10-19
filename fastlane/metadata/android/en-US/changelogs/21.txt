@@ -1,0 +1,2 @@
+* Panel-drawing instructions require the actual drawing model on every batch and reasoning effort when known, including delegated work.
+* Cover reuse after moves, renames and copies is documented and tested, with separate covers for different comics sharing a filename.

@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.3
+
+- Panel-drawing instructions require the actual drawing model on every
+  import, including delegated batches, and its reasoning effort when known.
+  Unknown effort stays empty; examples no longer assume a particular model.
+- Cover caching is documented and tested across moves, renames and copies,
+  including folder books. Different comics with the same filename keep
+  separate covers, and missing covers rebuild on the next scan.
+
 ## 0.9.2
 
 - Imported LLM panels and pages now keep the drawing model's name in their
