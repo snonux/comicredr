@@ -2819,6 +2819,28 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _modelNameMeta = const VerificationMeta(
+    'modelName',
+  );
+  @override
+  late final GeneratedColumn<String> modelName = GeneratedColumn<String>(
+    'model_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _modelEffortMeta = const VerificationMeta(
+    'modelEffort',
+  );
+  @override
+  late final GeneratedColumn<String> modelEffort = GeneratedColumn<String>(
+    'model_effort',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -2833,6 +2855,8 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
     modelVer,
     confidence,
     shape,
+    modelName,
+    modelEffort,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2928,6 +2952,21 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
         shape.isAcceptableOrUnknown(data['shape']!, _shapeMeta),
       );
     }
+    if (data.containsKey('model_name')) {
+      context.handle(
+        _modelNameMeta,
+        modelName.isAcceptableOrUnknown(data['model_name']!, _modelNameMeta),
+      );
+    }
+    if (data.containsKey('model_effort')) {
+      context.handle(
+        _modelEffortMeta,
+        modelEffort.isAcceptableOrUnknown(
+          data['model_effort']!,
+          _modelEffortMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -2985,6 +3024,14 @@ class $PanelsTable extends Panels with TableInfo<$PanelsTable, PanelRow> {
         DriftSqlType.string,
         data['${effectivePrefix}shape'],
       ),
+      modelName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_name'],
+      ),
+      modelEffort: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_effort'],
+      ),
     );
   }
 
@@ -3010,6 +3057,10 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
   /// A frame's outline when it is not its box (Panel.shape), as
   /// "x,y,x,y,..." in page coordinates; null for a rectangle.
   final String? shape;
+
+  /// The model that drew an imported panel; unknown for older imports.
+  final String? modelName;
+  final String? modelEffort;
   const PanelRow({
     required this.contentKey,
     required this.page,
@@ -3023,6 +3074,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     required this.modelVer,
     required this.confidence,
     this.shape,
+    this.modelName,
+    this.modelEffort,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3040,6 +3093,12 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     map['confidence'] = Variable<double>(confidence);
     if (!nullToAbsent || shape != null) {
       map['shape'] = Variable<String>(shape);
+    }
+    if (!nullToAbsent || modelName != null) {
+      map['model_name'] = Variable<String>(modelName);
+    }
+    if (!nullToAbsent || modelEffort != null) {
+      map['model_effort'] = Variable<String>(modelEffort);
     }
     return map;
   }
@@ -3060,6 +3119,12 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       shape: shape == null && nullToAbsent
           ? const Value.absent()
           : Value(shape),
+      modelName: modelName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(modelName),
+      modelEffort: modelEffort == null && nullToAbsent
+          ? const Value.absent()
+          : Value(modelEffort),
     );
   }
 
@@ -3081,6 +3146,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       modelVer: serializer.fromJson<int>(json['modelVer']),
       confidence: serializer.fromJson<double>(json['confidence']),
       shape: serializer.fromJson<String?>(json['shape']),
+      modelName: serializer.fromJson<String?>(json['modelName']),
+      modelEffort: serializer.fromJson<String?>(json['modelEffort']),
     );
   }
   @override
@@ -3099,6 +3166,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
       'modelVer': serializer.toJson<int>(modelVer),
       'confidence': serializer.toJson<double>(confidence),
       'shape': serializer.toJson<String?>(shape),
+      'modelName': serializer.toJson<String?>(modelName),
+      'modelEffort': serializer.toJson<String?>(modelEffort),
     };
   }
 
@@ -3115,6 +3184,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     int? modelVer,
     double? confidence,
     Value<String?> shape = const Value.absent(),
+    Value<String?> modelName = const Value.absent(),
+    Value<String?> modelEffort = const Value.absent(),
   }) => PanelRow(
     contentKey: contentKey ?? this.contentKey,
     page: page ?? this.page,
@@ -3128,6 +3199,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     modelVer: modelVer ?? this.modelVer,
     confidence: confidence ?? this.confidence,
     shape: shape.present ? shape.value : this.shape,
+    modelName: modelName.present ? modelName.value : this.modelName,
+    modelEffort: modelEffort.present ? modelEffort.value : this.modelEffort,
   );
   PanelRow copyWithCompanion(PanelsCompanion data) {
     return PanelRow(
@@ -3147,6 +3220,10 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
           ? data.confidence.value
           : this.confidence,
       shape: data.shape.present ? data.shape.value : this.shape,
+      modelName: data.modelName.present ? data.modelName.value : this.modelName,
+      modelEffort: data.modelEffort.present
+          ? data.modelEffort.value
+          : this.modelEffort,
     );
   }
 
@@ -3164,7 +3241,9 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
           ..write('source: $source, ')
           ..write('modelVer: $modelVer, ')
           ..write('confidence: $confidence, ')
-          ..write('shape: $shape')
+          ..write('shape: $shape, ')
+          ..write('modelName: $modelName, ')
+          ..write('modelEffort: $modelEffort')
           ..write(')'))
         .toString();
   }
@@ -3183,6 +3262,8 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
     modelVer,
     confidence,
     shape,
+    modelName,
+    modelEffort,
   );
   @override
   bool operator ==(Object other) =>
@@ -3199,7 +3280,9 @@ class PanelRow extends DataClass implements Insertable<PanelRow> {
           other.source == this.source &&
           other.modelVer == this.modelVer &&
           other.confidence == this.confidence &&
-          other.shape == this.shape);
+          other.shape == this.shape &&
+          other.modelName == this.modelName &&
+          other.modelEffort == this.modelEffort);
 }
 
 class PanelsCompanion extends UpdateCompanion<PanelRow> {
@@ -3215,6 +3298,8 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
   final Value<int> modelVer;
   final Value<double> confidence;
   final Value<String?> shape;
+  final Value<String?> modelName;
+  final Value<String?> modelEffort;
   final Value<int> rowid;
   const PanelsCompanion({
     this.contentKey = const Value.absent(),
@@ -3229,6 +3314,8 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     this.modelVer = const Value.absent(),
     this.confidence = const Value.absent(),
     this.shape = const Value.absent(),
+    this.modelName = const Value.absent(),
+    this.modelEffort = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PanelsCompanion.insert({
@@ -3244,6 +3331,8 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     required int modelVer,
     required double confidence,
     this.shape = const Value.absent(),
+    this.modelName = const Value.absent(),
+    this.modelEffort = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        page = Value(page),
@@ -3269,6 +3358,8 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     Expression<int>? modelVer,
     Expression<double>? confidence,
     Expression<String>? shape,
+    Expression<String>? modelName,
+    Expression<String>? modelEffort,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3284,6 +3375,8 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
       if (modelVer != null) 'model_ver': modelVer,
       if (confidence != null) 'confidence': confidence,
       if (shape != null) 'shape': shape,
+      if (modelName != null) 'model_name': modelName,
+      if (modelEffort != null) 'model_effort': modelEffort,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3301,6 +3394,8 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     Value<int>? modelVer,
     Value<double>? confidence,
     Value<String?>? shape,
+    Value<String?>? modelName,
+    Value<String?>? modelEffort,
     Value<int>? rowid,
   }) {
     return PanelsCompanion(
@@ -3316,6 +3411,8 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
       modelVer: modelVer ?? this.modelVer,
       confidence: confidence ?? this.confidence,
       shape: shape ?? this.shape,
+      modelName: modelName ?? this.modelName,
+      modelEffort: modelEffort ?? this.modelEffort,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3359,6 +3456,12 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
     if (shape.present) {
       map['shape'] = Variable<String>(shape.value);
     }
+    if (modelName.present) {
+      map['model_name'] = Variable<String>(modelName.value);
+    }
+    if (modelEffort.present) {
+      map['model_effort'] = Variable<String>(modelEffort.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3380,6 +3483,8 @@ class PanelsCompanion extends UpdateCompanion<PanelRow> {
           ..write('modelVer: $modelVer, ')
           ..write('confidence: $confidence, ')
           ..write('shape: $shape, ')
+          ..write('modelName: $modelName, ')
+          ..write('modelEffort: $modelEffort, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3461,6 +3566,28 @@ class $AnalysedPagesTable extends AnalysedPages
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _modelNameMeta = const VerificationMeta(
+    'modelName',
+  );
+  @override
+  late final GeneratedColumn<String> modelName = GeneratedColumn<String>(
+    'model_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _modelEffortMeta = const VerificationMeta(
+    'modelEffort',
+  );
+  @override
+  late final GeneratedColumn<String> modelEffort = GeneratedColumn<String>(
+    'model_effort',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -3470,6 +3597,8 @@ class $AnalysedPagesTable extends AnalysedPages
     millis,
     analysedAt,
     trim,
+    modelName,
+    modelEffort,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3537,6 +3666,21 @@ class $AnalysedPagesTable extends AnalysedPages
         trim.isAcceptableOrUnknown(data['trim']!, _trimMeta),
       );
     }
+    if (data.containsKey('model_name')) {
+      context.handle(
+        _modelNameMeta,
+        modelName.isAcceptableOrUnknown(data['model_name']!, _modelNameMeta),
+      );
+    }
+    if (data.containsKey('model_effort')) {
+      context.handle(
+        _modelEffortMeta,
+        modelEffort.isAcceptableOrUnknown(
+          data['model_effort']!,
+          _modelEffortMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -3574,6 +3718,14 @@ class $AnalysedPagesTable extends AnalysedPages
         DriftSqlType.string,
         data['${effectivePrefix}trim'],
       ),
+      modelName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_name'],
+      ),
+      modelEffort: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_effort'],
+      ),
     );
   }
 
@@ -3595,6 +3747,11 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
   /// were cut off, as "left,top,right,bottom" (encodeTrim); null for the
   /// whole page. The confidence gate judges the frames against it.
   final String? trim;
+
+  /// Attribution for an LLM drawing, including pages with no panels.
+  /// Effort stays null when the harness cannot determine it.
+  final String? modelName;
+  final String? modelEffort;
   const AnalysedPage({
     required this.contentKey,
     required this.page,
@@ -3603,6 +3760,8 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     required this.millis,
     required this.analysedAt,
     this.trim,
+    this.modelName,
+    this.modelEffort,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3616,6 +3775,12 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     if (!nullToAbsent || trim != null) {
       map['trim'] = Variable<String>(trim);
     }
+    if (!nullToAbsent || modelName != null) {
+      map['model_name'] = Variable<String>(modelName);
+    }
+    if (!nullToAbsent || modelEffort != null) {
+      map['model_effort'] = Variable<String>(modelEffort);
+    }
     return map;
   }
 
@@ -3628,6 +3793,12 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       millis: Value(millis),
       analysedAt: Value(analysedAt),
       trim: trim == null && nullToAbsent ? const Value.absent() : Value(trim),
+      modelName: modelName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(modelName),
+      modelEffort: modelEffort == null && nullToAbsent
+          ? const Value.absent()
+          : Value(modelEffort),
     );
   }
 
@@ -3644,6 +3815,8 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       millis: serializer.fromJson<int>(json['millis']),
       analysedAt: serializer.fromJson<DateTime>(json['analysedAt']),
       trim: serializer.fromJson<String?>(json['trim']),
+      modelName: serializer.fromJson<String?>(json['modelName']),
+      modelEffort: serializer.fromJson<String?>(json['modelEffort']),
     );
   }
   @override
@@ -3657,6 +3830,8 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
       'millis': serializer.toJson<int>(millis),
       'analysedAt': serializer.toJson<DateTime>(analysedAt),
       'trim': serializer.toJson<String?>(trim),
+      'modelName': serializer.toJson<String?>(modelName),
+      'modelEffort': serializer.toJson<String?>(modelEffort),
     };
   }
 
@@ -3668,6 +3843,8 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     int? millis,
     DateTime? analysedAt,
     Value<String?> trim = const Value.absent(),
+    Value<String?> modelName = const Value.absent(),
+    Value<String?> modelEffort = const Value.absent(),
   }) => AnalysedPage(
     contentKey: contentKey ?? this.contentKey,
     page: page ?? this.page,
@@ -3676,6 +3853,8 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
     millis: millis ?? this.millis,
     analysedAt: analysedAt ?? this.analysedAt,
     trim: trim.present ? trim.value : this.trim,
+    modelName: modelName.present ? modelName.value : this.modelName,
+    modelEffort: modelEffort.present ? modelEffort.value : this.modelEffort,
   );
   AnalysedPage copyWithCompanion(AnalysedPagesCompanion data) {
     return AnalysedPage(
@@ -3690,6 +3869,10 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
           ? data.analysedAt.value
           : this.analysedAt,
       trim: data.trim.present ? data.trim.value : this.trim,
+      modelName: data.modelName.present ? data.modelName.value : this.modelName,
+      modelEffort: data.modelEffort.present
+          ? data.modelEffort.value
+          : this.modelEffort,
     );
   }
 
@@ -3702,14 +3885,25 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
           ..write('modelVer: $modelVer, ')
           ..write('millis: $millis, ')
           ..write('analysedAt: $analysedAt, ')
-          ..write('trim: $trim')
+          ..write('trim: $trim, ')
+          ..write('modelName: $modelName, ')
+          ..write('modelEffort: $modelEffort')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(contentKey, page, source, modelVer, millis, analysedAt, trim);
+  int get hashCode => Object.hash(
+    contentKey,
+    page,
+    source,
+    modelVer,
+    millis,
+    analysedAt,
+    trim,
+    modelName,
+    modelEffort,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3720,7 +3914,9 @@ class AnalysedPage extends DataClass implements Insertable<AnalysedPage> {
           other.modelVer == this.modelVer &&
           other.millis == this.millis &&
           other.analysedAt == this.analysedAt &&
-          other.trim == this.trim);
+          other.trim == this.trim &&
+          other.modelName == this.modelName &&
+          other.modelEffort == this.modelEffort);
 }
 
 class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
@@ -3731,6 +3927,8 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
   final Value<int> millis;
   final Value<DateTime> analysedAt;
   final Value<String?> trim;
+  final Value<String?> modelName;
+  final Value<String?> modelEffort;
   final Value<int> rowid;
   const AnalysedPagesCompanion({
     this.contentKey = const Value.absent(),
@@ -3740,6 +3938,8 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     this.millis = const Value.absent(),
     this.analysedAt = const Value.absent(),
     this.trim = const Value.absent(),
+    this.modelName = const Value.absent(),
+    this.modelEffort = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AnalysedPagesCompanion.insert({
@@ -3750,6 +3950,8 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     required int millis,
     required DateTime analysedAt,
     this.trim = const Value.absent(),
+    this.modelName = const Value.absent(),
+    this.modelEffort = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        page = Value(page),
@@ -3765,6 +3967,8 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     Expression<int>? millis,
     Expression<DateTime>? analysedAt,
     Expression<String>? trim,
+    Expression<String>? modelName,
+    Expression<String>? modelEffort,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3775,6 +3979,8 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
       if (millis != null) 'millis': millis,
       if (analysedAt != null) 'analysed_at': analysedAt,
       if (trim != null) 'trim': trim,
+      if (modelName != null) 'model_name': modelName,
+      if (modelEffort != null) 'model_effort': modelEffort,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3787,6 +3993,8 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     Value<int>? millis,
     Value<DateTime>? analysedAt,
     Value<String?>? trim,
+    Value<String?>? modelName,
+    Value<String?>? modelEffort,
     Value<int>? rowid,
   }) {
     return AnalysedPagesCompanion(
@@ -3797,6 +4005,8 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
       millis: millis ?? this.millis,
       analysedAt: analysedAt ?? this.analysedAt,
       trim: trim ?? this.trim,
+      modelName: modelName ?? this.modelName,
+      modelEffort: modelEffort ?? this.modelEffort,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3825,6 +4035,12 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
     if (trim.present) {
       map['trim'] = Variable<String>(trim.value);
     }
+    if (modelName.present) {
+      map['model_name'] = Variable<String>(modelName.value);
+    }
+    if (modelEffort.present) {
+      map['model_effort'] = Variable<String>(modelEffort.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3841,6 +4057,8 @@ class AnalysedPagesCompanion extends UpdateCompanion<AnalysedPage> {
           ..write('millis: $millis, ')
           ..write('analysedAt: $analysedAt, ')
           ..write('trim: $trim, ')
+          ..write('modelName: $modelName, ')
+          ..write('modelEffort: $modelEffort, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -7433,6 +7651,8 @@ typedef $$PanelsTableCreateCompanionBuilder = PanelsCompanion Function({
   required int modelVer,
   required double confidence,
   Value<String?> shape,
+  Value<String?> modelName,
+  Value<String?> modelEffort,
   Value<int> rowid,
 });
 typedef $$PanelsTableUpdateCompanionBuilder = PanelsCompanion Function({
@@ -7448,6 +7668,8 @@ typedef $$PanelsTableUpdateCompanionBuilder = PanelsCompanion Function({
   Value<int> modelVer,
   Value<double> confidence,
   Value<String?> shape,
+  Value<String?> modelName,
+  Value<String?> modelEffort,
   Value<int> rowid,
 });
 
@@ -7517,6 +7739,16 @@ class $$PanelsTableFilterComposer
 
   ColumnFilters<String> get shape => $composableBuilder(
     column: $table.shape,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get modelName => $composableBuilder(
+    column: $table.modelName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get modelEffort => $composableBuilder(
+    column: $table.modelEffort,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7589,6 +7821,16 @@ class $$PanelsTableOrderingComposer
     column: $table.shape,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get modelName => $composableBuilder(
+    column: $table.modelName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get modelEffort => $composableBuilder(
+    column: $table.modelEffort,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$PanelsTableAnnotationComposer
@@ -7639,6 +7881,14 @@ class $$PanelsTableAnnotationComposer
 
   GeneratedColumn<String> get shape =>
       $composableBuilder(column: $table.shape, builder: (column) => column);
+
+  GeneratedColumn<String> get modelName =>
+      $composableBuilder(column: $table.modelName, builder: (column) => column);
+
+  GeneratedColumn<String> get modelEffort => $composableBuilder(
+    column: $table.modelEffort,
+    builder: (column) => column,
+  );
 }
 
 class $$PanelsTableTableManager
@@ -7681,6 +7931,8 @@ class $$PanelsTableTableManager
                 Value<int> modelVer = const Value.absent(),
                 Value<double> confidence = const Value.absent(),
                 Value<String?> shape = const Value.absent(),
+                Value<String?> modelName = const Value.absent(),
+                Value<String?> modelEffort = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PanelsCompanion(
                 contentKey: contentKey,
@@ -7695,6 +7947,8 @@ class $$PanelsTableTableManager
                 modelVer: modelVer,
                 confidence: confidence,
                 shape: shape,
+                modelName: modelName,
+                modelEffort: modelEffort,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7711,6 +7965,8 @@ class $$PanelsTableTableManager
                 required int modelVer,
                 required double confidence,
                 Value<String?> shape = const Value.absent(),
+                Value<String?> modelName = const Value.absent(),
+                Value<String?> modelEffort = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PanelsCompanion.insert(
                 contentKey: contentKey,
@@ -7725,6 +7981,8 @@ class $$PanelsTableTableManager
                 modelVer: modelVer,
                 confidence: confidence,
                 shape: shape,
+                modelName: modelName,
+                modelEffort: modelEffort,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -7767,6 +8025,8 @@ typedef $$AnalysedPagesTableCreateCompanionBuilder =
       required int millis,
       required DateTime analysedAt,
       Value<String?> trim,
+      Value<String?> modelName,
+      Value<String?> modelEffort,
       Value<int> rowid,
     });
 typedef $$AnalysedPagesTableUpdateCompanionBuilder =
@@ -7778,6 +8038,8 @@ typedef $$AnalysedPagesTableUpdateCompanionBuilder =
       Value<int> millis,
       Value<DateTime> analysedAt,
       Value<String?> trim,
+      Value<String?> modelName,
+      Value<String?> modelEffort,
       Value<int> rowid,
     });
 
@@ -7822,6 +8084,16 @@ class $$AnalysedPagesTableFilterComposer
 
   ColumnFilters<String> get trim => $composableBuilder(
     column: $table.trim,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get modelName => $composableBuilder(
+    column: $table.modelName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get modelEffort => $composableBuilder(
+    column: $table.modelEffort,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -7869,6 +8141,16 @@ class $$AnalysedPagesTableOrderingComposer
     column: $table.trim,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get modelName => $composableBuilder(
+    column: $table.modelName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get modelEffort => $composableBuilder(
+    column: $table.modelEffort,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AnalysedPagesTableAnnotationComposer
@@ -7904,6 +8186,14 @@ class $$AnalysedPagesTableAnnotationComposer
 
   GeneratedColumn<String> get trim =>
       $composableBuilder(column: $table.trim, builder: (column) => column);
+
+  GeneratedColumn<String> get modelName =>
+      $composableBuilder(column: $table.modelName, builder: (column) => column);
+
+  GeneratedColumn<String> get modelEffort => $composableBuilder(
+    column: $table.modelEffort,
+    builder: (column) => column,
+  );
 }
 
 class $$AnalysedPagesTableTableManager
@@ -7944,6 +8234,8 @@ class $$AnalysedPagesTableTableManager
                 Value<int> millis = const Value.absent(),
                 Value<DateTime> analysedAt = const Value.absent(),
                 Value<String?> trim = const Value.absent(),
+                Value<String?> modelName = const Value.absent(),
+                Value<String?> modelEffort = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AnalysedPagesCompanion(
                 contentKey: contentKey,
@@ -7953,6 +8245,8 @@ class $$AnalysedPagesTableTableManager
                 millis: millis,
                 analysedAt: analysedAt,
                 trim: trim,
+                modelName: modelName,
+                modelEffort: modelEffort,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -7964,6 +8258,8 @@ class $$AnalysedPagesTableTableManager
                 required int millis,
                 required DateTime analysedAt,
                 Value<String?> trim = const Value.absent(),
+                Value<String?> modelName = const Value.absent(),
+                Value<String?> modelEffort = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AnalysedPagesCompanion.insert(
                 contentKey: contentKey,
@@ -7973,6 +8269,8 @@ class $$AnalysedPagesTableTableManager
                 millis: millis,
                 analysedAt: analysedAt,
                 trim: trim,
+                modelName: modelName,
+                modelEffort: modelEffort,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

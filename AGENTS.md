@@ -58,7 +58,10 @@ API prices, 3 to 5 US cents a page (docs/llm-panels.md).
    `WORK/page-NNN.jpg` (Claude Code: the Read tool; Codex: its image
    viewer, `view_image`), write `WORK/panels.json`, run the `check` it
    names and look at every `WORK/check/page-NNN.jpg`, fix what is off,
-   then import, naming yourself and your model:
+   then import, naming your actual harness and model (never copy the
+   example model unless that is the model drawing the pages). Add
+   `--effort medium` or the actual effort only if you can determine it;
+   otherwise omit it:
 
    ```sh
    python3 tool/llm_panels.py import "BOOK" WORK/panels.json --harness "Claude Code" --model claude-opus-5-5
@@ -98,14 +101,19 @@ them in the story's order. So:
 
 What `import` writes into the comic's sidecar (and nothing else): for
 each page, an `analysed_pages` row with source `manual`, model version 1,
-and `panels` rows of kind `frame` (in the order given, `shape` holding an
-outline), `balloon` and `caption`; and an overrides row `panelImport`
-with the run (harness, model, prompt version, pages, time). The app
-prefers `manual` rows over its detector page by page, keeps their order,
+`model_name` from the required `--model`, and nullable `model_effort` from
+optional `--effort`; and `panels` rows with the same attribution of kind
+`frame` (in the order given, `shape` holding an outline), `balloon` and
+`caption`; and an overrides row `panelImport`
+with the run (harness, model, optional effort, prompt version, pages, time).
+Attribution is per page and panel, including pages with no panels, so it
+survives even after the last-20-runs record fills. Unknown effort stays
+NULL; do not guess it. The app prefers `manual` rows over its detector page
+by page, keeps their order,
 lets them overlap (the confidence gate's overlap rule is off for them),
 skips captions in balloon mode, and carries all of it like any sidecar
 data (copies, S3, settings export). To look at what is there:
-`sqlite3 '.book.cbz.crdb' "select page, idx, kind, x, y, w, h from panels where source='manual'"`.
+`sqlite3 '.book.cbz.crdb' "select page, idx, kind, source, model_name, model_effort from panels where source='manual'"`.
 
 Rules: never change a comic file; write only through `import` (it checks
 the sidecar belongs to the comic and keeps everything else in it). The
@@ -1269,16 +1277,17 @@ refreshes right away instead of within six hours.
   large AI model"): `pages` writes a comic's pages with a percent grid and
   PROMPT.md for Claude Code or Codex, `check` draws its panels.json back
   on them, `import` writes the rows into the sidecar as `PanelSource.manual`
-  (model_ver 1, confidence 1), which `PanelStore.load` prefers over the
-  detector on the pages that have them, and in the given order (scored
+  (model_ver 1, confidence 1, model_name from required --model and nullable
+  model_effort from optional --effort on pages and panels), which
+  `PanelStore.load` prefers over the detector on the pages that have them, and in the given order (scored
   with `evaluate.py --boxes DIR --keep-order`). The tool mirrors the
   sidecar schema, `contentKey`, the page order and `findBooks` of
   comic_formats, the app's data folder (`appDirs`) and `storedSidecarPath`
   in Python (checked against Dart for CBZ and folder books); a change to
   any of them must follow there. Each import also writes an overrides row
   `panelImport` (`panelImportField` in meta_edits.dart: harness, model,
-  prompt version, pages, time), kept, merged and exported like the
-  completed mark, shown as "Drawn by" in `ComicDetails`, and dropped by
+  optional effort, prompt version, pages, time), kept, merged and exported
+  like the completed mark, shown as "Drawn by" in `ComicDetails`, and dropped by
   Redo panels (`SidecarSync.reset`) with the panels. Page by page, the
   status line says `guided (drawn)` on a page whose panels are imported
   (`PagePanels.imported`, `StatusLine._guided`), `drawn panels` outside

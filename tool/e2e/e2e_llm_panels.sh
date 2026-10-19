@@ -180,7 +180,16 @@ for _ in $(seq 1 30); do [[ -f $side ]] && break; sleep 1; done
 stop
 
 echo "== imported into the sidecar the app wrote"
-python3 tool/llm_panels.py import "$book" "$out/books/panels.json" --harness "Claude Code" --model claude-opus-5-5
+# Exercise upgrading a sidecar written before model attribution.
+sqlite3 "$side" <<'SQL'
+ALTER TABLE analysed_pages DROP COLUMN model_name;
+ALTER TABLE analysed_pages DROP COLUMN model_effort;
+ALTER TABLE panels DROP COLUMN model_name;
+ALTER TABLE panels DROP COLUMN model_effort;
+UPDATE meta SET schema_version = 3;
+SQL
+python3 tool/llm_panels.py import "$book" "$out/books/panels.json" \
+  --harness "Claude Code" --model claude-opus-5-5 --effort medium
 listed=$(python3 tool/llm_panels.py library "$out/books" --todo --index /nonexistent)
 grep -q 'Imported.cbz' <<<"$listed" && fail "library --todo still lists the comic: $listed" \
   || ok "library --todo leaves the comic out"
@@ -188,6 +197,7 @@ python3 tool/llm_panels.py pages "$book" "$work" | grep -q 'done already' && ok 
   || fail "pages would draw done pages again"
 n=$(q "$side" "select count(*) from panels where source = 'manual' and kind = 'frame'")
 expect "the sidecar holds the 4 imported panels" "$n" 4
+expect "the sidecar was upgraded" "$(q "$side" 'select schema_version from meta')" 4
 start "$book"
 sleep 2
 expect "guided view: yellow first, as imported" "$(first_framed 02_imported_first)" yellow
@@ -213,6 +223,13 @@ done
 expect "page 2 (no panels imported) is shown whole" "$seen" whole
 rows=$(q "$db" "select count(*) from analysed_pages where source = 'manual'")
 expect "the index holds both pages as source manual" "$rows" 2
+for table in analysed_pages panels; do
+  n=$(q "$db" "select count(*) from $table where source='manual'
+    and model_name='claude-opus-5-5' and model_effort='medium'")
+  want=6
+  [[ $table == analysed_pages ]] && want=2
+  expect "the index keeps model and effort on $table" "$n" "$want"
+done
 caps=$(q "$db" "select count(*) from panels where source = 'manual' and kind = 'caption'")
 expect "and the caption" "$caps" 1
 rec=$(q "$db" "select value from overrides where field = 'panelImport'")
@@ -227,6 +244,13 @@ sleep 4 # The sidecar is written two seconds after the last change.
 stop
 n=$(q "$side" "select count(*) from panels where source = 'manual'")
 expect "the sidecar still holds the 6 imported rows after the app wrote it" "$n" 6
+for table in analysed_pages panels; do
+  n=$(q "$side" "select count(*) from $table where source='manual'
+    and model_name='claude-opus-5-5' and model_effort='medium'")
+  want=6
+  [[ $table == analysed_pages ]] && want=2
+  expect "the sidecar keeps model and effort on $table" "$n" "$want"
+done
 rec=$(q "$side" "select count(*) from overrides where field = 'panelImport'")
 expect "and the record" "$rec" 1
 
@@ -235,6 +259,9 @@ start "$book"
 key g g
 sleep 1
 expect "after a restart: yellow first still" "$(first_framed 07_restart_first)" yellow
+n=$(q "$db" "select count(*) from analysed_pages where source='manual'
+  and model_name='claude-opus-5-5' and model_effort='medium'")
+expect "a restart keeps attribution on both pages" "$n" 2
 
 echo "== X, Redo panels"
 key shift+x; sleep 3

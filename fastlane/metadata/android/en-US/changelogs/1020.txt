@@ -1,0 +1,4 @@
+* Drawn panels now keep the AI model name and optional reasoning effort in their sidecars.
+* Drawn pages stand out with a different status-line colour.
+* Find comics worth drawing with the new panel triage tool.
+* Fixed panel imports for comic names containing #.

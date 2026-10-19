@@ -31,8 +31,10 @@ detector on those pages (PanelStore.load), into the sidecar beside the comic
 (`.Book.cbz.crdb`, `.comicredr.crdb` inside a folder book), merged with what
 is there; the app reads it the next time the comic opens. With Settings ->
 Sidecars -> In one folder the sidecar there is used (read from the app's
-index; --sidecar names one by hand). It also records the run in the
-sidecar's overrides row "panelImport" (harness, model, prompt version, date,
+index; --sidecar names one by hand). Each page and panel keeps model_name
+from the required --model and nullable model_effort from optional --effort;
+unknown effort stays unset. It also records the run in the
+sidecar's overrides row "panelImport" (harness, model, effort, prompt version, date,
 pages), which the comic's details (I) show. X (Redo panels) in the app drops
 the panels and the record again.
 """
@@ -60,7 +62,7 @@ PROMPT_VERSION = 2
 # panelImportField in lib/src/data/meta_edits.dart.
 RECORD_FIELD = "panelImport"
 RECORD_RUNS = 20
-SCHEMA_VERSION = 3  # sidecarSchemaVersion in lib/src/data/sidecar.dart
+SCHEMA_VERSION = 4  # sidecarSchemaVersion in lib/src/data/sidecar.dart
 
 # lib/src/data/sidecar.dart, _schema: a new sidecar is made exactly like the app's.
 SCHEMA = [
@@ -69,10 +71,12 @@ SCHEMA = [
     "CREATE TABLE book (title TEXT NOT NULL, series TEXT, number TEXT, volume INTEGER, year INTEGER, "
     "writers TEXT, artists TEXT, summary TEXT)",
     "CREATE TABLE analysed_pages (page INTEGER NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, "
-    "millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, trim TEXT, PRIMARY KEY (page, source))",
+    "millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, trim TEXT, model_name TEXT, model_effort TEXT, "
+    "PRIMARY KEY (page, source))",
     "CREATE TABLE panels (page INTEGER NOT NULL, idx INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, "
     "w REAL NOT NULL, h REAL NOT NULL, kind TEXT NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, "
-    "confidence REAL NOT NULL, shape TEXT, PRIMARY KEY (page, kind, idx, source))",
+    "confidence REAL NOT NULL, shape TEXT, model_name TEXT, model_effort TEXT, "
+    "PRIMARY KEY (page, kind, idx, source))",
     "CREATE TABLE bookmarks (id TEXT PRIMARY KEY, page INTEGER NOT NULL, panel INTEGER, mark TEXT, note TEXT, "
     "created_at INTEGER NOT NULL, deleted_at INTEGER)",
     "CREATE TABLE progress (device TEXT PRIMARY KEY, device_name TEXT NOT NULL, page INTEGER NOT NULL, "
@@ -127,9 +131,13 @@ balloons, blue captions. Fix any box or outline that does not sit on its
 border (a panel grown for a balloon: on the balloon's edge), and any balloon
 that sticks out of its panel, and run check again until they all do.
 
-Then put it in the comic's sidecar, naming yourself and your model:
-`python3 {tool} import {book} panels.json --harness "Claude Code" --model claude-opus-5-5`
-(in Codex: --harness Codex and the model you run as).
+Then put it in the comic's sidecar, naming your actual harness and model:
+`python3 {tool} import {book} panels.json --harness "YOUR HARNESS" --model "YOUR MODEL"`
+Replace both placeholders with what you run as (e.g. Claude Code or Codex
+and your actual model name). The model is required and is stored next to
+source "manual" on every imported page and panel. If you can determine
+your reasoning effort, add `--effort medium` (or your actual setting).
+Otherwise omit --effort: leave it empty rather than guessing.
 """
 
 
@@ -620,6 +628,22 @@ def cmd_check(a):
 
 # ---------------------------------------------------------------- the sidecar
 
+def upgrade_sidecar(db):
+    """Bring supported older sidecars to the current additive schema.
+    Call inside the import transaction, after checking meta and content key."""
+    for table, additions in {
+        "analysed_pages": ("trim", "model_name", "model_effort"),
+        "panels": ("shape", "model_name", "model_effort"),
+    }.items():
+        columns = {r[1] for r in db.execute(f"PRAGMA table_info({table})")}
+        for name in additions:
+            if name not in columns:
+                db.execute(f"ALTER TABLE {table} ADD COLUMN {name} TEXT")
+    db.execute("CREATE TABLE IF NOT EXISTS collections "
+               "(name TEXT PRIMARY KEY, added_at INTEGER NOT NULL, removed_at INTEGER)")
+    db.execute("UPDATE meta SET schema_version = ?", (SCHEMA_VERSION,))
+
+
 def cmd_import(a):
     book = a.book.rstrip("/")
     found = read_panels(a.panels, page_count(book))
@@ -633,9 +657,12 @@ def cmd_import(a):
         os.remove(tmp)
     now = int(time.time() * 1000)
     if os.path.exists(path):
-        with open(path, "rb") as src, open(tmp, "wb") as dst:
-            dst.write(src.read())
         db = sqlite3.connect(tmp)
+        src = read_only(path)
+        try:
+            src.backup(db)
+        finally:
+            src.close()
         have, schema = db.execute("SELECT content_key, schema_version FROM meta LIMIT 1").fetchone()
         if have != key:
             db.close()
@@ -653,18 +680,23 @@ def cmd_import(a):
             db.execute(s)
         db.execute("INSERT INTO meta VALUES (?, ?, ?, ?, ?)", (SCHEMA_VERSION, "llm_panels.py", now, key, "llm_panels"))
     with db:
+        upgrade_sidecar(db)
         for n, page in found.items():
             p = n - 1
             db.execute("DELETE FROM panels WHERE page = ? AND source = ?", (p, SOURCE))
-            db.execute("INSERT OR REPLACE INTO analysed_pages VALUES (?, ?, ?, ?, ?, NULL)", (p, SOURCE, MODEL_VER, 0, now))
+            db.execute("INSERT OR REPLACE INTO analysed_pages "
+                       "(page, source, model_ver, millis, analysed_at, trim, model_name, model_effort) "
+                       "VALUES (?, ?, ?, ?, ?, NULL, ?, ?)", (p, SOURCE, MODEL_VER, 0, now, a.model, a.effort))
             rows = [(i, *f[:4], "frame", f[4]) for i, f in enumerate(page["panels"])]
             rows += [(i, *b, "balloon", None) for i, b in enumerate(page["balloons"])]
             rows += [(i, *c, "caption", None) for i, c in enumerate(page["captions"])]
             for i, x, y, w, h, kind, shape in rows:
-                db.execute("INSERT INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                db.execute("INSERT INTO panels "
+                           "(page, idx, x, y, w, h, kind, source, model_ver, confidence, shape, model_name, model_effort) "
+                           "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                            (p, i, x, y, w, h, kind, SOURCE, MODEL_VER, 1.0,
-                            None if shape is None else ",".join(f"{v:.5f}" for v in shape)))
-        record(db, now, {"harness": a.harness, "model": a.model, "prompt": PROMPT_VERSION,
+                            None if shape is None else ",".join(f"{v:.5f}" for v in shape), a.model, a.effort))
+        record(db, now, {"harness": a.harness, "model": a.model, "effort": a.effort, "prompt": PROMPT_VERSION,
                          "pages": page_ranges(found), "at": now})
     db.close()
     os.replace(tmp, path)
@@ -680,6 +712,13 @@ def record(db, now, run):
     value = json.dumps({"runs": runs}, separators=(",", ":"))
     db.execute("INSERT OR REPLACE INTO overrides VALUES (?, ?)",
                (RECORD_FIELD, json.dumps({"value": value, "at": now}, separators=(",", ":"))))
+
+
+def nonempty(value):
+    value = value.strip()
+    if not value:
+        raise argparse.ArgumentTypeError("must not be empty")
+    return value
 
 
 def main():
@@ -707,7 +746,8 @@ def main():
     p.add_argument("book")
     p.add_argument("panels")
     p.add_argument("--harness", required=True, help='what drew them, e.g. "Claude Code" or Codex')
-    p.add_argument("--model", required=True, help="the model's name, e.g. claude-opus-5-5")
+    p.add_argument("--model", required=True, type=nonempty, help="the actual drawing model's name, e.g. Opus 5.5")
+    p.add_argument("--effort", type=nonempty, help="reasoning effort, e.g. medium or high; omit when unknown")
     p.add_argument("--sidecar", help="the sidecar to write, when it is not where the app keeps it")
     p.add_argument("--index", help="the app's comicredr.sqlite, when it is not in the usual place")
     p.set_defaults(run=cmd_import)

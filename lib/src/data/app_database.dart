@@ -127,6 +127,10 @@ class Panels extends Table {
   /// "x,y,x,y,..." in page coordinates; null for a rectangle.
   TextColumn get shape => text().nullable()();
 
+  /// The model that drew an imported panel; unknown for older imports.
+  TextColumn get modelName => text().nullable()();
+  TextColumn get modelEffort => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey, page, kind, idx, source};
 }
@@ -136,7 +140,7 @@ class Panels extends Table {
 class AnalysedPages extends Table {
   TextColumn get contentKey => text()();
   IntColumn get page => integer()();
-  TextColumn get source => text()(); // classicCv, model
+  TextColumn get source => text()(); // classicCv, model, manual
   IntColumn get modelVer => integer()();
   IntColumn get millis => integer()(); // detection time, for tuning
   DateTimeColumn get analysedAt => dateTime()();
@@ -145,6 +149,11 @@ class AnalysedPages extends Table {
   /// were cut off, as "left,top,right,bottom" (encodeTrim); null for the
   /// whole page. The confidence gate judges the frames against it.
   TextColumn get trim => text().nullable()();
+
+  /// Attribution for an LLM drawing, including pages with no panels.
+  /// Effort stays null when the harness cannot determine it.
+  TextColumn get modelName => text().nullable()();
+  TextColumn get modelEffort => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {contentKey, page, source};
@@ -274,7 +283,7 @@ class AppDatabase extends _$AppDatabase {
   static void _waitForLocks(CommonDatabase db) => db.execute('PRAGMA busy_timeout = 5000');
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   /// What the detector found about a book: redone by a reset of its panels.
   List<TableInfo<Table, Object?>> get detectionTables => [analysedPages, panels];
@@ -332,6 +341,17 @@ class AppDatabase extends _$AppDatabase {
         await customStatement(
           'INSERT OR IGNORE INTO seen_books (content_key, first_seen) SELECT content_key, added_at FROM books',
         );
+      }
+      if (from < 13) {
+        for (final table in ['panels', 'analysed_pages']) {
+          final columns = await customSelect('PRAGMA table_info($table)').get();
+          final names = columns.map((c) => c.read<String>('name')).toSet();
+          for (final name in ['model_name', 'model_effort']) {
+            if (!names.contains(name)) {
+              await customStatement('ALTER TABLE $table ADD COLUMN $name TEXT');
+            }
+          }
+        }
       }
     },
   );

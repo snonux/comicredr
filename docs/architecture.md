@@ -433,9 +433,15 @@ flowchart LR
 - **Sidecars** (`.book.cbz.crdb`, hidden, beside each comic; or all in one
   folder if chosen in Settings) are small SQLite files that make a comic
   self-contained: copy the comic and its sidecar to the phone and it opens
-  with its panels, bookmarks, favourites and your position. Merging is
-  per row: bookmarks are unioned by id with removals winning, metadata
-  edits take the later edit per field, positions are kept per device.
+  with its panels, bookmarks, favourites and your position. Manual page
+  and panel rows carry the drawing model's name and
+  optional reasoning effort (`model_name`, `model_effort`; sidecar schema 4,
+  index schema 13). The required import `--model` supplies the name; effort
+  stays null when unknown. These fields travel with each drawing, including
+  empty pages, independently of the limited import history. Older sidecars
+  read with unknown attribution. Merging is per row: bookmarks are unioned
+  by id with removals winning, metadata edits take the later edit per
+  field, positions are kept per device.
   Whether a comic is completed is one more dated row beside the metadata
   edits (`overrides`, field `completed`), so the later change wins there
   too, taking the mark off included. The reader writes it when a step

@@ -48,9 +48,14 @@ python3 tool/llm_panels.py import BOOK WORK/panels.json --harness "Claude Code" 
 4. `import` writes the rows into the comic's sidecar where the app keeps
    it (beside the comic, or under Settings → Sidecars → In one folder,
    read from the app's index; `--sidecar` names one by hand) as source
-   `manual`, model version 1, confidence 1. It also adds the run to the
-   record of who drew the comic: an overrides row `panelImport` holding
-   `{"runs": [{"harness", "model", "prompt", "pages", "at"}]}` (the last
+   `manual`, model version 1, confidence 1. Both `analysed_pages` and
+   `panels` also store `model_name` from the required `--model` and nullable
+   `model_effort` from optional `--effort` (for example `--effort medium`).
+   The agent must name the actual model drawing the pages; when it cannot
+   determine its effort, it leaves that unset. Empty pages carry attribution
+   in `analysed_pages` too. The tool upgrades older sidecars when importing.
+   It also adds the run to the record of who drew the comic: an overrides row `panelImport` holding
+   `{"runs": [{"harness", "model", "effort", "prompt", "pages", "at"}]}` (the last
    20 runs), with `prompt` the tool's `PROMPT_VERSION`. The app keeps,
    merges and exports it like the completed mark, and the comic's
    details (`I`) show it as "Drawn by". The app's `PanelStore.load`

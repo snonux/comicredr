@@ -1,14 +1,17 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:comic_analysis/comic_analysis.dart';
 import 'package:comic_formats/comic_formats.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/meta_edits.dart';
+import 'package:comicredr/src/data/panel_store.dart';
 import 'package:comicredr/src/data/progress_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/reader/guided.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
@@ -68,26 +71,148 @@ void main() {
     expect(PagePanels(frames, const [], Trim.full, true).stops(rightToLeft: false), frames);
   });
 
+  Future<void> importPanels(String path, {String model = 'Opus 5.5', String? effort, int page = 1}) async {
+    final json = File('${tmp.path}/panels.json')
+      ..writeAsStringSync(
+        jsonEncode({
+          'pages': {
+            '$page': {
+              'panels': [
+                [5, 5, 95, 45],
+              ],
+            },
+            '${page + 1}': {'panels': <List<int>>[]},
+          },
+        }),
+      );
+    final result = await Process.run('python3', [
+      'tool/llm_panels.py',
+      'import',
+      path,
+      json.path,
+      '--index',
+      '${tmp.path}/no-index',
+      '--harness',
+      'Codex',
+      '--model',
+      model,
+      if (effort != null) ...['--effort', effort],
+    ]);
+    expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+  }
+
   Future<(String, String)> bookWithImport() async {
     final path = writeBook(tmp, 'Daredevil 181.cbz', 3);
     final key = await contentKey(path);
     await sync.attach(path, key, folder: false);
     await sync.write(key);
-    // What the tool adds to the sidecar the app wrote: a manual page and the record.
-    final side = sqlite3.open(sidecarPath(path, folder: false));
-    side.execute("INSERT INTO analysed_pages VALUES (0, 'manual', 1, 0, 1791915226477, NULL)");
-    side.execute("INSERT INTO panels VALUES (0, 0, 0.05, 0.05, 0.9, 0.4, 'frame', 'manual', 1, 1.0, NULL)");
-    side.execute('INSERT OR REPLACE INTO overrides VALUES (?, ?)', [panelImportField, toolRecord]);
-    side.close();
+    await importPanels(path);
     await sync.attach(path, key, folder: false);
     return (path, key);
   }
 
   test('the record comes in from the sidecar and stays when the app writes it again', () async {
     final (path, key) = await bookWithImport();
-    expect((await library().panelImportsOf(key)).single.harness, 'Claude Code');
+    expect((await library().panelImportsOf(key)).single.harness, 'Codex');
+    final record = (await library().panelImportsOf(key)).single;
+    expect(record.model, 'Opus 5.5');
+    final imported = await sync.gather(key);
+    expect(imported.analysed.map((a) => a.modelName), ['Opus 5.5', 'Opus 5.5']);
+    expect(imported.analysed.map((a) => a.modelEffort), everyElement(isNull));
+    expect(imported.panels.single.modelName, 'Opus 5.5');
+    expect(imported.panels.single.modelEffort, isNull);
     await sync.write(key);
-    expect(readSidecar(sidecarPath(path, folder: false))!.overrides[panelImportField], toolRecord);
+    final side = readSidecar(sidecarPath(path, folder: false))!;
+    expect(side.overrides[panelImportField], imported.overrides[panelImportField]);
+    expect(side.analysed.map((a) => a.modelName), ['Opus 5.5', 'Opus 5.5']);
+    expect(side.panels.single.modelName, 'Opus 5.5');
+  });
+
+  test('successive models keep page attribution, including empty pages and known effort', () async {
+    final (path, key) = await bookWithImport();
+    await importPanels(path, model: 'Another model', effort: 'high', page: 2);
+    await sync.attach(path, key, folder: false);
+    final store = PanelStore(db);
+    final found = await store.load(key, source: PanelSource.classicCv, version: 1);
+    expect(found[0]!.modelName, 'Opus 5.5');
+    expect(found[0]!.modelEffort, isNull);
+    expect(found[1]!.modelName, 'Another model');
+    expect(found[1]!.modelEffort, 'high');
+    expect(found[2]!.frames, isEmpty);
+    expect(found[2]!.modelName, 'Another model');
+    expect(found[2]!.modelEffort, 'high');
+    await store.save(key, 1, found[1]!);
+    await sync.write(key);
+    final side = readSidecar(sidecarPath(path, folder: false))!;
+    final panel = side.panels.singleWhere((p) => p.page == 1);
+    expect((panel.modelName, panel.modelEffort), ('Another model', 'high'));
+    final record = jsonDecode(MetaEdit.decode(side.overrides[panelImportField]!).value!) as Map<String, dynamic>;
+    expect((record['runs'] as List<dynamic>).last['effort'], 'high');
+  });
+
+  test('the tool upgrades old sidecars without losing personal data', () async {
+    final (path, key) = await bookWithImport();
+    final sidePath = sidecarPath(path, folder: false);
+    final old = sqlite3.open(sidePath);
+    for (final table in ['panels', 'analysed_pages']) {
+      old.execute('ALTER TABLE $table DROP COLUMN model_name');
+      old.execute('ALTER TABLE $table DROP COLUMN model_effort');
+    }
+    old.execute('ALTER TABLE panels DROP COLUMN shape');
+    old.execute('ALTER TABLE analysed_pages DROP COLUMN trim');
+    old.execute('DROP TABLE collections');
+    old.execute("INSERT INTO bookmarks VALUES ('keep-me', 1, NULL, NULL, 'A note', 123, NULL)");
+    old.execute('UPDATE meta SET schema_version = 1');
+    old.close();
+    expect(readSidecar(sidePath)!.analysed.first.modelName, isNull);
+    await importPanels(path, effort: 'medium');
+    await sync.attach(path, key, folder: false);
+    await sync.write(key);
+    final side = readSidecar(sidePath)!;
+    expect(side.schemaVersion, sidecarSchemaVersion);
+    expect(side.bookmarks.single.note, 'A note');
+    expect(side.analysed.map((a) => a.modelEffort), everyElement('medium'));
+    expect(side.panels.single.modelEffort, 'medium');
+  });
+
+  test('attribution added to an existing run survives a merge in either direction', () async {
+    final (path, key) = await bookWithImport();
+    final attributed = readSidecar(sidecarPath(path, folder: false))!;
+    final legacy = SidecarData(
+      contentKey: key,
+      analysed: [
+        for (final a in attributed.analysed) a.copyWith(modelName: const Value(null), modelEffort: const Value(null)),
+      ],
+      panels: [
+        for (final p in attributed.panels) p.copyWith(modelName: const Value(null), modelEffort: const Value(null)),
+      ],
+    );
+    for (final merged in [mergeSidecars(legacy, attributed), mergeSidecars(attributed, legacy)]) {
+      expect(merged.analysed.map((a) => a.modelName), everyElement('Opus 5.5'));
+      expect(merged.panels.single.modelName, 'Opus 5.5');
+    }
+  });
+
+  test('a schema 12 index gains nullable attribution without changing existing runs', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await old.customStatement(
+      "INSERT INTO analysed_pages (content_key, page, source, model_ver, millis, analysed_at) "
+      "VALUES ('k', 0, 'manual', 1, 0, 123)",
+    );
+    for (final table in ['panels', 'analysed_pages']) {
+      await old.customStatement('ALTER TABLE $table DROP COLUMN model_name');
+      await old.customStatement('ALTER TABLE $table DROP COLUMN model_effort');
+    }
+    await old.customStatement('PRAGMA user_version = 12');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    try {
+      final page = (await upgraded.select(upgraded.analysedPages).get()).single;
+      expect((page.source, page.modelVer, page.modelName, page.modelEffort), ('manual', 1, null, null));
+    } finally {
+      await upgraded.close();
+    }
   });
 
   test('Redo panels drops the record with the imported panels; it does not come back', () async {

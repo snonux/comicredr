@@ -19,6 +19,8 @@ class DetectedPage {
     required this.version,
     required this.millis,
     this.trim = Trim.full,
+    this.modelName,
+    this.modelEffort,
   });
 
   /// Frames in left-to-right reading order.
@@ -29,6 +31,10 @@ class DetectedPage {
   final PanelSource source;
   final int version;
   final int millis;
+
+  /// The drawing model and its reasoning effort, when known.
+  final String? modelName;
+  final String? modelEffort;
 
   /// The part of the page detection looked at, with the scanned margins cut
   /// off. [frames] and [balloons] are on the whole page all the same; the

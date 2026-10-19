@@ -7,6 +7,13 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.2
+
+- Imported LLM panels and pages now keep the drawing model's name in their
+  sidecar rows. Imports require the actual model name and accept optional
+  reasoning effort; unknown effort stays empty. Attribution survives later
+  imports by other models and sidecar sync.
+
 - **Drawn pages stand out on the status line.** On a page whose panels
   were drawn by a large AI model and imported, the status line takes
   another colour (the theme's tertiary colour), in guided view and out

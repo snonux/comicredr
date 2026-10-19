@@ -230,6 +230,12 @@ Looking in /home/you/Comics
 2 comics, 76 pages, 64 pages not done
 ```
 
+Each imported page and panel keeps the drawing model's name in the sidecar,
+including a page with no panels. The agent must supply its actual model
+with `--model`; it can also record reasoning effort with `--effort medium`
+(or its actual setting). Effort stays empty when the agent cannot determine
+it. Drawing more pages with another model keeps the earlier pages' attribution.
+
 The details of a comic (`I`) say who drew its panels, under
 **Panels and balloons**: for example "Drawn by: Claude Code
 (claude-opus-5-5), pages 1-36, 2026-10-14 09:10, prompt v2". Only Claude
@@ -334,9 +340,13 @@ balloons, blue captions. Fix any box or outline that does not sit on its
 border (a panel grown for a balloon: on the balloon's edge), and any balloon
 that sticks out of its panel, and run check again until they all do.
 
-Then put it in the comic's sidecar, naming yourself and your model:
-`python3 tool/llm_panels.py import 'Latuda.cbz' panels.json --harness "Claude Code" --model claude-opus-5-5`
-(in Codex: --harness Codex and the model you run as).
+Then put it in the comic's sidecar, naming your actual harness and model:
+`python3 tool/llm_panels.py import 'Latuda.cbz' panels.json --harness "YOUR HARNESS" --model "YOUR MODEL"`
+Replace both placeholders with what you run as (e.g. Claude Code or Codex
+and your actual model name). The model is required and is stored next to
+source "manual" on every imported page and panel. If you can determine
+your reasoning effort, add `--effort medium` (or your actual setting).
+Otherwise omit --effort: leave it empty rather than guessing.
 ```
 
 A `panels.json` for a page of two panels side by side above a slanted

@@ -113,8 +113,9 @@ const folderSidecarName = '.comicredr.crdb';
 /// tables it shares with this one and never written over. 2: collections,
 /// and the nullable `panels.shape` column (frame outlines), which a
 /// sidecar written before it lacks. 3: the nullable `analysed_pages.trim`
-/// column (the part of the page detection looked at).
-const sidecarSchemaVersion = 3;
+/// column (the part of the page detection looked at). 4: nullable
+/// `model_name` and `model_effort` in analysed_pages and panels.
+const sidecarSchemaVersion = 4;
 
 /// Whether [path] is a sidecar or one being written, which the library
 /// scanner and its folder watch ignore.
@@ -217,10 +218,10 @@ const _schema = [
   'CREATE TABLE book (title TEXT NOT NULL, series TEXT, number TEXT, volume INTEGER, year INTEGER, '
       'writers TEXT, artists TEXT, summary TEXT)',
   'CREATE TABLE analysed_pages (page INTEGER NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, '
-      'millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, trim TEXT, PRIMARY KEY (page, source))',
+      'millis INTEGER NOT NULL, analysed_at INTEGER NOT NULL, trim TEXT, model_name TEXT, model_effort TEXT, PRIMARY KEY (page, source))',
   'CREATE TABLE panels (page INTEGER NOT NULL, idx INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, '
       'w REAL NOT NULL, h REAL NOT NULL, kind TEXT NOT NULL, source TEXT NOT NULL, model_ver INTEGER NOT NULL, '
-      'confidence REAL NOT NULL, shape TEXT, PRIMARY KEY (page, kind, idx, source))',
+      'confidence REAL NOT NULL, shape TEXT, model_name TEXT, model_effort TEXT, PRIMARY KEY (page, kind, idx, source))',
   'CREATE TABLE bookmarks (id TEXT PRIMARY KEY, page INTEGER NOT NULL, panel INTEGER, mark TEXT, note TEXT, '
       'created_at INTEGER NOT NULL, deleted_at INTEGER)',
   'CREATE TABLE progress (device TEXT PRIMARY KEY, device_name TEXT NOT NULL, page INTEGER NOT NULL, '
@@ -269,6 +270,8 @@ SidecarData? readSidecar(String path) {
             contentKey: key,
             page: r['page'] as int,
             source: r['source'] as String,
+            modelName: r.containsKey('model_name') ? r['model_name'] as String? : null,
+            modelEffort: r.containsKey('model_effort') ? r['model_effort'] as String? : null,
             modelVer: r['model_ver'] as int,
             millis: r['millis'] as int,
             analysedAt: _time(r['analysed_at']),
@@ -287,6 +290,8 @@ SidecarData? readSidecar(String path) {
             h: (r['h'] as num).toDouble(),
             kind: r['kind'] as String,
             source: r['source'] as String,
+            modelName: r.containsKey('model_name') ? r['model_name'] as String? : null,
+            modelEffort: r.containsKey('model_effort') ? r['model_effort'] as String? : null,
             modelVer: r['model_ver'] as int,
             confidence: (r['confidence'] as num).toDouble(),
             // Sidecars from before frame outlines have no such column.
@@ -401,14 +406,37 @@ void writeSidecar(String path, SidecarData data, {required String device, String
         b.summary,
       ]);
     }
-    final analysed = db.prepare('INSERT INTO analysed_pages VALUES (?, ?, ?, ?, ?, ?)');
+    final analysed = db.prepare('INSERT INTO analysed_pages VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     for (final a in merged.analysed) {
-      analysed.execute([a.page, a.source, a.modelVer, a.millis, a.analysedAt.millisecondsSinceEpoch, a.trim]);
+      analysed.execute([
+        a.page,
+        a.source,
+        a.modelVer,
+        a.millis,
+        a.analysedAt.millisecondsSinceEpoch,
+        a.trim,
+        a.modelName,
+        a.modelEffort,
+      ]);
     }
     analysed.close();
-    final panels = db.prepare('INSERT OR REPLACE INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    final panels = db.prepare('INSERT OR REPLACE INTO panels VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     for (final r in merged.panels) {
-      panels.execute([r.page, r.idx, r.x, r.y, r.w, r.h, r.kind, r.source, r.modelVer, r.confidence, r.shape]);
+      panels.execute([
+        r.page,
+        r.idx,
+        r.x,
+        r.y,
+        r.w,
+        r.h,
+        r.kind,
+        r.source,
+        r.modelVer,
+        r.confidence,
+        r.shape,
+        r.modelName,
+        r.modelEffort,
+      ]);
     }
     panels.close();
     final marks = db.prepare('INSERT INTO bookmarks VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -483,7 +511,13 @@ SidecarData mergeSidecars(SidecarData a, SidecarData b) {
     final k = (r.page, r.source);
     final have = analysed[k];
     final gr = detectorGeneration(r.modelVer), gh = have == null ? 0 : detectorGeneration(have.modelVer);
-    if (have == null || gr > gh || (gr == gh && r.analysedAt.isAfter(have.analysedAt))) {
+    if (have == null ||
+        gr > gh ||
+        (gr == gh && r.analysedAt.isAfter(have.analysedAt)) ||
+        (r.modelVer == have.modelVer &&
+            r.analysedAt == have.analysedAt &&
+            ((have.modelName == null && r.modelName != null) ||
+                (have.modelName == r.modelName && have.modelEffort == null && r.modelEffort != null)))) {
       analysed[k] = r;
     }
   }
