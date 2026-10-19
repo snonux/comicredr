@@ -133,11 +133,18 @@ that sticks out of its panel, and run check again until they all do.
 
 Then put it in the comic's sidecar, naming your actual harness and model:
 `python3 {tool} import {book} panels.json --harness "YOUR HARNESS" --model "YOUR MODEL"`
-Replace both placeholders with what you run as (e.g. Claude Code or Codex
-and your actual model name). The model is required and is stored next to
-source "manual" on every imported page and panel. If you can determine
-your reasoning effort, add `--effort medium` (or your actual setting).
-Otherwise omit --effort: leave it empty rather than guessing.
+Replace both placeholders with the actual harness (e.g. Claude Code or
+Codex) and the model that drew these pages. You must pass that model on
+every import, including every delegated batch. If another agent imports
+your drawing, it must name your drawing model, even if its own model is
+different. Never copy a model name from an example or earlier run.
+When you know the reasoning effort used for this drawing, you must also
+pass `--effort "YOUR EFFORT"`, replacing the placeholder with the actual
+setting (e.g. medium or high). When effort is unknown, omit --effort;
+never guess it. The importer saves model_name and nullable model_effort
+next to source "manual" in the CRDB's analysed_pages and panels tables,
+including attribution for pages with no panels. The batch is only complete
+after the import succeeds.
 """
 
 

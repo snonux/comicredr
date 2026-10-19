@@ -231,10 +231,13 @@ Looking in /home/you/Comics
 ```
 
 Each imported page and panel keeps the drawing model's name in the sidecar,
-including a page with no panels. The agent must supply its actual model
-with `--model`; it can also record reasoning effort with `--effort medium`
-(or its actual setting). Effort stays empty when the agent cannot determine
-it. Drawing more pages with another model keeps the earlier pages' attribution.
+including a page with no panels. On every batch's import, the agent must
+supply the model that actually drew the pages with `--model`. It must also
+include `--effort` with the actual reasoning effort when known; effort stays
+empty when it cannot determine it. A delegated batch records its drawing
+agent's model and known effort, even when the coordinating agent uses another
+model. Drawing more pages with another model keeps the earlier pages'
+attribution.
 
 The details of a comic (`I`) say who drew its panels, under
 **Panels and balloons**: for example "Drawn by: Claude Code
@@ -283,9 +286,12 @@ guided" or "trained model · guided · confidence 0.91 · 140 ms".
    ```sh
    python3 tool/llm_panels.py check ~/Comics/Latuda.cbz /tmp/latuda
    python3 tool/llm_panels.py import ~/Comics/Latuda.cbz /tmp/latuda/panels.json \
-       --harness "Claude Code" --model claude-opus-5-5
+       --harness "YOUR HARNESS" --model "YOUR MODEL"
    ```
 
+   Replace the placeholders with the actual harness and model that drew
+   the pages. When its reasoning effort is known, also pass
+   `--effort "YOUR EFFORT"` with the actual setting; otherwise omit it.
    The sidecar is found where the app keeps it, also when it keeps them
    all in one folder (Settings → Sidecars).
 
@@ -342,11 +348,18 @@ that sticks out of its panel, and run check again until they all do.
 
 Then put it in the comic's sidecar, naming your actual harness and model:
 `python3 tool/llm_panels.py import 'Latuda.cbz' panels.json --harness "YOUR HARNESS" --model "YOUR MODEL"`
-Replace both placeholders with what you run as (e.g. Claude Code or Codex
-and your actual model name). The model is required and is stored next to
-source "manual" on every imported page and panel. If you can determine
-your reasoning effort, add `--effort medium` (or your actual setting).
-Otherwise omit --effort: leave it empty rather than guessing.
+Replace both placeholders with the actual harness (e.g. Claude Code or
+Codex) and the model that drew these pages. You must pass that model on
+every import, including every delegated batch. If another agent imports
+your drawing, it must name your drawing model, even if its own model is
+different. Never copy a model name from an example or earlier run.
+When you know the reasoning effort used for this drawing, you must also
+pass `--effort "YOUR EFFORT"`, replacing the placeholder with the actual
+setting (e.g. medium or high). When effort is unknown, omit --effort;
+never guess it. The importer saves model_name and nullable model_effort
+next to source "manual" in the CRDB's analysed_pages and panels tables,
+including attribution for pages with no panels. The batch is only complete
+after the import succeeds.
 ```
 
 A `panels.json` for a page of two panels side by side above a slanted

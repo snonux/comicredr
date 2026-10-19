@@ -24,8 +24,18 @@ pages at a time. `tool/llm_panels.py` has four commands:
 python3 tool/llm_panels.py library [FOLDER|BOOK ...] [--todo]   # the comics and their pages done
 python3 tool/llm_panels.py pages  BOOK WORK [--batch 10]        # WORK/page-NNN.jpg ... and WORK/PROMPT.md
 python3 tool/llm_panels.py check  BOOK WORK                     # WORK/panels.json drawn into WORK/check/
-python3 tool/llm_panels.py import BOOK WORK/panels.json --harness "Claude Code" --model claude-opus-5-5
+python3 tool/llm_panels.py import BOOK WORK/panels.json --harness "YOUR HARNESS" --model "YOUR MODEL"
 ```
+
+Every batch must record the model that actually drew its frames and
+bubbles in the comic's `.crdb`. Replace the import placeholders with the
+actual harness and drawing model; `--model` is mandatory on every import.
+When the drawing effort is known, also pass `--effort "YOUR EFFORT"`, using
+its actual setting, such as `medium` or `high`. Otherwise omit the option
+so effort stays NULL. Do not guess the model or effort, or reuse a name
+from an example or earlier run. A delegated batch records its drawing
+agent's model and known effort, even when the coordinating agent uses
+another model. Finish each batch by successfully importing its data.
 
 1. `library` finds the comics as the app's library does (comic files by
    their first bytes, folder books, loose images; dot folders skipped)
@@ -51,9 +61,9 @@ python3 tool/llm_panels.py import BOOK WORK/panels.json --harness "Claude Code" 
    `manual`, model version 1, confidence 1. Both `analysed_pages` and
    `panels` also store `model_name` from the required `--model` and nullable
    `model_effort` from optional `--effort` (for example `--effort medium`).
-   The agent must name the actual model drawing the pages; when it cannot
-   determine its effort, it leaves that unset. Empty pages carry attribution
-   in `analysed_pages` too. The tool upgrades older sidecars when importing.
+   The agent must name the actual model drawing the pages and include
+   effort when known; when it cannot determine effort, it leaves that unset.
+   Empty pages carry attribution in `analysed_pages` too. The tool upgrades older sidecars when importing.
    It also adds the run to the record of who drew the comic: an overrides row `panelImport` holding
    `{"runs": [{"harness", "model", "effort", "prompt", "pages", "at"}]}` (the last
    20 runs), with `prompt` the tool's `PROMPT_VERSION`. The app keeps,

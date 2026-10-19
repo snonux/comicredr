@@ -17,6 +17,19 @@ look at images) to draw the panels and balloons of their comics, to
 "detect the frames and bubbles", or to "do the library", follow these
 steps. You look at every page yourself; nothing is sent anywhere else.
 
+**Attribution is required for every batch.** When you draw frames and
+bubbles, you must save your actual drawing model's name in the comic's
+`.crdb`: pass `--model "YOUR MODEL"` on every `import`. If you know the
+reasoning effort used to draw those pages, you must also pass
+`--effort "YOUR EFFORT"`; otherwise omit it so `model_effort` stays NULL.
+Never guess either value or copy a model name from an example or earlier
+run. This applies to delegated agents too: each batch records its drawing
+agent's model and known effort, even if the coordinating agent uses
+another model. The importer writes `model_name` and
+`model_effort` beside source `manual` in both `analysed_pages` and `panels`,
+including attribution for pages with no panels. A batch is only complete
+after its import succeeds.
+
 **This is not training.** Nothing learns and no model file changes: you
 draw each page's frames, balloons and captions once and they are written
 into that comic's sidecar (`.crdb`), where the app reads them instead of
@@ -58,15 +71,17 @@ API prices, 3 to 5 US cents a page (docs/llm-panels.md).
    `WORK/page-NNN.jpg` (Claude Code: the Read tool; Codex: its image
    viewer, `view_image`), write `WORK/panels.json`, run the `check` it
    names and look at every `WORK/check/page-NNN.jpg`, fix what is off,
-   then import, naming your actual harness and model (never copy the
-   example model unless that is the model drawing the pages). Add
-   `--effort medium` or the actual effort only if you can determine it;
-   otherwise omit it:
+   then import with the required attribution above. Replace the quoted
+   placeholders with the actual harness (for example Claude Code or Codex)
+   and drawing model:
 
    ```sh
-   python3 tool/llm_panels.py import "BOOK" WORK/panels.json --harness "Claude Code" --model claude-opus-5-5
-   python3 tool/llm_panels.py import "BOOK" WORK/panels.json --harness Codex --model <your model>
+   python3 tool/llm_panels.py import "BOOK" WORK/panels.json --harness "YOUR HARNESS" --model "YOUR MODEL"
    ```
+
+   When the drawing effort is known, add `--effort "YOUR EFFORT"`, replacing
+   that placeholder with the actual setting (for example `medium` or `high`).
+   Leave the option out when it is unknown.
 
    Then `pages` again for the next 10, until it says every page is
    done. A comic stopped half way goes on where it was: done pages are
