@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.4
+
 - S3 sync follows a comic moved or renamed after it was uploaded, by `gm`
   or in a file manager: it stays synced (the bucket knows it by its
   content), and the bucket now notes the new folder and name, so the

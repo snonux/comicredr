@@ -1,0 +1,2 @@
+* S3 sync follows a comic moved or renamed after upload (gm or a file manager): it stays synced, and the other device shows and downloads it in its new folder.
+* Titles with characters beyond Latin-1 are stored correctly in the S3 manifest.
