@@ -116,6 +116,7 @@ come back here for a key you forgot.
     - [The cloud on a cover](13-s3-sync.md#the-cloud-on-a-cover)
     - [On the other device](13-s3-sync.md#on-the-other-device)
     - [Carrying on where you left off](13-s3-sync.md#carrying-on-where-you-left-off)
+    - [Moving or renaming a synced comic](13-s3-sync.md#moving-or-renaming-a-synced-comic)
     - [When the server is off](13-s3-sync.md#when-the-server-is-off)
     - [Taking a comic off S3](13-s3-sync.md#taking-a-comic-off-s3)
     - [Keys](13-s3-sync.md#keys)

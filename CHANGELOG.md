@@ -7,6 +7,14 @@ the `?` overlay.
 
 ## Unreleased
 
+- S3 sync follows a comic moved or renamed after it was uploaded, by `gm`
+  or in a file manager: it stays synced (the bucket knows it by its
+  content), and the bucket now notes the new folder and name, so the
+  other device shows and downloads it there. Comics moved before this
+  version are put right at the next sync by the device that uploaded
+  them. Titles with characters beyond Latin-1 (a dash, Japanese) are
+  stored correctly in the bucket's manifest.
+
 ## 0.9.3
 
 - Panel-drawing instructions require the actual drawing model on every

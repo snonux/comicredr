@@ -13,8 +13,9 @@ import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/data/sidecar.dart';
 import 'package:comicredr/src/data/sidecar_sync.dart';
 import 'package:comicredr/src/library/library_store.dart';
+import 'package:comicredr/src/library/move_books.dart' show moveComic;
 import 'package:comicredr/src/library/scanner.dart';
-import 'package:drift/drift.dart' show driftRuntimeOptions;
+import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -571,6 +572,135 @@ void main() {
       await phone.s3.drain();
       expect(bucket.objects[o.comic('cbz')]!.bytes.length, File(phonePath).lengthSync());
       expect(bucket.objects[o.comic('cbz')]!.bytes.length, isNot(broken));
+    });
+  });
+
+  test('a schema 13 index keeps its shelf and gains the place and ETag', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    await old.customStatement("INSERT INTO s3_books (content_key, manifest, pending) VALUES ('k', '{}', 'sidecar')");
+    await old.customStatement('ALTER TABLE s3_books DROP COLUMN place');
+    await old.customStatement('ALTER TABLE s3_books DROP COLUMN manifest_etag');
+    await old.customStatement('PRAGMA user_version = 13');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    try {
+      final row = (await upgraded.select(upgraded.s3Books).get()).single;
+      expect((row.manifest, row.pending, row.place, row.manifestEtag), ('{}', 'sidecar', null, null));
+    } finally {
+      await upgraded.close();
+    }
+  });
+
+  group('a comic on S3 moved to another folder', () {
+    late String key, path;
+    late BookObjects o;
+    Manifest inBucket() => Manifest.decodeBytes(bucket.objects[o.manifest]!.bytes)!;
+    String readFolder(Device d) => (Directory('${d.root.path}/Read')..createSync()).path;
+
+    // The laptop put it on S3 from Golden Age, read to page 3.
+    setUp(() async {
+      path = writeBook(Directory('${laptop.root.path}/Golden Age')..createSync(), 'Weird Comics 4.cbz', 8);
+      await laptop.scanner.scan();
+      key = await contentKey(path);
+      await laptop.readTo(key, 3, 8);
+      await laptop.s3.upload([key]);
+      await laptop.s3.drain();
+      o = BookObjects('Comics/', key);
+    });
+
+    test('by gm: the bucket follows, and the phone shows and downloads it there', () async {
+      final comic = bucket.objects[o.comic('cbz')]!.bytes;
+      final uploaded = inBucket();
+      final to = await moveComic(
+        from: path,
+        dir: readFolder(laptop),
+        contentKey: key,
+        folder: false,
+        sidecars: laptop.sidecars,
+        store: laptop.store,
+      );
+      await laptop.s3.followMoves();
+      expect(inBucket().relPath, 'Read/Weird Comics 4.cbz');
+      expect((inBucket().uploadedBy, inBucket().uploadedAt), (uploaded.uploadedBy, uploaded.uploadedAt));
+      // The comic itself is not sent again: the bucket knows it by content.
+      expect(identical(bucket.objects[o.comic('cbz')]!.bytes, comic), isTrue);
+      expect((await laptop.book(key)).s3?.mark, S3Mark.synced);
+
+      // Reading on goes up from the new place.
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      await laptop.readTo(key, 5, 8);
+      await laptop.s3.drain();
+      final side = await laptop.sidecars.sidecarFor(to, folder: false);
+      expect(bucket.objects[o.sidecar]!.metadata[writtenAtMeta], '${sidecarWrittenAt(side)}');
+
+      await phone.s3.refreshShelf();
+      final remote = await phone.book(key);
+      expect(remote.path, '${phone.root.path}/Read/Weird Comics 4.cbz');
+      expect(await phone.s3.download(key), remote.path);
+      expect((await phone.book(key)).page, 5);
+    });
+
+    test('outside the app, renamed too: the next sync finds it', () async {
+      File(path).renameSync('${readFolder(laptop)}/Weird 4.cbz');
+      // Not scanned in yet: nothing is sent.
+      await laptop.s3.sync();
+      expect(inBucket().relPath, 'Golden Age/Weird Comics 4.cbz');
+      await laptop.scanner.scan();
+      await laptop.s3.sync();
+      expect(inBucket().relPath, 'Read/Weird 4.cbz');
+      expect(laptop.s3.current.waiting, 0);
+    });
+
+    test('the other device keeps its copy where it is and does not move the bucket back', () async {
+      await phone.s3.refreshShelf();
+      final phonePath = (await phone.s3.download(key))!;
+      File(path).renameSync('${readFolder(laptop)}/Weird Comics 4.cbz');
+      await laptop.scanner.scan();
+      await laptop.s3.sync();
+
+      await phone.s3.sync();
+      expect(inBucket().relPath, 'Read/Weird Comics 4.cbz');
+      expect(File(phonePath).existsSync(), isTrue);
+      // The phone knows the new place, for a download after a delete.
+      final row = (await phone.db.select(phone.db.s3Books).get()).single;
+      expect(Manifest.decode(row.manifest)?.relPath, 'Read/Weird Comics 4.cbz');
+
+      // Then the phone moves its own copy: the last move wins, and stays.
+      final done = (Directory('${phone.root.path}/Done')..createSync()).path;
+      await moveComic(
+        from: phonePath,
+        dir: done,
+        contentKey: key,
+        folder: false,
+        sidecars: phone.sidecars,
+        store: phone.store,
+      );
+      await phone.s3.followMoves();
+      expect(inBucket().relPath, 'Done/Weird Comics 4.cbz');
+      await laptop.s3.sync();
+      await phone.s3.sync();
+      expect(inBucket().relPath, 'Done/Weird Comics 4.cbz');
+    });
+
+    test('moved before the app followed moves: the device that uploaded it puts the new place up', () async {
+      await (laptop.db.update(laptop.db.s3Books)).write(const S3BooksCompanion(place: Value(null)));
+      File(path).renameSync('${readFolder(laptop)}/Weird Comics 4.cbz');
+      await laptop.scanner.scan();
+      await laptop.s3.sync();
+      expect(inBucket().relPath, 'Read/Weird Comics 4.cbz');
+    });
+
+    test('with the bucket off, the move waits and goes up when it is back', () async {
+      bucket.reachable = false;
+      File(path).renameSync('${readFolder(laptop)}/Weird Comics 4.cbz');
+      await laptop.scanner.scan();
+      await laptop.s3.sync();
+      expect(laptop.s3.current.waiting, 1);
+      bucket.reachable = true;
+      await laptop.s3.drain();
+      expect(inBucket().relPath, 'Read/Weird Comics 4.cbz');
+      expect(laptop.s3.current.waiting, 0);
     });
   });
 }

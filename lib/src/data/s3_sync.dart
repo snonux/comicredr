@@ -56,6 +56,10 @@ class S3Status {
 /// `pending`).
 abstract final class S3Pending {
   static const upload = 'upload', sidecar = 'sidecar', remove = 'remove';
+
+  /// Moved or renamed on this device: the bucket's manifest takes the new
+  /// place, and the sidecar is brought in step as for [sidecar].
+  static const place = 'place';
 }
 
 /// One notice of the sync. [failure] when it tells of something that did
@@ -230,7 +234,7 @@ class S3Sync {
     _set(const S3Status());
   }
 
-  /// Refreshes the shelf and sends what waits.
+  /// Refreshes the shelf, notes the comics moved here and sends what waits.
   Future<void> sync() async {
     try {
       await refreshShelf();
@@ -238,6 +242,11 @@ class S3Sync {
       // Said already, or the retry comes.
     } catch (e) {
       debugPrint('S3 shelf refresh failed: $e');
+    }
+    try {
+      await _noteMoves();
+    } catch (e) {
+      debugPrint('S3 move check failed: $e');
     }
     await drain();
   }
@@ -267,6 +276,8 @@ class S3Sync {
   /// Lists the bucket: a comic new there gets its manifest and cover
   /// fetched (a few kilobytes; never the comic itself), one gone from
   /// there loses its row here, unless this device is still uploading it.
+  /// A manifest that changed there (another device moved the comic) is
+  /// fetched again, so a download goes to the comic's new place.
   Future<void> refreshShelf() async {
     final conn = await _connect();
     if (conn == null) return;
@@ -276,13 +287,17 @@ class S3Sync {
       final rows = await _db.select(_db.s3Books).get();
       final known = {for (final r in rows) r.contentKey};
       for (final r in rows) {
-        if (keys.contains(r.contentKey) || r.pending == S3Pending.upload) continue;
-        await (_db.delete(_db.s3Books)..where((t) => t.contentKey.equals(r.contentKey))).go();
+        if (r.pending == S3Pending.upload) continue;
+        if (!keys.containsKey(r.contentKey)) {
+          await (_db.delete(_db.s3Books)..where((t) => t.contentKey.equals(r.contentKey))).go();
+        } else if (keys[r.contentKey] case final tag? when tag != r.manifestEtag) {
+          await _refetchManifest(store, config, r, tag);
+        }
       }
-      for (final key in keys.difference(known)) {
+      for (final key in keys.keys.toSet().difference(known)) {
         final o = BookObjects(config.prefix, key);
         final bytes = await store.get(o.manifest);
-        final m = bytes == null ? null : Manifest.decode(String.fromCharCodes(bytes));
+        final m = bytes == null ? null : Manifest.decodeBytes(bytes);
         if (m == null || m.contentKey != key) continue;
         if (coverDir case final dir?) {
           final f = File(coverFile(dir, key));
@@ -296,11 +311,100 @@ class S3Sync {
         }
         await _db
             .into(_db.s3Books)
-            .insertOnConflictUpdate(S3BooksCompanion.insert(contentKey: key, manifest: m.encode()));
+            .insertOnConflictUpdate(
+              S3BooksCompanion.insert(contentKey: key, manifest: m.encode(), manifestEtag: Value(keys[key])),
+            );
       }
     });
     await _countWaiting();
   }
+
+  /// Takes the bucket's manifest of [row] again, now at [etag]. Only the
+  /// manifest: the place this device has the comic at stays its own.
+  Future<void> _refetchManifest(RemoteStore store, S3Config config, S3Book row, String etag) async {
+    final bytes = await store.get(BookObjects(config.prefix, row.contentKey).manifest);
+    final m = bytes == null ? null : Manifest.decodeBytes(bytes);
+    if (m == null || m.contentKey != row.contentKey) return;
+    await (_db.update(_db.s3Books)..where((t) => t.contentKey.equals(row.contentKey))).write(
+      S3BooksCompanion(manifest: Value(m.encode()), manifestEtag: Value(etag)),
+    );
+  }
+
+  // ---------------------------------------------------------------- moves
+
+  /// Notes the comics on S3 that were moved or renamed on this device
+  /// since last looked (`gm`, a file manager, another program): each gets
+  /// [S3Pending.place], and the drain gives the bucket's manifest the new
+  /// place, so other devices show and download the comic there. Nothing
+  /// else needs to follow: the bucket knows a comic by its content key,
+  /// which a move does not change. A comic another device moved is not
+  /// moved here; a download on this device goes to its new place.
+  ///
+  /// Called by [sync] (start, resume, `R`, every few minutes) and after a
+  /// move in the library. A comic first looked at since this came in
+  /// counts as moved when this device uploaded it and it is no longer at
+  /// the place it went up from.
+  Future<void> followMoves() async {
+    await _noteMoves();
+    await drain();
+  }
+
+  Future<void> _noteMoves() async {
+    if (await _connect() == null) return;
+    final me = (await sidecars.device()).name;
+    var moved = 0;
+    for (final row in await _db.select(_db.s3Books).get()) {
+      if (row.pending == S3Pending.upload || row.pending == S3Pending.remove) continue;
+      final at = await sidecars.placeOf(row.contentKey);
+      // Not here, or moved away and not scanned in at its new place yet.
+      if (at == null || FileSystemEntity.typeSync(at.path) == FileSystemEntityType.notFound) continue;
+      final here = await _relPath(at.path);
+      if (here == row.place) continue;
+      final m = Manifest.decode(row.manifest);
+      final before = row.place ?? (m != null && m.uploadedBy == me ? m.relPath : here);
+      final move = here != before && here != m?.relPath;
+      await (_db.update(
+        _db.s3Books,
+      )..where((t) => t.contentKey.equals(row.contentKey) & t.pending.equalsNullable(row.pending))).write(
+        S3BooksCompanion(
+          place: Value(here),
+          pending: move ? const Value(S3Pending.place) : const Value.absent(),
+          pendingSince: move ? Value(row.pendingSince ?? DateTime.now()) : const Value.absent(),
+        ),
+      );
+      if (move) moved++;
+    }
+    if (moved > 0) await _countWaiting();
+  }
+
+  /// Where [path] is under its library folder, with `/`: what a manifest's
+  /// [Manifest.relPath] says. Its name alone when it is in none.
+  Future<String> _relPath(String path) async {
+    final roots = await _db.select(_db.roots).get();
+    final root = roots.where((r) => p.equals(r.path, path) || p.isWithin(r.path, path)).firstOrNull;
+    return root == null ? p.basename(path) : p.split(p.relative(path, from: root.path)).join('/');
+  }
+
+  /// Gives the bucket's manifest of [row] this device's place for it, when
+  /// it names another. The bucket's own is changed, so it keeps who
+  /// uploaded the comic, and anything another device put in it.
+  Future<String?> _putPlace(RemoteStore store, BookObjects o, S3Book row) async {
+    final here = row.place;
+    final bytes = await store.get(o.manifest);
+    final m = bytes == null ? null : Manifest.decodeBytes(bytes);
+    if (here == null || m == null || m.contentKey != row.contentKey) return null;
+    if (m.relPath == here) return m.encode();
+    final moved = m.movedTo(here);
+    await _putManifest(store, o, moved);
+    return moved.encode();
+  }
+
+  Future<void> _putManifest(RemoteStore store, BookObjects o, Manifest m) =>
+      store.put(o.manifest, Stream.value(Uint8List.fromList(m.bytes)), size: m.bytes.length);
+
+  /// The ETag the bucket's manifest has now, to know it in the next listing.
+  Future<String?> _manifestTag(RemoteStore store, BookObjects o) async =>
+      plainEtag((await store.head(o.manifest))?.etag);
 
   // ---------------------------------------------------------------- queue
 
@@ -364,7 +468,7 @@ class S3Sync {
   }
 
   /// Marks [rows]' change as sent, unless another came meanwhile.
-  Future<void> _done(S3Book row, {int? sidecarAt, String? manifest}) =>
+  Future<void> _done(S3Book row, {int? sidecarAt, String? manifest, String? manifestEtag, String? place}) =>
       (_db.update(_db.s3Books)..where(
             (t) =>
                 t.contentKey.equals(row.contentKey) &
@@ -377,6 +481,8 @@ class S3Sync {
               pendingSince: const Value(null),
               sidecarAt: sidecarAt == null ? const Value.absent() : Value(sidecarAt),
               manifest: manifest == null ? const Value.absent() : Value(manifest),
+              manifestEtag: manifestEtag == null ? const Value.absent() : Value(manifestEtag),
+              place: place == null ? const Value.absent() : Value(place),
             ),
           );
 
@@ -426,10 +532,8 @@ class S3Sync {
         )
         .getSingleOrNull();
     if (book == null) return null;
-    final roots = await _db.select(_db.roots).get();
-    final root = roots.where((r) => p.equals(r.path, at.path) || p.isWithin(r.path, at.path)).firstOrNull;
-    final rel = root == null ? p.basename(at.path) : p.relative(at.path, from: root.path);
-    final folder = p.dirname(rel) == '.' ? '' : p.split(p.dirname(rel)).join('/');
+    final rel = await _relPath(at.path);
+    final folder = rel.contains('/') ? rel.substring(0, rel.lastIndexOf('/')) : '';
     final me = await sidecars.device();
     final files = <({String path, int size})>[];
     var size = 0;
@@ -499,15 +603,16 @@ class S3Sync {
       }
       _progress(key, 1);
       final sidecarAt = await _meetSidecar(store, o, key, at);
+      final place = m.relPath;
       if (!there) {
-        final manifest = m.encode();
-        await store.put(o.manifest, Stream.value(Uint8List.fromList(manifest.codeUnits)), size: manifest.length);
-        await _done(row, sidecarAt: sidecarAt, manifest: manifest);
+        await _putManifest(store, o, m);
+        final tag = await _manifestTag(store, o);
+        await _done(row, sidecarAt: sidecarAt, manifest: m.encode(), manifestEtag: tag, place: place);
         _say('Uploaded ${m.title} to S3');
       } else {
         // The bucket's manifest stays, so it still names who uploaded it.
         final kept = Manifest.decode(row.manifest) == null ? m.encode() : row.manifest;
-        await _done(row, sidecarAt: sidecarAt, manifest: kept);
+        await _done(row, sidecarAt: sidecarAt, manifest: kept, place: place);
         _say('${m.title} was on S3 already; its newest sidecar is on both');
       }
     } finally {
@@ -598,15 +703,19 @@ class S3Sync {
     if (at == null) return _done(row);
     final side = await sidecars.sidecarFor(at.path, folder: at.folder);
     final remote = int.tryParse((await store.head(o.sidecar))?.metadata[writtenAtMeta] ?? '');
+    int? sidecarAt;
     switch (compareSidecars(local: sidecarWrittenAt(side), remote: remote)) {
       case SidecarMove.push:
-        await _done(row, sidecarAt: await _putSidecar(store, o, side));
+        sidecarAt = await _putSidecar(store, o, side);
       case SidecarMove.pull:
         await _pull(store, o, key, side, remote!);
-        await _done(row, sidecarAt: remote);
+        sidecarAt = remote;
       case SidecarMove.none:
-        await _done(row);
     }
+    if (row.pending != S3Pending.place) return _done(row, sidecarAt: sidecarAt);
+    final manifest = await _putPlace(store, o, row);
+    final tag = manifest == null ? null : await _manifestTag(store, o);
+    await _done(row, sidecarAt: sidecarAt, manifest: manifest, manifestEtag: tag);
   }
 
   /// Fetches the bucket's sidecar of [key] and puts it in place of the one
@@ -728,6 +837,7 @@ class S3Sync {
     if (place == null) return null;
     final target = place.path;
     if (place.there) {
+      await _placed(contentKey, target);
       await onDownloaded?.call();
       return target;
     }
@@ -742,6 +852,7 @@ class S3Sync {
         return null;
       }
       await _fetchSidecar(store, o, m, target);
+      await _placed(contentKey, target);
       await onDownloaded?.call();
       _say('Downloaded ${m.title}');
       return target;
@@ -756,6 +867,15 @@ class S3Sync {
     } finally {
       _progress(contentKey, null);
     }
+  }
+
+  /// Notes where the comic [contentKey] came down to, so that only a move
+  /// from there counts as one ([followMoves]).
+  Future<void> _placed(String contentKey, String target) async {
+    final here = await _relPath(target);
+    await (_db.update(
+      _db.s3Books,
+    )..where((t) => t.contentKey.equals(contentKey))).write(S3BooksCompanion(place: Value(here)));
   }
 
   /// Where the download of [m] goes: under the first library folder, at

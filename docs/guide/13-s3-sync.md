@@ -151,6 +151,25 @@ on both while the bucket was off, the device that writes last when it
 is back wins, and what the other did meanwhile in that comic (its place,
 a bookmark) is lost.
 
+## Moving or renaming a synced comic
+
+Move a comic that is on S3 into another folder, or rename it, and
+nothing breaks: the bucket knows each comic by what is in it, not by its
+name or folder, so it stays synced, with its place, bookmarks and cloud.
+That goes for a move with `gm` (see [Move comics to another
+folder](03-library.md#move-comics-to-another-folder)) as much as one made in a file manager.
+
+The bucket also notes the new folder and name, so the other device shows
+the comic there and a download puts it there. After `gm` that happens at
+once; after a move outside the app, at the next look (start, coming back
+to the front, `R` or within five minutes). For example: a comic uploaded
+from `Golden Age/Weird Comics 4.cbz` and moved on the laptop to
+`Read/Weird Comics 4.cbz` appears on the phone under `Read`.
+
+A copy the other device has already downloaded stays where it is there;
+only the folder named for new downloads changes. If both devices move
+the comic, the last move is the one the bucket keeps.
+
 ## When the server is off
 
 A home server that is switched off is expected. The first call that

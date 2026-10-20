@@ -317,6 +317,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } catch (e) {
       debugPrint('Library scan failed: $e');
     }
+    // Comics on S3 moved while the app was not looking: their manifests follow.
+    unawaited(ref.read(s3SyncProvider).followMoves());
   }
 
   @override

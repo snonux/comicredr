@@ -1575,6 +1575,20 @@ refreshes right away instead of within six hours.
   Garage at 10.0.2.2). Never commit or post real bucket credentials.
   Android declares INTERNET and clear text (a home Garage is often plain
   http).
+  Moves (2026-10-20): the bucket is keyed by content key, so a moved or
+  renamed comic stays synced; `s3_books.place` (schema 14) is this
+  device's place for it, relative to its library folder. `_noteMoves`
+  (in `sync`, and `followMoves` after `gm` and `_rescan`) marks a comic
+  whose place changed `S3Pending.place`, and `_push` then rewrites the
+  bucket's manifest (`Manifest.movedTo`, uploader kept). Only a change of
+  this device's own place counts, never a difference from the manifest,
+  so two devices with the comic in different folders do not undo each
+  other; a download records its place (`_placed`). A row from before
+  (place null) counts as moved when its manifest names this device's
+  name as uploader and another place. `refreshShelf` fetches a known
+  comic's manifest again when its ETag in the listing
+  (`s3_books.manifest_etag`, `listShelf`) changed. Manifests go as UTF-8
+  (`Manifest.bytes`, `decodeBytes` reads the old byte-a-character ones).
 - Marking several comics (snonux, 2026-09-27): `_marked` in
   `LibraryScreenState` holds content keys, whatever tab or folder they
   were marked in. Shift+arrows, `S-Home`/`S-End` and Shift+click are runs
@@ -1723,6 +1737,7 @@ tool/e2e/e2e_settings_backup.sh   # Settings → Export settings via the GTK sav
 tool/e2e/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
 tool/e2e/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
 tool/e2e/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
+tool/e2e/e2e_s3_move.sh           # two installs through a local Garage: gu, then the comic moved and renamed in the shell (the manifest follows at the next start, the comic not sent again), gm into another folder (follows at once), the second install lists and downloads it into that folder at the first's page, a restart leaves the bucket alone
 tool/e2e/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
 tool/e2e/e2e_folder_filter.sh     # F and the funnel in the search box: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x on the filter line and the funnel clicked, Clear all; the Books tab filtered too; gC marks a cover and gF cycles the completed part (not completed, completed only, every comic), each proved by the comic that opens first; checks the index with sqlite3; makes its own books

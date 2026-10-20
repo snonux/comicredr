@@ -9,6 +9,10 @@ class MemoryStore implements RemoteStore {
   final objects = <String, ({Uint8List bytes, Map<String, String> metadata})>{};
   bool reachable = true;
 
+  /// Each object's ETag: a new one on every put, as a changed object gets.
+  final _etags = <String, String>{};
+  var _puts = 0;
+
   void _check() {
     if (!reachable) throw const RemoteException(RemoteFailure.unreachable, 'The bucket is out of reach');
   }
@@ -28,6 +32,7 @@ class MemoryStore implements RemoteStore {
       onProgress?.call(all.length);
     }
     objects[key] = (bytes: all.takeBytes(), metadata: {for (final e in metadata.entries) e.key.toLowerCase(): e.value});
+    _etags[key] = '"put-${++_puts}"';
   }
 
   @override
@@ -50,14 +55,14 @@ class MemoryStore implements RemoteStore {
   Future<RemoteObject?> head(String key) async {
     _check();
     final o = objects[key];
-    return o == null ? null : RemoteObject(key: key, size: o.bytes.length, metadata: o.metadata);
+    return o == null ? null : RemoteObject(key: key, size: o.bytes.length, etag: _etags[key], metadata: o.metadata);
   }
 
   @override
   Stream<RemoteObject> list(String prefix) async* {
     _check();
     for (final e in objects.entries.toList()) {
-      if (e.key.startsWith(prefix)) yield RemoteObject(key: e.key, size: e.value.bytes.length);
+      if (e.key.startsWith(prefix)) yield RemoteObject(key: e.key, size: e.value.bytes.length, etag: _etags[e.key]);
     }
   }
 
@@ -65,6 +70,7 @@ class MemoryStore implements RemoteStore {
   Future<void> delete(String key) async {
     _check();
     objects.remove(key);
+    _etags.remove(key);
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -241,6 +242,8 @@ Future<bool> moveLibraryBooks(
       debugPrint('Moved ${b.path}, but could not update the library: $e');
     }
   }
+  // The bucket's manifests of the comics on S3 take their new place.
+  if (moved > 0) unawaited(container.read(s3SyncProvider).followMoves());
   final parts = [
     if (moved > 0) '${comicsCount(moved)} moved to ${p.basename(dir)}',
     if (skipped > 0) '${comicsCount(skipped)} left where ${skipped == 1 ? 'it was' : 'they were'}',

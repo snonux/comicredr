@@ -241,6 +241,15 @@ class S3Books extends Table {
   /// The written_at of the bucket's sidecar as last sent or fetched.
   IntColumn get sidecarAt => integer().nullable()();
 
+  /// Where the comic is on this device, relative to its library folder
+  /// with `/`, when last looked: a change is a move made here, which the
+  /// bucket's manifest then follows. Null until first looked.
+  TextColumn get place => text().nullable()();
+
+  /// The ETag of the bucket's manifest.json that [manifest] is, so a
+  /// listing shows when another device changed it (a move made there).
+  TextColumn get manifestEtag => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {contentKey};
 }
@@ -283,7 +292,7 @@ class AppDatabase extends _$AppDatabase {
   static void _waitForLocks(CommonDatabase db) => db.execute('PRAGMA busy_timeout = 5000');
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   /// What the detector found about a book: redone by a reset of its panels.
   List<TableInfo<Table, Object?>> get detectionTables => [analysedPages, panels];
@@ -352,6 +361,13 @@ class AppDatabase extends _$AppDatabase {
             }
           }
         }
+      }
+      if (from >= 11 && from < 14) {
+        // S3 sync follows moves.
+        final columns = await customSelect('PRAGMA table_info(s3_books)').get();
+        final names = columns.map((c) => c.read<String>('name')).toSet();
+        if (!names.contains('place')) await m.addColumn(s3Books, s3Books.place);
+        if (!names.contains('manifest_etag')) await m.addColumn(s3Books, s3Books.manifestEtag);
       }
     },
   );

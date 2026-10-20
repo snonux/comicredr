@@ -113,6 +113,41 @@ class Manifest {
 
   String encode() => const JsonEncoder.withIndent('  ').convert(toJson());
 
+  /// The manifest as the bucket stores it: [encode] in UTF-8.
+  List<int> get bytes => utf8.encode(encode());
+
+  /// The same comic at another place under a library folder: moved or
+  /// renamed on the device that uploaded it, or on another.
+  Manifest movedTo(String relPath) {
+    final parts = relPath.split('/');
+    return Manifest(
+      contentKey: contentKey,
+      title: title,
+      series: series,
+      number: number,
+      year: year,
+      pageCount: pageCount,
+      format: format,
+      fileName: parts.last,
+      folder: parts.sublist(0, parts.length - 1).join('/'),
+      ext: ext,
+      size: size,
+      files: files,
+      uploadedBy: uploadedBy,
+      uploadedAt: uploadedAt,
+    );
+  }
+
+  /// Reads a manifest as the bucket stores it. UTF-8; before that, each
+  /// character went as one byte, which reads back the same for Latin-1.
+  static Manifest? decodeBytes(List<int> bytes) {
+    try {
+      return decode(utf8.decode(bytes));
+    } on FormatException {
+      return decode(String.fromCharCodes(bytes));
+    }
+  }
+
   /// Reads a manifest; null when [text] is not one this app understands.
   static Manifest? decode(String text) {
     try {
@@ -178,19 +213,24 @@ SidecarMove compareSidecars({required int? local, required int? remote}) {
   return local > remote ? SidecarMove.push : SidecarMove.pull;
 }
 
-/// The content keys of every comic on the shelf: those whose manifest is
-/// in the bucket. One listing of `books/` (a comic whose upload was cut off
-/// has no manifest and does not count).
-Future<Set<String>> listShelf(RemoteStore store, String prefix) async {
+/// The content keys of every comic on the shelf, those whose manifest is
+/// in the bucket, each with its manifest's ETag ([plainEtag]; null when
+/// the store gives none). One listing of `books/` (a comic whose upload was
+/// cut off has no manifest and does not count).
+Future<Map<String, String?>> listShelf(RemoteStore store, String prefix) async {
   final dir = BookObjects.booksDir(prefix);
-  final keys = <String>{};
+  final keys = <String, String?>{};
   await for (final o in store.list(dir)) {
     final rest = o.key.substring(dir.length);
     final slash = rest.indexOf('/');
-    if (slash > 0 && rest.substring(slash + 1) == 'manifest.json') keys.add(rest.substring(0, slash));
+    if (slash > 0 && rest.substring(slash + 1) == 'manifest.json') keys[rest.substring(0, slash)] = plainEtag(o.etag);
   }
   return keys;
 }
+
+/// An ETag without the quotes S3 puts round it, which a listing and a HEAD
+/// do not always both take off.
+String? plainEtag(String? etag) => etag?.replaceAll('"', '').replaceAll('&quot;', '');
 
 /// Removes a comic from the bucket: the manifest first, so no device sees
 /// it any more, then everything else in its folder.

@@ -5446,6 +5446,26 @@ class $S3BooksTable extends S3Books with TableInfo<$S3BooksTable, S3Book> {
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _placeMeta = const VerificationMeta('place');
+  @override
+  late final GeneratedColumn<String> place = GeneratedColumn<String>(
+    'place',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _manifestEtagMeta = const VerificationMeta(
+    'manifestEtag',
+  );
+  @override
+  late final GeneratedColumn<String> manifestEtag = GeneratedColumn<String>(
+    'manifest_etag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     contentKey,
@@ -5453,6 +5473,8 @@ class $S3BooksTable extends S3Books with TableInfo<$S3BooksTable, S3Book> {
     pending,
     pendingSince,
     sidecarAt,
+    place,
+    manifestEtag,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -5503,6 +5525,21 @@ class $S3BooksTable extends S3Books with TableInfo<$S3BooksTable, S3Book> {
         sidecarAt.isAcceptableOrUnknown(data['sidecar_at']!, _sidecarAtMeta),
       );
     }
+    if (data.containsKey('place')) {
+      context.handle(
+        _placeMeta,
+        place.isAcceptableOrUnknown(data['place']!, _placeMeta),
+      );
+    }
+    if (data.containsKey('manifest_etag')) {
+      context.handle(
+        _manifestEtagMeta,
+        manifestEtag.isAcceptableOrUnknown(
+          data['manifest_etag']!,
+          _manifestEtagMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -5532,6 +5569,14 @@ class $S3BooksTable extends S3Books with TableInfo<$S3BooksTable, S3Book> {
         DriftSqlType.int,
         data['${effectivePrefix}sidecar_at'],
       ),
+      place: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}place'],
+      ),
+      manifestEtag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}manifest_etag'],
+      ),
     );
   }
 
@@ -5556,12 +5601,23 @@ class S3Book extends DataClass implements Insertable<S3Book> {
 
   /// The written_at of the bucket's sidecar as last sent or fetched.
   final int? sidecarAt;
+
+  /// Where the comic is on this device, relative to its library folder
+  /// with `/`, when last looked: a change is a move made here, which the
+  /// bucket's manifest then follows. Null until first looked.
+  final String? place;
+
+  /// The ETag of the bucket's manifest.json that [manifest] is, so a
+  /// listing shows when another device changed it (a move made there).
+  final String? manifestEtag;
   const S3Book({
     required this.contentKey,
     required this.manifest,
     this.pending,
     this.pendingSince,
     this.sidecarAt,
+    this.place,
+    this.manifestEtag,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -5576,6 +5632,12 @@ class S3Book extends DataClass implements Insertable<S3Book> {
     }
     if (!nullToAbsent || sidecarAt != null) {
       map['sidecar_at'] = Variable<int>(sidecarAt);
+    }
+    if (!nullToAbsent || place != null) {
+      map['place'] = Variable<String>(place);
+    }
+    if (!nullToAbsent || manifestEtag != null) {
+      map['manifest_etag'] = Variable<String>(manifestEtag);
     }
     return map;
   }
@@ -5593,6 +5655,12 @@ class S3Book extends DataClass implements Insertable<S3Book> {
       sidecarAt: sidecarAt == null && nullToAbsent
           ? const Value.absent()
           : Value(sidecarAt),
+      place: place == null && nullToAbsent
+          ? const Value.absent()
+          : Value(place),
+      manifestEtag: manifestEtag == null && nullToAbsent
+          ? const Value.absent()
+          : Value(manifestEtag),
     );
   }
 
@@ -5607,6 +5675,8 @@ class S3Book extends DataClass implements Insertable<S3Book> {
       pending: serializer.fromJson<String?>(json['pending']),
       pendingSince: serializer.fromJson<DateTime?>(json['pendingSince']),
       sidecarAt: serializer.fromJson<int?>(json['sidecarAt']),
+      place: serializer.fromJson<String?>(json['place']),
+      manifestEtag: serializer.fromJson<String?>(json['manifestEtag']),
     );
   }
   @override
@@ -5618,6 +5688,8 @@ class S3Book extends DataClass implements Insertable<S3Book> {
       'pending': serializer.toJson<String?>(pending),
       'pendingSince': serializer.toJson<DateTime?>(pendingSince),
       'sidecarAt': serializer.toJson<int?>(sidecarAt),
+      'place': serializer.toJson<String?>(place),
+      'manifestEtag': serializer.toJson<String?>(manifestEtag),
     };
   }
 
@@ -5627,12 +5699,16 @@ class S3Book extends DataClass implements Insertable<S3Book> {
     Value<String?> pending = const Value.absent(),
     Value<DateTime?> pendingSince = const Value.absent(),
     Value<int?> sidecarAt = const Value.absent(),
+    Value<String?> place = const Value.absent(),
+    Value<String?> manifestEtag = const Value.absent(),
   }) => S3Book(
     contentKey: contentKey ?? this.contentKey,
     manifest: manifest ?? this.manifest,
     pending: pending.present ? pending.value : this.pending,
     pendingSince: pendingSince.present ? pendingSince.value : this.pendingSince,
     sidecarAt: sidecarAt.present ? sidecarAt.value : this.sidecarAt,
+    place: place.present ? place.value : this.place,
+    manifestEtag: manifestEtag.present ? manifestEtag.value : this.manifestEtag,
   );
   S3Book copyWithCompanion(S3BooksCompanion data) {
     return S3Book(
@@ -5645,6 +5721,10 @@ class S3Book extends DataClass implements Insertable<S3Book> {
           ? data.pendingSince.value
           : this.pendingSince,
       sidecarAt: data.sidecarAt.present ? data.sidecarAt.value : this.sidecarAt,
+      place: data.place.present ? data.place.value : this.place,
+      manifestEtag: data.manifestEtag.present
+          ? data.manifestEtag.value
+          : this.manifestEtag,
     );
   }
 
@@ -5655,14 +5735,23 @@ class S3Book extends DataClass implements Insertable<S3Book> {
           ..write('manifest: $manifest, ')
           ..write('pending: $pending, ')
           ..write('pendingSince: $pendingSince, ')
-          ..write('sidecarAt: $sidecarAt')
+          ..write('sidecarAt: $sidecarAt, ')
+          ..write('place: $place, ')
+          ..write('manifestEtag: $manifestEtag')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(contentKey, manifest, pending, pendingSince, sidecarAt);
+  int get hashCode => Object.hash(
+    contentKey,
+    manifest,
+    pending,
+    pendingSince,
+    sidecarAt,
+    place,
+    manifestEtag,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5671,7 +5760,9 @@ class S3Book extends DataClass implements Insertable<S3Book> {
           other.manifest == this.manifest &&
           other.pending == this.pending &&
           other.pendingSince == this.pendingSince &&
-          other.sidecarAt == this.sidecarAt);
+          other.sidecarAt == this.sidecarAt &&
+          other.place == this.place &&
+          other.manifestEtag == this.manifestEtag);
 }
 
 class S3BooksCompanion extends UpdateCompanion<S3Book> {
@@ -5680,6 +5771,8 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
   final Value<String?> pending;
   final Value<DateTime?> pendingSince;
   final Value<int?> sidecarAt;
+  final Value<String?> place;
+  final Value<String?> manifestEtag;
   final Value<int> rowid;
   const S3BooksCompanion({
     this.contentKey = const Value.absent(),
@@ -5687,6 +5780,8 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
     this.pending = const Value.absent(),
     this.pendingSince = const Value.absent(),
     this.sidecarAt = const Value.absent(),
+    this.place = const Value.absent(),
+    this.manifestEtag = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   S3BooksCompanion.insert({
@@ -5695,6 +5790,8 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
     this.pending = const Value.absent(),
     this.pendingSince = const Value.absent(),
     this.sidecarAt = const Value.absent(),
+    this.place = const Value.absent(),
+    this.manifestEtag = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        manifest = Value(manifest);
@@ -5704,6 +5801,8 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
     Expression<String>? pending,
     Expression<DateTime>? pendingSince,
     Expression<int>? sidecarAt,
+    Expression<String>? place,
+    Expression<String>? manifestEtag,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -5712,6 +5811,8 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
       if (pending != null) 'pending': pending,
       if (pendingSince != null) 'pending_since': pendingSince,
       if (sidecarAt != null) 'sidecar_at': sidecarAt,
+      if (place != null) 'place': place,
+      if (manifestEtag != null) 'manifest_etag': manifestEtag,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -5722,6 +5823,8 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
     Value<String?>? pending,
     Value<DateTime?>? pendingSince,
     Value<int?>? sidecarAt,
+    Value<String?>? place,
+    Value<String?>? manifestEtag,
     Value<int>? rowid,
   }) {
     return S3BooksCompanion(
@@ -5730,6 +5833,8 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
       pending: pending ?? this.pending,
       pendingSince: pendingSince ?? this.pendingSince,
       sidecarAt: sidecarAt ?? this.sidecarAt,
+      place: place ?? this.place,
+      manifestEtag: manifestEtag ?? this.manifestEtag,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -5752,6 +5857,12 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
     if (sidecarAt.present) {
       map['sidecar_at'] = Variable<int>(sidecarAt.value);
     }
+    if (place.present) {
+      map['place'] = Variable<String>(place.value);
+    }
+    if (manifestEtag.present) {
+      map['manifest_etag'] = Variable<String>(manifestEtag.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -5766,6 +5877,8 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
           ..write('pending: $pending, ')
           ..write('pendingSince: $pendingSince, ')
           ..write('sidecarAt: $sidecarAt, ')
+          ..write('place: $place, ')
+          ..write('manifestEtag: $manifestEtag, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -9146,6 +9259,8 @@ typedef $$S3BooksTableCreateCompanionBuilder = S3BooksCompanion Function({
   Value<String?> pending,
   Value<DateTime?> pendingSince,
   Value<int?> sidecarAt,
+  Value<String?> place,
+  Value<String?> manifestEtag,
   Value<int> rowid,
 });
 typedef $$S3BooksTableUpdateCompanionBuilder = S3BooksCompanion Function({
@@ -9154,6 +9269,8 @@ typedef $$S3BooksTableUpdateCompanionBuilder = S3BooksCompanion Function({
   Value<String?> pending,
   Value<DateTime?> pendingSince,
   Value<int?> sidecarAt,
+  Value<String?> place,
+  Value<String?> manifestEtag,
   Value<int> rowid,
 });
 
@@ -9188,6 +9305,16 @@ class $$S3BooksTableFilterComposer
 
   ColumnFilters<int> get sidecarAt => $composableBuilder(
     column: $table.sidecarAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get place => $composableBuilder(
+    column: $table.place,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manifestEtag => $composableBuilder(
+    column: $table.manifestEtag,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9225,6 +9352,16 @@ class $$S3BooksTableOrderingComposer
     column: $table.sidecarAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get place => $composableBuilder(
+    column: $table.place,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manifestEtag => $composableBuilder(
+    column: $table.manifestEtag,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$S3BooksTableAnnotationComposer
@@ -9254,6 +9391,14 @@ class $$S3BooksTableAnnotationComposer
 
   GeneratedColumn<int> get sidecarAt =>
       $composableBuilder(column: $table.sidecarAt, builder: (column) => column);
+
+  GeneratedColumn<String> get place =>
+      $composableBuilder(column: $table.place, builder: (column) => column);
+
+  GeneratedColumn<String> get manifestEtag => $composableBuilder(
+    column: $table.manifestEtag,
+    builder: (column) => column,
+  );
 }
 
 class $$S3BooksTableTableManager
@@ -9289,6 +9434,8 @@ class $$S3BooksTableTableManager
                 Value<String?> pending = const Value.absent(),
                 Value<DateTime?> pendingSince = const Value.absent(),
                 Value<int?> sidecarAt = const Value.absent(),
+                Value<String?> place = const Value.absent(),
+                Value<String?> manifestEtag = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => S3BooksCompanion(
                 contentKey: contentKey,
@@ -9296,6 +9443,8 @@ class $$S3BooksTableTableManager
                 pending: pending,
                 pendingSince: pendingSince,
                 sidecarAt: sidecarAt,
+                place: place,
+                manifestEtag: manifestEtag,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9305,6 +9454,8 @@ class $$S3BooksTableTableManager
                 Value<String?> pending = const Value.absent(),
                 Value<DateTime?> pendingSince = const Value.absent(),
                 Value<int?> sidecarAt = const Value.absent(),
+                Value<String?> place = const Value.absent(),
+                Value<String?> manifestEtag = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => S3BooksCompanion.insert(
                 contentKey: contentKey,
@@ -9312,6 +9463,8 @@ class $$S3BooksTableTableManager
                 pending: pending,
                 pendingSince: pendingSince,
                 sidecarAt: sidecarAt,
+                place: place,
+                manifestEtag: manifestEtag,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
