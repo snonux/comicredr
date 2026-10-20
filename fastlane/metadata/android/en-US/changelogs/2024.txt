@@ -1,0 +1,2 @@
+* The usage guide shows the question before the Reading list is cleared, and lists gR among the keys.
+* That question now reads right when it is about a single comic.

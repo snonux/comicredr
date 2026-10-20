@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.6
+
 - The question before clearing the Reading list reads right for a single
   comic ("whether it is completed").
 
