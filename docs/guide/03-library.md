@@ -153,6 +153,8 @@ button) goes ahead. Every comic then starts unread again:
 - its [completed mark](#completed-comics) goes, either way;
 - its bookmarks, its reading history and its collections stay.
 
+![The question before the Reading list is cleared, with Cancel focused](images/clear-reading.webp)
+
 The clearing goes into each comic's sidecar, so another device that
 reads the sidecar (a shared folder, or [S3 sync](13-s3-sync.md)) drops
 its own place in those comics too. A place saved after the clearing,

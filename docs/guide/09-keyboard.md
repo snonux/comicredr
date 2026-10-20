@@ -88,6 +88,7 @@ keep what you found and get the keys back, and then they size the text.
 | `/` | | [Search](03-library.md#search) |
 | `F` | | [Filter](03-library.md#filter-the-library) the comics shown, on every tab |
 | `gF` | | The filter's Completed part in one key: not completed, completed only, every comic |
+| `gR` | | [Clear the Reading list](03-library.md#reading), after asking: every place and completed mark forgotten |
 | `g,` | [Settings](12-settings.md), over the comic | Settings |
 | `u` | Undo what the notice along the bottom offers to undo, while it shows | The same |
 | `?` | Every key (`+` `-` `=` in it: [bigger and smaller text](#bigger-and-smaller-text)) | Every key |

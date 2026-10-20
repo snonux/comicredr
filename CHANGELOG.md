@@ -7,6 +7,9 @@ the `?` overlay.
 
 ## Unreleased
 
+- The question before clearing the Reading list reads right for a single
+  comic ("whether it is completed").
+
 ## 0.9.5
 
 - **Clear the Reading list.** `gR`, or **Clear the Reading list…** in the

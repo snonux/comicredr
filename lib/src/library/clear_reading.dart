@@ -50,8 +50,11 @@ Future<bool?> askClearReading(BuildContext context, int count) => showDialog<boo
     child: AlertDialog(
       title: const Text('Clear the Reading list?'),
       content: Text(
-        'Forgets where you are in ${comicsCount(count)} and whether they are completed, here and on the devices '
-        'their sidecars reach. Bookmarks, reading history and collections stay.',
+        count == 1
+            ? 'Forgets where you are in 1 comic and whether it is completed, here and on the devices its sidecar '
+                  'reaches. Bookmarks, reading history and collections stay.'
+            : 'Forgets where you are in ${comicsCount(count)} and whether they are completed, here and on the devices '
+                  'their sidecars reach. Bookmarks, reading history and collections stay.',
       ),
       actions: [
         TextButton(

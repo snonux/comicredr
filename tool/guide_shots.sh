@@ -9,7 +9,7 @@
 #   tool/guide_shots.sh [section...]             # all sections by default
 #
 # Sections: library sidebar filter marks unread reader guided guided-more parts keys touch
-# bookmarks details dialogs history s3 empty. They run in that order and later ones
+# bookmarks details dialogs reading-clear history s3 empty. They run in that order and later ones
 # lean on what earlier ones did (a started book, a bookmark), so run a
 # single section only after a full run. E2E_SKIP_BUILD=1 reuses the build.
 #
@@ -42,7 +42,7 @@ db="$comics/.comicredr/comicredr.sqlite"
 app=build/linux/x64/release/bundle/comicredr
 sections=("$@")
 [[ ${#sections[@]} -gt 0 ]] ||
-  sections=(library sidebar filter marks unread reader guided guided-more parts keys touch bookmarks details dialogs history s3 empty)
+  sections=(library sidebar filter marks unread reader guided guided-more parts keys touch bookmarks details dialogs reading-clear history s3 empty)
 mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
@@ -321,6 +321,15 @@ dialogs)
   key slash; xdotool key ctrl+a; typ "all top"; key Return
   key g d; sleep 1; still delete; key Escape
   key shift+x; sleep 1; still reset; key Escape
+  ;;
+
+reading-clear)
+  # A comic counts as started only after a minute open in one go, so one
+  # stays open that long and is on the Reading tab for the next section.
+  # Then gR's question, left with Esc: nothing is cleared.
+  open "weird comics"; sleep 65
+  key Escape; key Escape; clear_search; tab Reading
+  key g shift+r; sleep 1.5; still clear-reading; key Escape
   ;;
 
 history)
