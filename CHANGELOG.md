@@ -7,6 +7,8 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.5
+
 - **Clear the Reading list.** `gR`, or **Clear the Reading list…** in the
   library's menu, asks once and then forgets every comic's place and
   completed mark, so every comic starts unread again. Bookmarks, history

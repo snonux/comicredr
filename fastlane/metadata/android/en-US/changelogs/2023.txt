@@ -1,0 +1,2 @@
+* Clear the Reading list: gR, or the line in the library's menu, forgets every comic's place and completed mark after asking; other devices follow through the sidecars.
+* A comic counts as started (on the Reading tab) only after a minute open in one go; its page is still remembered.
