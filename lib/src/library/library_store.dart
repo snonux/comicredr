@@ -31,6 +31,7 @@ class LibraryBook {
     this.page,
     this.percent,
     this.finished = false,
+    this.peek = false,
     this.completedMark,
     this.readAt,
     this.collections = const [],
@@ -92,6 +93,7 @@ class LibraryBook {
         page: page,
         percent: percent,
         finished: finished,
+        peek: peek,
         completedMark: completedMark,
         readAt: readAt,
         collections: collections,
@@ -110,6 +112,10 @@ class LibraryBook {
   /// The saved page is the last one. A fact of this device's position: it
   /// is gone again when the comic is read from the start once more.
   final bool finished;
+
+  /// The saved position is from a look of under a minute
+  /// ([ReadingPosition.peek]): the comic does not count as started yet.
+  final bool peek;
 
   /// Marked completed by hand (`gC`, or by reaching the last page in the
   /// reader), or marked not completed; null when nobody said.
@@ -159,8 +165,9 @@ class LibraryBook {
   /// A second line for the cover: the issue's own title, or its year.
   String? get subtitle => issueTitle ?? year?.toString();
 
-  /// Opened at least once: a reading position is saved from the first open.
-  bool get started => page != null;
+  /// Read for a while: a reading position is saved from the first open, but
+  /// counts only once the comic was open for a minute in one go ([peek]).
+  bool get started => page != null && !peek;
 
   /// Begun and neither on its last page nor marked completed: what the
   /// cover's progress line and Continue are for.
@@ -609,6 +616,7 @@ SELECT b.content_key, b.number, b.page_count, b.format, b.added_at, b.issue_titl
        b.writers, b.artists, b.summary, b.series_id, s.name AS series_name,
        fp.path, fp.size AS f_size, fp.mtime AS f_mtime,
        pr.page AS p_page, pr.percent AS p_percent, pr.finished AS p_finished, pr.updated_at AS p_updated,
+       instr(pr.view_json, '"peek":true') > 0 AS p_peek,
        (SELECT group_concat(c.name, char(31)) FROM collection_books c
          WHERE c.content_key = b.content_key AND c.removed_at IS NULL) AS collections
 FROM books b
@@ -741,6 +749,7 @@ ORDER BY r.id, f.rel_path
       page: pr?.page,
       percent: pr?.percent,
       finished: pr?.finished ?? false,
+      peek: pr?.viewJson?.contains('"peek":true') ?? false,
       completedMark: completedMark,
       readAt: pr?.updatedAt,
       s3: S3Shelf(S3Mark.remote, uploadedBy: m.uploadedBy, uploadedAt: m.uploadedAt, size: m.size),
@@ -790,6 +799,49 @@ ORDER BY r.id, f.rel_path
           value: completedEdit(on, at: at ?? DateTime.now()).encode(),
         ),
       );
+
+  /// The comics with a reading status: a position saved on this device
+  /// (on the Reading tab, or a look of under a minute) or a completed mark
+  /// either way. What Clear the Reading list (`gR`) clears.
+  Future<Set<String>> withReadingStatus() async => {
+    for (final r in await db.select(db.progress).get()) r.contentKey,
+    for (final o in await (db.select(db.overrides)..where((o) => o.field.equals(completedField))).get())
+      if (completedMark(o.value) != null) o.contentKey,
+  };
+
+  /// Clears every comic's reading status ([withReadingStatus]): this
+  /// device's positions go, completed marks lose their say, and each comic
+  /// gets a dated [readingClearedField] row, so the positions other devices
+  /// saved before now stop counting once its sidecar reaches them.
+  /// Bookmarks, history and collections stay. Returns the comics cleared;
+  /// [at] is for tests.
+  Future<Set<String>> clearReading({DateTime? at}) => db.transaction(() async {
+    final now = at ?? DateTime.now();
+    final keys = await withReadingStatus();
+    if (keys.isEmpty) return keys;
+    final marked = {
+      for (final o in await (db.select(db.overrides)..where((o) => o.field.equals(completedField))).get())
+        if (completedMark(o.value) != null) o.contentKey,
+    };
+    await db.delete(db.progress).go();
+    await db.batch((b) {
+      b.insertAllOnConflictUpdate(db.overrides, [
+        for (final k in keys)
+          OverridesCompanion.insert(
+            contentKey: k,
+            field: readingClearedField,
+            value: MetaEdit('1', at: now).encode(),
+          ),
+        for (final k in marked)
+          OverridesCompanion.insert(
+            contentKey: k,
+            field: completedField,
+            value: completedEdit(null, at: now).encode(),
+          ),
+      ]);
+    });
+    return keys;
+  });
 
   /// The hand edits in effect for [contentKey], for the reader's title.
   Future<Map<MetaField, String?>> edits(String contentKey) async => activeEdits({
@@ -844,6 +896,7 @@ ORDER BY r.id, f.rel_path
       page: r.readNullable<int>('p_page'),
       percent: r.readNullable<double>('p_percent'),
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,
+      peek: (r.readNullable<int>('p_peek') ?? 0) != 0,
       completedMark: completedMark,
       readAt: time('p_updated'),
       collections: [...collections]..sort(naturalCompare),

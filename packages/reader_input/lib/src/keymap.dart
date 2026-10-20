@@ -154,6 +154,7 @@ class Keymap {
       Binding(['g', 'S'], ReaderIntent.sortFolders),
       Binding(['g', 'o'], ReaderIntent.nextSortOrder),
       Binding(['g', 'O'], ReaderIntent.reverseSort),
+      Binding(['g', 'R'], ReaderIntent.clearReading),
       Binding(['X'], ReaderIntent.resetBook),
       Binding(['e'], ReaderIntent.editBook),
       Binding(['g', 'd'], ReaderIntent.deleteBook),

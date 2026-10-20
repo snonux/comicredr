@@ -58,6 +58,16 @@ class ReaderNotifier extends Notifier<ReaderState> {
   ViewSpot? _view;
   ViewSpot? _restoreView;
 
+  /// How long a comic must be open in one go before it counts as started
+  /// and goes on the library's Reading tab (snonux, 2026-10-17).
+  static const startedAfter = Duration(minutes: 1);
+
+  /// When the open comic was opened, and whether its position is still
+  /// saved as a peek ([ReadingPosition.peek]): it was not started before
+  /// and has not been open for [startedAfter] yet.
+  DateTime _openedAt = DateTime(0);
+  bool _peeking = false;
+
   /// The sitting under way, for reading history: when the book was opened
   /// (or the app came back) and the pages shown since.
   ({String key, DateTime start, Set<int> pages})? _sitting;
@@ -247,8 +257,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _sitting = (key: book.key, start: DateTime.now(), pages: <int>{});
     // For `C`: this is now the comic read last.
     unawaited(ref.read(recentBooksProvider.notifier).opened(book));
-    // Opening a book counts as reading it: the library's Reading tab lists
-    // it from now on, even if it is closed on the cover.
+    // The place is saved from the first moment, but a comic not started
+    // before counts as started (the library's Reading tab) only once it has
+    // been open for a minute: until then it is saved as a peek.
+    _openedAt = this.clock();
+    _peeking = saved == null || saved.peek;
     _saveProgress(book);
     _ensurePanels();
     _watchBookmarks(book);
@@ -608,6 +621,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final readLog = ref.read(readLogStoreProvider);
     unawaited(_bookmarkWatch?.cancel());
     _bookmarkWatch = null;
+    _startedNow(book);
     await _progress.flush();
     await _endSitting(readLog);
     _wanted.clear();
@@ -734,6 +748,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   void _saveProgress(OpenBook book) {
     if (_sitting case final s? when s.key == book.key) s.pages.addAll(state.unit);
+    if (_peeking && clock().difference(_openedAt) >= startedAfter) _peeking = false;
     // The panel and balloon as asked for, not as resolved: detection may not
     // have reached the page yet, and they resolve the same way on reopen.
     _progress.save(
@@ -749,12 +764,22 @@ class ReaderNotifier extends Notifier<ReaderState> {
         rightToLeft: state.rightToLeft,
         rotation: state.rotation,
         view: _view,
+        peek: _peeking,
       ),
       state.pageCount,
       // The pair 2-3 of a three-page book shows its last page: finished.
       lastShown: state.unit.isEmpty ? null : state.unit.last,
     );
     _sidecars.touch(book.key);
+  }
+
+  /// Saves the position once more when the open comic, saved as a peek so
+  /// far, has now been open for [startedAfter] without a page turn: on
+  /// close and pause, so the minute counts even on one page.
+  void _startedNow(OpenBook book) {
+    if (_peeking && identical(state.book, book) && clock().difference(_openedAt) >= startedAfter) {
+      _saveProgress(book);
+    }
   }
 
   /// The reader screen's zoom and scroll changed; saved with the position.
@@ -1447,6 +1472,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.sortFolders:
       case ReaderIntent.nextSortOrder:
       case ReaderIntent.reverseSort:
+      case ReaderIntent.clearReading:
       case ReaderIntent.resetBook:
       case ReaderIntent.deleteBook:
       case ReaderIntent.uploadToS3:
@@ -1563,6 +1589,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
     final sidecars = _sidecars;
     final readLog = ref.read(readLogStoreProvider);
     final opening = _opening;
+    if (state.book case final book?) _startedNow(book);
     await _progress.flush();
     // The app may not come back: log the sitting, and start a new one that
     // a quick return joins back onto. It must be live while the write waits.

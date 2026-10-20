@@ -265,6 +265,8 @@ void main() {
       await key(tester, LogicalKeyboardKey.keyL);
       await tester.runAsync(() => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.bookmark)));
       await settle(tester);
+      // Read for over a minute: the comic counts as started.
+      c.read(readerProvider.notifier).clock = () => DateTime.now().add(const Duration(minutes: 2));
       await key(tester, LogicalKeyboardKey.escape);
       expect(c.read(readerProvider).book, isNull);
       expect(find.text('The Spirit #2'), findsWidgets);

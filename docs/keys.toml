@@ -199,6 +199,8 @@ sortFolders = ["gS"]
 nextSortOrder = ["go"]
 # The library's Folders tab: reverse the sort order
 reverseSort = ["gO"]
+# Library: clear the Reading list, after asking: every comic's place and completed mark are forgotten, on every device its sidecar reaches; bookmarks and history stay
+clearReading = ["gR"]
 # Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one
 resetBook = ["X"]
 # Delete this comic and its sidecar, after asking; the selected book in the library, or every marked one

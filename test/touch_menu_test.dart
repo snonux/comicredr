@@ -53,6 +53,7 @@ void main() {
     ReaderIntent.rescan,
     ReaderIntent.showScanFailures,
     ReaderIntent.showFavourites,
+    ReaderIntent.clearReading,
     ReaderIntent.filterFolders,
     ReaderIntent.filterCompleted,
     ReaderIntent.sortFolders,

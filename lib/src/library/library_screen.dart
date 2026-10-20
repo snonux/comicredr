@@ -21,6 +21,7 @@ import '../reader/recent_books.dart';
 import '../undo_notice.dart';
 import 'book_detail.dart';
 import 'bulk_actions.dart';
+import 'clear_reading.dart';
 import 'cover_card.dart';
 import 'default_folder.dart';
 import 'edit_dialog.dart';
@@ -654,6 +655,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         const MenuEntry(ReaderIntent.rescan, 'Rescan the library folders', Icons.refresh),
         const MenuEntry(ReaderIntent.showScanFailures, 'Comics the last scan could not read', Icons.report_outlined),
         const MenuEntry(ReaderIntent.showFavourites, 'Favourites', Icons.star_outline),
+        const MenuEntry(ReaderIntent.clearReading, 'Clear the Reading list…', Icons.playlist_remove),
         if (s3 && _marked.isNotEmpty) ...const [
           MenuEntry(ReaderIntent.uploadToS3, 'Upload the marked comics to S3', Icons.cloud_upload_outlined),
           MenuEntry(ReaderIntent.downloadFromS3, 'Download the marked comics from S3', Icons.cloud_download_outlined),
@@ -819,6 +821,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         setSort(_sort.next(), say: true);
       case ReaderIntent.reverseSort when tab == LibraryTab.folders:
         setSort(_sort.flipped(), say: true);
+      case ReaderIntent.clearReading:
+        unawaited(clearReadingList(context, ref).whenComplete(() => widget.keysFocus?.requestFocus()));
       case ReaderIntent.resetBook:
         if (_selectedItem case BookItem(:final book) when !book.remoteOnly) {
           unawaited(resetBook(context, ref, book).whenComplete(() => widget.keysFocus?.requestFocus()));

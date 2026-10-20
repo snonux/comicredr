@@ -2129,6 +2129,8 @@ void main() {
       await key(ReaderIntent.pickPart);
       expect(find.byKey(const Key('partsClose')), findsOneWidget);
       expectKeysNamed(tester, keymap, where: 'the parts picker', atLeast: 8);
+      // Read for over a minute: the comic counts as started.
+      c.read(readerProvider.notifier).clock = () => DateTime.now().add(const Duration(minutes: 2));
       await key(ReaderIntent.back);
       await key(ReaderIntent.back);
       expect(c.read(readerProvider).book, isNull);

@@ -7,6 +7,15 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Clear the Reading list.** `gR`, or **Clear the Reading list…** in the
+  library's menu, asks once and then forgets every comic's place and
+  completed mark, so every comic starts unread again. Bookmarks, history
+  and collections stay. The clearing travels in the sidecars, so other
+  devices drop their places in those comics too.
+- **A quick look does not start a comic.** A comic goes on the Reading
+  tab only once it has been open for more than a minute in one go. Its
+  page is still remembered for the next open.
+
 ## 0.9.4
 
 - S3 sync follows a comic moved or renamed after it was uploaded, by `gm`

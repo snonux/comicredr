@@ -168,3 +168,14 @@ class PanelImportRun {
     return const [];
   }
 }
+
+/// The `field` of the overrides row that says when the comic's reading
+/// status was cleared (`gR`, Clear the Reading list): every device's
+/// position saved before that time no longer counts, so the comic leaves
+/// the Reading tab on every device its sidecar reaches. An overrides row,
+/// for the reasons [completedField] gives; [activeEdits] leaves it out.
+const readingClearedField = 'readingCleared';
+
+/// When the overrides row [raw] of [readingClearedField] says the reading
+/// status was cleared; null for no row.
+DateTime? readingClearedAt(String? raw) => raw == null ? null : MetaEdit.decode(raw).at;

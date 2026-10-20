@@ -34,7 +34,8 @@ come back here for a key you forgot.
    - [Moving around](03-library.md#moving-around)
    - [Keyboard shortcuts in the sidebar](03-library.md#keyboard-shortcuts-in-the-sidebar)
    - [Bigger and smaller covers](03-library.md#bigger-and-smaller-covers)
-   - [The tabs](03-library.md#the-tabs): [series](03-library.md#series),
+   - [The tabs](03-library.md#the-tabs): [reading](03-library.md#reading)
+     and clearing it, [series](03-library.md#series),
      [folders](03-library.md#folders),
      [filter the library](03-library.md#filter-the-library),
      [sort it](03-library.md#sort-the-folders-tab),

@@ -123,7 +123,7 @@ into it like any other character.
 
 | Tab | What it shows |
 |---|---|
-| **Reading** | The books you have started, unfinished ones first, most recent first. ComicRedr opens on this tab while a book is part way read, otherwise on Series. |
+| **Reading** | The books you have started, unfinished ones first, most recent first. ComicRedr opens on this tab while a book is part way read, otherwise on Series. See [Reading](#reading). |
 | **Series** | One cover per series. A series with more than one book opens to show its books. |
 | **Books** | Every book, series by series, in issue order. |
 | **Collections** | Your own groups of books, including [Favourites](#favourites). |
@@ -134,6 +134,29 @@ into it like any other character.
 ![The Reading tab: the books you have started](images/reading-tab.webp)
 
 ![The Books tab: every book, in series order](images/books.webp)
+
+### Reading
+
+A comic counts as started once it has been open for more than a minute
+in one go. A quick look, opening a comic to see what it is and closing
+it again, keeps it off the Reading tab; ComicRedr still remembers the
+page you were on, so the next open goes back there. Stay a minute and
+it is on the Reading tab from then on.
+
+To start over with an empty Reading tab, type `gR`, or open the menu
+(⋮ in the header) and pick **Clear the Reading list…**. ComicRedr asks
+first, saying how many comics it will clear; **Cancel** has the focus,
+so `Enter` clears nothing by accident, and `Alt+L` (or the **Clear**
+button) goes ahead. Every comic then starts unread again:
+
+- where you were in it is forgotten, so it opens on its first page;
+- its [completed mark](#completed-comics) goes, either way;
+- its bookmarks, its reading history and its collections stay.
+
+The clearing goes into each comic's sidecar, so another device that
+reads the sidecar (a shared folder, or [S3 sync](13-s3-sync.md)) drops
+its own place in those comics too. A place saved after the clearing,
+on any device, counts again as usual. There is no undo.
 
 ### Series
 

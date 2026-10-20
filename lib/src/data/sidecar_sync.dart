@@ -192,8 +192,14 @@ class SidecarSync {
     await progress.flush();
     final local = await gather(key);
     final merged = whole ? side : mergeSidecars(side, local);
-    final mine = local.progress.where((r) => r.device == me.id).firstOrNull;
-    final others = merged.progress.where((r) => r.device != me.id).toList()
+    // Positions from before the Reading list was cleared no longer count,
+    // this device's own included: it leaves the Reading tab here too.
+    final cleared = readingClearedAt(merged.overrides[readingClearedField]);
+    bool counts(SidecarProgress r) => cleared == null || r.updatedAt.isAfter(cleared);
+    final kept = local.progress.where((r) => r.device == me.id).firstOrNull;
+    final dropMine = kept != null && !counts(kept);
+    final mine = dropMine ? null : kept;
+    final others = merged.progress.where((r) => r.device != me.id && counts(r)).toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     final newest = others.firstOrNull;
     final adopt = mine == null ? newest : null;
@@ -204,7 +210,7 @@ class SidecarSync {
     // A sidecar that brings nothing new, as when a comic opens again on the
     // device that wrote it, writes nothing: rewriting the same rows took
     // some 50 ms of opening it, and woke everything watching them.
-    if (adopt != null || _changes(merged, local)) await _write(key, merged, adopt);
+    if (adopt != null || dropMine || _changes(merged, local)) await _write(key, merged, adopt, dropMine: dropMine);
     if ((coverDir, merged.cover) case (final dir?, final cover?)) {
       final f = File(coverFile(dir, key));
       if (!f.existsSync()) {
@@ -227,35 +233,38 @@ class SidecarSync {
   }
 
   /// Puts [merged]'s rows in the index in place of [key]'s, and [adopt] as
-  /// this device's position when given.
-  Future<void> _write(String key, SidecarData merged, SidecarProgress? adopt) => _db.transaction(() async {
-    await _db.deleteBookRows(key, _db.sidecarMergedTables);
-    await _db.batch((b) {
-      b.insertAll(_db.analysedPages, merged.analysed);
-      b.insertAll(_db.panels, merged.panels, mode: InsertMode.insertOrReplace);
-      b.insertAll(_db.bookmarks, merged.bookmarks);
-      b.insertAll(_db.collectionBooks, [for (final c in merged.collections) c.copyWith(contentKey: key)]);
-      b.insertAllOnConflictUpdate(_db.overrides, [
-        for (final MapEntry(key: field, :value) in merged.overrides.entries)
-          OverridesCompanion.insert(contentKey: key, field: field, value: value),
-      ]);
-    });
-    if (adopt != null) {
-      await _db
-          .into(_db.progress)
-          .insertOnConflictUpdate(
-            ProgressCompanion.insert(
-              contentKey: key,
-              page: adopt.page,
-              panel: Value(adopt.panel),
-              percent: adopt.percent,
-              finished: Value(adopt.finished),
-              updatedAt: adopt.updatedAt,
-              viewJson: Value(adopt.viewJson),
-            ),
-          );
-    }
-  });
+  /// this device's position when given; with [dropMine], this device's
+  /// position goes (the Reading list was cleared after it was saved).
+  Future<void> _write(String key, SidecarData merged, SidecarProgress? adopt, {bool dropMine = false}) =>
+      _db.transaction(() async {
+        await _db.deleteBookRows(key, _db.sidecarMergedTables);
+        if (dropMine) await _db.deleteBookRows(key, [_db.progress]);
+        await _db.batch((b) {
+          b.insertAll(_db.analysedPages, merged.analysed);
+          b.insertAll(_db.panels, merged.panels, mode: InsertMode.insertOrReplace);
+          b.insertAll(_db.bookmarks, merged.bookmarks);
+          b.insertAll(_db.collectionBooks, [for (final c in merged.collections) c.copyWith(contentKey: key)]);
+          b.insertAllOnConflictUpdate(_db.overrides, [
+            for (final MapEntry(key: field, :value) in merged.overrides.entries)
+              OverridesCompanion.insert(contentKey: key, field: field, value: value),
+          ]);
+        });
+        if (adopt != null) {
+          await _db
+              .into(_db.progress)
+              .insertOnConflictUpdate(
+                ProgressCompanion.insert(
+                  contentKey: key,
+                  page: adopt.page,
+                  panel: Value(adopt.panel),
+                  percent: adopt.percent,
+                  finished: Value(adopt.finished),
+                  updatedAt: adopt.updatedAt,
+                  viewJson: Value(adopt.viewJson),
+                ),
+              );
+        }
+      });
 
   /// Whether writing [merged] would change [local]'s rows in the index.
   static bool _changes(SidecarData merged, SidecarData local) {

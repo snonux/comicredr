@@ -26,6 +26,7 @@ class ReadingPosition {
     this.rightToLeft,
     this.rotation,
     this.view,
+    this.peek = false,
   });
 
   final int page;
@@ -45,6 +46,11 @@ class ReadingPosition {
   final int? rotation;
   final ViewSpot? view;
 
+  /// Saved by a look of under a minute at a comic not started before: the
+  /// place is kept for the next open, but the library does not count the
+  /// comic as started (snonux, 2026-10-17), so it stays off the Reading tab.
+  final bool peek;
+
   Map<String, Object?> _viewJson() => {
     'balloon': balloon,
     'guided': guided,
@@ -54,6 +60,7 @@ class ReadingPosition {
     'rightToLeft': rightToLeft,
     if (rotation case final r? when r != 0) 'rotation': r,
     if (view case final v?) 'view': {'fit': v.fit, 'zoom': v.zoom, 'cx': v.cx, 'cy': v.cy},
+    if (peek) 'peek': true,
   };
 
   static ReadingPosition _fromRow(ProgressData row) {
@@ -74,6 +81,7 @@ class ReadingPosition {
       coverAlone: j['coverAlone'] as bool?,
       rightToLeft: j['rightToLeft'] as bool?,
       rotation: (j['rotation'] as num?)?.toInt(),
+      peek: j['peek'] == true,
       view: v is Map
           ? (
               fit: v['fit'] as String? ?? 'page',

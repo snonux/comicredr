@@ -125,6 +125,7 @@ setMark = "M"
         contains('hides gS'),
         contains('hides go'),
         contains('hides gO'),
+        contains('hides gR'),
         contains('hides gd'),
         contains('hides gu'),
         contains('hides gU'),

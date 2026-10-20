@@ -120,6 +120,10 @@ enum ReaderIntent {
   sortFolders("Sort the library's Folders tab: by name, date added, last read, file date, size, pages, series or year"),
   nextSortOrder("The library's Folders tab: sort by the next order (name, added, last read, …)"),
   reverseSort("The library's Folders tab: reverse the sort order"),
+  clearReading(
+    "Library: clear the Reading list, after asking: every comic's place and completed mark are forgotten, on "
+    'every device its sidecar reaches; bookmarks and history stay',
+  ),
   resetBook(
     'Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one',
   ),
