@@ -70,6 +70,12 @@ wonderful on small screens and dense golden-age pages. `b` again goes back
 to whole panels. Pressed outside guided view, `b` turns guided view on
 with balloons.
 
+When a balloon sits inside a small inset over a larger panel, it is read
+with the inset. For example, the larger panel and its balloons come first,
+then the inset and its balloons. A balloon crossing panel borders belongs
+to whichever panel it overlaps most; equal overlaps go to the smaller
+panel.
+
 Narration boxes (captions) are not balloons, and balloon mode is meant to
 skip them and read them as part of the panel; it mostly does, but now and
 then it stops on one.

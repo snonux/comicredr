@@ -1339,7 +1339,13 @@ refreshes right away instead of within six hours.
   does the same and traces no outline round them. `pages` skips pages
   with `manual` rows in the sidecar, which is what makes a run resumable;
   raise `PROMPT_VERSION` in the tool when the drawing rules change. Kind `caption` exists only in imported rows;
-  `balloonsIn` skips it. `X` → Redo panels deletes them with the rest.
+  `balloonsIn` skips it. `balloonsByFrame` assigns by greatest box
+  intersection; an equal positive intersection prefers the smaller frame
+  (so an inset keeps its balloons), then the earlier frame on equal area.
+  Zero intersections still use the nearest centre. Covered by
+  `packages/comic_analysis/test/analysis_test.dart` and the inset balloon
+  sequence in `tool/e2e/e2e_llm_panels.sh`.
+  `X` → Redo panels deletes them with the rest.
   Benchmark (2026-10-10, 40 eval pages, 32 of them the shipped model's
   misses): guided right / whole / wrong 31 / 0 / 9 for Claude against
   8 / 17 / 15. Method, results, Claude's boxes
@@ -1749,7 +1755,7 @@ tool/e2e/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a
 tool/e2e/e2e_sidebar_keys.sh    # sidebar focus, underlined letters, context isolation, arrows and Tab exits; makes its own books
 tool/e2e/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books
 tool/e2e/e2e_rotate.sh            # > < 2> gr on a made book of coloured panels: the page turned, guided view across pages, zoom and j, a restart (index and sidecar), another book upright
-tool/e2e/e2e_llm_panels.sh        # tool/llm_panels.py library, pages, check and import into the sidecar the app wrote: library and pages see what is done, guided view follows the imported order (a panel grown into its neighbour, which the detector's gate would refuse, included), a page given none is whole, rows and the run's record kept across the app's own sidecar writes and a restart, details (I) show it, X Redo panels drops both; makes its own book
+tool/e2e/e2e_llm_panels.sh        # tool/llm_panels.py library, pages, check and import into the sidecar the app wrote: library and pages see what is done, guided view follows the imported order (a panel grown into its neighbour, which the detector's gate would refuse, included), a page given none is whole, rows and the run's record kept across the app's own sidecar writes and a restart, details (I) show it, X Redo panels drops both; balloon mode reads the big panel and its balloon before the inset and its balloon, forwards and backwards; makes its own book
 tool/e2e/e2e_page_jumps.sh        # gg Home, G ge End, G12 ended by Enter, a pause or the next key, Esc dropping it, G99 past the end; the ? help searched for first and last page; reads the page from the index with sqlite3; makes its own book
 tool/e2e/e2e_regions.sh book.cbz [page]  # H1 H2, B1-B3, L1-L4, Q1-Q4 and 11/00/21-54 on a page shown whole, in guided view and out: each part framed (tool/e2e/region_check.py), stepped, held, Esc; then by touch alone, the parts picker (two-finger tap, a part, edge taps, Stop parts); reptisaurus-v2-005 page 3
 tool/e2e/e2e_symlinks.sh          # a library folder of links: a linked CBZ, folder of CBZs (with a loop), folder book and a dangling link; the watcher through a link, a sidecar beside the link, gd deletes only the link; makes its own books

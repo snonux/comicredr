@@ -195,6 +195,56 @@ void main() {
       expect(got[1], [crossing]);
     });
 
+    test('an inset keeps fully contained balloons, regardless of frame order', () {
+      const big = Panel(0, 0, 1, 1);
+      const inset = Panel(0.5, 0.5, 0.375, 0.375);
+      const insideInset = Panel(0.625, 0.625, 0.125, 0.125, kind: PanelKind.balloon);
+      const bigOnly = Panel(0.125, 0.125, 0.125, 0.125, kind: PanelKind.balloon);
+      expect(balloonsByFrame([big, inset], [insideInset, bigOnly]), [
+        [bigOnly],
+        [insideInset],
+      ]);
+      expect(balloonsByFrame([inset, big], [insideInset, bigOnly]), [
+        [insideInset],
+        [bigOnly],
+      ]);
+    });
+
+    test('larger overlap still wins over the smaller frame', () {
+      const big = Panel(0, 0, 1, 1);
+      const inset = Panel(0.5, 0.5, 0.25, 0.25);
+      const crossing = Panel(0.375, 0.5, 0.25, 0.125, kind: PanelKind.balloon);
+      expect(balloonsByFrame([inset, big], [crossing]), [
+        <Panel>[],
+        [crossing],
+      ]);
+    });
+
+    test('equal overlap and frame size keep the earlier frame', () {
+      const left = Panel(0, 0, 0.75, 1);
+      const right = Panel(0.25, 0, 0.75, 1);
+      const shared = Panel(0.375, 0.25, 0.125, 0.125, kind: PanelKind.balloon);
+      for (final frames in [
+        [left, right],
+        [right, left],
+      ]) {
+        expect(balloonsByFrame(frames, [shared]), [
+          [shared],
+          <Panel>[],
+        ]);
+      }
+    });
+
+    test('zero overlap still uses the nearest centre, not the smallest frame', () {
+      const near = Panel(0, 0, 0.5, 0.5);
+      const small = Panel(0.875, 0.875, 0.125, 0.125);
+      const gutter = Panel(0.25, 0.625, 0.125, 0.125, kind: PanelKind.balloon);
+      expect(balloonsByFrame([near, small], [gutter]), [
+        [gutter],
+        <Panel>[],
+      ]);
+    });
+
     test('no frames, no groups', () {
       expect(balloonsByFrame(const [], const [Panel(0.1, 0.1, 0.1, 0.1)]), isEmpty);
     });

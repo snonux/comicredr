@@ -8,7 +8,9 @@ import 'reading_order.dart';
 /// overlaps most; a balloon over no frame at all (a caption in the gutter)
 /// goes to the frame whose centre is nearest. Balloons crossing a gutter
 /// are common in western comics, and the larger overlap is where the
-/// reader's eye already is.
+/// reader's eye already is. Equal positive overlaps go to the smaller
+/// frame, so an inset keeps its balloons; equal frame sizes keep the
+/// earlier frame.
 List<List<Panel>> balloonsByFrame(List<Panel> frames, Iterable<Panel> balloons, {bool rightToLeft = false}) {
   final out = [for (final _ in frames) <Panel>[]];
   if (frames.isEmpty) return out;
@@ -17,7 +19,7 @@ List<List<Panel>> balloonsByFrame(List<Panel> frames, Iterable<Panel> balloons, 
     var bestOverlap = 0.0;
     for (final (i, f) in frames.indexed) {
       final o = f.intersection(b);
-      if (o > bestOverlap) {
+      if (o > bestOverlap || (o > 0 && o == bestOverlap && f.area < frames[best].area)) {
         bestOverlap = o;
         best = i;
       }

@@ -17,7 +17,9 @@
 # record of the run (harness, model), the details (I) show it, and the
 # sidecar keeps both after the app writes it again; `library` then says
 # done and `pages` has nothing left to do; a restart still uses them;
-# X → Redo panels drops the panels and the record, back to red first.
+# X → Redo panels drops the panels and the record, back to red first;
+# a second import proves balloons inside an inset are read with the inset
+# after the big panel and its own balloon, forwards and backwards.
 #
 # Needs: Xvfb, xdotool, ImageMagick, sqlite3, Python with Pillow and a C
 # compiler with X11 headers (tool/e2e/close_window.c).
@@ -284,7 +286,77 @@ expect "and from the sidecar" "$n" 0
 rec=$(q "$side" "select count(*) from overrides where field = 'panelImport'")
 expect "the record too" "$rec" 0
 
-montage -label '%t' "$out"/0*.png -tile 4x -geometry 400x250+6+6 -background '#222' -fill white \
+echo "== balloon order through a panel and its inset"
+# A second import on this isolated book: a big panel with one balloon
+# outside the inset and one fully inside both frames. The old equal-overlap
+# rule gave both to the big panel, putting the inset's balloon before it.
+python3 - "$out/inset.json" <<'EOF2'
+import json, sys
+json.dump({"pages": {"1": {
+    "panels": [[5, 5, 95, 95], [50, 50, 95, 95]],
+    "balloons": [[10, 8, 30, 14], [60, 58, 80, 64]]
+}}}, open(sys.argv[1], 'w'))
+EOF2
+python3 tool/llm_panels.py import "$book" "$out/inset.json" \
+  --harness e2e --model synthetic-fixture
+start "$book"
+key g g
+key b
+key l
+shot 09_big_panel
+# Ignore OCR spacing around counters; the numbers and camera must agree.
+st=$(status_of 09_big_panel)
+if [[ ${st// /} == *'panel1/2'* && ${st// /} != *'balloon1/'* ]]; then
+  ok "big panel shown whole first ($st)"
+else
+  fail "expected big panel whole: '$st'"
+fi
+key l
+shot 10_big_balloon
+st=$(status_of 10_big_balloon)
+if [[ ${st// /} == *'panel1/2'*'balloon1/1'* ]]; then
+  ok "only the big panel's balloon is read here ($st)"
+else
+  fail "expected one balloon in big panel: '$st'"
+fi
+# The camera also proves which balloon is shown: red, away from the inset.
+expect "big panel's balloon focuses red" \
+  "$(framed_in 10_big_balloon)" red
+key l
+shot 11_inset_panel
+st=$(status_of 11_inset_panel)
+if [[ ${st// /} == *'panel2/2'* && ${st// /} != *'balloon1/'* ]]; then
+  ok "the next step is the inset whole ($st)"
+else
+  fail "expected inset whole: '$st'"
+fi
+expect "inset focuses yellow" "$(framed_in 11_inset_panel)" yellow
+key l
+shot 12_inset_balloon
+st=$(status_of 12_inset_balloon)
+if [[ ${st// /} == *'panel2/2'*'balloon1/1'* ]]; then
+  ok "the inset keeps its balloon ($st)"
+else
+  fail "expected inset balloon: '$st'"
+fi
+expect "inset balloon focuses yellow" \
+  "$(framed_in 12_inset_balloon)" yellow
+# Going backwards must return via the inset whole to the big panel's
+# balloon, rather than finding the inset balloon attached to panel 1.
+key h
+key h
+shot 13_back_big_balloon
+st=$(status_of 13_back_big_balloon)
+if [[ ${st// /} == *'panel1/2'*'balloon1/1'* ]]; then
+  ok "backwards returns to the big panel's only balloon ($st)"
+else
+  fail "wrong balloon backwards: '$st'"
+fi
+expect "backwards focuses red" \
+  "$(framed_in 13_back_big_balloon)" red
+stop
+
+montage -label '%t' "$out"/[0-9][0-9]_*.png -tile 4x -geometry 400x250+6+6 -background '#222' -fill white \
   "$out/contact.png" 2>/dev/null || true
 if grep -iE 'exception|error' "$out/app.log" | grep -viE 'libEGL|MESA-EGL|Atk-CRITICAL|dbind'; then
   fail "the app logged errors"
