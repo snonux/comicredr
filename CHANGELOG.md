@@ -7,10 +7,13 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.7
+
 - Reading now waits for five minutes in one sitting. `gb`, the menus and
   the open-book button in a cover's details mark a comic as started or
   not started while keeping its page; several selected comics can be
   changed together. The marks travel in sidecars.
+- Balloons inside inset frames stay with the smaller frame in guided view.
 
 ## 0.9.6
 

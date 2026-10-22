@@ -1,0 +1,2 @@
+* Reading starts after five minutes in one sitting. Use gb, the menus or the open-book button in a cover's details to mark comics started or not started without losing your place. Several comics can be changed together; marks sync in sidecars.
+* Balloons inside inset frames stay with the smaller frame.
