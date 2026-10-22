@@ -67,7 +67,7 @@ Android 7–10 uses a permission dialog instead (Android 10 shown here):
   page's top brings the whole page back. Fullscreen is a tap in
   the middle of the page. See [Touch](08-touch.md) for the gestures.
 - Everything the laptop does with a key is in the menu: favourites,
-  completed, collections, the next comic, the first and last page, two
+  started or not started, completed, collections, the next comic, the first and last page, two
   pages, right to left, turning, trimming, the night filter, the
   clean-up, reset, delete and S3. Swipe up on the page or tap ⋮.
 - The library's header has ⋮ too, beside the gear: opening a comic or

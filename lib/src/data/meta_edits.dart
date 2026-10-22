@@ -108,6 +108,20 @@ bool? completedMark(String? raw) {
   return e.fromFile ? null : e.value == '1';
 }
 
+/// Whether the comic counts as started, independently of its saved place.
+/// A dated override, like [completedField], so taking it off reaches other
+/// devices too. A qualifying sitting writes true again; null is an undo.
+const readingStartedField = 'readingStarted';
+
+MetaEdit readingStartedEdit(bool? on, {required DateTime at}) =>
+    on == null ? MetaEdit.undo(at: at) : MetaEdit(on ? '1' : '0', at: at);
+
+bool? readingStartedMark(String? raw) {
+  if (raw == null) return null;
+  final e = MetaEdit.decode(raw);
+  return e.fromFile ? null : e.value == '1';
+}
+
 /// A people list as typed: comma-separated, trimmed, blanks dropped.
 List<String> splitPeople(String? s) =>
     s?.split(',').map((w) => w.trim()).where((w) => w.isNotEmpty).toList() ?? const [];

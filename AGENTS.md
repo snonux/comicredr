@@ -519,17 +519,24 @@ refreshes right away instead of within six hours.
   left alone: `I` is a modal route with its own keys, and nothing reaches
   the comic behind `?`. No touch button for `gc` in the reader.
 - The Reading list (snonux, 2026-10-17). Started is
-  `LibraryBook.started`: a position row that is not a peek. The reader
+  `LibraryBook.started`: a started mark, else a position row that is not a peek. The reader
   saves the place from the first moment, but while a comic not started
-  before has been open less than `ReaderNotifier.startedAfter` (1 min,
+  before has been open less than `ReaderNotifier.startedAfter` (5 min,
   counted from `open` by the notifier's `clock`) the row's `view_json`
   has `"peek": true` (`ReadingPosition.peek`, read in `_booksSql` with
-  `instr`); a save after the minute, or `_startedNow` on close and flush,
-  drops it. Rows from before have no flag and count. Unread is left to
+  `instr`); a save after five minutes, or `_startedNow` on close and flush,
+  drops it. Rows from before have no flag and count. `gb` (`toggleStarted`)
+  on a cover, marked covers or the open comic changes a dated overrides
+  row `readingStarted`: true/false wins over the position's peek flag,
+  null falls back to it. A five-minute sitting writes true again. The
+  mark travels in sidecars and settings; removing it keeps the place.
+  Library and reader menus, the details' open-book button and the marks
+  bar reach it by touch. The library offers Undo. Resume resets the
+  five-minute timer, so background time does not count. Unread is left to
   the open as before. Clearing it, `gR` (`clearReading`, the library's
   menu; `lib/src/library/clear_reading.dart`): one question (Cancel
   focused, Alt+L clears), then `LibraryStore.clearReading` deletes every
-  `progress` row, undoes every completed mark and writes an overrides row
+  `progress` row, undoes every started and completed mark and writes an overrides row
   `readingCleared` (`readingClearedField`, a `MetaEdit` whose time is
   when) for each comic that had either, and the sidecars are written.
   `SidecarSync._import` ignores positions saved before that time, this
@@ -1744,7 +1751,7 @@ tool/e2e/e2e_touch_menu.sh       # touch alone: ⋮ on the status line and a swi
 tool/e2e/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
 tool/e2e/e2e_completed.sh         # gC in the reader on and off, reading on to the last page marks a comic and G there does not, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, gC on a cover under the filter then Enter opens the cover next to it, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
-tool/e2e/e2e_clear_reading.sh     # a look of seconds keeps the place as a peek and off the Reading tab, a minute starts a comic; a second install shares one; gR: Enter cancels, Alt+L clears places and marks into the sidecars, gR again only says so; the second install then starts that comic over; checks the index and sidecars with sqlite3; makes its own books
+tool/e2e/e2e_clear_reading.sh     # a look of seconds keeps the place as a peek and off the Reading tab, five minutes start a comic; a second install shares one; gR: Enter cancels, Alt+L clears places and marks into the sidecars, gR again only says so; the second install then starts that comic over; checks the index and sidecars with sqlite3; makes its own books
 tool/e2e/e2e_unread.sh            # a comic copied into a running library goes in Unread, a moved one and the first scan do not; opened from the Collections tab it leaves (index and sidecar); after a restart a copy is not new and a comic in a new folder is; makes its own books
 tool/e2e/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star (found by comparing two screenshots, not at a fixed place), x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books

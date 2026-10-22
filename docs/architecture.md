@@ -455,6 +455,13 @@ flowchart LR
   too, taking the mark off included. The reader writes it when a step
   onward arrives on the last page, never on a jump there; without a row
   a comic counts as completed while its saved page is the last one.
+  Reading membership uses the dated `readingStarted` override: manual
+  started/not-started marks and a qualifying sitting of five minutes
+  write it without dropping the saved page. With no mark, a non-peek
+  position counts as started for compatibility. Short looks save a
+  `peek` flag in the position's view JSON. Clear Reading undoes both
+  kinds of marks and dates a `readingCleared` override so older positions
+  from other devices cannot bring them back.
 - **The comic file is never written.** Metadata edits live in the
   sidecar, since rewriting the comic would change its content key.
 - **A settings file** (Settings → Export settings, `SettingsFile` in

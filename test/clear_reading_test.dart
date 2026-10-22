@@ -19,6 +19,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:reader_input/reader_input.dart';
+
 import 'support/fixtures.dart';
 
 /// One install of the app: its own index and its own sidecar sync.
@@ -34,8 +36,19 @@ class Device {
   LibraryStore get library => LibraryStore(db);
 }
 
+class _RefusedStart extends LibraryStore {
+  _RefusedStart(super.db);
+  bool refuse = true;
+
+  @override
+  Future<void> setStarted(String contentKey, bool? on, {DateTime? at}) {
+    if (refuse) throw StateError('index locked');
+    return super.setStarted(contentKey, on, at: at);
+  }
+}
+
 /// The Reading list (snonux, 2026-10-17): a comic counts as started only
-/// once it was open for a minute in one go, and `gR` clears the list, every
+/// once it was open for five minutes in one go, and `gR` clears the list, every
 /// comic's place and completed mark, on every device its sidecar reaches.
 void main() {
   late Directory tmp;
@@ -73,7 +86,7 @@ void main() {
       if (b.started) b.name,
   ]..sort();
 
-  group('a minute before a comic counts as started', () {
+  group('five minutes before a comic counts as started', () {
     test('a peek keeps the place but not the start; an older position without the flag counts', () async {
       final store = await shelf();
       final books = await store.books();
@@ -91,7 +104,7 @@ void main() {
       expect((await progress.load(daredevil.key))!.peek, isTrue);
     });
 
-    test('the reader saves a peek until the comic was open a minute, then a start', () async {
+    test('the reader saves a peek until the comic was open five minutes, then a start', () async {
       final store = await shelf();
       final path = named(await store.books(), 'Daredevil #181').path;
       final c = ProviderContainer(
@@ -106,7 +119,7 @@ void main() {
       var now = t0;
       final reader = c.read(readerProvider.notifier)..clock = () => now;
 
-      // Opened and closed again within the minute, a page turned: a peek.
+      // Opened and closed again within five minutes, a page turned: a peek.
       await reader.open(path);
       now = at(0).add(const Duration(seconds: 30));
       reader.jumpTo(1);
@@ -114,18 +127,18 @@ void main() {
       expect(await started(store), isEmpty);
       expect(named(await store.books(), 'Daredevil #181').page, 1);
 
-      // A new open counts from its own start: 59 seconds is not enough.
+      // A new open counts from its own start: 4 minutes 59 seconds is not enough.
       now = at(10);
       await reader.open(path);
       expect(c.read(readerProvider).page, 1, reason: 'the peek kept the place');
-      now = at(10).add(const Duration(seconds: 59));
+      now = at(10).add(const Duration(minutes: 4, seconds: 59));
       await reader.close();
       expect(await started(store), isEmpty);
 
-      // Left on one page for over a minute: started on close, no page turn needed.
+      // Left on one page for over five minutes: started on close, no page turn needed.
       now = at(20);
       await reader.open(path);
-      now = at(21).add(const Duration(seconds: 1));
+      now = at(25);
       await reader.close();
       expect(await started(store), ['Daredevil #181']);
 
@@ -136,7 +149,7 @@ void main() {
       expect(await started(store), ['Daredevil #181']);
     });
 
-    test('a turn after the minute saves the start at once, and pause saves it too', () async {
+    test('a turn after five minutes saves the start at once, and pause saves it too', () async {
       final store = await shelf();
       final books = await store.books();
       final c = ProviderContainer(
@@ -151,15 +164,137 @@ void main() {
       var now = t0;
       final reader = c.read(readerProvider.notifier)..clock = () => now;
       await reader.open(named(books, 'Daredevil #181').path);
-      now = at(2);
+      now = at(5);
       reader.jumpTo(2);
       await c.read(progressStoreProvider).flush();
       expect(await started(store), ['Daredevil #181']);
 
       await reader.open(named(books, 'Preacher #1').path);
-      now = at(4);
+      now = at(10);
       await reader.flush();
       expect(await started(store), ['Daredevil #181', 'Preacher #1']);
+    });
+  });
+
+  group('manual started marks', () {
+    test('mark a never-opened comic; unmark keeps the place; clearing includes marks without a place', () async {
+      final store = await shelf();
+      final books = await store.books();
+      final key = named(books, 'Daredevil #181').key;
+      await store.setStarted(key, true);
+      expect(await started(store), ['Daredevil #181']);
+      expect(named(await store.books(), 'Daredevil #181').page, isNull);
+      final progress = ProgressStore(db, debounce: Duration.zero);
+      progress.save(key, const ReadingPosition(page: 2), 4);
+      await progress.flush();
+      await store.setStarted(key, false);
+      expect(await started(store), isEmpty);
+      expect((await progress.load(key))!.page, 2);
+      await store.setStarted(key, null);
+      expect(await started(store), ['Daredevil #181'], reason: 'Undo restores the automatic start');
+      final neverOpened = named(books, 'Preacher #1').key;
+      await store.setStarted(neverOpened, true);
+      expect(await store.clearReading(), {key, neverOpened});
+      expect(await started(store), isEmpty);
+      expect(await store.startedMarkOf(neverOpened), isNull);
+    });
+
+    test("a manual removal travels without dropping either device's place", () async {
+      final laptop = Device(), phone = Device();
+      addTearDown(laptop.db.close);
+      addTearDown(phone.db.close);
+      final path = writeBook(root, 'Shared.cbz', 4);
+      final key = await contentKey(path);
+      for (final d in [laptop, phone]) {
+        await d.sync.attach(path, key, folder: false);
+        d.progress.save(key, const ReadingPosition(page: 2), 4);
+        await d.progress.flush();
+      }
+      await laptop.library.setStarted(key, true, at: at(1));
+      await laptop.sync.write(key);
+      await phone.sync.attach(path, key, folder: false);
+      expect(await phone.library.startedMarkOf(key), isTrue);
+      await phone.library.setStarted(key, false, at: at(2));
+      await phone.sync.write(key);
+      await laptop.sync.attach(path, key, folder: false);
+      expect(await laptop.library.startedMarkOf(key), isFalse);
+      expect((await laptop.progress.load(key))!.page, 2);
+      expect((await phone.progress.load(key))!.page, 2);
+      await laptop.library.setStarted(key, true, at: at(3));
+      await laptop.sync.write(key);
+      await phone.sync.attach(path, key, folder: false);
+      expect(await phone.library.startedMarkOf(key), isTrue);
+    });
+
+    test('a refused manual removal preserves an automatic start and reports the error', () async {
+      final store = await shelf();
+      final book = named(await store.books(), 'Daredevil #181');
+      final progress = ProgressStore(db, debounce: Duration.zero);
+      progress.save(book.key, const ReadingPosition(page: 1), 4);
+      await progress.flush();
+      final c = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          coverDirProvider.overrideWithValue(covers),
+          libraryStoreProvider.overrideWithValue(_RefusedStart(db)),
+          noSidecars(db),
+          classicCvOnly,
+        ],
+      );
+      addTearDown(c.dispose);
+      final reader = c.read(readerProvider.notifier);
+      await reader.open(book.path);
+      await reader.handle(const ReaderCommand(ReaderIntent.toggleStarted));
+      expect(c.read(readerProvider).message, contains('Could not change the started mark'));
+      await reader.close();
+      expect(named(await store.books(), book.name).started, isTrue);
+      expect((await progress.load(book.key))!.page, 1);
+    });
+
+    test('gb removes a start until a fresh five-minute sitting, even after reopen; pause time is excluded', () async {
+      final store = await shelf();
+      final book = named(await store.books(), 'Daredevil #181');
+      await store.setStarted(book.key, true);
+      final c = ProviderContainer(
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          coverDirProvider.overrideWithValue(covers),
+          noSidecars(db),
+          classicCvOnly,
+        ],
+      );
+      addTearDown(c.dispose);
+      var now = t0;
+      final reader = c.read(readerProvider.notifier)..clock = () => now;
+      await reader.open(book.path);
+      reader.jumpTo(1);
+      now = at(6);
+      await reader.handle(const ReaderCommand(ReaderIntent.toggleStarted));
+      await reader.close();
+      expect(await started(store), isEmpty, reason: 'close must not undo the manual removal');
+      expect(named(await store.books(), book.name).page, 1);
+      now = at(10);
+      await reader.open(book.path);
+      now = at(14);
+      await reader.pauseSitting();
+      now = at(29);
+      reader.jumpTo(2);
+      await reader.flush();
+      expect(await started(store), isEmpty, reason: 'saving while hidden must not start it');
+      now = at(30);
+      reader.resumeSitting();
+      reader.jumpTo(2);
+      await reader.flush();
+      expect(await started(store), isEmpty, reason: 'time away is not reading');
+      now = at(35);
+      await reader.flush();
+      expect(await started(store), [book.name]);
+      // Two back-to-back toggles must persist in command order.
+      final off = reader.handle(const ReaderCommand(ReaderIntent.toggleStarted));
+      final on = reader.handle(const ReaderCommand(ReaderIntent.toggleStarted));
+      await Future.wait([off, on]);
+      await reader.close();
+      expect(await started(store), [book.name]);
     });
   });
 

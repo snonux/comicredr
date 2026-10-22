@@ -101,11 +101,13 @@ class BookDetail extends ConsumerWidget {
   /// marked without reading); one marked not completed on its last page
   /// says both.
   String get _where => book.completed
-      ? (book.started && !book.finished ? 'Completed · on page ${book.page! + 1} of ${book.pageCount}' : 'Completed')
+      ? (book.started && book.page != null && !book.finished
+            ? 'Completed · on page ${book.page! + 1} of ${book.pageCount}'
+            : 'Completed')
       : book.finished
       ? 'On the last page · marked not completed'
       : book.started
-      ? 'On page ${book.page! + 1} of ${book.pageCount}'
+      ? (book.page == null ? 'Started · ${book.pageCount} pages' : 'On page ${book.page! + 1} of ${book.pageCount}')
       : 'Not started · ${book.pageCount} pages';
 
   /// The comic's name, its issue title, year, volume and format, and who
@@ -185,6 +187,17 @@ class BookDetail extends ConsumerWidget {
             ReaderIntent.toggleFavourite,
           ),
         ),
+        if (!remote)
+          IconButton.outlined(
+            key: const Key('started'),
+            onPressed: () => toggleStarted(context, ref, [book]),
+            icon: Icon(book.started ? Icons.auto_stories : Icons.auto_stories_outlined),
+            tooltip: KeyHints.tip(
+              context,
+              book.started ? 'Mark as not started (keep place)' : 'Mark as started',
+              ReaderIntent.toggleStarted,
+            ),
+          ),
         if (!remote) _completedButton(context, ref),
         // A pencil like the star and the tick, not a labelled button: with
         // Continue reading or Read again beside them a label no longer fit

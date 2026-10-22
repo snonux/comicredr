@@ -5,6 +5,7 @@ import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/input/touch_providers.dart';
+import 'package:comicredr/src/library/library_items.dart';
 import 'package:comicredr/src/library/library_screen.dart';
 import 'package:comicredr/src/library/library_store.dart';
 import 'package:comicredr/src/library/providers.dart';
@@ -21,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:reader_input/reader_input.dart';
 
 import 'support/fixtures.dart';
+import 'support/waits.dart';
 
 /// Every action without a keyboard (snonux, 2026-10-11): the menu (⋮, F10,
 /// a swipe up on the page), and the touch tutorial (gT, Settings, the
@@ -156,6 +158,7 @@ void main() {
     for (final i in [
       ReaderIntent.toggleFavourite,
       ReaderIntent.toggleCompleted,
+      ReaderIntent.toggleStarted,
       ReaderIntent.addToCollection,
       ReaderIntent.nextBook,
       ReaderIntent.prevBook,
@@ -334,6 +337,117 @@ void main() {
       await settle(tester);
       await pick(tester, ReaderIntent.back);
       expect(c.read(readerProvider).book, isNull);
+    });
+
+    testWidgets('a never-opened comic marked started has details with no saved page', (tester) async {
+      final store = (await tester.runAsync(shelf))!;
+      final book = (await tester.runAsync(store.books))!.first;
+      await tester.runAsync(() => store.setStarted(book.key, true));
+      await pumpApp(tester, const Size(360, 740));
+      await settle(tester);
+      await tester.tap(find.byKey(ValueKey(BookItem(book).id)));
+      await settle(tester);
+      expect(find.text('Started · ${book.pageCount} pages'), findsOneWidget);
+      await whilePumping(tester, () => store.setCompleted(book.key, true));
+      await settle(tester);
+      expect(find.text('Completed'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('started marks on a phone: reader menu, library key and menu, Undo, and the details button', (
+      tester,
+    ) async {
+      final store = (await tester.runAsync(shelf))!;
+      final book = (await tester.runAsync(store.books))!.first;
+      final c = await pumpApp(tester, const Size(360, 740));
+      await settle(tester);
+      final reader = c.read(readerProvider.notifier);
+      await whilePumping(tester, () => reader.open(book.path));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('menuButton')));
+      await settle(tester);
+      await pick(tester, ReaderIntent.toggleStarted);
+      await eventuallyAsync(tester, () => store.startedMarkOf(book.key), (on) => expect(on, isTrue), settle: settle);
+      await tester.tap(find.byKey(const Key('menuButton')));
+      await settle(tester);
+      await pick(tester, ReaderIntent.toggleStarted);
+      await eventuallyAsync(tester, () => store.startedMarkOf(book.key), (on) => expect(on, isFalse), settle: settle);
+      await whilePumping(tester, reader.close);
+      await settle(tester);
+      // Select a cover on Books, then gb adds it to Reading without opening.
+      await tester.tap(find.byType(NavigationDestination).at(LibraryTab.books.index));
+      await settle(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await settle(tester);
+      // Use the reader's key through the app's real keyboard dispatch, on a cover.
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB, character: 'b');
+      await eventuallyAsync(
+        tester,
+        store.books,
+        (books) => expect(books.where((b) => b.started), hasLength(1)),
+        settle: settle,
+      );
+      // The library menu uses the same selected book and removes it again.
+      await tester.tap(find.byKey(const Key('menuButton')));
+      await settle(tester);
+      await pick(tester, ReaderIntent.toggleStarted);
+      await eventuallyAsync(
+        tester,
+        store.books,
+        (books) => expect(books.where((b) => b.started), isEmpty),
+        settle: settle,
+      );
+      await eventually(
+        tester,
+        () => expect(find.text('${book.name} marked as not started'), findsOneWidget),
+        settle: settle,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyU, character: 'u');
+      await eventuallyAsync(
+        tester,
+        store.books,
+        (books) => expect(books.where((b) => b.started), hasLength(1)),
+        settle: settle,
+      );
+      // The selected cover's details page also offers a touch button.
+      await tester.tap(find.byKey(ValueKey(BookItem(book).id)));
+      await settle(tester);
+      final button = find.byKey(const Key('started'));
+      expect(button, findsOneWidget);
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await eventuallyAsync(
+        tester,
+        store.books,
+        (books) => expect(books.where((b) => b.started), isEmpty),
+        settle: settle,
+      );
+      // Select both covers by touch, then start them together and undo.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('select')));
+      await settle(tester);
+      for (final b in (await whilePumping(tester, store.books))) {
+        await tester.tap(find.byKey(ValueKey(BookItem(b).id)));
+        await settle(tester);
+      }
+      await tester.tap(find.byKey(const Key('marksStarted')));
+      await eventuallyAsync(
+        tester,
+        store.books,
+        (books) => expect(books.where((b) => b.started), hasLength(2)),
+        settle: settle,
+      );
+      await eventually(tester, () => expect(find.text('2 comics marked as started'), findsOneWidget), settle: settle);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyU, character: 'u');
+      await eventuallyAsync(
+        tester,
+        store.books,
+        (books) => expect(books.where((b) => b.started), isEmpty),
+        settle: settle,
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('the library menu: what the header has no room for, and the Folders tab', (tester) async {

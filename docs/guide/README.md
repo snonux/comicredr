@@ -35,7 +35,7 @@ come back here for a key you forgot.
    - [Keyboard shortcuts in the sidebar](03-library.md#keyboard-shortcuts-in-the-sidebar)
    - [Bigger and smaller covers](03-library.md#bigger-and-smaller-covers)
    - [The tabs](03-library.md#the-tabs): [reading](03-library.md#reading)
-     and clearing it, [series](03-library.md#series),
+     and [clearing it](03-library.md#clear-the-reading-list), [mark a comic as started](03-library.md#mark-a-comic-as-started), [series](03-library.md#series),
      [folders](03-library.md#folders),
      [filter the library](03-library.md#filter-the-library),
      [sort it](03-library.md#sort-the-folders-tab),

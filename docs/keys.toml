@@ -151,6 +151,8 @@ toggleFavourite = ["*"]
 showFavourites = ["gf"]
 # Mark this comic completed (read to the end), or take the mark off; the selected book in the library, or every marked one
 toggleCompleted = ["gC"]
+# Mark this comic as reading started, or mark it not started while keeping its place; the selected book in the library, or every marked one
+toggleStarted = ["gb"]
 # Remove the selected bookmark in a bookmark list; take the selected comic out of the Favourites
 remove = ["x", "Delete"]
 # Set mark a-z

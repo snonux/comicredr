@@ -46,7 +46,7 @@ class ReadingPosition {
   final int? rotation;
   final ViewSpot? view;
 
-  /// Saved by a look of under a minute at a comic not started before: the
+  /// Saved by a look of under five minutes at a comic not started before: the
   /// place is kept for the next open, but the library does not count the
   /// comic as started (snonux, 2026-10-17), so it stays off the Reading tab.
   final bool peek;

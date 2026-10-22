@@ -51,12 +51,15 @@ DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent GDK_BACKEND=x11 \
 app=$!
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
 sleep 7
+# Xvfb has no window manager to focus the view for injected touches.
+win=$(xdotool search --onlyvisible --name '^ComicRedr$' | tail -1)
+xdotool windowfocus "$win"
 
 db="$PWD/$out/home/.local/share/org.snonux.comicredr/comicredr.sqlite"
 q() { sqlite3 -batch -noheader -cmd ".timeout 10000" "$db" "$1"; }
 shot() { import -window root -crop 1280x720+0+0 "$out/$1.png"; }
 touch() { echo "$@" >>"$touches"; sleep 0.016; }
-tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep "${3:-1.5}"; }
+tap() { touch down 0 "$1" "$2"; touch up 0 "$1" "$2"; sleep "${3:-3}"; }
 # swipe x0 y0 x1 y1: one finger in 20 moves, quick enough for a flick.
 swipe() {
   touch down 0 "$1" "$2"
@@ -89,15 +92,23 @@ favourites() {
 menu() { tap 1248 693; }
 menu_end() { menu; swipe 640 550 640 100; swipe 640 550 640 100; }
 
+# Wait for the first scan before locating a header action or a cover.
+for _ in $(seq 1 120); do
+  [[ $(q 'select count(*) from books' 2>/dev/null) == 2 ]] &&
+    [[ $(q 'select count(*) from roots where scanned_at is not null' 2>/dev/null) == 1 ]] && break
+  sleep 0.5
+done
+sleep 1
+
 # 1. The library header's ⋮: the menu, Close, then its Shuffle line.
 shot 01_library
-tap 1212 28; shot 02_library_menu
+tap 1212 28 5; shot 02_library_menu
 changed 01_library 02_library_menu 50000 "the library's ⋮ opens the menu"
 tap 820 642; shot 03_closed
 same 01_library 03_closed 3000 "Close leaves the menu with nothing done"
-tap 1212 28; tap 560 507
+tap 1212 28 5; tap 560 548
 expect "$(setting library.shuffle)" true "the menu's Shuffle line"
-tap 1212 28; tap 560 507
+tap 1212 28 5; tap 560 548
 expect "$(setting library.shuffle)" false "and again: shuffle off"
 
 # 2. A comic, opened by taps on the Books tab.
@@ -110,11 +121,17 @@ changed 04_comic 05_reader_menu 50000 "the status line's ⋮ opens the menu"
 tap 560 151
 expect "$(favourites)" 1 "the menu's Favourite line: the comic is a favourite"
 
+# Started can be set and removed entirely by touch.
+menu; tap 560 199
+expect "$(q "select json_extract(value, '$.value') from overrides where field='readingStarted'")" 1 "the menu marks reading started"
+menu; tap 560 199
+expect "$(q "select json_extract(value, '$.value') from overrides where field='readingStarted'")" 0 "the menu marks not started"
+
 # 4. A swipe up on the page opens it too: Last page.
 shot 06_before_swipe
 swipe 640 520 640 160; shot 07_swiped_up
 changed 06_before_swipe 07_swiped_up 50000 "a swipe up on the page opens the menu"
-tap 560 541
+tap 560 589
 expect "$(view | cut -d'|' -f1)" 8 "the menu's Last page line"
 
 # 5. Turn clockwise, at the end of the list.
@@ -127,9 +144,9 @@ expect "$(setting touch.guideSeen)" "" "the tutorial did not show by itself on L
 shot 09_before_tutorial
 menu_end; tap 560 517 2.5; shot 10_tutorial
 changed 09_before_tutorial 10_tutorial 50000 "the menu's Touch tutorial line opens the tutorial"
-tap 831 648 1; shot 11_tutorial_zones
+tap 831 648 2; shot 11_tutorial_zones
 changed 10_tutorial 11_tutorial_zones 5000 "Next turns its page"
-for _ in $(seq 1 9); do tap 831 648 1; done
+for _ in $(seq 1 9); do tap 831 648 2; done
 shot 12_tutorial_last
 tap 831 648 2; shot 13_tutorial_done
 same 09_before_tutorial 13_tutorial_done 5000 "Done on the last page closes it"

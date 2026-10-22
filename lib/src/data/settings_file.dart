@@ -80,7 +80,9 @@ class SettingsFile {
   /// like, and the ones that are completed marks (either way, an undone one
   /// too): told apart for the import's question and notice, where thirty
   /// comics marked completed are not "30 edits".
-  int get metaEditCount => edits.where((o) => o.field != completedField && o.field != readingClearedField).length;
+  int get metaEditCount => edits
+      .where((o) => o.field != completedField && o.field != readingClearedField && o.field != readingStartedField)
+      .length;
   int get completedMarkCount => edits.where((o) => o.field == completedField).length;
   final List<ReadLogData> history;
 

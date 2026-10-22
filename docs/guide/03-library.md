@@ -137,11 +137,28 @@ into it like any other character.
 
 ### Reading
 
-A comic counts as started once it has been open for more than a minute
-in one go. A quick look, opening a comic to see what it is and closing
-it again, keeps it off the Reading tab; ComicRedr still remembers the
-page you were on, so the next open goes back there. Stay a minute and
-it is on the Reading tab from then on.
+A comic counts as started once it has been open for at least five minutes
+in one go. Short looks do not add up, and time away from the app does not
+count. ComicRedr still remembers the page you were on, so the next open
+returns there. Comics already started stay on Reading.
+
+#### Mark a comic as started
+
+To add a comic straight away, select its cover and type `gb`. Type `gb`
+again to mark it **not started** and take it out of Reading; its saved
+page, bookmarks and completed mark stay. For example, you can take a
+comic you only browsed out of Reading, then open it later at the same page.
+A fresh five-minute sitting adds it back automatically.
+
+You can also use **Reading started: mark or take the mark off** in the
+library's ⋮ menu with a comic selected, or the open comic's ⋮ menu.
+The open-book button in a cover's details does the same, including on
+Android. With several covers selected, **Started** marks them all;
+when they are all started, **Not started** takes them all out.
+In the library the notice offers **Undo** (`u`). These marks travel in
+the comic's sidecar, so another device sees the same choice.
+
+#### Clear the Reading list
 
 To start over with an empty Reading tab, type `gR`, or open the menu
 (⋮ in the header) and pick **Clear the Reading list…**. ComicRedr asks
@@ -150,7 +167,7 @@ so `Enter` clears nothing by accident, and `Alt+L` (or the **Clear**
 button) goes ahead. Every comic then starts unread again:
 
 - where you were in it is forgotten, so it opens on its first page;
-- its [completed mark](#completed-comics) goes, either way;
+- its started mark and [completed mark](#completed-comics) go, either way;
 - its bookmarks, its reading history and its collections stay.
 
 ![The question before the Reading list is cleared, with Cancel focused](images/clear-reading.webp)

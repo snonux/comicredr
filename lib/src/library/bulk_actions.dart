@@ -249,6 +249,55 @@ Future<bool> toggleCompleted(BuildContext context, WidgetRef ref, List<LibraryBo
   return done.length == changed.length;
 }
 
+/// Toggles Reading membership for the local comics; keeps their positions,
+/// writes sidecars, and offers Undo with each comic's previous mark.
+Future<bool> toggleStarted(BuildContext context, WidgetRef ref, List<LibraryBook> books) async {
+  final todo = books.where((b) => !b.remoteOnly).toList();
+  final messenger = ScaffoldMessenger.of(context);
+  if (todo.isEmpty) {
+    if (books.isNotEmpty) showNotice(messenger, onlyOnS3Notice(books.length));
+    return false;
+  }
+  final undoNotice = ref.read(undoNoticeProvider);
+  final undoLabel = KeyHints.tip(context, 'Undo', ReaderIntent.undo);
+  final store = ref.read(libraryStoreProvider), sidecars = ref.read(sidecarSyncProvider);
+  final on = !todo.every((b) => b.started);
+  // Only these are written: the others have the mark asked for already.
+  final changed = todo.where((b) => b.started != on).toList();
+  final done = <LibraryBook>[];
+  try {
+    for (final b in changed) {
+      await store.setStarted(b.key, on);
+      done.add(b);
+    }
+  } catch (e) {
+    debugPrint('Could not change the started mark of ${changed[done.length].path}: $e');
+  }
+  // Also after a failure part of the way: the ones marked are in the index.
+  await _writeSidecars(sidecars, done);
+  final text = startedNotice(done, changed, on: on, onlyOnS3: books.length - todo.length);
+  if (done.isEmpty) {
+    showNotice(messenger, text, mustRead: true);
+    return false;
+  }
+  // With the undo key (u) as well as the button.
+  undoNotice.show(
+    messenger,
+    text,
+    label: undoLabel,
+    failed: 'Could not undo the started mark of ${_named(done)}',
+    // Part of the way: the notice also names what could not be marked.
+    mustRead: done.length < changed.length,
+    undo: () async {
+      for (final b in done) {
+        await store.setStarted(b.key, b.startedMark);
+      }
+      await _writeSidecars(sidecars, done);
+    },
+  );
+  return done.length == changed.length;
+}
+
 /// What `gC` says when every comic it was asked for ([count] of them) is
 /// only on S3, where it marks nothing.
 String onlyOnS3Notice(int count) =>
@@ -261,6 +310,15 @@ String onlyOnS3Notice(int count) =>
 /// because they are only on S3; zero says nothing of them.
 String completedNotice(List<LibraryBook> done, List<LibraryBook> asked, {required bool on, int onlyOnS3 = 0}) {
   final how = 'as ${on ? '' : 'not '}completed';
+  const why = 'the library could not be updated';
+  final s3 = onlyOnS3 == 0 ? '' : '; $onlyOnS3 ${onlyOnS3 == 1 ? 'is' : 'are'} only on S3';
+  if (done.isEmpty) return 'Could not mark ${_named(asked)} $how: $why$s3';
+  final rest = asked.length - done.length;
+  return '${_named(done)} marked $how${rest == 0 ? '' : '; $rest not marked: $why'}$s3';
+}
+
+String startedNotice(List<LibraryBook> done, List<LibraryBook> asked, {required bool on, int onlyOnS3 = 0}) {
+  final how = 'as ${on ? '' : 'not '}started';
   const why = 'the library could not be updated';
   final s3 = onlyOnS3 == 0 ? '' : '; $onlyOnS3 ${onlyOnS3 == 1 ? 'is' : 'are'} only on S3';
   if (done.isEmpty) return 'Could not mark ${_named(asked)} $how: $why$s3';

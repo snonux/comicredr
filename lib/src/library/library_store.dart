@@ -32,6 +32,7 @@ class LibraryBook {
     this.percent,
     this.finished = false,
     this.peek = false,
+    this.startedMark,
     this.completedMark,
     this.readAt,
     this.collections = const [],
@@ -94,6 +95,7 @@ class LibraryBook {
         percent: percent,
         finished: finished,
         peek: peek,
+        startedMark: startedMark,
         completedMark: completedMark,
         readAt: readAt,
         collections: collections,
@@ -113,9 +115,13 @@ class LibraryBook {
   /// is gone again when the comic is read from the start once more.
   final bool finished;
 
-  /// The saved position is from a look of under a minute
+  /// The saved position is from a look of under five minutes
   /// ([ReadingPosition.peek]): the comic does not count as started yet.
   final bool peek;
+
+  /// Explicit started status, including a qualifying sitting after a manual
+  /// removal. Null keeps older saved positions working as before.
+  final bool? startedMark;
 
   /// Marked completed by hand (`gC`, or by reaching the last page in the
   /// reader), or marked not completed; null when nobody said.
@@ -166,8 +172,8 @@ class LibraryBook {
   String? get subtitle => issueTitle ?? year?.toString();
 
   /// Read for a while: a reading position is saved from the first open, but
-  /// counts only once the comic was open for a minute in one go ([peek]).
-  bool get started => page != null && !peek;
+  /// counts only once the comic was open for five minutes in one go ([peek]).
+  bool get started => startedMark ?? (page != null && !peek);
 
   /// Begun and neither on its last page nor marked completed: what the
   /// cover's progress line and Continue are for.
@@ -650,20 +656,22 @@ ORDER BY r.id, f.rel_path
 
   /// What the overrides rows say, by content key: the hand edits in
   /// effect, and the completed marks.
-  Future<(Map<String, Map<MetaField, String?>>, Map<String, bool?>)> _overrides() async {
+  Future<(Map<String, Map<MetaField, String?>>, Map<String, bool?>, Map<String, bool?>)> _overrides() async {
     final edits = <String, Map<MetaField, String?>>{};
     final marks = <String, bool?>{};
+    final starts = <String, bool?>{};
     for (final o in await db.select(db.overrides).get()) {
       if (o.field == completedField) marks[o.contentKey] = completedMark(o.value);
+      if (o.field == readingStartedField) starts[o.contentKey] = readingStartedMark(o.value);
       final active = activeEdits({o.field: o.value});
       if (active.isNotEmpty) edits.putIfAbsent(o.contentKey, () => {}).addAll(active);
     }
-    return (edits, marks);
+    return (edits, marks, starts);
   }
 
   Future<List<LibraryBook>> books() async {
     final rows = await db.customSelect(_booksSql).get();
-    final (edits, marks) = await _overrides();
+    final (edits, marks, starts) = await _overrides();
     // An edited series groups with the series of that name, made here when
     // the edit came in from another device's sidecar.
     final names = {
@@ -697,17 +705,23 @@ ORDER BY r.id, f.rel_path
           shelf,
           files[r.read<String>('content_key')],
           marks[r.read<String>('content_key')],
+          starts[r.read<String>('content_key')],
         ),
     ];
     return [
       ...local,
-      ...await _remoteOnly(shelf, {for (final b in local) b.key}, marks),
+      ...await _remoteOnly(shelf, {for (final b in local) b.key}, marks, starts),
     ];
   }
 
   /// The comics on S3 that are not on this device: shown where a download
   /// would put them, under the first library folder.
-  Future<List<LibraryBook>> _remoteOnly(Map<String, S3Book> shelf, Set<String> here, Map<String, bool?> marks) async {
+  Future<List<LibraryBook>> _remoteOnly(
+    Map<String, S3Book> shelf,
+    Set<String> here,
+    Map<String, bool?> marks,
+    Map<String, bool?> starts,
+  ) async {
     final missing = shelf.values.where((r) => !here.contains(r.contentKey)).toList();
     if (missing.isEmpty) return const [];
     final root =
@@ -728,11 +742,18 @@ ORDER BY r.id, f.rel_path
             p.joinAll([root.path, ...m.relPath.split('/')]),
             progress[m.contentKey],
             marks[m.contentKey],
+            starts[m.contentKey],
           ),
     ];
   }
 
-  Future<LibraryBook> _remoteBook(Manifest m, String path, ProgressData? pr, bool? completedMark) async {
+  Future<LibraryBook> _remoteBook(
+    Manifest m,
+    String path,
+    ProgressData? pr,
+    bool? completedMark,
+    bool? startedMark,
+  ) async {
     final series = m.series ?? m.title;
     return LibraryBook(
       key: m.contentKey,
@@ -751,6 +772,7 @@ ORDER BY r.id, f.rel_path
       finished: pr?.finished ?? false,
       peek: pr?.viewJson?.contains('"peek":true') ?? false,
       completedMark: completedMark,
+      startedMark: startedMark,
       readAt: pr?.updatedAt,
       s3: S3Shelf(S3Mark.remote, uploadedBy: m.uploadedBy, uploadedAt: m.uploadedAt, size: m.size),
     );
@@ -777,6 +799,24 @@ ORDER BY r.id, f.rel_path
     return completedMark(row?.value);
   }
 
+  Future<bool?> startedMarkOf(String contentKey) async {
+    final row = await (db.select(
+      db.overrides,
+    )..where((o) => o.contentKey.equals(contentKey) & o.field.equals(readingStartedField))).getSingleOrNull();
+    return readingStartedMark(row?.value);
+  }
+
+  /// Changes membership of Reading without changing the saved place.
+  Future<void> setStarted(String contentKey, bool? on, {DateTime? at}) => db
+      .into(db.overrides)
+      .insertOnConflictUpdate(
+        OverridesCompanion.insert(
+          contentKey: contentKey,
+          field: readingStartedField,
+          value: readingStartedEdit(on, at: at ?? DateTime.now()).encode(),
+        ),
+      );
+
   /// Who drew the book [contentKey]'s imported panels, oldest run first
   /// ([panelImportField]); none when the detector found them all.
   Future<List<PanelImportRun>> panelImportsOf(String contentKey) async {
@@ -801,12 +841,14 @@ ORDER BY r.id, f.rel_path
       );
 
   /// The comics with a reading status: a position saved on this device
-  /// (on the Reading tab, or a look of under a minute) or a completed mark
+  /// (on the Reading tab, or a look of under five minutes) or a completed mark
   /// either way. What Clear the Reading list (`gR`) clears.
   Future<Set<String>> withReadingStatus() async => {
     for (final r in await db.select(db.progress).get()) r.contentKey,
     for (final o in await (db.select(db.overrides)..where((o) => o.field.equals(completedField))).get())
       if (completedMark(o.value) != null) o.contentKey,
+    for (final o in await (db.select(db.overrides)..where((o) => o.field.equals(readingStartedField))).get())
+      if (readingStartedMark(o.value) != null) o.contentKey,
   };
 
   /// Clears every comic's reading status ([withReadingStatus]): this
@@ -832,6 +874,12 @@ ORDER BY r.id, f.rel_path
             field: readingClearedField,
             value: MetaEdit('1', at: now).encode(),
           ),
+        for (final k in keys)
+          OverridesCompanion.insert(
+            contentKey: k,
+            field: readingStartedField,
+            value: readingStartedEdit(null, at: now).encode(),
+          ),
         for (final k in marked)
           OverridesCompanion.insert(
             contentKey: k,
@@ -856,6 +904,7 @@ ORDER BY r.id, f.rel_path
     Map<String, S3Book> shelf = const {},
     List<({String path, DateTime? modified})>? files,
     bool? completedMark,
+    bool? startedMark,
   ]) {
     List<String> list(String col) => r.readNullable<String>(col)?.split(', ') ?? const [];
     DateTime? time(String col) {
@@ -898,6 +947,7 @@ ORDER BY r.id, f.rel_path
       finished: (r.readNullable<int>('p_finished') ?? 0) != 0,
       peek: (r.readNullable<int>('p_peek') ?? 0) != 0,
       completedMark: completedMark,
+      startedMark: startedMark,
       readAt: time('p_updated'),
       collections: [...collections]..sort(naturalCompare),
       s3: switch (shelf[r.read<String>('content_key')]) {

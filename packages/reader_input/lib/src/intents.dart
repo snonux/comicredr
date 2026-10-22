@@ -92,6 +92,10 @@ enum ReaderIntent {
     'Mark this comic completed (read to the end), or take the mark off; '
     'the selected book in the library, or every marked one',
   ),
+  toggleStarted(
+    'Mark this comic as reading started, or mark it not started while keeping its place; '
+    'the selected book in the library, or every marked one',
+  ),
   remove('Remove the selected bookmark in a bookmark list; take the selected comic out of the Favourites'),
   setMark('Set mark a-z'),
   jumpMark('Jump to mark a-z'),

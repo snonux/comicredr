@@ -163,7 +163,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     // Flush the reading position when the app is backgrounded or closed.
     _lifecycle = AppLifecycleListener(
-      onPause: () => ref.read(readerProvider.notifier).flush(),
+      onHide: () => ref.read(readerProvider.notifier).pauseSitting(),
+      onPause: () => ref.read(readerProvider.notifier).pauseSitting(),
       // Android has no change notifications for the library folders, so it
       // rescans when the app comes back (design plan section 4).
       // Storage access may have been granted meanwhile, which lets the
@@ -676,7 +677,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final book = ref.read(readerProvider).book;
     if (book == null) return false;
     switch (c.intent) {
-      case ReaderIntent.toggleFavourite || ReaderIntent.toggleCompleted:
+      case ReaderIntent.toggleFavourite || ReaderIntent.toggleCompleted || ReaderIntent.toggleStarted:
         unawaited(ref.read(readerProvider.notifier).handle(c));
       case ReaderIntent.addToCollection:
         unawaited(_collect(book));

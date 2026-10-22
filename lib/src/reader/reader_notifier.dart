@@ -60,13 +60,16 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// How long a comic must be open in one go before it counts as started
   /// and goes on the library's Reading tab (snonux, 2026-10-17).
-  static const startedAfter = Duration(minutes: 1);
+  static const startedAfter = Duration(minutes: 5);
 
   /// When the open comic was opened, and whether its position is still
   /// saved as a peek ([ReadingPosition.peek]): it was not started before
   /// and has not been open for [startedAfter] yet.
   DateTime _openedAt = DateTime(0);
   bool _peeking = false;
+  bool _readingPaused = false;
+  Future<void>? _startedTail;
+  int _startedRevision = 0;
 
   /// The sitting under way, for reading history: when the book was opened
   /// (or the app came back) and the pages shown since.
@@ -189,6 +192,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
     // back to nothing saved.
     final saved = await _orNull(() => _progress.load(book.key));
     if (superseded()) return book.doc.close();
+    final started = await _orNull(() => ref.read(libraryStoreProvider).startedMarkOf(book.key));
+    if (superseded()) return book.doc.close();
     // A detector that failed to load leaves the cached panels unread; the
     // drain falls back to classic CV and finds them again.
     timing('open: position', clock);
@@ -259,9 +264,9 @@ class ReaderNotifier extends Notifier<ReaderState> {
     unawaited(ref.read(recentBooksProvider.notifier).opened(book));
     // The place is saved from the first moment, but a comic not started
     // before counts as started (the library's Reading tab) only once it has
-    // been open for a minute: until then it is saved as a peek.
+    // been open for five minutes: until then it is saved as a peek.
     _openedAt = this.clock();
-    _peeking = saved == null || saved.peek;
+    _peeking = !(started ?? (saved != null && !saved.peek));
     _saveProgress(book);
     _ensurePanels();
     _watchBookmarks(book);
@@ -448,6 +453,45 @@ class ReaderNotifier extends Notifier<ReaderState> {
       }
     } catch (e) {
       if (ref.mounted) _notice('Could not change the favourites: $e');
+    }
+  }
+
+  /// Changes from keys and the five-minute threshold share one queue, so
+  /// a slow automatic write cannot overtake a later manual removal.
+  Future<void> _changeStarted(OpenBook book, bool on) {
+    final revision = ++_startedRevision;
+    final wasPeeking = _peeking;
+    _peeking = !on;
+    if (!on) _openedAt = clock();
+    final store = ref.read(libraryStoreProvider), sidecars = _sidecars;
+    final previous = _startedTail;
+    final write = () async {
+      if (previous != null) await previous;
+      try {
+        await store.setStarted(book.key, on);
+        sidecars.touch(book.key);
+      } catch (e) {
+        if (ref.mounted && identical(state.book, book) && revision == _startedRevision) {
+          _peeking = wasPeeking;
+          _saveProgress(book, checkStarted: false);
+          await _progress.flush();
+          _notice('Could not change the started mark: $e');
+        }
+      }
+    }();
+    _startedTail = write;
+    return _trackMetadataWrite(write);
+  }
+
+  Future<void> _toggleStarted() async {
+    final book = state.book!;
+    _startedNow(book);
+    final on = _peeking;
+    final write = _changeStarted(book, on);
+    final revision = _startedRevision;
+    await write;
+    if (ref.mounted && identical(state.book, book) && revision == _startedRevision && _peeking == !on) {
+      _notice(on ? 'Marked as started' : 'Marked as not started: place kept');
     }
   }
 
@@ -746,9 +790,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
     _goTo(page, jump: true);
   }
 
-  void _saveProgress(OpenBook book) {
+  void _saveProgress(OpenBook book, {bool checkStarted = true}) {
     if (_sitting case final s? when s.key == book.key) s.pages.addAll(state.unit);
-    if (_peeking && clock().difference(_openedAt) >= startedAfter) _peeking = false;
+    if (checkStarted && !_readingPaused && _peeking && clock().difference(_openedAt) >= startedAfter) {
+      unawaited(_changeStarted(book, true));
+    }
     // The panel and balloon as asked for, not as resolved: detection may not
     // have reached the page yet, and they resolve the same way on reopen.
     _progress.save(
@@ -775,7 +821,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
 
   /// Saves the position once more when the open comic, saved as a peek so
   /// far, has now been open for [startedAfter] without a page turn: on
-  /// close and pause, so the minute counts even on one page.
+  /// close and pause, so five minutes count even on one page.
   void _startedNow(OpenBook book) {
     if (_peeking && identical(state.book, book) && clock().difference(_openedAt) >= startedAfter) {
       _saveProgress(book);
@@ -1427,6 +1473,8 @@ class ReaderNotifier extends Notifier<ReaderState> {
         await _toggleFavourite();
       case ReaderIntent.toggleCompleted:
         await _toggleCompleted();
+      case ReaderIntent.toggleStarted:
+        await _toggleStarted();
       case ReaderIntent.nextBookmark:
         _stepBookmark(c.times);
       case ReaderIntent.prevBookmark:
@@ -1582,7 +1630,17 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// The app came back to the front: the sitting [flush] started when it
   /// left begins now, so the time away is not logged as reading.
   void resumeSitting() {
+    _readingPaused = false;
+    if (_peeking) _openedAt = clock();
     if (_sitting case final s? when s.pages.isEmpty) _sitting = (key: s.key, start: DateTime.now(), pages: s.pages);
+  }
+
+  /// Backgrounding ends this attempt at a five-minute sitting. Later
+  /// asynchronous saves and closing while hidden must not count time away.
+  Future<void> pauseSitting() {
+    if (state.book case final book?) _startedNow(book);
+    _readingPaused = true;
+    return flush();
   }
 
   Future<void> flush() async {

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end check of the Reading list (snonux, 2026-10-17) on the Linux
-# build, by the keyboard: a comic open for less than a minute keeps its
+# build, by the keyboard: a comic open for less than five minutes keeps its
 # place but stays off the Reading tab (its position saved as a peek), one
-# open for more than a minute goes on it; a second install reads one of
+# open for at least five minutes goes on it; a second install reads one of
 # them too. gR asks, Enter (Cancel) clears nothing, Alt+L
 # clears every place and completed mark, writing the clearing into the
 # sidecars; gR again only says the list is empty. The second install then
@@ -13,7 +13,7 @@
 #   tool/e2e/e2e_clear_reading.sh
 #
 # E2E_SKIP_BUILD=1 reuses the release build already in build/. Takes some
-# three minutes, one of them waiting out the minute.
+# seven minutes, five of them waiting out the threshold.
 # Needs: Xvfb, xdotool, ImageMagick, sqlite3, python3. Makes its own books.
 # Output: build/e2e-clear-reading/shot_*.png.
 set -euo pipefail
@@ -64,6 +64,11 @@ mark() {
        from overrides o join files f on f.content_key = o.content_key
        where o.field = 'completed' and f.rel_path = '$1 1.cbz'"
 }
+started_mark() {
+  sql "select json_extract(o.value, '$.value') from overrides o
+       join files f on f.content_key = o.content_key
+       where field = 'readingStarted' and f.rel_path = '$1 1.cbz'"
+}
 cleared_in_sidecar() { sqlite3 -batch -noheader "$comics/.$1 1.cbz.crdb" \
   "select count(*) from overrides where field = 'readingCleared'"; }
 start() {
@@ -74,7 +79,7 @@ start() {
   app=$!
   sleep 6
   win=$(xdotool search --name ComicRedr | tail -1)
-  xdotool windowactivate --sync "$win" mousemove 640 450 2>/dev/null || true
+  xdotool windowfocus "$win" mousemove 640 450
   sleep 0.5
 }
 stop() { kill "$app"; wait "$app" 2>/dev/null || true; app=; }
@@ -91,7 +96,7 @@ open() {
 close() { key Escape; sleep 1.5; key BackSpace; }
 
 # 1. The first install: Alpha looked at for a few seconds (a page turned),
-# Bravo read for over a minute, Charlie looked at and marked completed.
+# Bravo read for five minutes, Charlie looked at and marked completed.
 start --add-root "$comics"
 wait_books
 check "books indexed" "$(sql 'select count(*) from books')" 3
@@ -99,9 +104,21 @@ click 43 355 # The Folders tab (the rail, left).
 open 1; key l; shot 01_alpha_peek
 close
 check "a look keeps the place, as a peek" "$(place Alpha)" "1 peek"
-open 2; sleep 62; shot 02_bravo_minute
+# Manual start in the reader, removal in the library; both keep the place.
+open 1; key g b
 close
-check "a minute on one page starts it" "$(place Bravo)" "0 started"
+check "gb starts Alpha immediately" "$(started_mark Alpha)" 1
+# Select Alpha inside its folder, without opening it.
+key l; key Return; key g b
+check "library gb removes the start" "$(started_mark Alpha)" 0
+check "manual removal keeps the page" "$(place Alpha | cut -d' ' -f1)" 1
+# Reopen and close: the override keeps it off Reading, and saves a peek.
+key Return; sleep 2
+close
+check "removal survives reopen" "$(place Alpha)" "1 peek"
+open 2; sleep 302; shot 02_bravo_five_minutes
+close
+check "five minutes on one page start it" "$(place Bravo)" "0 started"
 open 3; key g C
 close
 check "Charlie marked" "$(mark Charlie)" yes
@@ -110,7 +127,10 @@ stop
 # The Reading tab's covers are not read off the screen: the index says it.
 check "only Bravo on the Reading tab" \
   "$(sql "select f.rel_path from progress p join files f on f.content_key = p.content_key
-          where instr(coalesce(p.view_json, ''), '\"peek\":true') = 0")" "Bravo 1.cbz"
+          left join overrides o on o.content_key=p.content_key and o.field='readingStarted'
+          where coalesce(case when json_extract(o.value, '$.fromFile') then null
+                         else json_extract(o.value, '$.value') = '1' end,
+                         instr(coalesce(p.view_json, ''), '\"peek\":true') = 0)")" "Bravo 1.cbz"
 
 # 2. A second install on the same comics opens Bravo: it takes up the first
 # install's place from the sidecar (so it counts as started at once), turns

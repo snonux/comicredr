@@ -132,6 +132,7 @@ start() {
   sleep 8
   win=$(xdotool search --name '^ComicRedr$' | tail -1)
   xdotool windowmove "$win" 0 0 windowsize "$win" 1280 720 2>/dev/null || true
+  xdotool windowfocus "$win"
   sleep 1
   park
 }
@@ -324,10 +325,15 @@ dialogs)
   ;;
 
 reading-clear)
-  # A comic counts as started only after a minute open in one go, so one
-  # stays open that long and is on the Reading tab for the next section.
+  # Mark a comic started by hand so it is on Reading for the next section.
   # Then gR's question, left with Esc: nothing is cleared.
-  open "weird comics"; sleep 65
+  open "weird comics"; key g b; sleep 1
+  # Running this section again may have taken an existing mark off.
+  if [[ $(q "select json_extract(value, '\$.value') from overrides
+               where field = 'readingStarted' and content_key =
+                 (select content_key from files where rel_path like '%Weird Comics%' limit 1)") == 0 ]]; then
+    key g b
+  fi
   key Escape; key Escape; clear_search; tab Reading
   key g shift+r; sleep 1.5; still clear-reading; key Escape
   ;;

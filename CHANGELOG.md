@@ -7,6 +7,11 @@ the `?` overlay.
 
 ## Unreleased
 
+- Reading now waits for five minutes in one sitting. `gb`, the menus and
+  the open-book button in a cover's details mark a comic as started or
+  not started while keeping its page; several selected comics can be
+  changed together. The marks travel in sidecars.
+
 ## 0.9.6
 
 - The question before clearing the Reading list reads right for a single

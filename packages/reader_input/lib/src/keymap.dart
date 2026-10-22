@@ -128,6 +128,7 @@ class Keymap {
       Binding(['*'], ReaderIntent.toggleFavourite),
       Binding(['g', 'f'], ReaderIntent.showFavourites),
       Binding(['g', 'C'], ReaderIntent.toggleCompleted),
+      Binding(['g', 'b'], ReaderIntent.toggleStarted),
       Binding(['x'], ReaderIntent.remove),
       Binding(['Delete'], ReaderIntent.remove, layer: s),
       Binding(['m', letterSlot], ReaderIntent.setMark),

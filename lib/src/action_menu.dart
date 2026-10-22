@@ -49,6 +49,7 @@ List<MenuGroup> readerMenu(ReaderState s, {required bool s3}) {
     MenuGroup('This comic', [
       const MenuEntry(ReaderIntent.showDetails, 'Details', Icons.info_outline),
       const MenuEntry(ReaderIntent.toggleFavourite, 'Favourite: add or take out', Icons.star_outline),
+      const MenuEntry(ReaderIntent.toggleStarted, 'Reading started: mark or take the mark off', Icons.auto_stories),
       const MenuEntry(ReaderIntent.toggleCompleted, 'Completed: mark or take the mark off', Icons.task_alt),
       const MenuEntry(ReaderIntent.addToCollection, 'Put in a collection…', Icons.collections_bookmark_outlined),
       const MenuEntry(ReaderIntent.nextBook, 'Next comic', Icons.skip_next),

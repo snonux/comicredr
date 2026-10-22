@@ -661,6 +661,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           MenuEntry(ReaderIntent.downloadFromS3, 'Download the marked comics from S3', Icons.cloud_download_outlined),
         ],
       ]),
+      if (_marked.isNotEmpty || _selectedItem is BookItem)
+        const MenuGroup('Selected comics', [
+          MenuEntry(ReaderIntent.toggleStarted, 'Reading started: mark or take the mark off', Icons.auto_stories),
+        ]),
       MenuGroup('Filter', [
         const MenuEntry(ReaderIntent.filterFolders, 'Filter…', Icons.filter_list),
         MenuEntry(
@@ -898,6 +902,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         // which is told why nothing is marked); the marks go after.
         final books = marked.isNotEmpty ? marked : [if (_selectedItem case BookItem(:final book)) book];
         if (books.isNotEmpty) unawaited(_bulk(() => toggleCompleted(context, ref, books)));
+      case ReaderIntent.toggleStarted:
+        final books = marked.isNotEmpty ? marked : [if (_selectedItem case BookItem(:final book)) book];
+        if (books.isNotEmpty) unawaited(_bulk(() => toggleStarted(context, ref, books)));
       case ReaderIntent.downloadFromS3:
         final books = _actOn().where((b) => b.remoteOnly).toList();
         if (books.isNotEmpty) unawaited(_s3Action(() => downloadBooks(context, ref, books)));
@@ -1146,8 +1153,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// filter hides was not acted on. Called from build, so it sets fields
   /// without setState.
   String? _neighbourUnderFilter(List<LibraryItem> before, List<LibraryBook> books) {
-    if (_filter.completed == CompletedFilter.any) return null;
-    final hidden = books.any((b) => _selectedBooks.contains(b.key) && !_filter.completed.accepts(b.completed));
+    final hidden = books.any(
+      (b) =>
+          _selectedBooks.contains(b.key) &&
+          ((tab == LibraryTab.reading && !b.started) || !_filter.completed.accepts(b.completed)),
+    );
     if (!hidden) return null;
     final shown = {for (final it in _items) it.id};
     final last = before.lastIndexWhere((it) => !shown.contains(it.id));
@@ -1468,6 +1478,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       local.every((b) => b.favourite) ? 'Unfavourite' : 'Favourite',
       ReaderIntent.toggleFavourite,
       () => _bulk(() => toggleFavourites(context, ref, marked)),
+    ),
+    button(
+      'marksStarted',
+      Icons.auto_stories,
+      local.every((b) => b.started) ? 'Not started' : 'Started',
+      ReaderIntent.toggleStarted,
+      () => _bulk(() => toggleStarted(context, ref, marked)),
     ),
     button(
       'marksCompleted',
