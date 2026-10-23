@@ -15,17 +15,18 @@ the book.
 <img src="images/android-reader.webp" width="260" alt="A page on an Android phone, with a bookmark ribbon">
 
 The status line shows the book, the page you are on, and what mode you
-are in. Its buttons on the right switch [guided view](05-guided-view.md)
-(and, in guided view, [balloons](05-guided-view.md#balloon-by-balloon)),
-open the [page grid](#see-every-page-at-once), set a
-[bookmark](06-bookmarks.md), list the bookmarks, and go
-[fullscreen](#fullscreen). Where the screen is wide enough (the laptop, a
-tablet) there are two more: the comic's
-[details](07-managing-comics.md#details-of-a-comic), and, outside guided
-view, [two pages side by side](#two-pages-side-by-side). Hover over a
-button to see its key. The
+are in. On Android it has four buttons in portrait, landscape and on
+tablets: **Back**, [balloons](05-guided-view.md#balloon-by-balloon),
+[guided view](05-guided-view.md), and the hamburger menu **☰**. The
+balloon button can start guided view with balloons straight from the
+whole page. Open the menu for **Pages**, **Bookmark here** (or **Remove
+the bookmark here**), **Bookmarks**, fit, two pages, details and fullscreen.
+
+On Linux the status line also has buttons for the page grid, setting and
+listing bookmarks, and, on a wider window, details, two pages, parts and
+fullscreen. Hover over a button to see its key. On both platforms the
 arrow on the left does what `Esc` does: out of guided view, then back to
-the library (on the phone, the back gesture does that).
+the library. Android's back gesture does the same.
 
 If you return to the library while another comic is still opening, it
 stays closed. For example, press `]` to open the next comic, then `Esc`
@@ -121,7 +122,8 @@ were before the jump.
 
 ## See every page at once
 
-Press `p` (or the grid button) for a grid of every page. Pick one with
+Press `p`, choose **Pages** in the Android reader menu, or use the grid
+button on Linux for a grid of every page. Pick one with
 the arrow keys and `Enter`, or click it. `+` and `-` (or `Ctrl` and the
 mouse wheel, or a pinch on a touchpad or touchscreen) make the pages
 bigger or smaller, `=` puts the size back, and the grid remembers it. `Esc` or `p` closes it.
@@ -140,9 +142,10 @@ makes it a [favourite](03-library.md#favourites) and `gc` puts it in a
 ## Two pages side by side
 
 Press `d` to see two pages side by side, like an open comic. `d` again
-goes back to one page. Without a keyboard, the open-book button on the
-status line does the same; it is there wherever the screen is wide
-enough, which on a tablet held sideways makes the most of the screen.
+goes back to one page. Without a keyboard, choose **Two pages side by
+side** in the menu. Linux also has an open-book button on the status line
+when the window is wide enough. On a tablet held sideways two pages make
+the most of the screen.
 
 ![A two-page spread of Pepper&Carrot](images/spread.webp)
 
@@ -187,11 +190,12 @@ direction) opens that way by itself.
 With the mouse, drag a zoomed page to move around. On a touchscreen,
 pinch with two fingers to zoom and drag with one finger to move.
 Double-tap anywhere on the page to toggle fullscreen. Without a keyboard, the
-status line's **Fit width** button does `zw`: the page fills the width
-of the screen and one finger scrolls it up and down, never sideways, so
-a page turns with a swipe left or right as usual. Tap it again for the
-whole page, as `zz` does. A swipe down on the page does the same in
-fullscreen, where the status line is hidden: swipe down for fit width,
+Android menu's **Fit width** (or the Linux status line's fit button) does
+`zw`: the page fills the width of the screen and one finger scrolls it
+up and down, never sideways, so a page turns with a swipe left or right as usual. Tap it again for the
+whole page on Linux, or choose **Fit the whole page** in the menu, as `zz`
+does. A swipe down on the page does the same in fullscreen, where the
+status line is hidden: swipe down for fit width,
 and swipe down again at the top of the page for the whole page (lower
 down, a swipe down scrolls back up first). Pinch to zoom further in and
 one finger moves the page every way again. A zoomed page stays sharp: ComicRedr
@@ -321,8 +325,9 @@ left edge to go back, exactly as `→` and `←` do above: each page whole,
 then its parts, then whole again. Drag to look around a part. Tap with
 two fingers again for **Whole page** (`11`) or **Stop parts** (`00`), or
 to pick another part; a tap beside the picker, or the back gesture,
-closes it. On a wider screen the status line has a button for the picker
-as well, and `gp` opens it from the keyboard.
+closes it. **Enlarge a part of the page** in the menu opens the same picker.
+A wider Linux window also has a status-line button, and `gp` opens it
+from the keyboard.
 
 ![The parts picker, on the lower half of a page](images/parts-picker.webp)
 

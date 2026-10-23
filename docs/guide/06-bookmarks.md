@@ -9,22 +9,24 @@ panel with the joke you want to show someone.
 
 ## Set a bookmark
 
-Press `mm` (or the bookmark button on the status line) to bookmark the
+Press `mm`, choose **Bookmark here** in the Android reader menu **☰**,
+or tap the bookmark button on the Linux status line to bookmark the
 page you are on. In [guided view](05-guided-view.md) the bookmark
 remembers the panel too, so it takes you back to exactly that panel.
 
 A bookmarked page shows a ribbon at the top right of the screen (tap it
 for the list of bookmarks), and a small amber notch on the progress bar
 marks where each bookmark is. Press `mm`
-again on a bookmarked page to take the bookmark off.
+again on a bookmarked page, or choose **Remove the bookmark here** in
+the Android reader menu, to take the bookmark off.
 
 ![A bookmarked page: the ribbon at the top right](images/bookmark-ribbon.webp)
 
 ## Jump between bookmarks
 
 - `}` goes to the next bookmark in the book, `{` to the previous one.
-- `M` (or the bookmarks button) lists them, each with a small picture of
-  its page.
+- `M`, **Bookmarks** in the Android reader menu, or the Linux bookmarks
+  button lists them, each with a small picture of its page.
 
 In the list, the arrow keys pick a bookmark and `Enter` jumps to it.
 `e` adds a short note ("the chase starts", "Sam should see this"),

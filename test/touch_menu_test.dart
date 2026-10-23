@@ -219,6 +219,21 @@ void main() {
     for (final android in [false, true]) {
       final steps = guideSteps(TouchMap.preset(TouchPreset.standard), android: android);
       expect(steps.where((s) => s.zones).map((s) => s.title), ['Tap to turn']);
+      final status = steps.singleWhere((s) => s.title == 'The status line');
+      if (android) {
+        expect(status.icons.map((i) => i.$1), [
+          Icons.arrow_back,
+          Icons.chat_bubble_outline,
+          Icons.view_quilt_outlined,
+          Icons.menu,
+        ]);
+        expect(status.icons.map((i) => i.$1), isNot(contains(Icons.grid_view)));
+        expect(all(steps), contains('hamburger menu (☰)'));
+        expect(all(steps), contains('page grid, bookmark here or remove it'));
+      } else {
+        expect(status.icons.map((i) => i.$1), containsAll([Icons.grid_view, Icons.more_vert]));
+        expect(all(steps), isNot(contains('hamburger')));
+      }
       expect(
         steps.map((s) => s.motion),
         containsAll([
@@ -244,7 +259,8 @@ void main() {
     final steps = guideSteps(bare, android: true);
     expect(steps.map((s) => s.title), isNot(contains('Two fingers')));
     expect(all(steps), isNot(contains('fits it to the width')));
-    expect(all(steps), contains('Tap ⋮ for the menu.'));
+    expect(all(steps), contains('Tap the hamburger menu (☰) for the menu.'));
+    expect(all(guideSteps(bare, android: false)), contains('Tap ⋮ for the menu.'));
     expect(zonesOf(bare, TouchGesture.tap, ReaderIntent.openMenu), isNull);
   });
 

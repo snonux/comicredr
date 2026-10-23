@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:reader_input/reader_input.dart';
 
@@ -12,6 +14,10 @@ final databaseProvider = Provider<AppDatabase>((ref) {
 });
 
 final fileSystemProvider = Provider<PlatformFileSystem>((ref) => const IoFileSystem());
+
+/// Android's reader buttons and tutorial. Kept separate from native platform
+/// services so widget tests can exercise the Android controls on Linux.
+final androidReaderControlsProvider = Provider<bool>((ref) => Platform.isAndroid);
 
 /// The keymap as loaded, and where from: the defaults, with the user's
 /// `keys.toml` over them when there is one, and what was wrong in that

@@ -1011,7 +1011,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final s = ref.read(readerProvider);
       final groups = s.book != null
-          ? readerMenu(s, s3: ref.read(s3StatusProvider).value?.on ?? false)
+          ? readerMenu(
+              s,
+              s3: ref.read(s3StatusProvider).value?.on ?? false,
+              android: ref.read(androidReaderControlsProvider),
+            )
           : _library.currentState?.menuGroups() ?? [MenuGroup('App', appEntries(fullscreen: s.fullscreen))];
       if (_showParts) _setShowParts(false);
       intent = await showActionMenu(context, groups);
@@ -1030,7 +1034,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _touchGuide() async {
     await ref.read(settingsStoreProvider).saveBool(SettingsStore.touchGuideSeen, true);
     if (!mounted) return;
-    await showTouchGuide(context, map: ref.read(touchMapProvider), android: Platform.isAndroid);
+    await showTouchGuide(context, map: ref.read(touchMapProvider), android: ref.read(androidReaderControlsProvider));
   }
 
   /// The tutorial once, on the first start on Android: a phone has no
@@ -1424,6 +1428,7 @@ extension on _HomeScreenState {
   ];
 
   Widget _statusLine(ReaderState s) => StatusLine(
+    android: ref.watch(androidReaderControlsProvider),
     state: s,
     pending: _pending,
     gridOpen: _showPages,

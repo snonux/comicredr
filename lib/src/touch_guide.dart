@@ -8,7 +8,7 @@ import 'input/touch_zones.dart';
 /// picture and a few plain words, read from [map] (the preset picked in
 /// Settings with keys.toml's `[touch]` lines over it), so a left-handed
 /// reader is shown the left-handed taps. [android] says the system's back
-/// gesture where Linux has the status line's back arrow.
+/// gesture alongside the status line's back arrow.
 Future<void> showTouchGuide(BuildContext context, {required TouchMap map, required bool android}) => showDialog<void>(
   context: context,
   builder: (_) => TouchGuide(map: map, android: android),
@@ -101,9 +101,11 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
       if (map.action(g) == ReaderIntent.openMenu) g.label,
   ].firstOrNull;
   final twoFingers = map.action(TouchGesture.twoFingerTap);
-  final back = android
-      ? "Android's back gesture leaves a picker, guided view and the comic, and goes up a folder in the library."
-      : 'The arrow at the start of the status line leaves guided view and the comic.';
+  final back =
+      'The arrow at the start of the status line leaves guided view and the comic.'
+      '${android ? " Android's back gesture also leaves a picker, guided view and the comic, and goes up a folder in the library." : ""}';
+  final menuIcon = android ? Icons.menu : Icons.more_vert;
+  final menuName = android ? 'the hamburger menu (☰)' : '⋮';
   return [
     const GuideStep(
       'Reading by touch',
@@ -150,20 +152,28 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
         motion: GuideMotion.twoFingerTap,
       ),
     if (holds.isNotEmpty) GuideStep('Hold', holds.join(' '), motion: GuideMotion.hold),
-    const GuideStep(
+    GuideStep(
       'The status line',
       'A tap in the middle of the page shows or hides the line along the bottom, with its buttons:',
-      icons: [
-        (Icons.width_wide, 'Fit width, or the whole page'),
-        (Icons.grid_view, 'All pages: tap one to go there'),
-        (Icons.bookmark_add_outlined, 'Bookmark this page, or take it off'),
-        (Icons.bookmarks_outlined, 'Your bookmarks in this comic'),
-        (Icons.more_vert, 'The menu'),
-      ],
+      icons: android
+          ? [
+              (Icons.arrow_back, 'Back: leave guided view, then the comic'),
+              (Icons.chat_bubble_outline, 'Balloon by balloon: enters guided view too'),
+              (Icons.view_quilt_outlined, 'Guided view'),
+              (Icons.menu, 'The menu: pages, bookmarks, fit and the other options'),
+            ]
+          : [
+              (Icons.width_wide, 'Fit width, or the whole page'),
+              (Icons.grid_view, 'All pages: tap one to go there'),
+              (Icons.bookmark_add_outlined, 'Bookmark this page, or take it off'),
+              (Icons.bookmarks_outlined, 'Your bookmarks in this comic'),
+              (Icons.more_vert, 'The menu'),
+            ],
     ),
     GuideStep(
       'The menu',
-      '${menuSwipe != null ? '$menuSwipe on the page, or tap ⋮, for the menu. ' : 'Tap ⋮ for the menu. '}'
+      '${menuSwipe != null ? '$menuSwipe on the page, or tap $menuName, for the menu. ' : 'Tap $menuName for the menu. '}'
+          '${android ? 'It has the page grid, bookmark here or remove it, your bookmarks, fit width and the whole page. ' : ''}'
           'It has everything else: favourites, completed, collections, the next comic, the first and last page, '
           'two pages, right to left, turning the page, trimming, the night filter, reset, delete and Settings.',
       motion: GuideMotion.swipeUp,
@@ -175,10 +185,11 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
           'and ⋮ has the rest. $back',
       motion: GuideMotion.hold,
     ),
-    const GuideStep(
+    GuideStep(
       'That is all',
-      'Pick Touch zones and gestures in the menu (⋮) or in Settings → Touch whenever you want this tutorial again.',
-      icons: [(Icons.more_vert, 'The menu'), (Icons.settings_outlined, 'Settings')],
+      'Pick Touch zones and gestures in the menu ($menuName in the reader, ⋮ in the library) or in Settings → Touch '
+          'whenever you want this tutorial again.',
+      icons: [(menuIcon, 'The menu'), (Icons.settings_outlined, 'Settings')],
     ),
   ];
 }

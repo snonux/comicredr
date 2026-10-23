@@ -895,7 +895,7 @@ refreshes right away instead of within six hours.
   lifts) and guided drags have next to no inertia (`_noInertia`), which
   would fight the camera's glide. Outside guided view a swipe counts
   only when the drag moved nothing along it. The status line's
-  `fitButton` (outside guided view; left out below 600 dp when the back
+  `fitButton` (Linux, outside guided view; left out below 600 dp when the back
   arrow is there, for room) sends `fitWidth`, or `fitPage` when the fit
   is width, which ReaderView tells it through `viewFitProvider`. A swipe
   down is `toggleFitWidth` (`zf`) in every preset: fit width, or the
@@ -910,8 +910,8 @@ refreshes right away instead of within six hours.
   events into touch pointers (`FlTouchManager`; the view selects
   `GDK_TOUCH_MASK`, which `tool/e2e/touch_inject.c` reports), so a Linux
   touchscreen gets every gesture. Android's back gesture is the one thing
-  Linux lacked; there the status line starts with a back arrow sending
-  `ReaderIntent.back` (`_StatusLine.showBack`).
+  Linux lacked; the status line on both platforms starts with a back arrow
+  sending `ReaderIntent.back`.
 - Page thumbnails (the `p` grid and the progress bar's preview) come from
   `Thumbnails` in `lib/src/reader/thumbnails.dart`: made on demand through
   the book's own document (so PDFs use the shared PDFium isolate), scaled
@@ -1265,7 +1265,7 @@ refreshes right away instead of within six hours.
   mode switch end it; `11` clears the region and keeps `parts` (whole page
   in the split).
   By touch (`gp`, `ReaderIntent.pickPart`; a two-finger tap in every
-  preset, and `partsButton` on the status line from 600 dp):
+  preset, the menu, and `partsButton` on the Linux status line from 600 dp):
   `PartsPicker` (`lib/src/reader/parts_picker.dart`), opened from
   `HomeScreen._onCommand`, draws the page's 512 px thumbnail (turned with
   the comic, not trimmed) cut into the split's parts as seen and sends the
@@ -1487,7 +1487,16 @@ refreshes right away instead of within six hours.
 - Everything without a keyboard (snonux, 2026-10-11): the menu,
   `openMenu` (`F10`, `g.`; ⋮ `menuButton` last on the status line and before
   the gear in the library header; a swipe up on the page in every preset).
-  `HomeScreen._menu` builds `readerMenu(state, s3:)` with a comic open,
+  Android's reader status line always has just Back, balloons, guided view
+  and the hamburger menu, in portrait and landscape at every width (lo3).
+  Balloons stays visible outside guided view and enters it with balloons.
+  `androidReaderControlsProvider` defaults to `Platform.isAndroid`; the
+  status line and tutorial use it so full-app widget tests can exercise
+  Android presentation on Linux without changing native services. The
+  Android menu adds Pages and a Bookmarks group (add/remove here, list);
+  fit, spread, parts, details and fullscreen remain in the menu. Linux's
+  status-line buttons and menu order stay as before.
+  `HomeScreen._menu` builds `readerMenu(state, s3:, android:)` with a comic open,
   else `LibraryScreenState.menuGroups()`, shows `ActionMenu` (a `Dialog`
   in `DialogHotkeys`, bottom of the screen below 600 dp) and runs the
   picked intent through `_onCommand` after the pop, closing the page grid

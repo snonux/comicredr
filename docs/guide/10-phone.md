@@ -57,19 +57,22 @@ Android 7–10 uses a permission dialog instead (Android 10 shown here):
   together smaller: [one cover a row up to four](03-library.md#bigger-and-smaller-covers)
   on most phones. Settings → **Library → Cover size** has two buttons
   for the same.
-- The reader's status line puts the page number and the title on a line
-  of their own above its buttons: guided view, balloons (in guided view),
-  fit width (outside guided view), the page grid, a bookmark here, your
-  bookmarks and ⋮, [the menu](08-touch.md#the-menu-everything-without-a-keyboard).
-  Fit width fills the screen's width with the page and one finger
-  scrolls it up and down only; tap it again for the whole page. A swipe
-  down on the page does the same in fullscreen, and a swipe down at the
-  page's top brings the whole page back. Fullscreen is a double-tap
-  anywhere on the page, or a single tap in the middle. See [Touch](08-touch.md) for the gestures.
+- On a narrow screen the reader's status line puts the page number and
+  the title above its buttons. On Android phones and tablets, in portrait
+  and landscape, those buttons are always **Back**, **balloons**, **guided
+  view** and **☰**, [the menu](08-touch.md#the-menu-everything-without-a-keyboard).
+  Balloons can start guided view straight from the whole page. Open the
+  menu for **Pages**, **Bookmark here** (or **Remove the bookmark here**),
+  **Bookmarks**, **Fit width**, **Fit the whole page**, two pages, parts,
+  details and fullscreen. Fit width fills the screen's width with the
+  page and one finger scrolls it up and down only. A swipe down on the
+  page does the same in fullscreen, and a swipe down at the page's top
+  brings the whole page back. Fullscreen is a double-tap anywhere on the
+  page, or a single tap in the middle. See [Touch](08-touch.md) for the gestures.
 - Everything the laptop does with a key is in the menu: favourites,
   started or not started, completed, collections, the next comic, the first and last page, two
   pages, right to left, turning, trimming, the night filter, the
-  clean-up, reset, delete and S3. Swipe up on the page or tap ⋮.
+  clean-up, reset, delete and S3. Swipe up on the page or tap ☰.
 - The library's header has ⋮ too, beside the gear: opening a comic or
   a folder without adding it, the filter and sort of the Folders tab,
   rescanning and more.

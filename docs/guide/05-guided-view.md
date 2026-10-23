@@ -68,7 +68,8 @@ and each step stops on the next speech or thought balloon inside the
 panel, in reading order, before moving on to the next panel. It is
 wonderful on small screens and dense golden-age pages. `b` again goes back
 to whole panels. Pressed outside guided view, `b` turns guided view on
-with balloons.
+with balloons. On Android the speech-bubble button is always there and
+also starts guided view with balloons from the whole page.
 
 When a balloon sits inside a small inset over a larger panel, it is read
 with the inset. For example, the larger panel and its balloons come first,

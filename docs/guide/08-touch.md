@@ -29,15 +29,16 @@ Single taps wait briefly for a possible double-tap. For example,
 double-tap the right edge to enter fullscreen without turning the page;
 double-tap it again to leave fullscreen. Pinch to enlarge the page.
 
-The buttons on the status line do the rest: guided view, balloons (in
-guided view), fit width (outside guided view, tap it again for the whole
-page), the page grid, a bookmark here, the list of bookmarks and ⋮, the
-menu; on a wider screen also the comic's details, two pages side by
-side, the parts of a page and fullscreen. On Android, the back gesture
-works like `Esc`: it leaves guided view, then the book. On Linux the
-status line starts with a back arrow that does the same. In fullscreen,
-tap the middle first to bring the status line back, swipe up for the
-menu, or swipe down for fit width.
+On Android the status line has just **Back**, **balloons**, **guided
+view** and the hamburger menu **☰**, at every screen size and in either
+orientation. The balloon button starts guided view with balloons even
+from the whole page. The menu holds the page grid, adding or removing a
+bookmark, the bookmark list, fit width and the whole page, two pages,
+parts, details and fullscreen. On Linux these also have status-line
+buttons where there is room. The back arrow on either platform works
+like `Esc`: it leaves guided view, then the book. Android's back gesture
+does the same. In fullscreen, tap the middle first to bring the status
+line back, swipe up for the menu, or swipe down for fit width.
 
 In the library, on a wide screen, tap a cover to pick it and tap it
 again to open it. On a narrower one (a phone, a tablet held upright, a
@@ -51,8 +52,9 @@ has two buttons that do the same.
 ## The menu: everything without a keyboard
 
 Whatever a key does, the menu does too, so a phone with no keyboard
-misses nothing. Tap ⋮ at the end of the status line, or swipe up on the
-page; in the library ⋮ is at the end of the header. `F10` (or `g.`)
+misses nothing. Tap **☰** at the end of the Android status line (**⋮**
+on Linux), or swipe up on the page; in the library ⋮ is at the end of the
+header. `F10` (or `g.`)
 opens it with keys. Each line names its key, so the menu also teaches
 the keys as you go. Tap a line, or **Close** to leave it.
 
@@ -66,8 +68,10 @@ Over a comic it has:
   collection, the next and the previous comic, the comic read before
   this one, upload to S3 and remove from S3 (when
   [S3 sync](13-s3-sync.md) is set up), reset and delete.
-- **Go to:** the first and the last page, the next and the previous
-  bookmark (when the comic has some), and back to before a jump.
+- **Go to:** the page grid (**Pages**, on Android), the first and the
+  last page, the next and the previous bookmark (when the comic has some), and back to before a jump.
+- **Bookmarks** (Android): bookmark here or remove the bookmark here, and
+  the list of bookmarks.
 - **View:** enlarge a part of the page; in guided view, balloon by
   balloon, the whole page before and after its panels and holding on a
   page shown whole; outside it, two pages side by side, pairing them the

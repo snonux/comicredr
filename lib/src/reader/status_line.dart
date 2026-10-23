@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:reader_input/reader_input.dart';
@@ -18,6 +16,7 @@ class StatusLine extends StatelessWidget {
     required this.state,
     required this.pending,
     required this.onCommand,
+    required this.android,
     this.gridOpen = false,
     this.bookmarksOpen = false,
     this.partsOpen = false,
@@ -25,9 +24,9 @@ class StatusLine extends StatelessWidget {
     this.s3Progress,
   });
 
-  /// Whether the status line has a back button: everywhere but Android,
-  /// whose back gesture does the same.
-  static bool get showBack => !Platform.isAndroid;
+  /// Android keeps just Back, balloons, guided view and the menu at every
+  /// screen size. Desktop keeps its wider set of touchscreen buttons.
+  final bool android;
 
   /// Whether the page on screen has imported panels (drawn by a large
   /// model, tool/llm_panels.py) rather than the detector's. The status line
@@ -153,21 +152,19 @@ class StatusLine extends StatelessWidget {
           key: const Key('pending'),
           style: const TextStyle(fontFamily: 'monospace'),
         );
-        // Esc in a button: Android has its back gesture for this, but a
-        // Linux touchscreen had no way out of guided view or the book.
-        final back = book != null && showBack
-            ? button('backButton', Icons.arrow_back, 'Back', ReaderIntent.back)
-            : null;
+        // Esc in a button: leave a picker, guided view, then the comic.
+        final back = book != null ? button('backButton', Icons.arrow_back, 'Back', ReaderIntent.back) : null;
+        final balloons = state.guided && state.balloons;
         final buttons = [
           if (book != null) ...[
             const SizedBox(width: 4),
-            if (state.guided)
+            if (android || state.guided)
               button(
                 'balloonsButton',
-                state.balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
+                balloons ? Icons.chat_bubble : Icons.chat_bubble_outline,
                 'Balloon by balloon',
                 ReaderIntent.toggleBalloons,
-                on: state.balloons,
+                on: balloons,
               ),
             button(
               'guidedButton',
@@ -176,9 +173,9 @@ class StatusLine extends StatelessWidget {
               ReaderIntent.toggleGuided,
               on: state.guided,
             ),
-            // A tablet on its side has room for two pages, and without a
-            // keyboard no other way to them. A phone has room for neither.
-            if (!narrow && !state.guided)
+            // Desktop keeps its extra buttons where there is room;
+            // Android reaches these actions through the menu at every width.
+            if (!android && !narrow && !state.guided)
               button(
                 'spreadButton',
                 state.mode == PageMode.spread ? Icons.menu_book : Icons.menu_book_outlined,
@@ -186,16 +183,15 @@ class StatusLine extends StatelessWidget {
                 ReaderIntent.toggleSpread,
                 on: state.mode == PageMode.spread,
               ),
-            // A phone has no keyboard for zw and zz; guided view frames
-            // panels and has no fit. A window as narrow as a phone has the
-            // back arrow too and no room left for it, but has the keys.
-            if (!state.guided && !(narrow && back != null))
+            // Guided view frames panels and has no fit. A narrow desktop
+            // window leaves room for the back arrow and keeps fit in the menu.
+            if (!android && !state.guided && !(narrow && back != null))
               fitWidth
                   ? button('fitButton', Icons.fit_screen, 'Fit the whole page', ReaderIntent.fitPage, on: true)
                   : button('fitButton', Icons.width_wide, 'Fit width', ReaderIntent.fitWidth),
-            button('pagesButton', Icons.grid_view, 'Pages', ReaderIntent.pageGrid, on: gridOpen),
+            if (!android) button('pagesButton', Icons.grid_view, 'Pages', ReaderIntent.pageGrid, on: gridOpen),
             // A phone has a two-finger tap for it and no room here.
-            if (!narrow)
+            if (!android && !narrow)
               button(
                 'partsButton',
                 Icons.crop_free,
@@ -204,21 +200,22 @@ class StatusLine extends StatelessWidget {
                 on: partsOpen || state.parts != null,
               ),
             // A phone has no room for it here; the page grid has one.
-            if (!narrow) button('detailsButton', Icons.info_outline, 'Details', ReaderIntent.showDetails),
-            if (state.bookmarksHere.isNotEmpty)
+            if (!android && !narrow) button('detailsButton', Icons.info_outline, 'Details', ReaderIntent.showDetails),
+            if (!android && state.bookmarksHere.isNotEmpty)
               button('bookmarkButton', Icons.bookmark, 'Remove the bookmark here', ReaderIntent.bookmark, on: true)
-            else
+            else if (!android)
               button('bookmarkButton', Icons.bookmark_add_outlined, 'Bookmark here', ReaderIntent.bookmark),
-            button(
-              'bookmarksButton',
-              Icons.bookmarks_outlined,
-              'Bookmarks',
-              ReaderIntent.bookmarkList,
-              on: bookmarksOpen,
-            ),
+            if (!android)
+              button(
+                'bookmarksButton',
+                Icons.bookmarks_outlined,
+                'Bookmarks',
+                ReaderIntent.bookmarkList,
+                on: bookmarksOpen,
+              ),
             // A phone taps the middle of the page for it, and has it in the
             // menu: the room went to the menu.
-            if (!narrow)
+            if (!android && !narrow)
               button(
                 'fullscreenButton',
                 state.fullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
@@ -226,7 +223,7 @@ class StatusLine extends StatelessWidget {
                 ReaderIntent.fullscreen,
               ),
             // Everything else there is to do, so no action needs a key.
-            button('menuButton', Icons.more_vert, 'Menu', ReaderIntent.openMenu),
+            button('menuButton', android ? Icons.menu : Icons.more_vert, 'Menu', ReaderIntent.openMenu),
           ],
         ];
         final colours = theme.colorScheme;

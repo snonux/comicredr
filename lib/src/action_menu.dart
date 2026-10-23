@@ -38,12 +38,9 @@ List<MenuEntry> appEntries({required bool fullscreen}) => [
   const MenuEntry(ReaderIntent.showSettings, 'Settings', Icons.settings_outlined),
 ];
 
-/// Everything there is to do with the open comic that the status line has
-/// no button for, so a phone without a keyboard reaches all of it: the
-/// keys' actions, by touch. The status line's own buttons are left out,
-/// but for Details and the page parts, which a phone's status line has no
-/// room for.
-List<MenuGroup> readerMenu(ReaderState s, {required bool s3}) {
+/// Actions for the open comic, including the buttons Android moves off the
+/// status line, so every screen size can reach them without a keyboard.
+List<MenuGroup> readerMenu(ReaderState s, {required bool s3, bool android = false}) {
   final guided = s.guided;
   return [
     MenuGroup('This comic', [
@@ -63,6 +60,7 @@ List<MenuGroup> readerMenu(ReaderState s, {required bool s3}) {
       const MenuEntry(ReaderIntent.deleteBook, 'Delete…', Icons.delete_outline),
     ]),
     MenuGroup('Go to', [
+      if (android) const MenuEntry(ReaderIntent.pageGrid, 'Pages', Icons.grid_view),
       const MenuEntry(ReaderIntent.firstPage, 'First page', Icons.first_page),
       const MenuEntry(ReaderIntent.lastPage, 'Last page', Icons.last_page),
       if (s.bookmarks.isNotEmpty) ...const [
@@ -71,6 +69,16 @@ List<MenuGroup> readerMenu(ReaderState s, {required bool s3}) {
       ],
       if (s.jumpedFrom != null) const MenuEntry(ReaderIntent.jumpBack, 'Back to before the jump', Icons.undo),
     ]),
+    if (android)
+      MenuGroup('Bookmarks', [
+        MenuEntry(
+          ReaderIntent.bookmark,
+          s.bookmarksHere.isNotEmpty ? 'Remove the bookmark here' : 'Bookmark here',
+          s.bookmarksHere.isNotEmpty ? Icons.bookmark : Icons.bookmark_add_outlined,
+          on: s.bookmarksHere.isNotEmpty,
+        ),
+        const MenuEntry(ReaderIntent.bookmarkList, 'Bookmarks', Icons.bookmarks_outlined),
+      ]),
     MenuGroup('View', [
       const MenuEntry(ReaderIntent.pickPart, 'Enlarge a part of the page', Icons.crop_free),
       if (guided) ...[
