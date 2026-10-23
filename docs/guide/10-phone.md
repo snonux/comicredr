@@ -98,8 +98,10 @@ instead of on a page of their own.
 
 ![The library on a 10-inch tablet held sideways](images/android-tablet-library.webp)
 
-- The reader's status line fits on one line and adds the details button
-  and, outside guided view, one for [two pages side by side](04-reading.md#two-pages-side-by-side).
+- The reader keeps the same four buttons: **Back**, **balloons**, **guided
+  view** and the hamburger menu **☰**. Choose **Details** or, outside guided
+  view, [**Two pages side by side**](04-reading.md#two-pages-side-by-side)
+  in the menu.
   Held sideways, two pages fill a 10-inch screen about as well as one
   page fills it upright.
 - Turning the tablet, or putting ComicRedr in split screen next to
