@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:reader_input/reader_input.dart';
 
 import 'support/fixtures.dart';
+import 'support/waits.dart';
 
 void main() {
   late Directory tmp;
@@ -293,26 +294,35 @@ void main() {
     final page = encodeGrayPng(200, 300, px);
     final path = writeBookOf(tmp, 'Faded.cbz', [page, page]);
     final c = await pumpApp(tester);
-    await open(tester, c, path);
+    await whilePumping(tester, () => c.read(readerProvider.notifier).open(path));
     CustomPaint shown() => tester.widget<CustomPaint>(find.byKey(const Key('page-image')));
-    expect((shown().painter! as dynamic).levels.isNone as bool, isTrue);
-    expect((shown().painter! as dynamic).image.width as int, 200);
+    await eventually(tester, () {
+      expect(find.byKey(const Key('page-image')), findsOneWidget);
+      expect((shown().painter! as dynamic).levels.isNone as bool, isTrue);
+      expect((shown().painter! as dynamic).image.width as int, 200);
+    }, settle: settle);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.keyC, character: 'c');
-    await settle(tester);
-    await settle(tester);
+    // The old image stays on screen until the clean-up decode finishes.
+    await eventually(tester, () {
+      final levels = (shown().painter! as dynamic).levels as Levels;
+      expect(levels.apply(205, 205, 205).$1, greaterThan(250), reason: 'the paper goes white');
+      expect(levels.apply(90, 90, 90).$1, lessThan(80), reason: 'the ink darker');
+      expect((shown().painter! as dynamic).image.width as int, 400, reason: 'enlarged twice over, no more');
+    }, settle: settle);
     expect(c.read(readerProvider).cleanUp, isTrue);
     expect(status(tester), contains('Clean-up on'));
-    final levels = (shown().painter! as dynamic).levels as Levels;
-    expect(levels.apply(205, 205, 205).$1, greaterThan(250), reason: 'the paper goes white');
-    expect(levels.apply(90, 90, 90).$1, lessThan(80), reason: 'the ink darker');
-    expect((shown().painter! as dynamic).image.width as int, 400, reason: 'enlarged twice over, no more');
 
-    await tester.runAsync(() => c.read(readerProvider.notifier).close());
-    await open(tester, c, path);
+    await whilePumping(tester, () => c.read(readerProvider.notifier).close());
+    await tester.pump();
+    expect(find.byKey(const Key('page-image')), findsNothing);
+    await whilePumping(tester, () => c.read(readerProvider.notifier).open(path));
     expect(c.read(readerProvider).cleanUp, isTrue);
-    await settle(tester);
-    expect((shown().painter! as dynamic).levels.isNone as bool, isFalse);
+    await eventually(tester, () {
+      expect(find.byKey(const Key('page-image')), findsOneWidget);
+      expect((shown().painter! as dynamic).levels.isNone as bool, isFalse);
+      expect((shown().painter! as dynamic).image.width as int, 400);
+    }, settle: settle);
 
     // Zoomed in, c changes the page and keeps the zoom.
     double zoom() => tester
@@ -321,16 +331,15 @@ void main() {
         .value
         .getMaxScaleOnAxis();
     tester.state<ReaderViewState>(find.byType(ReaderView)).handle(const ReaderCommand(ReaderIntent.zoomIn, count: 2));
-    await settle(tester);
-    expect(zoom(), greaterThan(1.1));
+    await eventually(tester, () => expect(zoom(), greaterThan(1.1)), settle: settle);
     final zoomed = zoom();
     await tester.sendKeyEvent(LogicalKeyboardKey.keyC, character: 'c');
-    await settle(tester);
-    await settle(tester);
+    await eventually(tester, () {
+      expect((shown().painter! as dynamic).levels.isNone as bool, isTrue);
+      expect((shown().painter! as dynamic).image.width as int, 200);
+    }, settle: settle);
     expect(status(tester), contains('Clean-up off'));
     expect(zoom(), zoomed);
-    expect((shown().painter! as dynamic).levels.isNone as bool, isTrue);
-    expect((shown().painter! as dynamic).image.width as int, 200);
   });
 
   testWidgets('keys.toml remaps keys, and ? names the file and its problems', (tester) async {
