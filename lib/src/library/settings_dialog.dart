@@ -713,7 +713,7 @@ class _TouchPicker extends ConsumerWidget {
         const SizedBox(height: 4),
         Text(
           [
-            'Double-tap the middle to zoom, swipe to turn, gt shows the zones while reading.',
+            'Open Touch zones and gestures above to learn the tap zones and every gesture.',
             if (changed > 0) 'keys.toml changes $changed ${changed == 1 ? 'gesture' : 'gestures'} on top of this.',
           ].join(' '),
           key: const Key('setting-touch-note'),
