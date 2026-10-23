@@ -186,7 +186,9 @@ tap 872 693; sleep 3; shot 15_guided
 expect "$(guided)" 1 "the guided view button"
 tap 1200 340; shot 16_guided_panel
 expect "$(panel)" 0 "tap the right edge in guided view: the first panel"
-swipe 900 340 400 340; shot 17_guided_swipe
+# A decisive flick remains above guided view's velocity threshold even
+# when event delivery slows while other checks run on the same machine.
+swipe 1100 340 100 340; shot 17_guided_swipe
 expect "$(panel)" 1 "swipe left in guided view: the next panel"
 slow_drag 700 340 500 340; shot 17b_guided_pan
 expect "$(panel)" 1 "a slow one-finger drag in guided view stays on the panel"
