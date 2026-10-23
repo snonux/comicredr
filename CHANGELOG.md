@@ -7,6 +7,16 @@ the `?` overlay.
 
 ## Unreleased
 
+## 0.9.8
+
+- S3 sync pauses for an hour after a server outage, keeping changes on
+  the device and reporting the failure once per retry. Restarting the
+  app or saving the S3 settings permits an earlier connection.
+- Double-tap anywhere on a page to toggle fullscreen on Linux and
+  Android. Pinch still zooms; custom double-tap bindings still work.
+- Android's reader keeps just Back, balloons, guided view and a
+  hamburger menu at every screen size. Pages, bookmarks, fit, two-page
+  view and the other actions are in the menu.
 - **Touch zones and gestures** is the single touch tutorial in the menus
   and Settings on Android and Linux. It includes the live tap-zone map;
   keyboard help is labelled **Keyboard shortcuts**.

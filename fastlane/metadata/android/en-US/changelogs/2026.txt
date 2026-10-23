@@ -1,0 +1,4 @@
+* Double-tap anywhere on a page to toggle fullscreen on Linux and Android.
+* Android keeps Back, balloons, guided view and a hamburger menu; other actions are in the menu.
+* One Touch zones and gestures tutorial covers all touch help.
+* S3 pauses for an hour after server outages, keeping local changes safe.
