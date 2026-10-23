@@ -357,6 +357,38 @@ void main() {
     }
   });
 
+  test('an active drain pauses its next comic when a parallel request discovers an outage', () async {
+    final held = _HeldUploadStore();
+    final device = Device('held', tmp, held);
+    await device.setUp();
+    try {
+      final first = writeBook(device.root, 'First.cbz', 4);
+      final second = writeBook(device.root, 'Second.cbz', 5);
+      await device.scanner.scan();
+      final keys = [await contentKey(first), await contentKey(second)];
+      await device.s3.upload(keys);
+      final draining = device.s3.drain();
+      await held.uploaded.future;
+      held.reachable = false;
+      await expectLater(device.s3.refreshShelf(), throwsA(isA<RemoteException>()));
+      expect(device.s3.current.reach, S3Reach.unreachable);
+      final failedAt = held.calls;
+      held.reachable = true;
+      held.release.complete();
+      await draining;
+      expect(held.calls, failedAt);
+      expect(device.s3.current.reach, S3Reach.unreachable);
+      expect(device.s3.current.waiting, 1);
+      expect(held.objects.keys, isNot(contains(BookObjects('Comics/', keys.last).comic('cbz'))));
+      device.now = device.now.add(const Duration(hours: 1));
+      await device.s3.sync();
+      expect(device.s3.current.waiting, 0);
+      expect(held.objects.keys, contains(BookObjects('Comics/', keys.last).comic('cbz')));
+    } finally {
+      await device.close();
+    }
+  });
+
   test('the retry timer reconnects without a page turn or refresh', () async {
     final retrying = S3Sync(
       laptop.db,
@@ -833,6 +865,23 @@ class _HeldListStore extends RefusingStore {
       await listRelease.future;
     }
     yield* Stream.fromIterable(objects);
+  }
+}
+
+/// Holds the first upload's final remote response while a parallel
+/// request discovers an outage.
+class _HeldUploadStore extends RefusingStore {
+  final uploaded = Completer<void>();
+  final release = Completer<void>();
+
+  @override
+  Future<RemoteObject?> head(String key) async {
+    final result = await super.head(key);
+    if (key.endsWith('/manifest.json') && result != null && !uploaded.isCompleted) {
+      uploaded.complete();
+      await release.future;
+    }
+    return result;
   }
 }
 

@@ -1598,8 +1598,10 @@ refreshes right away instead of within six hours.
   `_connect` across refresh, resume, opens, drains, flushes and manual
   transfers. Local changes still queue (`localOnly` for uploads and
   moves). A generation guard keeps an older in-flight success from
-  clearing a newer outage. The retry timer tries after an hour; saving
-  settings or restarting clears the pause. Recovery says "S3 is back;
+  clearing a newer outage; `_guard` rechecks the pause before each
+  queued operation, including a drain holding an older connection.
+  The retry timer tries after an hour; saving settings or restarting
+  clears the pause. Recovery says "S3 is back;
   N comics caught up".
   Keys `gu`, `gU`, `V` (marks, `_marked` in `LibraryScreenState`, with a
   bar over the grid; Ctrl+click; Select on a phone-wide header, Mark in

@@ -193,6 +193,9 @@ class S3Sync {
   /// the first failure to connect says so once, and the retry starts.
   /// Rethrows every RemoteException.
   Future<T> _guard<T>(Future<T> Function() f) async {
+    // A drain can retain its connection while a concurrent shelf/open
+    // check discovers an outage. Do not start its next queued operation.
+    if (_coolingDown) throw const RemoteException(RemoteFailure.unreachable, 'S3 is waiting to retry');
     final generation = _connectionGeneration;
     try {
       final r = await f();
