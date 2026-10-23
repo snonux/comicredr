@@ -344,7 +344,7 @@ class KeymapOverlayState extends State<KeymapOverlay> {
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text(
-            'Without a keyboard: ⋮ opens the menu, or swipe up on a page. '
+            'Without a keyboard: use Menu, or swipe up on a page. '
             '${KeyHints.tip(context, 'The touch tutorial', ReaderIntent.showTouchGuide)} '
             'shows the tap zones and every gesture.',
             key: const Key('keymap-touch'),
