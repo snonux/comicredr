@@ -250,7 +250,7 @@ void main() {
       }
       expect(File(path).existsSync(), isFalse);
       expect(c.read(readerProvider).book, isNull);
-      expect(find.textContaining('deleted'), findsWidgets);
+      expect(find.textContaining('deleted from this device'), findsOneWidget);
     });
   });
 }

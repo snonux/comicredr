@@ -1750,6 +1750,9 @@ void main() {
       final answer = await asking(tester, (context) => askDelete(context, facts(onS3: true)));
       expect(find.text('Delete only here'), findsOneWidget);
       expect(find.text('Delete here and from S3'), findsOneWidget);
+      expect(find.textContaining('On this device, it is deleted for good'), findsOneWidget);
+      expect(find.textContaining('also deletes the comic and its sidecar from the bucket'), findsOneWidget);
+      expect(find.textContaining('Deletion is not synced to other devices'), findsOneWidget);
       await threeChoices(tester, answer);
     });
 
@@ -1758,6 +1761,9 @@ void main() {
       expect(find.byKey(here), findsNothing);
       expect(find.byKey(everywhere), findsNothing);
       expect(find.text('Delete only here'), findsNothing);
+      expect(find.textContaining('On this device, it is deleted for good'), findsOneWidget);
+      expect(find.textContaining('Deletion is not synced to other devices'), findsOneWidget);
+      expect(find.textContaining('from the bucket'), findsNothing);
       expect(focused(tester, 'Cancel'), isTrue);
       // Alt+O is no button's letter here.
       await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
@@ -1773,12 +1779,25 @@ void main() {
     testWidgets('deleting several: three ways when one is on S3, two when none is or all are only there', (
       tester,
     ) async {
-      var answer = await asking(tester, (context) => askDeleteMany(context, [facts(onS3: true), facts(onS3: false)]));
+      var answer = await asking(
+        tester,
+        (context) => askDeleteMany(context, [facts(onS3: true), facts(onS3: false)], remoteOnly: 1),
+      );
+      expect(find.textContaining('On this device, they are deleted for good'), findsOneWidget);
+      expect(find.textContaining('also deletes their comics and sidecars from the bucket'), findsOneWidget);
+      expect(
+        find.textContaining('1 is only on S3: Delete here and from S3 deletes it and its sidecar'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Deletion is not synced to other devices'), findsOneWidget);
       await threeChoices(tester, answer);
 
       answer = await asking(tester, (context) => askDeleteMany(context, [facts(onS3: false), facts(onS3: false)]));
       expect(find.byKey(here), findsNothing);
       expect(find.byKey(everywhere), findsNothing);
+      expect(find.textContaining('On this device, they are deleted for good'), findsOneWidget);
+      expect(find.textContaining('Deletion is not synced to other devices'), findsOneWidget);
+      expect(find.textContaining('from the bucket'), findsNothing);
       await tester.tap(find.byKey(confirm));
       await tester.pumpAndSettle();
       expect(answer(), DeleteChoice.here);
@@ -1787,7 +1806,19 @@ void main() {
       answer = await asking(tester, (context) => askDeleteMany(context, const [], remoteOnly: 2));
       expect(find.byKey(here), findsNothing);
       expect(find.byKey(confirm), findsNothing);
+      expect(find.text('Delete from S3'), findsOneWidget);
+      expect(find.text('Delete here and from S3'), findsNothing);
+      expect(find.textContaining('On this device, they are deleted'), findsNothing);
+      expect(find.textContaining('deletes them and their sidecars from the bucket'), findsOneWidget);
+      expect(find.textContaining('Deletion is not synced to other devices'), findsOneWidget);
       expect(focused(tester, 'Cancel'), isTrue);
+      // The renamed S3-only button still has its advertised Alt+D mnemonic.
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyD, character: 'd');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pumpAndSettle();
+      expect(answer(), DeleteChoice.everywhere);
+      await again(tester);
       await tester.tap(find.byKey(everywhere));
       await tester.pumpAndSettle();
       expect(answer(), DeleteChoice.everywhere);
@@ -1835,6 +1866,14 @@ void main() {
         expect(find.byKey(key), findsNothing, reason: '$key has nothing here to work on');
       }
       expect(find.text('Downloads to ${root.path}/Akira.cbz'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('removeS3')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Only the copy in the S3 bucket'), findsOneWidget);
+      expect(find.textContaining('Deletion is not synced to other devices'), findsOneWidget);
+      expect(find.textContaining('on this device stay'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter); // Cancel.
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('s3RemoveDialog')), findsNothing);
 
       // Here and on S3: the comic's own buttons, and no Download.
       await show(book(S3Mark.synced));
@@ -1844,6 +1883,14 @@ void main() {
       for (final key in last) {
         expect(find.byKey(key), findsOneWidget);
       }
+      await tester.tap(find.byKey(const Key('removeS3')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Only the copy in the S3 bucket'), findsOneWidget);
+      expect(find.textContaining('The comic and its sidecar on this device stay'), findsOneWidget);
+      expect(find.textContaining('Deletion is not synced to other devices'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('s3RemoveDialog')), findsNothing);
     });
 
     testWidgets('Settings has its parts in this order from the top, which is the order Tab takes', (tester) async {

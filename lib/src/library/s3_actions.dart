@@ -79,16 +79,17 @@ Future<bool> removeBooksFromS3(BuildContext context, WidgetRef ref, List<Library
     builder: (context) => DialogHotkeys(
       child: AlertDialog(
         key: const Key('s3RemoveDialog'),
+        scrollable: true,
         icon: const Icon(Icons.cloud_off),
         title: Text('Remove $what from S3?'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: Text(
             [
-              'The copy in the bucket and its sidecar there are deleted.',
+              'Only the copy in the S3 bucket and its sidecar there are deleted.',
               if (local > 0) 'The comic and its sidecar on this device stay.',
               if (local < todo.length) 'A comic that is only on S3 disappears from this library.',
-              "The other device keeps its own copy, if it downloaded one.",
+              'Deletion is not synced to other devices. Their downloaded copies stay.',
             ].join(' '),
           ),
         ),

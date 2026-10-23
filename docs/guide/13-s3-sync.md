@@ -205,7 +205,14 @@ with Cancel focused as ever:
   to download again.
 - **Delete here and from S3**: gone from this device and from the bucket.
 
-Neither ever deletes the other device's copy.
+Deletion is not synced to other devices. Their downloaded copies stay,
+whether you delete only here, only from S3, or both. Removing a comic
+from S3 does remove its cloud-only entry on devices that have not
+downloaded it.
+
+For example, **Delete only here** on your phone frees its local space
+while keeping the comic on S3 and on your tablet. **Delete here and from
+S3** also removes the bucket's copy; the tablet's downloaded copy stays.
 
 If the bucket is off, the removal waits and happens when it is back.
 

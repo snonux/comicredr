@@ -91,6 +91,7 @@ Future<DeleteChoice> askDelete(BuildContext context, DeleteFacts f) async =>
         return DialogHotkeys(
           child: AlertDialog(
             key: const Key('deleteDialog'),
+            scrollable: true,
             icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
             title: Text('Delete ${f.name}?'),
             content: ConstrainedBox(
@@ -105,18 +106,21 @@ Future<DeleteChoice> askDelete(BuildContext context, DeleteFacts f) async =>
                   const SizedBox(height: 16),
                   Text(
                     f.link
-                        ? 'It is a link: the link is deleted with its sidecar, its bookmarks, position and panels. '
+                        ? 'On this device, the link is deleted with its sidecar, its bookmarks, position and panels. '
                               'The comic it points to stays where it is.'
-                        : 'It is deleted for good with its sidecar, its bookmarks, position and panels. '
+                        : 'On this device, it is deleted for good with its sidecar, its bookmarks, position and panels. '
                               'It does not go to the trash, so it cannot be restored.',
                   ),
                   if (f.onS3) ...[
                     const SizedBox(height: 12),
                     const Text(
                       'It is on S3 too. Delete only here keeps the copy in the bucket, and the comic stays in the '
-                      'library to download again; the other device keeps its own copy either way.',
+                      'library to download again. Delete here and from S3 also deletes the comic and its sidecar '
+                      'from the bucket.',
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  const Text('Deletion is not synced to other devices. Their downloaded copies stay.'),
                 ],
               ),
             ),
@@ -170,7 +174,7 @@ List<Widget> _deleteButtons(BuildContext context, {required bool onS3, required 
 /// Asks once before deleting several marked comics (`gd`, Shift+Delete or
 /// Delete in the marks bar): their names, how much they take, and, when
 /// any is on S3, the same three choices as for one. [remoteOnly] counts
-/// marked comics that are only on S3: only "Delete here and from S3" does
+/// marked comics that are only on S3: only the S3 removal choice does
 /// anything to them. Cancel has the focus.
 Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts, {int remoteOnly = 0}) async =>
     await showDialog<DeleteChoice>(
@@ -185,6 +189,7 @@ Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts
         return DialogHotkeys(
           child: AlertDialog(
             key: const Key('deleteDialog'),
+            scrollable: true,
             icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
             title: Text('Delete $n comics?'),
             content: ConstrainedBox(
@@ -206,7 +211,7 @@ Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts
                   const SizedBox(height: 16),
                   if (facts.isNotEmpty)
                     Text(
-                      'They are deleted for good with their sidecars, bookmarks, positions and panels. '
+                      'On this device, they are deleted for good with their sidecars, bookmarks, positions and panels. '
                       'They do not go to the trash, so they cannot be restored.'
                       '${links == 0 ? '' : ' Of ${_theLinks(links)}, only the link goes.'}',
                     ),
@@ -218,12 +223,17 @@ Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts
                           'Some are on S3 too. Delete only here keeps their copies in the bucket, and they stay in the '
                               'library to download again.',
                         if (remoteOnly > 0)
-                          '$remoteOnly ${remoteOnly == 1 ? 'is' : 'are'} only on S3: only Delete here and from S3 '
-                              'takes ${remoteOnly == 1 ? 'it' : 'them'} away.',
-                        'The other device keeps its own copies either way.',
+                          '$remoteOnly ${remoteOnly == 1 ? 'is' : 'are'} only on S3: '
+                              '${facts.isEmpty ? 'Delete from S3' : 'Delete here and from S3'} '
+                              'deletes ${remoteOnly == 1 ? 'it' : 'them'} and '
+                              '${remoteOnly == 1 ? 'its sidecar' : 'their sidecars'} from the bucket.',
+                        if (facts.any((f) => f.onS3))
+                          'Delete here and from S3 also deletes their comics and sidecars from the bucket.',
                       ].join(' '),
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  const Text('Deletion is not synced to other devices. Their downloaded copies stay.'),
                 ],
               ),
             ),
@@ -231,7 +241,11 @@ Future<DeleteChoice> askDeleteMany(BuildContext context, List<DeleteFacts> facts
               context,
               onS3: onS3,
               onlyHere: onS3 && facts.isNotEmpty,
-              label: onS3 ? 'Delete here and from S3' : 'Delete $n for good',
+              label: !onS3
+                  ? 'Delete $n for good'
+                  : facts.isEmpty
+                  ? 'Delete from S3'
+                  : 'Delete here and from S3',
             ),
           ),
         );
@@ -296,8 +310,9 @@ Future<List<String>> deleteComic({
 }
 
 /// The notice after a delete.
-String deletedNotice(String name, List<String> stuck) =>
-    stuck.isEmpty ? '$name deleted' : '$name deleted, but its sidecar ${stuck.first} could not be removed';
+String deletedNotice(String name, List<String> stuck) => stuck.isEmpty
+    ? '$name deleted from this device'
+    : '$name deleted from this device, but its sidecar ${stuck.first} could not be removed';
 
 /// The [links] among the comics to delete, as the question names them.
 String _theLinks(int links) => links == 1 ? 'the one that is a link' : 'the $links that are links';

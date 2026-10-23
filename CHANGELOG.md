@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+- Delete confirmations and notices name this device and S3 explicitly.
+  They explain that deletion does not remove downloaded copies on other
+  devices; a selection entirely on S3 offers **Delete from S3**.
+
 ## 0.9.8
 
 - S3 sync pauses for an hour after a server outage, keeping changes on

@@ -237,7 +237,7 @@ void main() {
     await until(tester, () {
       expect([for (final f in files) File(f).existsSync()], [true, false, false, true, true]);
       expect(find.byKey(const Key('marksBar')), findsNothing);
-      expect(find.textContaining('2 comics deleted'), findsOneWidget);
+      expect(find.text('2 comics deleted from this device'), findsOneWidget);
     });
   });
 

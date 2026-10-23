@@ -88,13 +88,15 @@ comic** in its details) deletes it, after asking.
   From the keyboard, `Alt+D` is the delete button and `Alt+C` is
   **Cancel**: `Alt` with the underlined letter, as in
   [every dialog](09-keyboard.md#a-key-for-every-button).
-- The comic and its sidecar are deleted for good. They do **not** go to
-  the trash, so they can't be restored.
+- The comic and its sidecar on this device are deleted for good. They do
+  **not** go to the trash, so they can't be restored.
 - A comic that is a link (symlink) loses only the link (the button says
   **Delete the link**); the comic it points to stays where it is.
 - A comic that is also [on S3](13-s3-sync.md#taking-a-comic-off-s3)
   offers **Delete only here** and **Delete here and from S3**. On a comic
   that is only on S3, `gd` offers to take it off S3.
+- Deletion is not synced to other devices. Copies they have downloaded
+  stay on those devices, even when you also delete from S3.
 - If you were reading it, you are back in the library with the next cover
   selected.
 
@@ -104,6 +106,7 @@ To delete several, [mark them in the library](03-library.md#several-comics-at-on
 their size together, and **Cancel** is selected there too. When some are
 on S3 it offers **Delete only here** and **Delete here and from S3** for
 the lot. Comics that are only on S3 are removed only with **Delete here
-and from S3**.
+and from S3**. When all the marked comics are only on S3, the button
+says **Delete from S3**; nothing is deleted on this device.
 
 [Contents](README.md) · Previous: [Bookmarks and marks](06-bookmarks.md) · Next: [Touch](08-touch.md)

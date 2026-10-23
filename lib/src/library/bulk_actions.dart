@@ -38,8 +38,8 @@ Future<void> _writeSidecars(SidecarSync sidecars, Iterable<LibraryBook> books) a
 
 /// Deletes the marked [books] after one question for all of them: `gd` or
 /// Shift+Delete with comics marked, or Delete in the marks bar. Comics only
-/// on S3 are taken off S3 when "Delete here and from S3" is picked, and
-/// left alone otherwise. [beforeDelete] runs once it is confirmed. The
+/// on S3 are taken off S3 when the S3 removal choice is picked, and left
+/// alone otherwise. [beforeDelete] runs once it is confirmed. The
 /// notice at the end must be read when a comic or a sidecar could not be
 /// deleted: the sync's "Removed X from S3" follows it within moments.
 Future<bool> deleteLibraryBooks(
@@ -98,7 +98,7 @@ Future<bool> deleteLibraryBooks(
   if (choice == DeleteChoice.everywhere) offS3.addAll(remote.map((b) => b.key));
   if (offS3.isNotEmpty) await s3.removeFromS3(offS3);
   final parts = [
-    if (deleted > 0) '${comicsCount(deleted)} deleted',
+    if (deleted > 0) '${comicsCount(deleted)} deleted from this device',
     if (choice == DeleteChoice.everywhere && remote.isNotEmpty) '${comicsCount(remote.length)} taken off S3',
     if (failed.isNotEmpty)
       'could not delete ${failed.first}${failed.length > 1 ? ' and ${failed.length - 1} more' : ''}',
