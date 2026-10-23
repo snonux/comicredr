@@ -1,0 +1,1 @@
+Delete confirmations make clear whether comics are removed from this device, S3, or both. Downloaded copies on other devices stay. S3-only selections offer Delete from S3.
