@@ -64,8 +64,8 @@ Android 7–10 uses a permission dialog instead (Android 10 shown here):
   Fit width fills the screen's width with the page and one finger
   scrolls it up and down only; tap it again for the whole page. A swipe
   down on the page does the same in fullscreen, and a swipe down at the
-  page's top brings the whole page back. Fullscreen is a tap in
-  the middle of the page. See [Touch](08-touch.md) for the gestures.
+  page's top brings the whole page back. Fullscreen is a double-tap
+  anywhere on the page, or a single tap in the middle. See [Touch](08-touch.md) for the gestures.
 - Everything the laptop does with a key is in the menu: favourites,
   started or not started, completed, collections, the next comic, the first and last page, two
   pages, right to left, turning, trimming, the night filter, the

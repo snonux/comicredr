@@ -76,6 +76,13 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
       if (map.action(g) case final i?) '${g.label}: ${label(i)}.',
   ];
   final zoom = zonesOf(map, TouchGesture.doubleTap, ReaderIntent.zoomToggle);
+  final doubleTaps = [
+    for (final i in {...map.actions(TouchGesture.doubleTap).nonNulls})
+      if (i != ReaderIntent.zoomToggle)
+        i == ReaderIntent.fullscreen
+            ? 'Double-tap ${zonesOf(map, TouchGesture.doubleTap, i)} to turn fullscreen on or off.'
+            : 'Double-tap ${zonesOf(map, TouchGesture.doubleTap, i)}: ${label(i)}.',
+  ];
   final fit = [
     for (final g in const [TouchGesture.swipeDown, TouchGesture.swipeUp])
       if (map.action(g) == ReaderIntent.toggleFitWidth) g.label,
@@ -111,6 +118,7 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
       zones: true,
     ),
     if (swipes.isNotEmpty) GuideStep('Swipe', swipes.join(' '), motion: GuideMotion.swipeLeft),
+    if (doubleTaps.isNotEmpty) GuideStep('Double-tap', doubleTaps.join(' '), motion: GuideMotion.doubleTap),
     GuideStep(
       'Zoom and move',
       [

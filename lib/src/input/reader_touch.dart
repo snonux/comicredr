@@ -15,7 +15,7 @@ import 'package:reader_input/reader_input.dart';
 ///
 /// Taps, double-taps and long presses look up the 3x3 [TouchZone] they
 /// land in. A tap only waits to see whether a second one follows in a zone
-/// that has a double-tap action, so the edges turn pages at once. A swipe
+/// that has a double-tap action. By default every zone waits briefly. A swipe
 /// that pans a zoomed page is a pan, not a swipe. In guided view one finger
 /// pans too, wherever the camera is, so there only a flick counts as a
 /// swipe: a finger still moving fast as it lifts. A drag that slows down

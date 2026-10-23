@@ -14,8 +14,8 @@ own gestures are the same on all of them.
 | Tap the left edge | Back |
 | Tap the middle | Fullscreen on and off (and with it the status line) |
 | Swipe left or right | Next or back; in guided view a quick flick, since a slower drag moves the page |
-| Double-tap the middle column | Zoom in on that spot, or back out (in guided view, on a panel: centre it again) |
-| Pinch | Zoom |
+| Double-tap anywhere on the page | Fullscreen on and off |
+| Pinch | Zoom in or out |
 | Drag with one finger | Move around a zoomed page, a page fitted to the width, or a panel in guided view |
 | Hold a finger on the middle | [The time](04-reading.md#what-time-is-it) |
 | Swipe up on the page | [The menu](#the-menu-everything-without-a-keyboard), with everything the buttons leave out |
@@ -24,6 +24,10 @@ own gestures are the same on all of them.
 | Drag along the progress bar | Preview pages, and let go to jump |
 | Pinch the page grid | Bigger or smaller pages; drag to scroll, tap one to go there |
 | Pinch the covers in the library | [Bigger or smaller covers](03-library.md#bigger-and-smaller-covers) |
+
+Single taps wait briefly for a possible double-tap. For example,
+double-tap the right edge to enter fullscreen without turning the page;
+double-tap it again to leave fullscreen. Pinch to enlarge the page.
 
 The buttons on the status line do the rest: guided view, balloons (in
 guided view), fit width (outside guided view, tap it again for the whole
@@ -145,5 +149,9 @@ replaces that whole gesture, which is why the example keeps the time in
 the middle. The gestures you don't list keep what the layout picked in
 Settings gives them. Pinch zoom and
 dragging a zoomed page always work and can't be changed.
+
+To make double-taps zoom in on the spot you tap and back out again, put
+`doubleTap = "zoomToggle"` under `[touch]`. To disable double-taps and
+make single taps act at once, use `doubleTap = ""`.
 
 [Contents](README.md) · Previous: [Managing your comics](07-managing-comics.md) · Next: [The keyboard](09-keyboard.md)

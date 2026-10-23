@@ -885,7 +885,10 @@ refreshes right away instead of within six hours.
   two-finger tap, each mapped to a ReaderIntent. The map is the preset
   picked in Settings (`touch.preset`) with the `[touch]` lines of
   keys.toml over it. A tap only waits for a possible second tap in a zone
-  that has a double-tap action, so edge taps turn at once. Pinch zoom and
+  that has a double-tap action. Every preset double-taps fullscreen in
+  all nine zones, so single taps wait briefly everywhere; `[touch]` can
+  remap or disable double-taps (`zoomToggle` keeps the old spot zoom).
+  Pinch zoom and
   panning stay with the InteractiveViewer and can't be remapped. One
   finger pans in guided view too (snonux, 2026-10-10), so there a swipe
   is only a flick (`ReaderTouch.flickVelocity`, 800 px/s as the finger
@@ -1728,6 +1731,7 @@ tool/e2e/e2e_ahead.sh [corpus]     # panels found only for the open comic, ahead
 tool/e2e/e2e_freeze.sh [count]    # 3,000 made comics scanned, then a comic read with the library on Folders under it: pages, guided view, ], back to the covers; COMICREDR_STALLS=1 logs and any hold-up of 400 ms (or a 500 ms frame) fails it
 tool/e2e/e2e_m9.sh book.cbz       # release tarball + install.sh, keys.toml, auto-trim, night filter, ? search, across restarts
 tool/e2e/e2e_touch_linux.sh       # touch alone, no key or mouse: a comic opened from the library, every default reader gesture, the progress bar, the page grid pinched, scrolled and tapped, guided view, the back arrow out to the library, a long press on a cover; checks the view selects touch events and the index with sqlite3
+tool/e2e/e2e_double_tap.sh        # native touch double-taps in all nine reader zones toggle fullscreen once, verified by Openbox and the index, without turning the page or zooming; single taps still turn
 tool/e2e/e2e_touch_zones.sh       # tap zones: standard taps, gt, Left-handed picked in Settings, a keys.toml [touch] section with a long press, vertical swipes and a two-finger tap; checks the index with sqlite3
 tool/e2e/e2e_pages.sh book.cbz book.pdf  # page grid by key, scrubber hover, drag and click, the PDF grid, thumbnails reused after a restart, grid zoom with + and Ctrl+wheel kept across a restart
 tool/e2e/e2e_cleanup.sh [low.cbz] [big.cbz]  # c on golden-age scans: before/after, zoomed, guided, across a restart; prints the clean-up times

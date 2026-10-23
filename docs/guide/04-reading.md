@@ -185,8 +185,8 @@ direction) opens that way by itself.
 | `←` `→` | Move left and right across a zoomed page, then turn the page from its edge |
 
 With the mouse, drag a zoomed page to move around. On a touchscreen,
-pinch with two fingers to zoom, drag with one finger to move, and
-double-tap the middle to zoom in on that spot. Without a keyboard, the
+pinch with two fingers to zoom and drag with one finger to move.
+Double-tap anywhere on the page to toggle fullscreen. Without a keyboard, the
 status line's **Fit width** button does `zw`: the page fills the width
 of the screen and one finger scrolls it up and down, never sideways, so
 a page turns with a swipe left or right as usual. Tap it again for the
@@ -364,7 +364,7 @@ the clean-up switch too.
 
 ## Fullscreen
 
-Press `f` (or `F11`, or tap the middle of the page) for fullscreen: no
+Press `f` (or `F11`, tap the middle, or double-tap anywhere on the page) for fullscreen: no
 title bar, no border, nothing but the comic. Move the mouse to the bottom
 edge to see the status line and progress bar; the mouse pointer hides
 when you stop moving it. `f` again leaves fullscreen. The library can be

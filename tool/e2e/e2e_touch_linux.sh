@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end check that the Linux build does everything by touch that the
 # phone does, with no key or mouse at all: a comic opened from the library
-# by taps, every default reader gesture (edge taps, swipes, double-tap zoom,
-# pinch, the middle tap for fullscreen, a long press for the time), the
+# by taps, every default reader gesture (edge taps, swipes, double-tap
+# fullscreen, pinch, the middle tap for fullscreen, a long press for the time), the
 # progress bar dragged, the page grid opened, pinched, scrolled and a page
 # tapped, the fit width button and a one-finger scroll, guided view turned
 # on, stepped and panned by one finger, the status line's back button
@@ -39,6 +39,7 @@ EOF
 cc -shared -fPIC -o "$out/touch_inject.so" tool/e2e/touch_inject.c $(pkg-config --cflags --libs gtk+-3.0)
 
 export DISPLAY=:94
+export GDK_BACKEND=x11
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 sleep 1
@@ -103,7 +104,7 @@ view() { q "select page + 1, panel, json_extract(view_json, '$.guided'), json_ex
 page() { view | cut -d'|' -f1; }
 panel() { view | cut -d'|' -f2; }
 guided() { view | cut -d'|' -f3; }
-zoom() { view | cut -d'|' -f4; }
+zoom() { q "select coalesce(json_extract(view_json, '$.view.zoom'), 1.0) from progress order by updated_at desc limit 1"; }
 zoomed() { awk -v z="$(zoom)" 'BEGIN { exit !(z > 1.2) }'; }
 changed() {
   local d
@@ -130,13 +131,18 @@ tap 1200 600;              expect "$(page)" 3 "tap the bottom right: next page"
 tap 60 340;                expect "$(page)" 2 "tap the left edge: back"
 swipe 900 340 400 340;     expect "$(page)" 3 "swipe left: next page"
 swipe 400 340 900 340;     expect "$(page)" 2 "swipe right: back"
-double_tap 640 340; shot 05_double_tap_zoom
-if zoomed; then ok "double-tap the middle zooms in (zoom $(zoom))"; else fail "double-tap: zoom $(zoom)"; fi
+double_tap 640 340; shot 05_double_tap_fullscreen
+expect "$(q "select value from settings where key = 'reader.fullscreen'")" true "double-tap: fullscreen"
+expect "$(page)" 2 "a double-tap turns no page"
+expect "$(zoom)" 1.0 "a double-tap does not zoom"
+double_tap 640 340
+expect "$(q "select value from settings where key = 'reader.fullscreen'")" false "double-tap again: windowed"
+pinch 640 340 60 180
 swipe 800 340 500 340;     expect "$(page)" 2 "a drag on a zoomed page pans, no page turn"
-double_tap 640 340;        expect "$(zoom)" 1.0 "double-tap again zooms back out"
+pinch 640 340 180 60;      expect "$(zoom)" 1.0 "pinch back to the whole page"
 pinch 640 340 60 260; shot 06_pinch
 if zoomed; then ok "pinch zooms (zoom $(zoom))"; else fail "pinch: zoom $(zoom)"; fi
-double_tap 640 340;        expect "$(zoom)" 1.0 "double-tap resets the pinch"
+pinch 640 340 260 40;      expect "$(zoom)" 1.0 "pinch back out"
 tap 640 340; shot 07_fullscreen
 expect "$(q "select value from settings where key = 'reader.fullscreen'")" true "tap the middle: fullscreen"
 tap 640 340; shot 08_windowed

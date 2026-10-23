@@ -94,7 +94,7 @@ void main() {
   const gestures = {
     ReaderIntent.nextStep: 'tap the right edge, swipe left',
     ReaderIntent.prevStep: 'tap the left edge, swipe right',
-    ReaderIntent.zoomToggle: 'double-tap the middle',
+    ReaderIntent.zoomToggle: 'custom [touch] binding; pinch zoom works in every layout',
     ReaderIntent.showTime: 'hold the middle',
     ReaderIntent.pickPart: 'two-finger tap',
     ReaderIntent.toggleFitWidth: 'swipe down; the Fit width button',
@@ -150,7 +150,7 @@ void main() {
     expect(standard.action(TouchGesture.swipeDown), ReaderIntent.toggleFitWidth);
     expect(standard.action(TouchGesture.twoFingerTap), ReaderIntent.pickPart);
     expect(standard.action(TouchGesture.longPress, TouchZone.middle), ReaderIntent.showTime);
-    expect(standard.action(TouchGesture.doubleTap, TouchZone.middle), ReaderIntent.zoomToggle);
+    expect(standard.action(TouchGesture.doubleTap, TouchZone.middle), ReaderIntent.fullscreen);
   });
 
   test('the reader menu has what the keys alone reached before', () {
@@ -207,7 +207,11 @@ void main() {
     expect(standard, contains('Swipe up: menu.'));
     expect(standard, contains('Swipe down: fit width.'));
     expect(standard, contains('Swipe down on the page fits it to the width'));
-    expect(standard, contains('Double-tap the middle to zoom in'));
+    expect(standard, contains('Double-tap anywhere to turn fullscreen on or off.'));
+    expect(standard, isNot(contains('Double-tap the middle to zoom in')));
+    final customZoom = TouchMap.preset(TouchPreset.standard)
+        .withOverrides({TouchGesture.doubleTap: List.filled(9, ReaderIntent.zoomToggle)});
+    expect(all(guideSteps(customZoom, android: true)), contains('Double-tap anywhere to zoom in'));
     expect(standard, contains('Hold a finger on the middle: time.'));
     expect(standard, contains('Tap with two fingers to pick a half'));
     expect(standard, contains("Android's back gesture"));

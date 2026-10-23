@@ -70,7 +70,9 @@ void main() {
 
   Future<void> touch(WidgetTester tester, Offset at) async {
     await tester.tapAt(at, kind: PointerDeviceKind.touch);
+    await tester.pump(kDoubleTapTimeout);
     await settle(tester);
+    await tester.pump(const Duration(milliseconds: 500));
   }
 
   /// One finger from [from] by [by] over [ms] milliseconds, in ten steps.
@@ -145,8 +147,8 @@ void main() {
     expect(c.read(readerProvider).page, 0, reason: 'the drag panned the zoomed page');
   });
 
-  testWidgets('double-tapping the middle zooms on that spot and back out', (tester) async {
-    final c = await openBook(tester);
+  testWidgets('a custom double-tap still zooms on that spot and back out', (tester) async {
+    final c = await openBook(tester, keysToml: '[touch]\ndoubleTap = "zoomToggle"\n');
     final m = view(tester).center;
     await tester.tapAt(m, kind: PointerDeviceKind.touch);
     await tester.pump(const Duration(milliseconds: 100));
@@ -173,6 +175,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(c.read(readerProvider).fullscreen, isFalse);
   });
+
+  testWidgets('double-tapping any reader zone toggles fullscreen once without turning or zooming', (tester) async {
+    final c = await openBook(tester);
+    c.read(readerProvider.notifier).state = c.read(readerProvider).copyWith(page: 2);
+    await settle(tester);
+    var toggles = 0;
+    final sub = c.listen(readerProvider.select((s) => s.fullscreen), (_, _) => toggles++);
+    addTearDown(sub.close);
+    for (final zone in TouchZone.values) {
+      for (final fullscreen in [true, false]) {
+        final r = view(tester);
+        final at = Offset(r.left + r.width * (zone.column + 0.5) / 3, r.top + r.height * (zone.row + 0.5) / 3);
+        final before = toggles;
+        await tester.tapAt(at, kind: PointerDeviceKind.touch);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(toggles, before, reason: 'the single tap waits for a possible double-tap');
+        await tester.tapAt(at, kind: PointerDeviceKind.touch);
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(c.read(readerProvider).fullscreen, fullscreen, reason: zone.name);
+        expect(toggles, before + 1, reason: 'one toggle, with no delayed single tap in ${zone.name}');
+        expect(c.read(readerProvider).page, 2, reason: zone.name);
+        expect(scale(tester), 1, reason: zone.name);
+      }
+    }
+  }, variant: const TargetPlatformVariant({TargetPlatform.linux, TargetPlatform.android}));
 
   testWidgets('the fit button fits the width and the whole page again', (tester) async {
     final c = await openBook(tester);
@@ -446,7 +473,7 @@ twoFingerTap = "autoTrim"
     expect(find.byKey(const Key('touch-zones')), findsOneWidget);
     expect(find.text('Next'), findsNWidgets(5));
     expect(find.text('Back'), findsNWidgets(3));
-    expect(find.text('Double-tap: Zoom'), findsNWidgets(3));
+    expect(find.text('Double-tap: Status line'), findsNWidgets(9));
     await tester.pump(const Duration(seconds: 4));
     expect(find.byKey(const Key('touch-zones')), findsNothing);
   });

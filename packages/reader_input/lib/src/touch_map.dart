@@ -79,13 +79,10 @@ class TouchMap {
 
   factory TouchMap.preset(TouchPreset preset) {
     const back = ReaderIntent.prevStep, next = ReaderIntent.nextStep, status = ReaderIntent.fullscreen;
-    const zoom = ReaderIntent.zoomToggle;
     // A long press in the middle shows the time, in every preset.
     const longPress = [null, null, null, null, ReaderIntent.showTime, null, null, null, null];
-    // Double-tap only where it has always worked, the middle column, so the
-    // edges turn pages at once rather than waiting to see if a second tap
-    // follows.
-    const doubleTap = [null, zoom, null, null, zoom, null, null, zoom, null];
+    // Every zone waits for a possible double-tap before its single tap acts.
+    const doubleTap = [status, status, status, status, status, status, status, status, status];
     const others = {
       TouchGesture.swipeLeft: [next],
       TouchGesture.swipeRight: [back],

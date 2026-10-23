@@ -267,9 +267,9 @@ showTime = ["T"]
 # ]
 #
 # doubleTap = [
-#   "", "zoomToggle", "",
-#   "", "zoomToggle", "",
-#   "", "zoomToggle", "",
+#   "fullscreen", "fullscreen", "fullscreen",
+#   "fullscreen", "fullscreen", "fullscreen",
+#   "fullscreen", "fullscreen", "fullscreen",
 # ]
 #
 # longPress = [

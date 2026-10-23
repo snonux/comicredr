@@ -12,13 +12,13 @@ void main() {
     expect(TouchZone.at(0.5, 0.2), TouchZone.top);
   });
 
-  test('the standard preset is the touch layout the reader always had', () {
+  test('the standard preset keeps single taps and double-taps fullscreen everywhere', () {
     final m = TouchMap.preset(TouchPreset.standard);
     for (final z in TouchZone.values) {
       expect(m.action(TouchGesture.tap, z), [back, status, next][z.column]);
-      expect(m.waitsForDoubleTap(z), z.column == 1);
+      expect(m.waitsForDoubleTap(z), isTrue);
+      expect(m.action(TouchGesture.doubleTap, z), status);
     }
-    expect(m.action(TouchGesture.doubleTap, TouchZone.middle), ReaderIntent.zoomToggle);
     expect(m.action(TouchGesture.swipeLeft), next);
     expect(m.action(TouchGesture.swipeRight), back);
     expect(m.action(TouchGesture.swipeUp), ReaderIntent.openMenu);
@@ -32,6 +32,9 @@ void main() {
     expect(l.action(TouchGesture.tap, TouchZone.left), next);
     expect(l.action(TouchGesture.tap, TouchZone.bottomRight), back);
     final o = TouchMap.preset(TouchPreset.oneThumb);
+    for (final m in [l, o]) {
+      expect(m.actions(TouchGesture.doubleTap), everyElement(status));
+    }
     expect(o.actions(TouchGesture.tap), [back, back, back, next, status, next, next, next, next]);
     expect(TouchPreset.byName('oneThumb'), TouchPreset.oneThumb);
     expect(TouchPreset.byName('nope'), TouchPreset.standard);
@@ -63,7 +66,7 @@ swipeLeft = ""
       expect(m.action(TouchGesture.swipeLeft), isNull);
       // Not listed: the preset's.
       expect(m.action(TouchGesture.swipeRight), back);
-      expect(m.action(TouchGesture.doubleTap, TouchZone.middle), ReaderIntent.zoomToggle);
+      expect(m.action(TouchGesture.doubleTap, TouchZone.middle), status);
       // Keys are untouched.
       expect(load.keymap.bindings.length, Keymap.defaults().bindings.length);
     });
