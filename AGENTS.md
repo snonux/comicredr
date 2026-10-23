@@ -1496,14 +1496,19 @@ refreshes right away instead of within six hours.
   otherwise. Below 600 dp the status line's fullscreen button gave its
   room to ⋮ (the middle tap and the menu do fullscreen), and the library
   header's open-file button went into the menu. The touch tutorial,
-  `showTouchGuide` (`gT`; the menu; Settings → Touch, `setting-touchGuide`,
+  **Touch zones and gestures**, `showTouchGuide` (`gT`; the menu;
+  Settings → Touch, `setting-touchGuide`,
   Alt+T), is `lib/src/touch_guide.dart`: `guideSteps(map, android:)`
   writes the pages from the live `TouchMap`, the pictures move three
   times and then rest (a widget test's pump settles; reduced motion keeps
   them still). Android shows it once at the first start
   (`_touchGuideAtStart`, first thing in `_start`), setting `touch.guideSeen`, per
   install and not exported. The Android e2e scripts close it (its
-  title "Reading by touch" found by uiautomator, then **Close**).
+  title "Reading by touch" found by uiautomator, then **Close**). The
+  tutorial includes the live tap-zone map and every gesture on both
+  platforms; the menus have no separate zone-overlay entry. `gt` and
+  custom bindings still reach `showTouchZones`. The other help entry is
+  **Keyboard shortcuts** (`showKeymap`, `?`).
 - The time (`T`, and a long press in the middle zone of every touch
   preset): `ReaderIntent.showTime`, handled in `HomeScreen._onCommand`
   before the library or reader see it, flashes `ClockFlash`

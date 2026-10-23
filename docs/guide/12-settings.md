@@ -31,7 +31,7 @@ for **Clear reading history**, `Alt+S` for the S3 sync, `Alt+M` and
 | **Sidecars → Save panels, bookmarks and position in a file for each comic** | The [sidecar](11-your-data.md#the-sidecar-beside-each-comic) files. On by default. |
 | **Sidecars → Beside each comic / In one folder** | Where the sidecars go. Switching offers to move the ones already written. See [keeping them in one folder](11-your-data.md#keeping-the-sidecars-in-one-folder). |
 | **Sidecars → Export sidecars to a folder…** | A copy of every sidecar, for a backup. |
-| **Touch** | **Standard**, **Left-handed** or **One thumb**, with a drawing of what each zone does. If your `keys.toml` changes gestures, it says how many. See [the tap zones](08-touch.md#the-tap-zones). **Touch tutorial** shows [every gesture](08-touch.md#the-touch-tutorial) again. |
+| **Touch** | **Standard**, **Left-handed** or **One thumb**, with a drawing of what each zone does. If your `keys.toml` changes gestures, it says how many. See [the tap zones](08-touch.md#the-tap-zones). **Touch zones and gestures** opens [one tutorial](08-touch.md#the-touch-tutorial) with the live tap zones and every gesture. |
 | **Reading history → Clear reading history** | Empties the [History tab](03-library.md#history). Positions, bookmarks and collections stay. |
 | **Back up → Export settings…** / **Import settings…** | Every setting, your library folders, `keys.toml`, positions, bookmarks, collections, edits, completed marks and reading history in one file, and back. See [back up and restore](11-your-data.md#back-up-and-restore-your-settings). |
 | **S3 sync → Set up S3 sync…** (**Change S3 sync…** once it is on) | Your own S3 bucket, to carry comics and their sidecars between devices. See [syncing through S3](13-s3-sync.md). |

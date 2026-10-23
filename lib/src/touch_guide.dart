@@ -107,7 +107,8 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
   return [
     const GuideStep(
       'Reading by touch',
-      'Everything in ComicRedr works without a keyboard. These pages show each gesture and where the buttons are. '
+      'Everything in ComicRedr works without a keyboard. This tutorial shows the tap zones, every gesture '
+          'and where the buttons are. '
           'Swipe to the next page, or tap Next.',
       motion: GuideMotion.swipeLeft,
     ),
@@ -176,7 +177,7 @@ List<GuideStep> guideSteps(TouchMap map, {required bool android}) {
     ),
     const GuideStep(
       'That is all',
-      'This tutorial is in the menu (⋮) and in Settings → Touch, whenever you want it again.',
+      'Pick Touch zones and gestures in the menu (⋮) or in Settings → Touch whenever you want this tutorial again.',
       icons: [(Icons.more_vert, 'The menu'), (Icons.settings_outlined, 'Settings')],
     ),
   ];

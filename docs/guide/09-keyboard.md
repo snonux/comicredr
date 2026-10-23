@@ -9,7 +9,8 @@ need to learn the vi keys, but they are there.
 
 ## `?` shows every key
 
-Press `?` anywhere for the list of every action and its keys. It always
+Press `?` anywhere, or pick **Keyboard shortcuts** in the menu, for the
+list of every action and its keys. It always
 shows the keys that are live right now, including your own changes.
 
 ![The ? overlay](images/keymap.webp)
@@ -117,7 +118,7 @@ them all. The buttons that had no key before have one now:
 | `gD` | **Download** on a comic that is [only on S3](13-s3-sync.md#on-the-other-device), or on the marked ones. |
 | `g!` | The count of comics that could not be read, in the line at the bottom: which ones, and why. |
 | `F10`, `g.` | ⋮, [the menu](08-touch.md#the-menu-everything-without-a-keyboard), at the end of the status line and of the library's header. Each line in it names its key. |
-| `gT` | **Touch tutorial** in Settings → Touch and in the menu: [every gesture](08-touch.md#the-touch-tutorial), a page each. |
+| `gT` | **Touch zones and gestures** in Settings → Touch and in the menu: [one tutorial](08-touch.md#the-touch-tutorial) for the live tap zones and every gesture. |
 
 A few buttons are shortcuts to something the keys reach in two steps,
 and have no key of their own: the names along the top of the Folders

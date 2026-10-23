@@ -15,7 +15,7 @@
 # the reader's menu moves the ones under it; tool/e2e/e2e_touch_menu.sh then
 # fails on the line it missed, and its screenshots show where it went.
 #
-# Needs: Xvfb, xdotool, ImageMagick, sqlite3, python3, a C compiler and
+# Needs: Xvfb, xdotool, ImageMagick, tesseract, sqlite3, python3, a C compiler and
 # GTK 3 headers.
 # Output: build/e2e-touch-menu/*.png and contact.png.
 set -euo pipefail
@@ -34,7 +34,8 @@ for name, first in (("Menu 01.cbz", 0), ("Menu 02.cbz", 4)):
             z.write(pages[(first + i) % len(pages)], f"page{i + 1:02}.jpg")
 EOF
 [[ -x build/linux/x64/release/bundle/comicredr ]] || flutter build linux --release
-cc -shared -fPIC -o "$out/touch_inject.so" tool/e2e/touch_inject.c $(pkg-config --cflags --libs gtk+-3.0)
+read -r -a gtk_flags <<<"$(pkg-config --cflags --libs gtk+-3.0)"
+cc -shared -fPIC -o "$out/touch_inject.so" tool/e2e/touch_inject.c "${gtk_flags[@]}"
 
 export DISPLAY=:92
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
@@ -50,9 +51,15 @@ DBUS_SESSION_BUS_ADDRESS=unix:path=/nonexistent GDK_BACKEND=x11 \
   build/linux/x64/release/bundle/comicredr --add-root "$PWD/$out/Comics" >"$out/app.log" 2>&1 &
 app=$!
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
-sleep 7
 # Xvfb has no window manager to focus the view for injected touches.
-win=$(xdotool search --onlyvisible --name '^ComicRedr$' | tail -1)
+win=''
+for _ in $(seq 1 120); do
+  win=$(xdotool search --onlyvisible --name '^ComicRedr$' 2>/dev/null |
+    tail -1 || true)
+  [[ -n "$win" ]] && break
+  sleep 0.5
+done
+[[ -n "$win" ]] || { echo "ComicRedr did not open a window; see $out/app.log"; exit 1; }
 xdotool windowfocus "$win"
 
 db="$PWD/$out/home/.local/share/org.snonux.comicredr/comicredr.sqlite"
@@ -136,17 +143,40 @@ expect "$(view | cut -d'|' -f1)" 8 "the menu's Last page line"
 
 # 5. Turn clockwise, at the end of the list.
 menu_end; shot 08_menu_end
-tap 560 97 2.5
+# Crop to the dialog and invert its dark theme: whole-screen OCR often
+# finds only the brighter comic underneath and misses the menu entirely.
+menu_labels=$(convert "$out/08_menu_end.png" -crop 440x620+420+50 \
+  -resize 200% -colorspace Gray -negate pgm:- |
+  tesseract stdin stdout --psm 6 2>/dev/null)
+if [[ "$menu_labels" == *"Touch zones and gestures"* &&
+      "$menu_labels" == *"Keyboard shortcuts"* &&
+      "$menu_labels" != *"Show the touch zones"* &&
+      "$menu_labels" != *"Keys and gestures"* ]]; then
+  ok "one touch-zones-and-gestures tutorial, keyboard help named separately"
+else
+  fail "the menu's help labels: $menu_labels"
+fi
+tap 560 145 2.5
 expect "$(view | cut -d'|' -f2)" 1 "the menu's Turn clockwise line"
 
-# 6. The touch tutorial from the menu: eleven pages, Next to Done.
+# 6. One tutorial from the menu: live tap zones and all gestures,
+# including double-tap; twelve pages, Next to Done.
 expect "$(setting touch.guideSeen)" "" "the tutorial did not show by itself on Linux"
 shot 09_before_tutorial
 menu_end; tap 560 517 2.5; shot 10_tutorial
-changed 09_before_tutorial 10_tutorial 50000 "the menu's Touch tutorial line opens the tutorial"
+changed 09_before_tutorial 10_tutorial 50000 "the menu's Touch zones and gestures line opens the tutorial"
 tap 831 648 2; shot 11_tutorial_zones
 changed 10_tutorial 11_tutorial_zones 5000 "Next turns its page"
-for _ in $(seq 1 9); do tap 831 648 2; done
+zone_labels=$(convert "$out/11_tutorial_zones.png" -crop 480x630+400+40 \
+  -resize 200% -colorspace Gray -negate pgm:- |
+  tesseract stdin stdout --psm 6 2>/dev/null)
+if [[ "$zone_labels" == *"Tap to turn"* &&
+      "$zone_labels" == *"Next"* && "$zone_labels" == *"Back"* ]]; then
+  ok "the same tutorial draws the live tap zones"
+else
+  fail "the tutorial's tap-zone page: $zone_labels"
+fi
+for _ in $(seq 1 10); do tap 831 648 2; done
 shot 12_tutorial_last
 tap 831 648 2; shot 13_tutorial_done
 same 09_before_tutorial 13_tutorial_done 5000 "Done on the last page closes it"

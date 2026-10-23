@@ -137,6 +137,10 @@ menu has gone, exactly as its key would be, so every action has a way
 without a keyboard (`test/touch_menu_test.dart` fails on an intent with
 neither a menu line, a button nor a gesture). The touch tutorial
 (`lib/src/touch_guide.dart`) writes its pages from the live `TouchMap`.
+Both menus offer **Touch zones and gestures** as the single tutorial
+for the live zones and gestures, and **Keyboard shortcuts** for the
+keymap. The temporary zone overlay remains available through `gt` and
+custom bindings.
 
 That covers every button too. A button on a screen (the library, the
 reader and what lies over it: the page grid, the bookmark list, the parts

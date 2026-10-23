@@ -96,6 +96,7 @@ void main() {
     ReaderIntent.prevStep: 'tap the left edge, swipe right',
     ReaderIntent.zoomToggle: 'custom [touch] binding; pinch zoom works in every layout',
     ReaderIntent.showTime: 'hold the middle',
+    ReaderIntent.showTouchZones: 'the tap-zone page in the touch tutorial; the overlay can have a custom touch binding',
     ReaderIntent.pickPart: 'two-finger tap',
     ReaderIntent.toggleFitWidth: 'swipe down; the Fit width button',
     ReaderIntent.nextPage: 'swipe outside guided view; the page grid',
@@ -184,7 +185,6 @@ void main() {
       ReaderIntent.uploadToS3,
       ReaderIntent.removeFromS3,
       ReaderIntent.showDetails,
-      ReaderIntent.showTouchZones,
       ReaderIntent.showTouchGuide,
       ReaderIntent.showKeymap,
       ReaderIntent.showSettings,
@@ -196,6 +196,7 @@ void main() {
     expect(plain, isNot(contains(ReaderIntent.uploadToS3)));
     expect(plain, isNot(contains(ReaderIntent.shiftSpread)));
     expect(plain, isNot(contains(ReaderIntent.toggleBalloons)));
+    expect(plain, isNot(contains(ReaderIntent.showTouchZones)), reason: 'the tutorial includes the live tap zones');
   });
 
   test('the tutorial is written from the touch map', () {
@@ -215,6 +216,22 @@ void main() {
     expect(standard, contains('Hold a finger on the middle: time.'));
     expect(standard, contains('Tap with two fingers to pick a half'));
     expect(standard, contains("Android's back gesture"));
+    for (final android in [false, true]) {
+      final steps = guideSteps(TouchMap.preset(TouchPreset.standard), android: android);
+      expect(steps.where((s) => s.zones).map((s) => s.title), ['Tap to turn']);
+      expect(
+        steps.map((s) => s.motion),
+        containsAll([
+          GuideMotion.tap,
+          GuideMotion.swipeLeft,
+          GuideMotion.doubleTap,
+          GuideMotion.pinch,
+          GuideMotion.drag,
+          GuideMotion.twoFingerTap,
+          GuideMotion.hold,
+        ]),
+      );
+    }
     final left = all(guideSteps(TouchMap.preset(TouchPreset.leftHanded), android: false));
     expect(left, contains('Tap the left edge: next.'));
     expect(left, contains('The arrow at the start of the status line'));
@@ -288,6 +305,52 @@ void main() {
       await tester.pump();
       await tester.tap(line);
       await settle(tester);
+    }
+
+    for (final width in [360.0, 1280.0]) {
+      testWidgets('one touch tutorial and separate keyboard help in both menus at $width dp', (tester) async {
+        final store = (await tester.runAsync(shelf))!;
+        final book = (await tester.runAsync(store.books))!.first;
+        final c = await pumpApp(tester, Size(width, 800));
+        await settle(tester);
+        await whilePumping(tester, () => c.read(touchPresetProvider.notifier).pick(TouchPreset.leftHanded));
+        await settle(tester);
+
+        for (final reading in [false, true]) {
+          if (reading) {
+            await whilePumping(tester, () => c.read(readerProvider.notifier).open(book.path));
+            await settle(tester);
+          }
+          await tester.tap(find.byKey(const Key('menuButton')));
+          await settle(tester);
+          expect(find.byKey(const Key('menu-showTouchGuide')), findsOneWidget);
+          expect(find.text('Touch zones and gestures (gT)'), findsOneWidget);
+          expect(find.byKey(const Key('menu-showTouchZones')), findsNothing);
+          expect(find.text('Keyboard shortcuts (?)'), findsOneWidget);
+          expect(find.textContaining('Keys and gestures'), findsNothing);
+          await pick(tester, ReaderIntent.showTouchGuide);
+          expect(find.byKey(const Key('actionMenu')), findsNothing);
+          expect(find.byKey(const Key('touchGuide')), findsOneWidget);
+          await tester.tap(find.byKey(const Key('touchGuideNext')));
+          await settle(tester);
+          expect(find.text('Tap to turn'), findsOneWidget);
+          expect(find.textContaining('Tap the left edge: next.'), findsOneWidget);
+          await tester.tap(find.byKey(const Key('touchGuideNext')));
+          await settle(tester);
+          expect(find.text('Swipe'), findsOneWidget);
+          await tester.tap(find.byKey(const Key('touchGuideClose')));
+          await settle(tester);
+
+          await tester.tap(find.byKey(const Key('menuButton')));
+          await settle(tester);
+          await pick(tester, ReaderIntent.showKeymap);
+          expect(find.byKey(const Key('keymap-title')), findsOneWidget);
+          expect(find.byKey(const Key('touchGuide')), findsNothing);
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await settle(tester);
+        }
+        expect(tester.takeException(), isNull);
+      });
     }
 
     testWidgets('on a phone: ⋮ and a swipe up open the menu, its lines do what their keys do', (tester) async {
@@ -467,6 +530,7 @@ void main() {
         for (final g in library.menuGroups())
           for (final e in g.entries) e.intent,
       };
+      expect(offered, isNot(contains(ReaderIntent.showTouchZones)));
       // Continue only once a comic was read; marking all only where comics
       // are shown, and the top of the Folders tab shows the library folder.
       expect(libraryMenu.difference(offered), {ReaderIntent.continueReading, ReaderIntent.markAll});

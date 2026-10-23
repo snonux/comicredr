@@ -7,6 +7,10 @@ the `?` overlay.
 
 ## Unreleased
 
+- **Touch zones and gestures** is the single touch tutorial in the menus
+  and Settings on Android and Linux. It includes the live tap-zone map;
+  keyboard help is labelled **Keyboard shortcuts**.
+
 ## 0.9.7
 
 - Reading now waits for five minutes in one sitting. `gb`, the menus and

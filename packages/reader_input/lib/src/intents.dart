@@ -161,7 +161,7 @@ enum ReaderIntent {
   showKeymap('Show the keymap'),
   showTouchZones('Show the touch zones for a moment'),
   showTouchGuide(
-    'Touch tutorial: every gesture, a page each, in plain words; shown once on the first start on Android',
+    'Touch zones and gestures: one tutorial with the live tap zones and every gesture; shown once on the first start on Android',
   ),
   openMenu(
     'Menu of every action for this comic or the library, for touch and mouse; a swipe up on the page opens it too',

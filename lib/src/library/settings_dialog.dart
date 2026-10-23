@@ -434,7 +434,7 @@ class _SettingsDialogState extends ConsumerState<SettingsDialog> {
           key: const Key('setting-touchGuide'),
           onPressed: guide,
           icon: const Icon(Icons.touch_app_outlined),
-          label: const Mnemonic('Touch tutorial', letter: 't'),
+          label: const Mnemonic('Touch zones and gestures', letter: 't'),
         ),
       ),
       const SizedBox(height: 8),

@@ -33,8 +33,8 @@ List<MenuEntry> appEntries({required bool fullscreen}) => [
     on: fullscreen,
   ),
   const MenuEntry(ReaderIntent.showTime, 'The time', Icons.schedule),
-  const MenuEntry(ReaderIntent.showTouchGuide, 'Touch tutorial', Icons.touch_app_outlined),
-  const MenuEntry(ReaderIntent.showKeymap, 'Keys and gestures', Icons.keyboard_outlined),
+  const MenuEntry(ReaderIntent.showTouchGuide, 'Touch zones and gestures', Icons.touch_app_outlined),
+  const MenuEntry(ReaderIntent.showKeymap, 'Keyboard shortcuts', Icons.keyboard_outlined),
   const MenuEntry(ReaderIntent.showSettings, 'Settings', Icons.settings_outlined),
 ];
 
@@ -106,7 +106,6 @@ List<MenuGroup> readerMenu(ReaderState s, {required bool s3}) {
       MenuEntry(ReaderIntent.cleanUp, 'Clean up old scans', Icons.auto_fix_high, on: s.cleanUp),
     ]),
     MenuGroup('App', [
-      const MenuEntry(ReaderIntent.showTouchZones, 'Show the touch zones', Icons.grid_on),
       const MenuEntry(ReaderIntent.back, 'Back to the library', Icons.arrow_back),
       ...appEntries(fullscreen: s.fullscreen),
     ]),

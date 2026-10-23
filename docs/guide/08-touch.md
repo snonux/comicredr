@@ -75,8 +75,9 @@ Over a comic it has:
   left, and turning the comic either way or back upright.
 - **Picture:** trim the scan margins, the night filter and the clean-up
   of old scans. A tick shows what is on.
-- **App:** the touch zones, back to the library, fullscreen, the time,
-  [the touch tutorial](#the-touch-tutorial), the keys and Settings.
+- **App:** back to the library, fullscreen, the time,
+  **Touch zones and gestures** ([one tutorial](#the-touch-tutorial)),
+  **Keyboard shortcuts** and Settings.
 
 In the library it has opening a comic or a folder of pages without
 adding it, adding a library folder, rescanning, the comics the last scan
@@ -87,8 +88,10 @@ comic is in its details: hold a cover, or tap it on a phone.
 
 ## The touch tutorial
 
-The first time ComicRedr starts on Android it walks through every
-gesture, a page each: where to tap, swiping, zooming, guided view, the
+**Touch zones and gestures** is one tutorial for the tap zones and all
+gestures on Android and Linux. The first time ComicRedr starts on
+Android it opens automatically. Each page teaches one gesture: the
+live map of where to tap, swiping, double-tapping, zooming, guided view, the
 two-finger tap, holding a finger down, the status line's buttons, the
 menu and the library. Swipe or tap **Next** to go on, **Close** to stop
 at any point. It is drawn for the touch layout you picked, so a
@@ -99,14 +102,16 @@ left-handed layout shows its own taps.
 | ![A page of the touch tutorial on the laptop](images/touch-guide.webp) | <img src="images/android-touch-guide.webp" width="260" alt="The touch tutorial on an Android phone"> |
 | The tutorial on the laptop | and on the phone |
 
-To see it again, pick **Touch tutorial** in the menu or in Settings →
+To see it again, pick **Touch zones and gestures** in the menu or in Settings →
 **Touch**, or press `gT`.
 
 ## The tap zones
 
 The page is split into nine zones: three columns (the side ones each 30%
-of the width) and three rows. Press `gt` while reading to see what each
-zone does; it fades after a moment.
+of the width) and three rows. The tutorial's **Tap to turn** page draws
+what each zone does for your layout and custom gestures. For a quick
+reminder while reading, press `gt` to show the same zones over the page;
+the overlay fades after a moment.
 
 ![gt shows the tap zones](images/touch-zones.webp)
 
