@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # A real reader session against an HTTP 502 fixture: a failure during
 # reading is reported once, page turns and another upload keep queuing
-# locally without reconnecting, and restart retries immediately.
+# locally without reconnecting, and restart reconnects then pauses again.
 # E2E_SKIP_BUILD=1 reuses the release build. No Garage or credentials.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -78,9 +78,8 @@ start() {
     "$top/build/linux/x64/release/bundle/comicredr" "$@" \
     >>"$out/app.log" 2>&1 &
   app=$!
-  sleep 6
-  win=$(xdotool search --name ComicRedr | tail -1)
-  xdotool windowfocus "$win"
+  wait_for 40 focus_window
+  sleep 2
 }
 stop() { kill "$app"; wait "$app" 2>/dev/null || true; app=; }
 check() {
@@ -91,12 +90,29 @@ check() {
     exit 1
   fi
 }
+wait_for() {
+  local deadline=$((SECONDS + $1))
+  shift
+  until "$@"; do
+    (( SECONDS < deadline )) || return 1
+    sleep 0.5
+  done
+}
+focus_window() {
+  win=$(xdotool search --onlyvisible --name ComicRedr | tail -1) || return 1
+  [[ -n "$win" ]] && xdotool windowfocus "$win" 2>/dev/null
+}
+indexed() { [[ "$(sql 'select count(*) from files' 2>/dev/null)" == 1 ]]; }
+opened() { [[ "$(sql 'select count(*) from progress' 2>/dev/null)" == 1 ]]; }
+connected() { [[ -f "$out/requests" ]] && (( $(requests) > 0 )); }
+reconnected() { (( $(requests) > first )); }
 setting() {
   sql "insert or replace into settings values ('$1', '\"$2\"')"
 }
 requests() { wc -l <"$out/requests"; }
 
 start --add-root "$home/Comics"
+wait_for 40 indexed || true
 check 'comic scanned' "$(sql 'select count(*) from files')" 1
 stop
 setting s3.endpoint "http://127.0.0.1:$port"
@@ -106,6 +122,8 @@ setting s3.accessKey test
 mkdir -p "$home/.config/comicredr"
 (umask 077 && printf %s test >"$home/.config/comicredr/s3-secret")
 start "$home/Comics/Outage 1.cbz"
+wait_for 40 connected
+wait_for 40 opened
 check 'connected at start' "$(( $(requests) > 0 ))" 1
 key Right
 # S3 goes down with the comic open. gu queues the upload and hits 502.
@@ -130,7 +148,16 @@ check 'closing the reader also respects the pause' "$(requests)" "$first"
 import -window root "$out/02_saved.png"
 stop
 start "$home/Comics/Outage 1.cbz"
-check 'restart retries once' "$(requests)" "$((first + 1))"
+wait_for 40 reconnected
+sleep 3
+# Startup can begin both a shelf refresh and the open comic's check
+# before either reports the outage. Verify the new attempt happens and
+# then stays paused, rather than assuming exactly one HTTP request.
+restarted=$(requests)
+check 'restart reconnects' "$((restarted > first))" 1
+key Right
+sleep 12
+check 'restart pauses again during reading' "$(requests)" "$restarted"
 check 'restart keeps queued work' "$(sql 'select count(*) from s3_books where pending is not null')" 1
 import -window root "$out/03_restart.png"
 stop
