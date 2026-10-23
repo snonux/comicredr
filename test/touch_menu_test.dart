@@ -5,6 +5,7 @@ import 'package:comicredr/src/app.dart';
 import 'package:comicredr/src/data/app_database.dart';
 import 'package:comicredr/src/data/settings_store.dart';
 import 'package:comicredr/src/input/touch_providers.dart';
+import 'package:comicredr/src/library/cover_card.dart';
 import 'package:comicredr/src/library/library_items.dart';
 import 'package:comicredr/src/library/library_screen.dart';
 import 'package:comicredr/src/library/library_store.dart';
@@ -441,7 +442,9 @@ void main() {
       tester,
     ) async {
       final store = (await tester.runAsync(shelf))!;
-      final book = (await tester.runAsync(store.books))!.first;
+      // Deliberately different from the first cover on Books: store.books()
+      // has no display order, while the library groups and sorts its covers.
+      final book = (await tester.runAsync(store.books))!.firstWhere((b) => b.path.endsWith('Swamp Thing 21.cbz'));
       final c = await pumpApp(tester, const Size(360, 740));
       await settle(tester);
       final reader = c.read(readerProvider.notifier);
@@ -462,13 +465,20 @@ void main() {
       await settle(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.home);
       await settle(tester);
+      late LibraryBook selectedBook;
+      await eventually(tester, () {
+        final selected = tester.widgetList<CoverCard>(find.byType(CoverCard)).where((card) => card.selected).toList();
+        expect(selected, hasLength(1));
+        expect(selected.single.item, isA<BookItem>());
+        selectedBook = (selected.single.item as BookItem).book;
+      }, settle: settle);
       // Use the reader's key through the app's real keyboard dispatch, on a cover.
       await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
       await tester.sendKeyEvent(LogicalKeyboardKey.keyB, character: 'b');
       await eventuallyAsync(
         tester,
         store.books,
-        (books) => expect(books.where((b) => b.started), hasLength(1)),
+        (books) => expect(books.where((b) => b.started).map((b) => b.key), [selectedBook.key]),
         settle: settle,
       );
       // The library menu uses the same selected book and removes it again.
@@ -483,18 +493,18 @@ void main() {
       );
       await eventually(
         tester,
-        () => expect(find.text('${book.name} marked as not started'), findsOneWidget),
+        () => expect(find.text('${selectedBook.name} marked as not started'), findsOneWidget),
         settle: settle,
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.keyU, character: 'u');
       await eventuallyAsync(
         tester,
         store.books,
-        (books) => expect(books.where((b) => b.started), hasLength(1)),
+        (books) => expect(books.where((b) => b.started).map((b) => b.key), [selectedBook.key]),
         settle: settle,
       );
       // The selected cover's details page also offers a touch button.
-      await tester.tap(find.byKey(ValueKey(BookItem(book).id)));
+      await tester.tap(find.byKey(ValueKey(BookItem(selectedBook).id)));
       await settle(tester);
       final button = find.byKey(const Key('started'));
       expect(button, findsOneWidget);
