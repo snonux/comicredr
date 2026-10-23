@@ -46,6 +46,7 @@ class Device {
       coverDir: covers,
       onDownloaded: scanner.scan,
       pushDelay: const Duration(hours: 1),
+      clock: () => now,
     );
     sidecars.onWritten = (key) => s3.sidecarWritten(key);
   }
@@ -61,6 +62,7 @@ class Device {
   late final LibraryStore store;
   late final LibraryScanner scanner;
   late final S3Sync s3;
+  DateTime now = DateTime(2026, 10, 23);
   final notices = <String>[];
 
   /// The ones among [notices] said as failures, which the app keeps up.
@@ -272,6 +274,7 @@ void main() {
     expect(await laptop.s3.pullOnOpen(key), isFalse);
 
     bucket.reachable = true;
+    laptop.now = laptop.now.add(const Duration(hours: 1));
     await laptop.s3.drain();
     expect(laptop.s3.current.waiting, 0);
     await pumpEventQueue();
@@ -281,6 +284,112 @@ void main() {
     expect(laptop.notices.length, greaterThan(laptop.failures.length));
     final side = await laptop.sidecars.sidecarFor(path, folder: false);
     expect(bucket.objects[BookObjects('Comics/', key).sidecar]!.metadata[writtenAtMeta], '${sidecarWrittenAt(side)}');
+  });
+
+  test('an outage pauses every connection route for an hour while local saves continue', () async {
+    final path = writeBook(laptop.root, 'Pep.cbz', 5);
+    await laptop.scanner.scan();
+    final key = await contentKey(path);
+    await laptop.s3.upload([key]);
+    await laptop.s3.drain();
+    bucket.reachable = false;
+    await laptop.readTo(key, 1, 5);
+    await laptop.s3.drain();
+    final failedAt = bucket.calls;
+    await pumpEventQueue();
+    laptop.notices.clear();
+    laptop.failures.clear();
+
+    // Page turns, opening, resume/refresh, upload and exit must all obey
+    // the same deadline; local changes remain queued instead of lost.
+    laptop.now = laptop.now.add(const Duration(minutes: 59));
+    await laptop.readTo(key, 3, 5);
+    await laptop.s3.pullOnOpen(key);
+    await laptop.s3.start();
+    await laptop.s3.refreshShelf();
+    expect(await laptop.s3.upload([key]), 1);
+    await laptop.s3.sync();
+    await laptop.s3.flush();
+    await pumpEventQueue();
+    expect(bucket.calls, failedAt);
+    expect(laptop.notices, isEmpty);
+    expect(laptop.s3.current.waiting, 1);
+    expect((await laptop.book(key)).page, 3);
+
+    // A failed hourly attempt says so once and starts another full hour.
+    laptop.now = laptop.now.add(const Duration(minutes: 1));
+    await laptop.s3.sync();
+    await pumpEventQueue();
+    expect(bucket.calls, failedAt + 1);
+    expect(laptop.failures, [contains('out of reach')]);
+    bucket.reachable = true;
+    await laptop.s3.flush();
+    expect(bucket.calls, failedAt + 1);
+    laptop.now = laptop.now.add(const Duration(hours: 1));
+    await laptop.s3.sync();
+    expect(laptop.s3.current.reach, S3Reach.ok);
+    expect(laptop.s3.current.waiting, 0);
+  });
+
+  test('an earlier in-flight success cannot clear a newer outage cooldown', () async {
+    final held = _HeldListStore();
+    final device = Device('held', tmp, held);
+    await device.setUp();
+    try {
+      final path = writeBook(device.root, 'Pep.cbz', 4);
+      await device.scanner.scan();
+      final key = await contentKey(path);
+      final refreshing = device.s3.refreshShelf();
+      await held.listEntered.future;
+      held.reachable = false;
+      await device.s3.upload([key]);
+      await device.s3.drain();
+      expect(device.s3.current.reach, S3Reach.unreachable);
+      final failedAt = held.calls;
+      held.listRelease.complete();
+      await refreshing;
+      expect(device.s3.current.reach, S3Reach.unreachable);
+      await device.s3.sync();
+      expect(held.calls, failedAt);
+      expect(device.s3.current.waiting, 1);
+    } finally {
+      await device.close();
+    }
+  });
+
+  test('the retry timer reconnects without a page turn or refresh', () async {
+    final retrying = S3Sync(
+      laptop.db,
+      sidecars: laptop.sidecars,
+      settings: laptop.s3.settings,
+      storeFor: (_) => bucket,
+      coverDir: laptop.covers,
+      retryAfter: const Duration(milliseconds: 20),
+    );
+    try {
+      bucket.reachable = false;
+      await retrying.start();
+      expect(retrying.current.reach, S3Reach.unreachable);
+      final recovered = retrying.status.firstWhere((s) => s.reach == S3Reach.ok);
+      bucket.reachable = true;
+      await recovered.timeout(const Duration(seconds: 5));
+      await retrying.sync();
+      expect(bucket.calls, greaterThan(1));
+    } finally {
+      await retrying.dispose();
+    }
+  });
+
+  test('saving S3 settings resets an outage cooldown immediately', () async {
+    bucket.reachable = false;
+    await laptop.s3.start();
+    final failedAt = bucket.calls;
+    bucket.reachable = true;
+    await laptop.s3.start();
+    expect(bucket.calls, failedAt);
+    await laptop.s3.settingsChanged();
+    expect(bucket.calls, greaterThan(failedAt));
+    expect(laptop.s3.current.reach, S3Reach.ok);
   });
 
   test('remove from S3 keeps the comic here; a comic removed elsewhere loses its badge', () async {
@@ -369,7 +478,8 @@ void main() {
         'S3 is out of reach: 5 comics can be downloaded when it is back',
       ]);
       expect(phone.failures, phone.notices);
-      // One alone is named.
+      // One alone is named, without reconnecting during the cooldown.
+      final failedAt = bucket.calls;
       phone.notices.clear();
       phone.failures.clear();
       await phone.s3.download(keys.first);
@@ -379,6 +489,7 @@ void main() {
         'S3 is out of reach: Pep #1 can be downloaded when it is back',
         'S3 is out of reach: Pep #5 can be downloaded when it is back',
       ]);
+      expect(bucket.calls, failedAt);
       expect(phone.failures, phone.notices);
     });
 
@@ -415,6 +526,7 @@ void main() {
       expect(filesUnder(phone.root), isEmpty);
 
       // A comic that came whole, and the bucket off when its sidecar is asked for.
+      phone.now = phone.now.add(const Duration(hours: 1));
       bucket
         ..reachable = true
         ..offAt = '/sidecar.crdb';
@@ -426,6 +538,7 @@ void main() {
 
       // The sidecar's head answered and its download broke off: neither the
       // comic nor the sidecar's part file is left.
+      phone.now = phone.now.add(const Duration(hours: 1));
       bucket
         ..reachable = true
         ..offAt = null
@@ -504,6 +617,7 @@ void main() {
       await phone.s3.upload(keys);
       await phone.s3.drain();
       bucket.reachable = true;
+      phone.now = phone.now.add(const Duration(hours: 1));
       await phone.s3.drain();
       await pumpEventQueue();
       expect(phone.notices, [
@@ -698,11 +812,28 @@ void main() {
       await laptop.s3.sync();
       expect(laptop.s3.current.waiting, 1);
       bucket.reachable = true;
+      laptop.now = laptop.now.add(const Duration(hours: 1));
       await laptop.s3.drain();
       expect(inBucket().relPath, 'Read/Weird Comics 4.cbz');
       expect(laptop.s3.current.waiting, 0);
     });
   });
+}
+
+/// One listing answered before an outage but completes after it.
+class _HeldListStore extends RefusingStore {
+  final listEntered = Completer<void>();
+  final listRelease = Completer<void>();
+
+  @override
+  Stream<RemoteObject> list(String prefix) async* {
+    final objects = await super.list(prefix).toList();
+    if (!listEntered.isCompleted) {
+      listEntered.complete();
+      await listRelease.future;
+    }
+    yield* Stream.fromIterable(objects);
+  }
 }
 
 class _HeldDownloadStore extends MemoryStore {
@@ -753,6 +884,8 @@ Future<int> truncate(MemoryStore bucket, String name) async {
 /// A bucket that can also refuse (wrong keys), and go off after so many
 /// comics were fetched or when one object is asked for.
 class RefusingStore extends MemoryStore {
+  int calls = 0;
+
   /// What every call is refused with; null for a bucket that answers.
   String? refuse;
 
@@ -774,7 +907,26 @@ class RefusingStore extends MemoryStore {
   }
 
   void _refused() {
+    calls++;
     if (refuse case final why?) throw RemoteException(RemoteFailure.denied, why);
+  }
+
+  @override
+  Stream<RemoteObject> list(String prefix) async* {
+    _refused();
+    yield* super.list(prefix);
+  }
+
+  @override
+  Future<Uint8List?> get(String key) {
+    _refused();
+    return super.get(key);
+  }
+
+  @override
+  Future<void> delete(String key) {
+    _refused();
+    return super.delete(key);
   }
 
   @override

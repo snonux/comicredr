@@ -65,6 +65,9 @@ class S3Store implements RemoteStore {
     if (e is MinioS3Error) {
       final code = e.error?.code;
       final status = e.response?.statusCode;
+      if (status != null && status >= 500 && status <= 599) {
+        return RemoteException(RemoteFailure.unreachable, 'The server is unavailable (HTTP $status)');
+      }
       if (code == 'NoSuchBucket') return const RemoteException(RemoteFailure.noBucket, 'There is no such bucket');
       if (status == 403 ||
           status == 401 ||

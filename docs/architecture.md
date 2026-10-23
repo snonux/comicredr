@@ -483,6 +483,11 @@ flowchart LR
   is newer (`pullOnOpen`, two seconds at most) and takes it in whole
   (`SidecarSync.replaceWith`). Comics on S3 only are rows without a file:
   `LibraryStore.books()` shows them where a download would put them.
+  A network outage or HTTP 5xx response starts a one-hour cooldown in
+  `_connect`, shared by refresh, resume, opening, draining, flushing and
+  explicit transfers. Changes still queue locally. The next failed
+  attempt reports one notice and starts another hour; restarting the app
+  or saving S3 settings clears the cooldown.
 
 ```mermaid
 sequenceDiagram

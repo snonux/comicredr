@@ -177,10 +177,17 @@ gets no answer shows one notice, "S3 (garage.lan:3900) is out of reach;
 saving on this device", and the clouds turn red. Reading is never
 slowed and nothing is lost: every change is saved on the device, and
 what waits for the bucket is kept in the app's database, across
-restarts. The app tries again after 30 seconds, then less often, up to
-every five minutes, and at once on start, when it comes back to the
-front and on `R`. When the bucket answers again: "S3 is back; 3 comics
-caught up".
+restarts. A server error such as "Bad Gateway" is treated the same way.
+The app waits an hour before trying the server again, and shows another
+notice only if that attempt also fails. Page turns, reopening a comic,
+coming back to the app and `R` all respect that pause, so you can keep
+reading without repeated error messages. Uploads and removals wait in
+the queue; downloads become available when the server answers again.
+
+For example, if your home server goes down while you read on the phone,
+your page is still saved there and goes up after the next successful
+attempt. To try sooner, restart ComicRedr or save the S3 settings again.
+When the bucket answers again: "S3 is back; 3 comics caught up".
 
 ## Taking a comic off S3
 

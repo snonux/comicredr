@@ -19,7 +19,8 @@ class RemoteObject {
 /// status line can show.
 enum RemoteFailure {
   /// No answer: the server is off, the name does not resolve, the network
-  /// is down or the connection timed out. The one that is expected, since
+  /// is down, the connection timed out or the server returned HTTP 5xx.
+  /// The one that is expected, since
   /// a home cluster is off at times.
   unreachable,
 

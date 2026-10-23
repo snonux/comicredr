@@ -1593,8 +1593,14 @@ refreshes right away instead of within six hours.
   wins) and keeps the bucket's manifest, so `gu` on a synced comic is a
   manual sync (`uploadBooks` passes every local book). The upload's
   share (`S3Status.transfers`) shows on the reader's status line
-  (`StatusLine.s3Progress`). Unreachable: one notice,
-  retry from 30 s doubling to 5 min, "S3 is back; N comics caught up".
+  (`StatusLine.s3Progress`). Unreachable (including HTTP 5xx): one
+  notice per attempted connection, then a one-hour cooldown shared by
+  `_connect` across refresh, resume, opens, drains, flushes and manual
+  transfers. Local changes still queue (`localOnly` for uploads and
+  moves). A generation guard keeps an older in-flight success from
+  clearing a newer outage. The retry timer tries after an hour; saving
+  settings or restarting clears the pause. Recovery says "S3 is back;
+  N comics caught up".
   Keys `gu`, `gU`, `V` (marks, `_marked` in `LibraryScreenState`, with a
   bar over the grid; Ctrl+click; Select on a phone-wide header, Mark in
   the details pane or page). Delete
@@ -1774,6 +1780,7 @@ tool/e2e/e2e_settings_backup.sh   # Settings → Export settings via the GTK sav
 tool/e2e/e2e_s3_settings.sh      # Settings → S3 sync against GARAGE_TEST_* (tool/garage_local.sh): wrong key, server off, test and save, a restart, the secret only in its 0600 file, a settings export without it, turned off
 tool/e2e/e2e_s3_android.sh app.apk # laptop (Xvfb) and phone (emulator) through a local Garage: V V gu uploads two, the phone lists them, downloads one, opens on the laptop's page and reads on; the laptop is offered the phone's place; gd here and from S3, gU; checks the bucket, the index and the phone's files
 tool/e2e/e2e_s3_reader.sh         # two installs through a local Garage behind a slowed proxy: gu in the reader shows S3 ↑ n% on the status line; the same comic under another name on the second is not sent again, takes the newer sidecar, then pushes its own
+tool/e2e/e2e_s3_outage.sh         # local HTTP 502 fixture, no Garage: fail an upload in the reader, keep paging and queueing without reconnecting past the old 30 s deadline, close without a request, restart retries once; checks progress and queue in sqlite3
 tool/e2e/e2e_s3_move.sh           # two installs through a local Garage: gu, then the comic moved and renamed in the shell (the manifest follows at the next start, the comic not sent again), gm into another folder (follows at once), the second install lists and downloads it into that folder at the first's page, a restart leaves the bucket alone
 tool/e2e/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book

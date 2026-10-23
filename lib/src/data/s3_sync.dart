@@ -76,8 +76,8 @@ typedef S3Notice = ({String text, bool failure});
 /// when a sidecar changes, and brings the bucket's sidecar back when it is
 /// newer. The newest `written_at` wins, whole file, never merged. What has
 /// not reached the bucket waits in the s3_books table, so a bucket that is
-/// off only means waiting: one notice, and a retry that backs off from 30
-/// seconds to five minutes.
+/// off only means waiting: one notice and no more connections for an hour,
+/// unless the app restarts or the settings change.
 class S3Sync {
   S3Sync(
     this._db, {
@@ -88,7 +88,9 @@ class S3Sync {
     this.onDownloaded,
     this.pushDelay = const Duration(seconds: 10),
     this.refreshEvery = const Duration(minutes: 5),
-  });
+    this.retryAfter = const Duration(hours: 1),
+    DateTime Function()? clock,
+  }) : clock = clock ?? DateTime.now;
 
   final AppDatabase _db;
   final SidecarSync sidecars;
@@ -104,6 +106,10 @@ class S3Sync {
   final Duration pushDelay;
   final Duration refreshEvery;
 
+  /// Every route to the bucket waits this long after an outage.
+  final Duration retryAfter;
+  final DateTime Function() clock;
+
   final _status = StreamController<S3Status>.broadcast();
   final _notices = StreamController<S3Notice>.broadcast();
   S3Status _now = const S3Status();
@@ -118,7 +124,12 @@ class S3Sync {
   S3Config? _config;
   String? _configId;
   Timer? _pushTimer, _retryTimer, _refreshTimer;
-  Duration _backoff = const Duration(seconds: 30);
+  DateTime? _retryAt;
+
+  // Older in-flight requests must not clear a newer outage or new settings.
+  int _connectionGeneration = 0;
+
+  bool get _coolingDown => _retryAt != null && clock().isBefore(_retryAt!);
   bool _disposed = false;
 
   /// The bucket was out of reach since the last drain that sent anything,
@@ -140,8 +151,9 @@ class S3Sync {
     if (!_notices.isClosed) _notices.add((text: text, failure: true));
   }
 
-  /// The bucket as the settings say now, or null when sync is off.
-  Future<(RemoteStore, S3Config)?> _connect() async {
+  /// The configured bucket, unless sync is off or connections are paused.
+  /// [localOnly] permits queue changes during a pause, without network I/O.
+  Future<(RemoteStore, S3Config)?> _connect({bool localOnly = false}) async {
     final S3Config? c;
     try {
       c = await settings.config();
@@ -162,10 +174,15 @@ class S3Sync {
       _configId = id;
       _set(_now.copyWith(reach: S3Reach.unknown, host: c.host));
     }
+    if ((_coolingDown && !localOnly) || _disposed) return null;
     return (_store!, _config!);
   }
 
   void _drop() {
+    _connectionGeneration++;
+    _retryTimer?.cancel();
+    _retryAt = null;
+    _wasOut = false;
     _store?.close();
     _store = null;
     _config = null;
@@ -176,35 +193,38 @@ class S3Sync {
   /// the first failure to connect says so once, and the retry starts.
   /// Rethrows every RemoteException.
   Future<T> _guard<T>(Future<T> Function() f) async {
+    final generation = _connectionGeneration;
     try {
       final r = await f();
-      _answered();
+      if (generation == _connectionGeneration) _answered();
       return r;
     } on RemoteException catch (e) {
-      if (e.failure == RemoteFailure.unreachable) {
-        _unreachable();
-      } else {
-        _answered();
+      if (generation == _connectionGeneration) {
+        if (e.failure == RemoteFailure.unreachable) {
+          _unreachable();
+        } else {
+          _answered();
+        }
       }
       rethrow;
     }
   }
 
   void _answered() {
-    _backoff = const Duration(seconds: 30);
+    _retryTimer?.cancel();
+    _retryAt = null;
     if (_now.reach != S3Reach.ok) _set(_now.copyWith(reach: S3Reach.ok));
   }
 
   void _unreachable() {
+    if (_disposed || _coolingDown) return;
+    _connectionGeneration++;
     _wasOut = true;
-    if (_now.reach != S3Reach.unreachable) {
-      _fail('S3 (${_config?.host ?? 'the bucket'}) is out of reach; saving on this device');
-      _set(_now.copyWith(reach: S3Reach.unreachable));
-    }
+    _retryAt = clock().add(retryAfter);
+    _fail('S3 (${_config?.host ?? 'the bucket'}) is out of reach; saving on this device');
+    _set(_now.copyWith(reach: S3Reach.unreachable));
     _retryTimer?.cancel();
-    _retryTimer = Timer(_backoff, () => unawaited(sync()));
-    final next = _backoff * 2;
-    _backoff = next > const Duration(minutes: 5) ? const Duration(minutes: 5) : next;
+    _retryTimer = Timer(retryAfter, () => unawaited(sync()));
   }
 
   /// Checks the bucket now and every few minutes: fetches what the other
@@ -212,7 +232,7 @@ class S3Sync {
   /// `R` and after the settings change.
   Future<void> start() async {
     _refreshTimer?.cancel();
-    if (await _connect() == null) return;
+    if (await _connect(localOnly: true) == null) return;
     _refreshTimer = Timer.periodic(refreshEvery, (_) => unawaited(sync()));
     await sync();
   }
@@ -350,7 +370,7 @@ class S3Sync {
   }
 
   Future<void> _noteMoves() async {
-    if (await _connect() == null) return;
+    if (await _connect(localOnly: true) == null) return;
     final me = (await sidecars.device()).name;
     var moved = 0;
     for (final row in await _db.select(_db.s3Books).get()) {
@@ -493,7 +513,7 @@ class S3Sync {
   /// counts as there only once all of it is. One already in the bucket is
   /// not sent again: only its sidecar is brought in step, the newest winning.
   Future<int> upload(Iterable<String> keys) async {
-    if (await _connect() == null) return 0;
+    if (await _connect(localOnly: true) == null) return 0;
     var n = 0;
     final now = DateTime.now();
     for (final key in keys) {
@@ -831,7 +851,13 @@ class S3Sync {
     final row = await (_db.select(_db.s3Books)..where((t) => t.contentKey.equals(contentKey))).getSingleOrNull();
     final m = row == null ? null : Manifest.decode(row.manifest);
     final conn = await _connect();
-    if (m == null || conn == null) return null;
+    if (m == null) return null;
+    if (conn == null) {
+      if (_coolingDown) {
+        _notFetched(const RemoteException(RemoteFailure.unreachable, 'Waiting to retry'), m, batch);
+      }
+      return null;
+    }
     final (store, config) = conn;
     final place = await _placeFor(m, contentKey, batch);
     if (place == null) return null;
