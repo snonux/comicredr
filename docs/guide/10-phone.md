@@ -111,12 +111,13 @@ instead of on a page of their own.
 - ComicRedr keeps more pages ready on a tablet, so turning pages stays
   quick on the bigger screen.
 
-![Two pages side by side on a tablet held sideways, in fullscreen](images/android-tablet-spread.webp)
+![Two pages side by side on a tablet held sideways](images/android-tablet-spread.webp)
 
 <img src="images/android-tablet-portrait.webp" width="320" alt="A page on a tablet held upright">
 
-These pictures are from the Android 14 emulator's Pixel Tablet
-(2560 × 1600).
+The library picture is from the Android 14 emulator's Pixel Tablet
+(2560 × 1600). The reader pictures are from a tablet-sized Android 14
+emulator at 1600 × 2560, turned sideways for the spread.
 
 ## From the laptop to the phone and back
 
