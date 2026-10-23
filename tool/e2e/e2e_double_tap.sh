@@ -96,6 +96,29 @@ for y in 90 320 560; do
       1.0 "double-taps $x,$y keep the zoom"
   done
 done
+# Nearby taps straddling a column boundary still form one double-tap.
+# Recalculate for the live window size after entering or leaving fullscreen.
+for column in 30 70; do
+  for direction in -1 1; do
+    for full in true false; do
+      width=$(xdotool getwindowgeometry --shell "$win" |
+        awk -F= '$1 == "WIDTH" { print $2 }')
+      boundary=$((width * column / 100))
+      tap "$((boundary + 3 * direction))" 320
+      sleep 0.1
+      tap "$((boundary - 3 * direction))" 320
+      sleep 1
+      expect "$(q "select value from settings where key='reader.fullscreen'")" \
+        "$full" "boundary $column% direction $direction toggles once"
+      if fullscreen; then actual=true; else actual=false; fi
+      expect "$actual" "$full" 'window manager follows the boundary double-tap'
+      expect "$(q 'select page from progress limit 1')" 0 \
+        'boundary double-taps keep the page'
+      expect "$(q "select coalesce(json_extract(view_json, '$.view.zoom'), 1.0) from progress limit 1")" \
+        1.0 'boundary double-taps keep the zoom'
+    done
+  done
+done
 grep -q 'touch_inject: the Flutter view selects touch events' "$out/app.log"
 tap 1190 320
 sleep 1

@@ -227,10 +227,15 @@ class _ReaderTouchState extends State<ReaderTouch> {
     if (zone == null) return;
     final map = widget.touchMap();
     final first = _pendingTapAt;
-    if (first != null && _pendingZone == zone && (at - first).distance < kDoubleTapSlop) {
+    final intent = map.action(TouchGesture.doubleTap, zone);
+    final firstZone = _pendingZone;
+    if (first != null &&
+        firstZone != null &&
+        intent != null &&
+        map.action(TouchGesture.doubleTap, firstZone) == intent &&
+        (at - first).distance < kDoubleTapSlop) {
       _clearPendingTap();
-      final intent = map.action(TouchGesture.doubleTap, zone);
-      if (intent != null) _send(ReaderCommand(intent, at: Point(at.dx, at.dy)));
+      _send(ReaderCommand(intent, at: Point(at.dx, at.dy)));
       return;
     }
     _flushPendingTap();
