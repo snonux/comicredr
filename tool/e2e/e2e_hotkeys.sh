@@ -10,9 +10,11 @@
 #    asks before clearing the reading history, where Enter is Cancel (the
 #    history stays) and Alt+L clears it; Alt+C closes Settings.
 #  - The delete question (`gd`): Tab moves the focus ring and Shift+Tab
-#    puts it back (the screenshots differ and match again), `d` without Alt
-#    deletes nothing, Enter is Cancel, Alt+C cancels, Alt+D deletes: the
-#    file is gone and the index has a comic fewer.
+#    puts it back (the screenshots differ and match again), Enter is
+#    Cancel, Alt+C cancels, and the underlined letter alone, `d` without
+#    Alt, deletes too — the question has no field a letter could be text
+#    in — and so does Alt+D: the files are gone and the index has two
+#    comics fewer.
 #  - The collection question (`gc`): `ac` typed with no pause is the name
 #    (the letters of Add and Cancel are letters in the field), Alt+A adds
 #    it; a second name is dropped with Alt+C.
@@ -269,28 +271,43 @@ key Tab
 differs delete_tab "$question" "Tab moves the focus ring off Cancel"
 key shift+Tab
 same delete_back "$question" "Shift+Tab puts it back"
-key d
-sleep 1.5
-same delete_d "$question" "d without Alt changes nothing in the question"
-check "and deletes nothing" "$(files)" 6
+# Enter is Cancel: the question is gone and nothing is deleted.
 key Return
 same delete_enter "$library" "Enter is Cancel: the question is gone"
 check "Enter deleted nothing" "$(files)" 6
+# And Alt+C cancels too.
 key g d
 differs delete_again "$library" "gd asks again"
 key alt+c
 same delete_cancelled "$library" "Alt+C cancels"
 check "Alt+C deleted nothing" "$(files)" 6
+# The underlined letter alone, `d` without Alt, deletes: the question has
+# no field a letter could be text in, so the letter is the button.
 key g d
 differs delete_third "$library" "gd asks a third time"
-key alt+d
+key d
+sleep 1.5
+differs delete_d "$question" "d without Alt takes the button: the question is gone"
 wait_q 'select count(*) from books' 5 || true
-check "Alt+D deletes: comics on disk" "$(files)" 5
-check "Alt+D deletes: comics in the index" "$(q 'select count(*) from books')" 5
+check "the underlined letter alone deletes: comics on disk" "$(files)" 5
+check "the underlined letter alone deletes: comics in the index" "$(q 'select count(*) from books')" 5
 if [[ ! -e "$comics/Book 01.cbz" ]]; then
   ok "the selected comic, Book 01, is the one gone"
 else
   fail "Book 01.cbz is still there"
+fi
+# The next cover took the selection: Alt+D deletes that one.
+sleep 2
+key g d
+differs delete_again "$library" "gd asks again"
+key alt+d
+wait_q 'select count(*) from books' 4 || true
+check "Alt+D deletes: comics on disk" "$(files)" 4
+check "Alt+D deletes: comics in the index" "$(q 'select count(*) from books')" 4
+if [[ ! -e "$comics/Book 02.cbz" ]]; then
+  ok "the next comic, Book 02, is the one Alt+D deleted"
+else
+  fail "Book 02.cbz is still there"
 fi
 
 # 4. The collection question: the name typed with no pause after gc, the
@@ -358,16 +375,16 @@ key l
 key g A
 wait_q 'select count(*) from roots' 0 || true
 check "gA takes the selected library folder out" "$(q 'select count(*) from roots')" 0
-check "its comics stay on disk" "$(files)" 5
+check "its comics stay on disk" "$(files)" 4
 # The notice offers it back, and u is its Undo: in the library again, and
 # scanned, so its comics are in the index again.
 key u
 wait_q 'select count(*) from roots' 1 || true
 check "u puts the library folder back" "$(q 'select count(*) from roots')" 1
 check "the same folder" "$(q 'select path from roots')" "$comics"
-wait_q 'select count(*) from files' 5 || true
-check "and its comics are found again" "$(q 'select count(*) from files')" 5
-check "nothing on disk changed" "$(files)" 5
+wait_q 'select count(*) from files' 4 || true
+check "and its comics are found again" "$(q 'select count(*) from files')" 4
+check "nothing on disk changed" "$(files)" 4
 shot end
 
 if ((failed)); then

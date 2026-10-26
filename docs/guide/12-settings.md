@@ -9,9 +9,10 @@ reading, with the key named in brackets.
 Settings can be worked without the mouse: `Tab` and `Shift+Tab` go from
 one control to the next, with a ring around the one you are on, `Space`
 switches a switch or picks a choice, the left and right arrows move a
-slider, and `Alt` with an underlined letter presses that button (`Alt+H`
-for **Clear reading history**, `Alt+S` for the S3 sync, `Alt+M` and
-`Alt+B` for smaller and bigger covers, `Alt+C` to close). See
+slider, and an underlined letter presses that button (`h` for **Clear
+reading history**, `s` for the S3 sync, `m` and `b` for smaller and
+bigger covers, `c` to close; Settings has nothing to type into, so the
+letters work without `Alt`). See
 [a key for every button](09-keyboard.md#a-key-for-every-button).
 
 ![The Settings dialog](images/settings.webp)

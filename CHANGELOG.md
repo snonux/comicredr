@@ -7,6 +7,12 @@ the `?` overlay.
 
 ## Unreleased
 
+- The underlined letter of a dialog button now presses it without `Alt`
+  too, wherever the dialog has no text field: `d` alone answers the
+  delete question, `c` cancels, `l` clears the Reading list. Dialogs with
+  a name to type (a collection, a note, the S3 settings) still need
+  `Alt` and the letter, so typing a name stays typing.
+
 ## 0.9.9
 
 - Delete confirmations and notices name this device and S3 explicitly.

@@ -137,21 +137,23 @@ sort, a name to type) the keys are the ones of any Linux desktop:
 
 | Key | In a dialog |
 |---|---|
-| `Alt` + the underlined letter | Presses that button: `Alt+C` is **Cancel**, `Alt+D` **Delete for good**, `Alt+S` **Save**. `Alt`, so that a letter typed into a name stays a letter. |
+| The underlined letter | Presses that button: `c` is **Cancel**, `d` **Delete for good**, `s` **Save**. In a dialog where you type a name (a collection, a note) the letter would be part of the name, so there it needs `Alt` with it. |
+| `Alt` + the underlined letter | The same button everywhere: `Alt+C` is **Cancel**, `Alt+D` **Delete for good**, `Alt+S` **Save**. |
 | `Enter` | The button with the ring around it. A dialog starts on its safe button: **Cancel** where something would be lost. In a field you type in, `Enter` is the dialog's main button. |
 | `Esc` | Closes the dialog and changes nothing. |
 | `Tab` `Shift+Tab` | To the next and the previous control, every one of them in turn, also in a dialog that scrolls. A ring shows where you are. |
 | Arrows | To the control in that direction; on a slider, a notch left or right. |
 | `Space` | Switches a switch, picks a choice, presses a button. |
 
-![The question before deleting: the letters to press with Alt are underlined, and Cancel has the ring](images/delete.webp)
+![The question before deleting: the letters to press are underlined, and Cancel has the ring](images/delete.webp)
 
 For example, to switch on **Clean up old scans** without the mouse:
 `g,` opens Settings, `Tab` goes to the first switch, `Space` switches
-it, and `Alt+C` (or `Esc`) closes Settings. Or to delete the comic you
-are on: `gd`, look at what it says, then `Alt+D`; a stray `Enter` only
-presses **Cancel**. While a dialog is open no key reaches the comic or
-the library behind it.
+it, and `c` (or `Esc`) closes Settings — its letters work without
+`Alt` too, since Settings has nothing to type into. Or to delete the
+comic you are on: `gd`, look at what it says, then `d`; a stray `Enter`
+only presses **Cancel**. While a dialog is open no key reaches the
+comic or the library behind it.
 
 On a phone or tablet the letters are underlined only while `Alt` is
 held on a keyboard you have plugged in; the keys work the same.

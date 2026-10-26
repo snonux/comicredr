@@ -236,8 +236,9 @@ Bookmarks alike.
   thick collection or a whole volume).
 
 The covers behind the window update as you pick. From the keyboard,
-`Tab` moves between the choices and `Space` picks one; `Alt+C` is
-**Clear all**, and `Esc`, `Alt+D` or **Done** closes the window. The
+`Tab` moves between the choices and `Space` picks one; `c` is
+**Clear all**, and `Esc`, `d` or **Done** closes the window (the window
+has nothing to type into, so the letters work without `Alt` too). The
 five combine, and they combine with the search too: PDFs from the last
 week with "love" in the title is `F`, PDF, Last 7 days, then `/` and
 `love`. To see only what you have not read yet, `gF` is the whole
@@ -274,7 +275,7 @@ The Folders tab lists comics by file name unless you sort it. Press
 `gS` on the Folders tab, or click **Sort: Name, A to Z** at the right
 end of the line under the search box, and pick an order:
 
-| Order | Comes first | `Alt` + |
+| Order | Comes first | Letter |
 |---|---|---|
 | **Name** | A to Z, by file name (numbers counted as numbers, so 2 before 10) | `N` |
 | **Added** | the comic added to the library last | `A` |
@@ -285,9 +286,11 @@ end of the line under the search box, and pick an order:
 | **Series** | A to Z by series, then by volume and issue number | `E` |
 | **Year** | the newest comic, by the year it came out | `Y` |
 
-**Reverse** (`Alt+R`) turns the order round: oldest first, smallest
+Each letter picks its order pressed on its own (the window has nothing
+to type into) or with `Alt` held. **Reverse** (`r`, or `Alt+R`) turns the
+order round: oldest first, smallest
 first, Z to A. The covers behind the window move as you pick; `Esc`,
-`Alt+D` or **Done** closes it.
+`d` or **Done** closes it.
 
 Without the window:
 
@@ -305,8 +308,8 @@ without a year) goes after all the others, whichever way round. The
 order stays across restarts, works together with the filter and the
 search, and only the Folders tab is sorted.
 
-For example, to see what you read lately: `gS`, `Alt+L`, `Esc`. To find
-the thick volumes: `gS`, `Alt+P`, `Esc`.
+For example, to see what you read lately: `gS`, `l`, `Esc`. To find
+the thick volumes: `gS`, `p`, `Esc`.
 
 ![The sort window over the Golden age folder, sorted by pages](images/sort-dialog.webp)
 

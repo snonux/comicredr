@@ -588,7 +588,7 @@ void main() {
       expect(find.byKey(const Key('deleteDialog')), findsOneWidget);
     });
 
-    testWidgets('gd: Cancel is the default, Alt+C cancels, Alt+D deletes; d alone does not', (tester) async {
+    testWidgets('gd: Cancel is the default, Alt+C cancels, Alt+D and d alone delete', (tester) async {
       await inFolder(tester);
       final path = '${root.path}/Akira.cbz';
       await type(tester, 'gd');
@@ -600,9 +600,7 @@ void main() {
       expect(focused(tester, 'Delete for good'), isTrue);
       await press(tester, LogicalKeyboardKey.arrowLeft);
       expect(focused(tester, 'Cancel'), isTrue);
-      // The letter without Alt, and Enter on the default, delete nothing.
-      await type(tester, 'd');
-      expect(find.byKey(const Key('deleteDialog')), findsOneWidget);
+      // Enter on the default, Cancel, deletes nothing.
       await press(tester, LogicalKeyboardKey.enter);
       expect(find.byKey(const Key('deleteDialog')), findsNothing);
       expect(File(path).existsSync(), isTrue);
@@ -612,13 +610,23 @@ void main() {
       expect(find.byKey(const Key('deleteDialog')), findsNothing);
       expect(File(path).existsSync(), isTrue);
 
+      // The underlined letter alone deletes too, as it looks like it
+      // does: the dialog has no field a letter could be text in.
       await type(tester, 'gd');
-      await alt(tester, 'd');
+      await type(tester, 'd');
       for (var i = 0; i < 20 && File(path).existsSync(); i++) {
         await settle(tester);
       }
       expect(File(path).existsSync(), isFalse);
       expect(File('${root.path}/Blacksad.cbz').existsSync(), isTrue);
+      // The selection moved to the next cover: Alt+D deletes that one.
+      await type(tester, 'gd');
+      expect(find.text('Delete Blacksad?'), findsOneWidget);
+      await alt(tester, 'd');
+      for (var i = 0; i < 20 && File('${root.path}/Blacksad.cbz').existsSync(); i++) {
+        await settle(tester);
+      }
+      expect(File('${root.path}/Blacksad.cbz').existsSync(), isFalse);
     });
 
     testWidgets('X: Redo panels is the default; Alt+C leaves; gc: a typed a is a name, Alt+A adds', (tester) async {
@@ -1743,6 +1751,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(answer(), choice, reason: 'Alt+$letter');
         expect(find.byKey(const Key('deleteDialog')), findsNothing);
+        // The letter by itself does too: the question has no field a
+        // letter could be text in, so the underline promises it.
+        await again(tester);
+        await tester.sendKeyEvent(keyOf(letter), character: letter);
+        await tester.pumpAndSettle();
+        expect(answer(), choice, reason: 'the bare letter $letter');
+        expect(find.byKey(const Key('deleteDialog')), findsNothing);
       }
     }
 
@@ -2312,9 +2327,29 @@ void main() {
         return null;
       }
 
-      // Each dialog is opened twice. Esc closes it, and then the Alt+letter
-      // of its Cancel, Close or Done does: one key, one route popped, the
-      // dialog's own and not the one under it.
+      /// Whether the dialog on top has something that takes typing, where a
+      /// letter must stay a letter and only Alt presses a button. A text to
+      /// select and copy is no typing, as in the dialog that deletes.
+      bool takesTyping() {
+        final fields = find
+            .descendant(of: find.byType(DialogHotkeys).last, matching: find.byWidgetPredicate((w) => w is EditableText))
+            .evaluate();
+        for (final e in fields) {
+          var copyable = false;
+          e.visitAncestorElements((a) {
+            copyable = a.widget is SelectableText;
+            return !copyable;
+          });
+          if (!copyable) return true;
+        }
+        return false;
+      }
+
+      // Each dialog is opened three times. Esc closes it, and then the
+      // Alt+letter of its Cancel, Close or Done does: one key, one route
+      // popped, the dialog's own and not the one under it. And then the
+      // bare letter does too, where the dialog takes no typing; where it
+      // does (a name field), the letter leaves the dialog alone.
       Future<void> check(String name, {required Future<void> Function() open, int close = 1}) async {
         await open();
         await expectKeyboardDialog(tester, name);
@@ -2339,6 +2374,30 @@ void main() {
           await press(tester, LogicalKeyboardKey.escape);
         }
         expect(find.byType(DialogHotkeys), findsNothing);
+
+        await open();
+        final typing = takesTyping();
+        before = routes.pops;
+        await type(tester, letter);
+        if (typing) {
+          expect(routes.pops, before, reason: 'bare $letter leaves a dialog of $name with a field open');
+          expect(find.byType(DialogHotkeys), findsWidgets, reason: 'bare $letter closed $name with a field');
+          for (var i = 0; i < close; i++) {
+            await press(tester, LogicalKeyboardKey.escape);
+          }
+        } else {
+          expect(routes.pops - before, 1, reason: 'routes popped by the bare letter $letter in $name');
+          expect(
+            find.byType(DialogHotkeys).evaluate().length,
+            dialogs - 1,
+            reason: '$letter alone does not leave $name',
+          );
+          expect(find.byType(HomeScreen), findsOneWidget);
+          for (var i = 1; i < close; i++) {
+            await press(tester, LogicalKeyboardKey.escape);
+          }
+          expect(find.byType(DialogHotkeys), findsNothing);
+        }
       }
 
       await check('Settings', open: () => type(tester, 'g,'));

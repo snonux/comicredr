@@ -765,12 +765,23 @@ refreshes right away instead of within six hours.
   **In a dialog** (a route, which has the focus, so ReaderKeyboard sees
   none of its keys and nothing typed acts on what is behind) Esc, Enter,
   Tab, the arrows and Space are Flutter's. `DialogHotkeys` around the
-  dialog adds three things. (1) Alt and a letter presses the button
-  whose `Mnemonic` label has that letter (the first of the text unless
-  `letter:` names another; the label finds its button by walking up to
-  the nearest `ButtonStyleButton` and calls its `onPressed`, so a
-  disabled button does nothing and `.icon` buttons work). Alt, not the
-  bare letter, so a letter typed into a dialog's field is text; Ctrl+Alt
+  dialog adds three things. (1) A button's underlined letter — the first
+  of its `Mnemonic` label's text unless `letter:` names another; the
+  label finds its button by walking up to the nearest
+  `ButtonStyleButton` and calls its `onPressed`, so a disabled button
+  does nothing and `.icon` buttons work — presses it with Alt held,
+  always, and by itself too where the dialog has nothing that takes
+  typing (`_takesTyping`: no `EditableText` outside a `SelectableText`,
+  which only copies; a field that is not built yet, the S3 settings'
+  before they are read, is not seen, and until it is the bare letter
+  presses, with Alt always there). A bare underlined letter that did
+  nothing was taken for a bug (sp3: `d` in the delete question), so the
+  underline tells the truth everywhere it can. Where the dialog has a
+  field (the collection question, a note, the S3 settings) only Alt
+  presses, so a letter typed into the field is text; the collection
+  question's field is built with the dialog, before it has the focus,
+  so a name typed at once after `gc` still goes into it and not to the
+  Add button. Ctrl+Alt
   and AltGr are not Alt. ReaderKeyboard in turn drops a key that types a
   character (a letter, a digit, a sign, Space) when Alt is held: no
   binding has Alt, and an Alt+C too many after a dialog closed must not
@@ -804,7 +815,9 @@ refreshes right away instead of within six hours.
   the comic's details was taken by the button's label and by a
   `CallbackShortcuts` of the view on one press: two `Navigator.pop`s,
   the second of the app's own route, a dead window.) One press of a key
-  presses once (`_taken`, the event last acted on). No dialog has an Alt
+  presses once (`_taken`, the event last acted on; a key's repeats are
+  `KeyRepeatEvent`s and press nothing, whatever the key held). No dialog
+  has an Alt
   shortcut of its own; the source scan fails on `alt: true` in lib/. A
   button that is not always built names its key with `DialogKey(letter:,
   onPressed:, child:)` around something that is, and is labelled
@@ -1804,7 +1817,7 @@ tool/e2e/e2e_folder_filter.sh     # F and the funnel in the search box: by type,
 tool/e2e/e2e_folder_sort.sh       # gS and Alt+P, S, M, L in its window, gO and go, each proved by the comic that opens first; kept across a restart; the sort button clicked; checks the index with sqlite3; makes its own books
 tool/e2e/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books
-tool/e2e/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; in a comic I, End and Alt+P redo its panels (analysed_pages newer than before) with the app still there (mm bookmarks the page and takes it off again, Esc the library as it was); gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), d without Alt and Enter delete nothing, Alt+C cancels, Alt+D deletes; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out and u puts it back with its comics found again; the app has no session bus (no keyring) and no XDG folders of the caller; checks the index with sqlite3 and the comics on disk; makes its own books
+tool/e2e/e2e_hotkeys.sh          # keys for buttons and dialogs, keyboard alone (the pointer parked below the window, no click): g, opens Settings, Tab and Space switch a setting, Tab and Right move a slider, Alt+H asks before clearing the history (Enter is Cancel, Alt+L clears), Alt+C closes; in a comic I, End and Alt+P redo its panels (analysed_pages newer than before) with the app still there (mm bookmarks the page and takes it off again, Esc the library as it was); gd with Tab and Shift+Tab moving the focus ring (screenshots differ and match again), Enter deletes nothing, Alt+C cancels, the bare underlined d alone deletes and Alt+D deletes the next comic too; gc with ac typed at once and Alt+A, a name dropped by Alt+C; * gf x then u undoes; F with Space, Alt+C and Alt+D; gA takes the library folder out and u puts it back with its comics found again; the app has no session bus (no keyring) and no XDG folders of the caller; checks the index with sqlite3 and the comics on disk; makes its own books
 tool/e2e/e2e_multi_select.sh     # Shift+arrows, Shift+End, Esc, Ctrl+A and * on six comics in a folder, X on two, gd on three (Enter cancels, then deleted), gm into a folder typed in the picker, Ctrl+N, a taken name skipped, gc, a restart; checks the index with sqlite3; makes its own books
 tool/e2e/e2e_perf.sh [label]     # speed: a first and a second start over 120 made comics and the corpus, the covers scrolled, a CBZ and a PDF opened, paged and stepped in guided view; prints each step's time (COMICREDR_TIMING=1) and frame times into build/e2e-perf/<label>/summary.txt; see "Speed"
 python3 tool/e2e/e2e_android_storage.py SERIAL APK  # a dedicated ComicRedr_Acceptance_* AVD: OS-specific permission, deny/return and retry, private data, Comics/Download/Documents, sidecars, export and cancelled/confirmed deletion; see docs/android-storage-acceptance.md

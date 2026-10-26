@@ -13,9 +13,10 @@ import 'package:reader_input/reader_input.dart';
 //   ([KeyHints.tip]), also after keys.toml changed it.
 // * In a dialog (a route of its own, which has the focus) the dialog is
 //   wrapped in [DialogHotkeys] and its buttons are labelled with
-//   [Mnemonic]: Alt and the underlined letter presses the button, as on
-//   any Linux desktop. Alt, so that a letter typed into a dialog's text
-//   field stays a letter. Esc, Enter, Tab and the arrows are Flutter's.
+//   [Mnemonic]: the underlined letter, with Alt held or (where the dialog
+//   has nothing that takes typing) by itself, presses the button. Alt is
+//   always needed in a dialog with a text field, so a letter typed into it
+//   stays a letter. Esc, Enter, Tab and the arrows are Flutter's.
 
 /// The live keymap for the widgets below it, so a tooltip names the key
 /// that works now. Put above the Navigator (MaterialApp.builder): dialogs
@@ -38,8 +39,11 @@ class KeyHints extends InheritedWidget {
   bool updateShouldNotify(KeyHints old) => old.keymap != keymap;
 }
 
-/// Wraps a dialog so that Alt and a letter presses the button whose
-/// [Mnemonic] label has that letter. The letters are underlined on a
+/// Wraps a dialog so that its buttons are pressed by their underlined
+/// letters: Alt and the letter always, and the letter by itself too when
+/// the dialog has nothing that takes typing — a text field is the one
+/// place a letter must stay a letter, and a dialog without one has
+/// nothing else a bare letter could be. The letters are underlined on a
 /// desktop; on a phone or tablet only while Alt is held, so nothing
 /// changes for touch, and a keyboard plugged into one works the same.
 ///
@@ -93,6 +97,30 @@ class _DialogHotkeysState extends State<DialogHotkeys> {
   /// of a key is one press of a button, whoever else is asked about it.
   static KeyEvent? _taken;
 
+  /// Whether anything in the dialog takes typing, so that a letter typed
+  /// into it must stay a letter and only Alt presses a button: any
+  /// [EditableText] of the dialog's own widgets, a text field or its kin.
+  /// A text only to select and copy ([SelectableText]) takes no typing, so
+  /// the delete question's path does not turn its letters off. Anything
+  /// not built (a field that loads, the S3 settings' before they are read)
+  /// is not seen; until it is, a bare letter presses, and Alt is always
+  /// there.
+  bool _takesTyping() {
+    var typing = false;
+    void visit(Element e) {
+      if (typing) return;
+      if (e.widget is SelectableText) return;
+      if (e.widget is EditableText) {
+        typing = true;
+        return;
+      }
+      e.visitChildren(visit);
+    }
+
+    if (context is Element) (context as Element).visitChildren(visit);
+    return typing;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -131,14 +159,19 @@ class _DialogHotkeysState extends State<DialogHotkeys> {
     if (keys.isAltPressed != _alt) setState(() => _alt = keys.isAltPressed);
     if (!(_route?.isCurrent ?? true)) return KeyEventResult.ignored;
     // AltGr is not Alt: on many layouts it types @ and the like.
-    if (!keys.isAltPressed || keys.isControlPressed || keys.isMetaPressed) return KeyEventResult.ignored;
+    if (keys.isControlPressed || keys.isMetaPressed) return KeyEventResult.ignored;
     final label = event.logicalKey.keyLabel;
     if (label.length != 1) return KeyEventResult.ignored;
+    // Alt with the letter always presses; the bare letter only where the
+    // dialog has nothing that takes typing. The collection question's
+    // field is built with the dialog, before it has the focus, so a name
+    // typed at once still goes into it and not to the Add button.
+    if (!keys.isAltPressed && _takesTyping()) return KeyEventResult.ignored;
     final hit = _keyFor(label.toLowerCase());
     if (hit == null) return KeyEventResult.ignored;
     // A held key presses once; its repeats and its release are still the
     // dialog's, not a letter for a text field.
-    if (event is KeyDownEvent && !identical(event, _taken)) {
+    if (event is KeyDownEvent && event is! KeyRepeatEvent && !identical(event, _taken)) {
       _taken = event;
       hit.press();
     }
@@ -202,7 +235,8 @@ class _HotkeyScope extends InheritedWidget {
   bool updateShouldNotify(_HotkeyScope old) => old.show != show || old.state != state;
 }
 
-/// Something of a dialog that Alt and a letter presses: a [Mnemonic]
+/// Something of a dialog that its underlined letter presses (with Alt,
+/// or by itself where the dialog takes no typing): a [Mnemonic]
 /// label or a [DialogKey].
 mixin _Lettered<T extends StatefulWidget> on State<T> {
   _DialogHotkeysState? _scope;
@@ -231,9 +265,10 @@ mixin _Lettered<T extends StatefulWidget> on State<T> {
   }
 }
 
-/// A dialog button's label: [text] with its hotkey letter underlined, and
-/// Alt with that letter presses the button the label is in (any Material
-/// button; a disabled one does nothing). The letter is the first of
+/// A dialog button's label: [text] with its hotkey letter underlined,
+/// and that letter — with Alt held, or by itself where the dialog takes
+/// no typing — presses the button the label is in (any Material button; a
+/// disabled one does nothing). The letter is the first of
 /// [text] unless [letter] names another one in it, which a dialog needs
 /// when two labels start alike (Cancel and Clear). For a control that is
 /// no button, [onPressed] says what the key does.
@@ -313,11 +348,12 @@ class _MnemonicState extends State<Mnemonic> with _Lettered<Mnemonic> {
   }
 }
 
-/// Alt and [letter] does [onPressed] for as long as this is built, with
-/// nothing to see: for a dialog's button that is a row of a lazily built
-/// list and so is not there until scrolled to (Redo panels in the comic's
-/// details). Put it around something of the dialog that is always built
-/// and label the button with [Mnemonic.shown], which underlines the
+/// The dialog's underlined letter (with Alt held, or by itself where the
+/// dialog takes no typing) does [onPressed] for as long as this is built,
+/// with nothing to see: for a dialog's button that is a row of a lazily
+/// built list and so is not there until scrolled to (Redo panels in the
+/// comic's details). Put it around something of the dialog that is always
+/// built and label the button with [Mnemonic.shown], which underlines the
 /// letter and leaves the key to this. Null [onPressed] takes no key.
 class DialogKey extends StatefulWidget {
   const DialogKey({super.key, required this.letter, required this.onPressed, required this.child});
