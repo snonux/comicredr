@@ -1,0 +1,1 @@
+The underlined letter of a dialog button now presses it on its own where the dialog has nothing to type into: d answers the delete question, c cancels, l clears the Reading list. Dialogs with a name to type (a collection, a note, the S3 settings) still need Alt with the letter.

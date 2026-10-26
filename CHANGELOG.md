@@ -5,7 +5,7 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
-## Unreleased
+## 0.9.10
 
 - The underlined letter of a dialog button now presses it without `Alt`
   too, wherever the dialog has no text field: `d` alone answers the
