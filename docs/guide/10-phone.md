@@ -74,7 +74,7 @@ Android 7–10 uses a permission dialog instead (Android 10 shown here):
   pages, right to left, turning, trimming, the night filter, the
   clean-up, reset, delete and S3. Swipe up on the page or tap ☰.
 - The library's header has ⋮ too, beside the gear: opening a comic or
-  a folder without adding it, the filter and sort of the Folders tab,
+  a folder without adding it, the filter, the sort of the tab,
   rescanning and more.
 - The round play arrow at the top of the library's Reading tab carries
   on with the comic you read last, where you stopped, like `C` on the

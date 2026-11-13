@@ -86,7 +86,7 @@ Over a comic it has:
 In the library it has opening a comic or a folder of pages without
 adding it, adding a library folder, rescanning, the comics the last scan
 could not read and the Favourites; the filter, and the next choice of
-its Completed part (as `gF`); on the Folders tab the sort; with covers shown shuffle, bigger and smaller covers and marking
+its Completed part (as `gF`); on every tab but History the sort; with covers shown shuffle, bigger and smaller covers and marking
 every comic shown; and the same **App** lines. Everything about one
 comic is in its details: hold a cover, or tap it on a phone.
 

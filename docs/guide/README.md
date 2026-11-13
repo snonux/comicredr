@@ -38,7 +38,7 @@ come back here for a key you forgot.
      and [clearing it](03-library.md#clear-the-reading-list), [mark a comic as started](03-library.md#mark-a-comic-as-started), [how comics are named](03-library.md#how-comics-are-named),
      [folders](03-library.md#folders),
      [filter the library](03-library.md#filter-the-library),
-     [sort it](03-library.md#sort-the-folders-tab),
+     [sort it](03-library.md#sort-the-library),
      [history](03-library.md#history)
    - [Search](03-library.md#search)
    - [Shuffle](03-library.md#shuffle)

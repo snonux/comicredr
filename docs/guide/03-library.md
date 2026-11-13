@@ -122,8 +122,8 @@ into it like any other character.
 
 | Tab | What it shows |
 |---|---|
-| **Reading** | The books you have started, unfinished ones first, most recent first. ComicRedr opens on this tab while a book is part way read, otherwise on Folders. See [Reading](#reading). |
-| **Books** | Every book, in file order, the same order as the Folders tab. |
+| **Reading** | The books you have started, unfinished ones first, most recent first (or [sorted](#sort-the-library) your way, completed ones still last). ComicRedr opens on this tab while a book is part way read, otherwise on Folders. See [Reading](#reading). |
+| **Books** | Every book, in file order unless you [sort it](#sort-the-library). |
 | **Collections** | Your own groups of books, including [Favourites](#favourites). |
 | **History** | What you read, day by day. |
 | **Folders** | Your comics as they are on disk, folder by folder. |
@@ -277,11 +277,13 @@ leaves the Reading tab too, for instance, not just the Folders tab.
 
 ![The Golden age folder filtered to its PDF](images/filter.webp)
 
-#### Sort the Folders tab
+#### Sort the library
 
-The Folders tab lists comics by file name unless you sort it. Press
-`gS` on the Folders tab, or click **Sort: Name, A to Z** at the right
-end of the line under the search box, and pick an order:
+Every tab that lists comics can be sorted: Reading, Books, Collections,
+Folders and Bookmarks. Each keeps an order of its own, so the Books tab
+by size and the Folders tab by name is fine. Press `gS` on the tab, or
+click the **Sort:** button at the right end of the line under the search
+box (**Sort: Name, A to Z** until you pick another), and pick an order:
 
 | Order | Comes first | Letter |
 |---|---|---|
@@ -308,16 +310,32 @@ Without the window:
 
 A notice along the bottom says what the tab is sorted by now.
 
-Subfolders stay before the comics and follow the same order, each
-judged by its own first comic: sorted by **Last read**, the folder
-holding the comic you read last comes first. A comic that has no value
-for the order (one you never opened, sorted by **Last read**, or one
-without a year) goes after all the others, whichever way round. The
-order stays across restarts, works together with the filter and the
-search, and only the Folders tab is sorted.
+Each tab starts in the order it always had: file name, except Reading,
+which starts with **Last read**. What the order does on each tab:
 
-For example, to see what you read lately: `gS`, `l`, `Esc`. To find
-the thick volumes: `gS`, `p`, `Esc`.
+- **Folders**: subfolders stay before the comics and follow the same
+  order, each judged by its own first comic: sorted by **Last read**, the
+  folder holding the comic you read last comes first.
+- **Reading**: completed comics stay after the others, each part in the
+  order.
+- **Collections**: the collections go by their first comic in the order
+  (by **Name** they are A to Z), and the comics in an open collection, the
+  Favourites among them, follow it too. **Read** in a collection's
+  details still goes on with its first comic not completed by folder and
+  issue.
+- **Books**: every book in the order.
+- **Bookmarks**: comic by comic in the order, each comic's bookmarks
+  from its first page on.
+
+History stays in the order you read. A comic that has no value for the
+order (one you never opened, sorted by **Last read**, or one without a
+year) goes after all the others, whichever way round. The orders stay
+across restarts, work together with the filter and the search, and
+travel in a [settings file](12-settings.md).
+
+For example, to see what you read lately on the Folders tab: `gS`, `l`,
+`Esc`. To find the thick volumes among all your books: the Books tab,
+then `gS`, `p`, `Esc`.
 
 ![The sort window over the Golden age folder, sorted by pages](images/sort-dialog.webp)
 

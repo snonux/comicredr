@@ -2,7 +2,7 @@ import 'package:comic_formats/comic_formats.dart' show naturalCompare;
 
 import 'library_store.dart';
 
-/// What the Folders tab can be sorted by (`gS`, `go`), each with the way
+/// What a tab of the library can be sorted by (`gS`, `go`), each with the way
 /// round it goes unless reversed (`gO`): names A to Z, the rest newest,
 /// latest, biggest or most first. Issue is volume, then issue number.
 enum SortOrder {
@@ -24,19 +24,20 @@ enum SortOrder {
   final String way, reversedWay;
 }
 
-/// The Folders tab's order: one of [SortOrder], maybe reversed. Saved as
-/// `library.folderSort` (unset for the usual name order), so it is kept
-/// across restarts and travels in a settings file.
+/// The order of a tab of the library: one of [SortOrder], maybe reversed.
+/// Named for the Folders tab, the first one sorted; since task 534 every
+/// tab that lists comics but History has one of its own (LibraryScreen's
+/// `sortSettings`), saved under its own setting (`library.folderSort` for
+/// the Folders tab), unset for the tab's usual order, so it is kept across
+/// restarts and travels in a settings file.
 class FolderSort {
   const FolderSort({this.order = SortOrder.name, this.reversed = false});
 
-  /// File-name order, as the tab was before it could be sorted.
+  /// File-name order, as the tabs were before they could be sorted.
   static const usual = FolderSort();
 
   final SortOrder order;
   final bool reversed;
-
-  bool get isUsual => this == usual;
 
   /// `Last read, latest first`: for the sort line and the notices.
   String get label => '${order.label}, ${reversed ? order.reversedWay : order.way}';
@@ -48,14 +49,16 @@ class FolderSort {
   /// The other way round (`gO`).
   FolderSort flipped() => FolderSort(order: order, reversed: !reversed);
 
-  /// As saved: `size` or `size:reversed`, null for the usual order.
-  String? encode() => isUsual ? null : (reversed ? '${order.name}:reversed' : order.name);
+  /// As saved: `size` or `size:reversed`, null for the tab's [usual]
+  /// order (name order for most tabs; the Reading tab's is last read).
+  String? encode({FolderSort usual = FolderSort.usual}) =>
+      this == usual ? null : (reversed ? '${order.name}:reversed' : order.name);
 
-  /// What [encode] wrote; anything else (a file edited by hand, an order
-  /// a later version added) is the usual order. `series` was the order of
-  /// the same name while the library still grouped by series; it reads as
-  /// the issue order now.
-  static FolderSort decode(String? text) {
+  /// What [encode] wrote; nothing, or anything else (a file edited by
+  /// hand, an order a later version added), is the tab's [usual] order.
+  /// `series` was the order of the same name while the library still
+  /// grouped by series; it reads as the issue order now.
+  static FolderSort decode(String? text, {FolderSort usual = FolderSort.usual}) {
     final [name, ...rest] = (text ?? '').split(':');
     final order =
         SortOrder.values.where((o) => o.name == name).firstOrNull ?? (name == 'series' ? SortOrder.issue : null);
@@ -94,24 +97,37 @@ class FolderSort {
     SortOrder.name || SortOrder.issue => null,
   } as Comparable<Object>?;
 
-  /// [books] in this order.
-  List<LibraryBook> books(List<LibraryBook> books) => [...books]..sort(compareBooks);
+  /// [books] in this order. With [completedLast] (the Reading tab) the
+  /// comics marked or read as completed come after the others, each part
+  /// in this order.
+  List<LibraryBook> books(List<LibraryBook> books, {bool completedLast = false}) => [...books]
+    ..sort(
+      completedLast ? (a, b) => a.completed != b.completed ? (a.completed ? 1 : -1) : compareBooks(a, b) : compareBooks,
+    );
 
-  /// [folders] in this order, each going by the comic of it that comes
-  /// first (the folder whose newest comic is newest first, and so on);
-  /// by name they stay as they are, which for library folders is the
-  /// order they were added in. A folder with no comic goes last.
-  List<LibraryFolder> folders(List<LibraryFolder> folders) {
-    if (order == SortOrder.name) return reversed ? folders.reversed.toList() : folders;
-    final first = {for (final f in folders) f: f.books.isEmpty ? null : f.books.reduce(_earlier)};
-    int compare(LibraryFolder a, LibraryFolder b) {
+  /// [folders] in this order: see [byFirstBook].
+  List<LibraryFolder> folders(List<LibraryFolder> folders) => byFirstBook(folders, (f) => f.books, (f) => f.name);
+
+  /// [groups] (folders, collections) in this order, each going by the
+  /// comic of it that comes first (the folder whose newest comic is newest
+  /// first, and so on); by name they stay as they are, which for library
+  /// folders is the order they were added in and for collections their
+  /// names A to Z. One with no comic goes last; ties go by [nameOf].
+  List<T> byFirstBook<T extends Object>(
+    List<T> groups,
+    List<LibraryBook> Function(T) booksOf,
+    String Function(T) nameOf,
+  ) {
+    if (order == SortOrder.name) return reversed ? groups.reversed.toList() : groups;
+    final first = <T, LibraryBook?>{for (final g in groups) g: booksOf(g).isEmpty ? null : booksOf(g).reduce(_earlier)};
+    int compare(T a, T b) {
       final fa = first[a], fb = first[b];
       if (fa == null || fb == null) return fa == null ? (fb == null ? 0 : 1) : -1;
       final c = compareBooks(fa, fb);
-      return c != 0 ? c : naturalCompare(a.name, b.name);
+      return c != 0 ? c : naturalCompare(nameOf(a), nameOf(b));
     }
 
-    return [...folders]..sort(compare);
+    return [...groups]..sort(compare);
   }
 
   LibraryBook _earlier(LibraryBook a, LibraryBook b) => compareBooks(a, b) <= 0 ? a : b;

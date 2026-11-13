@@ -102,6 +102,49 @@ void main() {
     expect(FolderSort.decode('series:reversed'), const FolderSort(order: SortOrder.issue, reversed: true));
   });
 
+  test("a tab whose usual order is not by name keeps nothing for it, and saves name order", () {
+    // The Reading tab: last read, latest first, before anything is picked.
+    const reading = FolderSort(order: SortOrder.read);
+    expect(reading.encode(usual: reading), isNull);
+    expect(FolderSort.usual.encode(usual: reading), 'name');
+    expect(FolderSort.decode(null, usual: reading), reading);
+    expect(FolderSort.decode('colour', usual: reading), reading);
+    expect(FolderSort.decode('name', usual: reading), FolderSort.usual);
+    expect(FolderSort.decode('read:reversed', usual: reading), const FolderSort(order: SortOrder.read, reversed: true));
+  });
+
+  test('the Reading tab puts completed comics last, each part in the order', () {
+    LibraryBook done(LibraryBook b) => LibraryBook(
+      key: b.key,
+      series: b.series,
+      pageCount: b.pageCount,
+      format: b.format,
+      path: b.path,
+      addedAt: b.addedAt,
+      readAt: b.readAt,
+      size: b.size,
+      completedMark: true,
+    );
+    // c was read last, but it is completed.
+    final books = [a, b, done(c)];
+    expect(names(const FolderSort(order: SortOrder.read).books(books, completedLast: true)), ['a 10', 'a 2', 'b']);
+    expect(names(FolderSort.usual.books(books, completedLast: true)), ['a 2', 'a 10', 'b']);
+    expect(names(const FolderSort(reversed: true).books(books, completedLast: true)), ['a 10', 'a 2', 'b']);
+  });
+
+  test('collections go by their first comic like folders; by name they stay A to Z', () {
+    final groups = [
+      LibraryGroup(-1, 'Akira', [b, c]),
+      const LibraryGroup(-2, 'Empty', []),
+      LibraryGroup(-3, 'Zorro', [a]),
+    ];
+    List<String> order(FolderSort s) => [for (final g in s.byFirstBook(groups, (g) => g.books, (g) => g.name)) g.name];
+    expect(order(FolderSort.usual), ['Akira', 'Empty', 'Zorro']);
+    expect(order(const FolderSort(reversed: true)), ['Zorro', 'Empty', 'Akira']);
+    expect(order(const FolderSort(order: SortOrder.size)), ['Zorro', 'Akira', 'Empty']);
+    expect(order(const FolderSort(order: SortOrder.read)), ['Akira', 'Zorro', 'Empty']);
+  });
+
   test('go steps through every order and back, the way round kept; gO turns it', () {
     var s = const FolderSort(reversed: true);
     final seen = <SortOrder>[];

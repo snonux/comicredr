@@ -1020,6 +1020,84 @@ void main() {
       expect(await saved(), isNull, reason: 'the usual order is no setting');
     });
 
+    testWidgets('every tab that lists comics has an order of its own: the Books tab sorted, Folders left be', (
+      tester,
+    ) async {
+      // Page counts tell them apart: Alpha 3, Beta 9, Gamma 5.
+      writeBook(root, 'Alpha.cbz', 3);
+      writeBook(root, 'Beta.cbz', 9);
+      writeBook(root, 'Gamma.cbz', 5);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      final books = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!;
+      final seriesOf = {for (final b in books) b.key: b.series};
+      List<String> shown() {
+        final covers = find
+            .byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('b:'))
+            .evaluate()
+            .toList();
+        final at = {for (final e in covers) e: tester.getTopLeft(find.byWidget(e.widget))};
+        covers.sort((a, b) => at[a]!.dy != at[b]!.dy ? at[a]!.dy.compareTo(at[b]!.dy) : at[a]!.dx.compareTo(at[b]!.dx));
+        return [for (final e in covers) seriesOf[(e.widget.key! as ValueKey<String>).value.split(':')[1]]!];
+      }
+
+      Future<String?> saved(String setting) =>
+          tester.runAsync(() => SettingsStore(db).loadString(setting)).then((v) => v);
+      Future<void> tab(String name) async {
+        await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text(name)));
+        await settle(tester);
+      }
+
+      // The Reading tab has its own usual order, last read; nothing saved.
+      await tab('Reading');
+      expect(find.text('Sort: Last read, latest first'), findsOneWidget);
+
+      await tab('Books');
+      expect(shown(), ['Alpha', 'Beta', 'Gamma']);
+      expect(find.text('Sort: Name, A to Z'), findsOneWidget);
+      // gS opens the window for this tab; Alt+P sorts by pages at once.
+      await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+      await key(tester, LogicalKeyboardKey.keyS, character: 'S');
+      expect(find.text('Sort the Books tab'), findsOneWidget);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyP, character: 'p');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.escape);
+      expect(shown(), ['Beta', 'Gamma', 'Alpha']);
+      expect(await saved(SettingsStore.booksSort), 'pages');
+      // gO turns it round.
+      await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+      await key(tester, LogicalKeyboardKey.keyO, character: 'O');
+      expect(shown(), ['Alpha', 'Gamma', 'Beta']);
+      expect(await saved(SettingsStore.booksSort), 'pages:reversed');
+
+      // The Folders tab keeps its own order, and its go leaves Books be.
+      await tab('Folders');
+      expect(find.text('Sort: Name, A to Z'), findsOneWidget);
+      expect(await saved(SettingsStore.folderSort), isNull);
+      await key(tester, LogicalKeyboardKey.keyG, character: 'g');
+      await key(tester, LogicalKeyboardKey.keyO, character: 'o');
+      expect(await saved(SettingsStore.folderSort), 'added');
+      expect(await saved(SettingsStore.booksSort), 'pages:reversed');
+
+      // A new start keeps the Books tab's order; the Reading tab picked by
+      // name is saved as such, its usual order being another.
+      await tester.pumpWidget(const SizedBox());
+      await pumpApp(tester);
+      await settle(tester);
+      await tab('Books');
+      expect(shown(), ['Alpha', 'Gamma', 'Beta']);
+      expect(find.text('Sort: Pages, fewest first'), findsOneWidget);
+      await tab('Reading');
+      await tester.tap(find.byKey(const Key('sort')));
+      await settle(tester);
+      await tester.tap(find.byKey(const Key('sort-name')));
+      await settle(tester);
+      await key(tester, LogicalKeyboardKey.escape);
+      expect(await saved(SettingsStore.readingSort), 'name');
+    });
+
     /// The app's own start: first frame, the start-up scan, the books.
     Future<void> starting(WidgetTester tester) async {
       for (var i = 0; i < 20; i++) {

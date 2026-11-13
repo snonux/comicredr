@@ -1726,7 +1726,9 @@ void main() {
       await settle(tester);
       Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
       expect(cover('Daredevil #181'), findsOneWidget);
-      expect(find.byKey(const Key('filterBar')), findsNothing, reason: 'no filter, not the Folders tab');
+      // The line is there for the Books tab's sort button, with no part of a filter on it.
+      expect(find.byKey(const Key('filterBarClear')), findsNothing, reason: 'no filter');
+      expect(find.byKey(const Key('sort')), findsOneWidget, reason: 'the Books tab is sorted too');
 
       // gF: not completed first, as what is left to read is the more
       // asked-for half.

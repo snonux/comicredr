@@ -177,8 +177,34 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   /// across restarts.
   FolderFilter _filter = FolderFilter.none;
 
-  /// The Folders tab's order (`gS`, `go`, `gO`), kept across restarts.
-  FolderSort _sort = FolderSort.usual;
+  /// Each sortable tab's order (`gS`, `go`, `gO`), kept across restarts;
+  /// a tab not in it is in its usual order ([usualSort]).
+  final Map<LibraryTab, FolderSort> _sorts = {};
+
+  /// The tabs that can be sorted (task 534), each with the setting its
+  /// order is kept in: every tab that lists comics. History is left out:
+  /// it is a log of sittings, in the order they were.
+  static const sortSettings = {
+    LibraryTab.reading: SettingsStore.readingSort,
+    LibraryTab.books: SettingsStore.booksSort,
+    LibraryTab.collections: SettingsStore.collectionsSort,
+    LibraryTab.folders: SettingsStore.folderSort,
+    LibraryTab.bookmarks: SettingsStore.bookmarksSort,
+  };
+
+  /// [t]'s order before anything was picked: what the tab showed before
+  /// it could be sorted. Last read for the Reading tab, name for the rest.
+  static FolderSort usualSort(LibraryTab t) =>
+      t == LibraryTab.reading ? const FolderSort(order: SortOrder.read) : FolderSort.usual;
+
+  /// The order of [t]: picked, or its usual one.
+  FolderSort _sortOf(LibraryTab t) => _sorts[t] ?? usualSort(t);
+
+  /// The current tab's order.
+  FolderSort get _sort => _sortOf(tab);
+
+  /// Whether the current tab can be sorted.
+  bool get _sortable => sortSettings.containsKey(tab);
 
   /// How wide a cover aims to be, in logical pixels: the cover grids' zoom
   /// (`+` `-`, Ctrl and the wheel, a pinch), one size for every tab of
@@ -387,40 +413,60 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     );
   }
 
+  /// The current tab's order.
   FolderSort get sort => _sort;
 
-  /// Takes up the saved order of the Folders tab.
+  /// Takes up the saved order of every sortable tab.
   Future<void> _loadSort() async {
-    try {
-      final sort = FolderSort.decode(await ref.read(settingsStoreProvider).loadString(SettingsStore.folderSort));
-      if (mounted) setState(() => _sort = sort);
-    } catch (e) {
-      debugPrint('Could not read the folder sort: $e');
+    final store = ref.read(settingsStoreProvider);
+    for (final MapEntry(key: t, value: setting) in sortSettings.entries) {
+      try {
+        final sort = FolderSort.decode(await store.loadString(setting), usual: usualSort(t));
+        if (mounted) setState(() => _sorts[t] = sort);
+      } catch (e) {
+        debugPrint('Could not read the ${t.label} tab\'s sort: $e');
+      }
     }
   }
 
-  /// Sorts the Folders tab, remembered for the next start. The selection
-  /// stays on its cover, scrolled to wherever that goes; [say] tells the
-  /// new order in a notice, for the keys that change it without a window.
+  /// Sorts the current tab, remembered for the next start (nothing kept
+  /// for its usual order). The selection stays on its cover, scrolled to
+  /// wherever that goes; [say] tells the new order in a notice, for the
+  /// keys that change it without a window.
   void setSort(FolderSort s, {bool say = false}) {
+    final t = tab, setting = sortSettings[t];
+    if (setting == null) return;
     if (say) showNotice(ScaffoldMessenger.of(context), 'Sorted by ${s.label.toLowerCase()}');
-    if (s == _sort) return;
-    setState(() => _sort = s);
+    if (s == _sortOf(t)) return;
+    setState(() => _sorts[t] = s);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _reveal();
     });
     unawaited(
       ref
           .read(settingsStoreProvider)
-          .saveString(SettingsStore.folderSort, s.encode())
-          .catchError((Object e) => debugPrint('Could not save the folder sort: $e')),
+          .saveString(setting, s.encode(usual: usualSort(t)))
+          .catchError((Object e) => debugPrint('Could not save the ${t.label} tab\'s sort: $e')),
     );
   }
 
-  /// The sort window.
+  /// The sort window, for the current tab.
   Future<void> _openSort() async {
-    await showFolderSort(context, sort: _sort, onChanged: setSort);
+    await showFolderSort(context, tab: tab.label, note: _sortNote, sort: _sort, onChanged: setSort);
     widget.keysFocus?.requestFocus();
+  }
+
+  /// What the sort window says about the current tab under the orders.
+  String get _sortNote {
+    const last = 'A comic without the value (never read, no year) goes last.';
+    return switch (tab) {
+      LibraryTab.folders => 'Sub-folders come first, in the same order. $last',
+      LibraryTab.reading => 'Completed comics come after the others, each in this order. $last',
+      LibraryTab.collections =>
+        'Collections go by their first comic in this order, and the comics in one in it too. $last',
+      LibraryTab.bookmarks => 'Bookmarks go comic by comic in this order, each comic\'s in page order. $last',
+      _ => last,
+    };
   }
 
   /// The filter's dialog, offering the formats the library has.
@@ -673,8 +719,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           Icons.task_alt,
         ),
       ]),
-      if (tab == LibraryTab.folders)
-        MenuGroup('Folders tab', [
+      if (_sortable)
+        MenuGroup('${tab.label} tab', [
           const MenuEntry(ReaderIntent.sortFolders, 'Sort…', Icons.sort),
           MenuEntry(ReaderIntent.nextSortOrder, 'Sort by the next order (now ${_sort.order.label})', Icons.swap_vert),
           MenuEntry(ReaderIntent.reverseSort, 'Reverse the order', Icons.import_export, on: _sort.reversed),
@@ -819,11 +865,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           ScaffoldMessenger.of(context),
           next == CompletedFilter.any ? 'Filter: every comic' : 'Filter: ${next.label.toLowerCase()}',
         );
-      case ReaderIntent.sortFolders when tab == LibraryTab.folders:
+      case ReaderIntent.sortFolders when _sortable:
         unawaited(_openSort());
-      case ReaderIntent.nextSortOrder when tab == LibraryTab.folders:
+      case ReaderIntent.nextSortOrder when _sortable:
         setSort(_sort.next(), say: true);
-      case ReaderIntent.reverseSort when tab == LibraryTab.folders:
+      case ReaderIntent.reverseSort when _sortable:
         setSort(_sort.flipped(), say: true);
       case ReaderIntent.clearReading:
         unawaited(clearReadingList(context, ref).whenComplete(() => widget.keysFocus?.requestFocus()));
@@ -1545,8 +1591,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       ),
   ];
 
-  /// Under the header while the filter is on, and on the Folders tab
-  /// always (its sort button lives at the end): what the filter lets
+  /// Under the header while the filter is on, and on every sortable tab
+  /// always (the sort button lives at the end): what the filter lets
   /// through, each part with its own x, and a way to clear it all. A tap
   /// on a part opens the filter. Its own line, as the header has no room
   /// left beside a breadcrumb. The sort button is at its end, so the
@@ -1562,9 +1608,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: _filterParts(f)),
-            // Only the Folders tab is sorted; the sort button stays where
-            // it was, so the filter's parts did not move.
-            if (tab == LibraryTab.folders) _sortButton(narrow: box.maxWidth < 600),
+            // Every tab but History is sorted; the sort button stays at
+            // the end, so the filter's parts did not move when it came.
+            if (_sortable) _sortButton(narrow: box.maxWidth < 600),
           ],
         ),
       ),
@@ -1698,16 +1744,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final q = _query.trim();
     switch (tab) {
       case LibraryTab.reading:
-        final started = _shown(books).where((b) => b.started && b.matches(q)).toList()
-          ..sort((a, b) {
-            if (a.completed != b.completed) return a.completed ? 1 : -1;
-            return (b.readAt ?? DateTime(0)).compareTo(a.readAt ?? DateTime(0));
-          });
-        return [for (final b in started) BookItem(b)];
+        // Completed comics last, whatever the order (usually last read).
+        final started = _shown(books).where((b) => b.started && b.matches(q)).toList();
+        return [for (final b in _sort.books(started, completedLast: true)) BookItem(b)];
       case LibraryTab.collections when _favourites:
         final favourites = collectionGroups(books).where((s) => s.name == favouritesCollection).firstOrNull;
         return [
-          for (final b in _shown(favourites?.books ?? const <LibraryBook>[]))
+          for (final b in _sort.books(_shown(favourites?.books ?? const <LibraryBook>[])))
             if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.collections:
@@ -1715,14 +1758,24 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         // open, and collections keep the IDs assigned from all their names.
         final all = _groups(books);
         final open = all.where((g) => g.id == _group).firstOrNull;
-        if (open != null) return [for (final b in _shown(open.books).where((b) => b.matches(q))) BookItem(b)];
+        if (open != null) {
+          return [
+            for (final b in _sort.books(_shown(open.books)))
+              if (b.matches(q)) BookItem(b),
+          ];
+        }
+        // A group keeps its comics in their own order (folder, then
+        // issue), which LibraryGroup.next reads on with; only the list of
+        // collections follows the tab's order, by each one's first comic.
         final shown = [for (final g in all) LibraryGroup(g.id, g.name, _shown(g.books))];
-        return [for (final g in shown.where((g) => g.matches(q))) GroupItem(g)];
-      case LibraryTab.books:
-        // Every book, in file order: the same order as the Folders tab.
-        final every = [..._shown(books)]..sort(LibraryFolder.fileOrder);
         return [
-          for (final b in every)
+          for (final g in _sort.byFirstBook(shown, (g) => g.books, (g) => g.name))
+            if (g.matches(q)) GroupItem(g),
+        ];
+      case LibraryTab.books:
+        // Every book, by name (file order, as on the Folders tab) unless sorted.
+        return [
+          for (final b in _sort.books(_shown(books)))
             if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.folders:
@@ -1753,10 +1806,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           (byBook[m.contentKey] ??= []).add(m);
         }
         final lower = q.toLowerCase();
-        // Book by book in the order of the Books tab, each in reading order.
-        final every = [..._shown(books)]..sort(LibraryFolder.fileOrder);
+        // Book by book in the tab's order (file order unless sorted), each
+        // book's bookmarks in reading order.
         return [
-          for (final b in every)
+          for (final b in _sort.books(_shown(books)))
             for (final m in byBook[b.key] ?? const <BookmarkInfo>[])
               if (b.matches(q) || (m.note?.toLowerCase().contains(lower) ?? false)) BookmarkItem(m, b),
         ];
@@ -1885,7 +1938,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                 children: [
                   _header(context, books),
                   if (_marked.isNotEmpty || _selecting) _marksBar(context),
-                  if (tab == LibraryTab.folders || _filter.isActive) _filterBar(context),
+                  if (_sortable || _filter.isActive) _filterBar(context),
                   Expanded(
                     child: switch (tab) {
                       LibraryTab.history => HistoryPane(

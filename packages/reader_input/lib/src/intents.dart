@@ -121,9 +121,9 @@ enum ReaderIntent {
   reshuffle('Pick other random pages for shuffle in the library'),
   filterFolders("Filter the library's tabs by type, size, modification date, completed or not and length"),
   filterCompleted("The library's filter: cycle the completed part — every comic, not completed, completed only"),
-  sortFolders("Sort the library's Folders tab: by name, date added, last read, file date, size, pages, series or year"),
-  nextSortOrder("The library's Folders tab: sort by the next order (name, added, last read, …)"),
-  reverseSort("The library's Folders tab: reverse the sort order"),
+  sortFolders("Sort the library's tab: by name, date added, last read, file date, size, pages, issue or year"),
+  nextSortOrder("The library's tab: sort by the next order (name, added, last read, …)"),
+  reverseSort("The library's tab: reverse the sort order"),
   clearReading(
     "Library: clear the Reading list, after asking: every comic's place and completed mark are forgotten, on "
     'every device its sidecar reaches; bookmarks and history stay',

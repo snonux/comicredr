@@ -93,6 +93,14 @@ class SettingsStore {
   /// `size` or `size:reversed`; unset for the usual name order.
   static const folderSort = 'library.folderSort';
 
+  /// The other tabs' orders (task 534), each saved as [folderSort] is and
+  /// unset for the tab's usual order: last read for the Reading tab, name
+  /// for the others. History is in the order its sittings were.
+  static const readingSort = 'library.readingSort';
+  static const booksSort = 'library.booksSort';
+  static const collectionsSort = 'library.collectionsSort';
+  static const bookmarksSort = 'library.bookmarksSort';
+
   /// The default library folder (~/Comics) was taken out of the library,
   /// so starts no longer add it back.
   static const defaultFolderRemoved = 'library.defaultFolderRemoved';
@@ -152,6 +160,10 @@ class SettingsStore {
     shuffle: true,
     folderFilter: false,
     folderSort: false,
+    readingSort: false,
+    booksSort: false,
+    collectionsSort: false,
+    bookmarksSort: false,
     continueAtStart: true,
     touchPreset: false,
     scrollSpeed: false,

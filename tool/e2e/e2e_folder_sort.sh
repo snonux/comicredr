@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# End-to-end check of the Folders tab's sort on the Linux build: gS and an
-# Alt+letter in its window (pages, size, modified, last read), gO to turn
-# an order round, go to step to the next one, each proved by the comic
-# that opens first; the order kept across a restart; the sort button on
-# the filter line clicked with the mouse. Checks the index with sqlite3.
+# End-to-end check of the library's sort on the Linux build: on the Folders
+# tab gS and an Alt+letter in its window (pages, size, modified, last
+# read), gO to turn an order round, go to step to the next one, each proved
+# by the comic that opens first; the order kept across a restart; the sort
+# button on the filter line clicked with the mouse. Then the Books tab
+# (task 534): its own order by gS and gO, kept apart from the Folders
+# tab's and across a restart. Checks the index with sqlite3.
 #
 #   tool/e2e/e2e_folder_sort.sh
 #
@@ -72,7 +74,7 @@ shot() { import -window root "$top/$out/shot_$1.png"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 0.8; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1; }
 sql() { python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(sys.argv[2]).fetchone()[0])' "$db" "$1"; }
-sort_() { sql "select coalesce((select value from settings where key = 'library.folderSort'), 'unset')"; }
+sort_() { sql "select coalesce((select value from settings where key = 'library.${1:-folderSort}'), 'unset')"; }
 failed=0
 check() { # check "what" actual expected
   if [[ "$2" == "$3" ]]; then echo "ok    $1: $2"; else echo "FAIL  $1: $2, expected $3"; failed=1; fi
@@ -87,13 +89,21 @@ first() {
   sleep 2
   sql "select b.title from progress p join books b using (content_key) order by p.updated_at desc limit 1"
 }
+# books_first NAME: the Books tab's first cover (Home) opened and closed;
+# prints the title of the comic read last.
+books_first() {
+  key Home; key Return; sleep 2; shot "$1"; key Escape; sleep 2
+  sql "select b.title from progress p join books b using (content_key) order by p.updated_at desc limit 1"
+}
+# books_tab: the Books tab by keys (Tab focuses the sidebar, b, Enter).
+books_tab() { key Tab; key b; key Return; sleep 1; }
 # window LETTER: gS, then Alt and the order's letter, then Alt+D.
 window() { key g shift+s; sleep 1; key alt+"$1"; key alt+d; }
 
 start --add-root "$comics"
 for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 3 ]] && break; sleep 0.5; done
 check "books indexed" "$(sql 'select count(*) from books')" 3
-click 43 355; shot 01_folders # The Folders tab (the rail, left).
+click 43 290; shot 01_folders # The Folders tab (the rail, left).
 
 check "by name, at first" "$(first 02_name)" Alpha
 check "nothing saved for the usual order" "$(sort_)" unset
@@ -121,7 +131,7 @@ stop
 
 # A restart keeps it: Alpha was read last now, so Beta is the earliest.
 start --add-root "$comics" # In the library: the comic read last would open otherwise.
-click 43 355; shot 11_restart
+click 43 290; shot 11_restart
 check "the order is kept across a restart" "$(first 12_restart_read_reversed)" Beta
 # go steps to the next order, the way round kept: Modified, oldest first.
 key g o; sleep 0.5; shot 13_go_notice
@@ -136,6 +146,28 @@ click 800 68; sleep 1; shot 15_window_by_click
 key alt+n; key Escape
 check "Name picked after a click on the button" "$(sort_)" '"name:reversed"'
 check "Z to A: Gamma first" "$(first 16_name_reversed)" Gamma
+
+# The Books tab has an order of its own: by name until sorted, whatever
+# the Folders tab's is.
+books_tab; shot 17_books
+check "the Books tab by name" "$(books_first 18_books_name)" Alpha
+window p
+check "the Books tab saves Pages" "$(sort_ booksSort)" '"pages"'
+check "the Folders tab's order left be" "$(sort_)" '"name:reversed"'
+check "most pages first on the Books tab" "$(books_first 19_books_pages)" Beta
+key g shift+o; sleep 0.5
+check "gO on the Books tab" "$(sort_ booksSort)" '"pages:reversed"'
+check "fewest pages first on the Books tab" "$(books_first 20_books_pages_reversed)" Alpha
+stop
+
+# A restart keeps both orders, each on its tab.
+start --add-root "$comics"
+books_tab; shot 21_books_restart
+check "the Books tab's order kept across a restart" "$(books_first 22_books_restart)" Alpha
+key g o; sleep 0.5
+check "go on the Books tab: Issue, reversed" "$(sort_ booksSort)" '"issue:reversed"'
+click 43 290 # Folders
+check "the Folders tab still Z to A" "$(first 23_folders_restart)" Gamma
 stop
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"

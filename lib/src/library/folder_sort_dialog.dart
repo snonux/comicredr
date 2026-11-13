@@ -3,22 +3,26 @@ import 'package:flutter/material.dart';
 import '../hotkeys.dart';
 import 'folder_sort.dart';
 
-/// `gS`, or the sort button on the Folders tab: the order the tab is in.
+/// `gS`, or the sort button on a sortable tab: the order the tab named
+/// [tab] is in, with [note] on how the tab applies it under the orders.
 /// A pick applies at once, so the covers behind follow; Alt and an order's
 /// letter picks it, Alt+R reverses, Tab and Space work the chips, Esc or
 /// Done closes it.
 Future<void> showFolderSort(
   BuildContext context, {
+  String tab = 'Folders',
+  String note = '',
   required FolderSort sort,
   required ValueChanged<FolderSort> onChanged,
 }) => showDialog<void>(
   context: context,
-  builder: (context) => _FolderSortDialog(sort: sort, onChanged: onChanged),
+  builder: (context) => _FolderSortDialog(tab: tab, note: note, sort: sort, onChanged: onChanged),
 );
 
 class _FolderSortDialog extends StatefulWidget {
-  const _FolderSortDialog({required this.sort, required this.onChanged});
+  const _FolderSortDialog({required this.tab, required this.note, required this.sort, required this.onChanged});
 
+  final String tab, note;
   final FolderSort sort;
   final ValueChanged<FolderSort> onChanged;
 
@@ -40,7 +44,7 @@ class _FolderSortDialogState extends State<_FolderSortDialog> {
     return DialogHotkeys(
       child: AlertDialog(
         key: const Key('sortDialog'),
-        title: const Text('Sort the Folders tab'),
+        title: Text('Sort the ${widget.tab} tab'),
         content: SizedBox(
           width: 460,
           child: SingleChildScrollView(
@@ -51,12 +55,10 @@ class _FolderSortDialogState extends State<_FolderSortDialog> {
                 Wrap(spacing: 8, runSpacing: 4, children: [for (final o in SortOrder.values) _order(o)]),
                 const SizedBox(height: 12),
                 Text(_sort.label, key: const Key('sortDialogLabel'), style: theme.textTheme.bodyMedium),
-                const SizedBox(height: 4),
-                Text(
-                  'Sub-folders come first, in the same order. A comic without the value '
-                  '(never read, no year) goes last.',
-                  style: theme.textTheme.bodySmall,
-                ),
+                if (widget.note.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(widget.note, style: theme.textTheme.bodySmall),
+                ],
               ],
             ),
           ),

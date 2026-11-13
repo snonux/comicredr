@@ -44,7 +44,7 @@ setting: [fullscreen](04-reading.md#fullscreen), the page grid's size,
 the [text size of the `?` list](09-keyboard.md#bigger-and-smaller-text),
 the night filter and auto-trim ([old scans](04-reading.md#old-scans-clean-up-trim-and-the-night-filter)),
 [shuffle](03-library.md#shuffle), the [filter](03-library.md#filter-the-library)
-and the [order](03-library.md#sort-the-folders-tab) of the Folders tab, and, for each comic,
+and the [order](03-library.md#sort-the-library) of each tab, and, for each comic,
 [two pages](04-reading.md#two-pages-side-by-side), the reading direction
 and [the turn](04-reading.md#turn-the-comic).
 

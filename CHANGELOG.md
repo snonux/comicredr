@@ -17,6 +17,12 @@ the `?` overlay.
   where the folders hold the books.
 - `]` and `[` go to the next and previous book in the same folder, and
   the Books tab lists every book in file order, as the Folders tab does.
+- Every tab that lists comics can be sorted, not only Folders: Reading,
+  Books, Collections and Bookmarks have the same `gS`, `go` and `gO`
+  and a **Sort:** button at the end of the line under the search box.
+  Each tab keeps its own order across restarts and in settings files;
+  Reading starts with last read and keeps completed comics last, the
+  others start by name.
 - The Folders tab's **Series** sort order is **Issue** (volume, then
   issue number); the app opens on the Folders tab when nothing is part
   way read, and the edit form (`e`) has no series field any more.
