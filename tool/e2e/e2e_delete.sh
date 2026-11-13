@@ -5,7 +5,7 @@
 # then confirm. Checks the comic and its sidecar are deleted for good, not
 # moved to the desktop trash, and the index rows, cover and thumbnails are
 # gone. Then deletes a folder
-# book from the library's Series tab, checks the next cover took the
+# book from the library's Books tab, checks the next cover took the
 # selection, and that the third book is untouched.
 #
 #   tool/e2e/e2e_delete.sh
@@ -133,7 +133,7 @@ check "and the position" test "$(rows progress "$k")" = 0
 check "the cover is gone" test ! -e "$covers/$k.jpg"
 check "the page thumbnails are gone" test ! -e "$covers/pages/$k"
 
-# Back in the library, on the Reading tab it was opened from. The Series
+# Back in the library, on the Reading tab it was opened from. The Books
 # tab, its first cover (the folder book), and Shift+Delete there: the
 # dialog says how many pages the folder has.
 xdotool mousemove 43 100 click 1; sleep 1.5

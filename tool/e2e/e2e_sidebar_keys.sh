@@ -73,11 +73,11 @@ shot unfocused; rail unfocused; same initial unfocused
 key b
 shot outside; rail outside; same initial outside
 key Tab
-for letter in r s b c h f m; do
+for letter in r b c h f m; do
   key "$letter"
   shot "letter-$letter"
   case $letter in
-    r) label=Reading ;; s) label=Series ;; b) label=Books ;;
+    r) label=Reading ;; b) label=Books ;;
     c) label=Collections ;; h) label=History ;; f) label=Folders ;;
     m) label=Bookmarks ;;
   esac
@@ -89,7 +89,8 @@ for letter in r s b c h f m; do
     exit 1
   fi
 done
-# Home/Down selects Series, End/Up selects Folders; B selects Books.
+# Home selects Reading, Down the next, End Bookmarks, Up the one before;
+# B selects Books.
 key Home Down End Up b Return
 key g g
 shot details-unfocused; rail details-unfocused

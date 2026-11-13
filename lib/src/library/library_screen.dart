@@ -41,7 +41,6 @@ import 'shuffle.dart';
 
 enum LibraryTab {
   reading('Reading', Icons.auto_stories),
-  series('Series', Icons.collections_bookmark),
   books('Books', Icons.menu_book),
   collections('Collections', Icons.label_outline, short: 'Groups'),
   history('History', Icons.history),
@@ -61,11 +60,12 @@ enum LibraryTab {
 }
 
 /// The library (design plan sections 4 and 8): what you are reading, your
-/// series, every book, and the folders they come from, as cover grids with a
-/// search field. Keys and touch drive it through the same intents as the
+/// folders, every book and your collections, as cover grids with a search
+/// field. Keys and touch drive it through the same intents as the
 /// reader: `hjkl` and the arrows move between covers, Enter opens, `/`
 /// searches, Tab focuses the sidebar, Esc backs out. The Folders tab walks the
-/// folders on disk: Enter goes into a folder, Esc back up.
+/// folders on disk: Enter goes into a folder, Esc back up; the folder a
+/// book is in names it (there are no series; see [LibraryBook.series]).
 ///
 /// Layout follows the plan's breakpoints: bottom navigation under 600 dp, a
 /// navigation rail from 600, and a detail pane beside the grid over 1000.
@@ -128,9 +128,9 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
 class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSizer {
   LibraryTab? _tab;
-  int? _series; // The series drilled into on the Series tab.
+  int? _group; // The collection drilled into on the Collections tab.
   bool _favourites = false; // The Favourites collection open on the Collections tab.
-  String? _seriesSelected; // The series to select again when backing out.
+  String? _groupSelected; // The collection to select again when backing out.
   String? _folder; // The folder walked into on the Folders tab, null at the top.
   String? _folderRoot; // The library folder it is under.
   bool _rootListed = false; // _folderRoot has been seen among the roots.
@@ -504,14 +504,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     super.dispose();
   }
 
-  LibraryTab get tab => _tab ?? LibraryTab.series;
+  LibraryTab get tab => _tab ?? LibraryTab.folders;
 
   void _setTab(LibraryTab t) => setState(() {
     // The Folders tab keeps its place; choosing it again goes to the top.
     if (t == LibraryTab.folders && tab == LibraryTab.folders) _folder = _folderRoot = null;
     _tab = t;
     _autoFirst = false;
-    _series = null;
+    _group = null;
     _favourites = false;
     _selected = null;
     _detail = false;
@@ -871,8 +871,6 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         switch (_selectedItem) {
           case BookItem(:final book) when !book.remoteOnly:
             unawaited(editBook(context, ref, book).whenComplete(() => done?.call()));
-          case SeriesItem(:final series) when tab == LibraryTab.series:
-            unawaited(renameSeries(context, ref, series).whenComplete(() => done?.call()));
           case BookmarkItem(:final bookmark, :final book):
             unawaited(_editNote(book, bookmark).whenComplete(() => done?.call()));
           default:
@@ -927,14 +925,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   String? get _openCollection {
     if (tab != LibraryTab.collections) return null;
     if (_favourites) return favouritesCollection;
-    if (_series == null) return null;
+    if (_group == null) return null;
     final books = ref.read(booksProvider).value ?? const <LibraryBook>[];
-    return _groups(books).where((s) => s.id == _series).firstOrNull?.name;
+    return _groups(books).where((g) => g.id == _group).firstOrNull?.name;
   }
 
   /// Esc: closes the detail page, then clears the search, then leaves the
-  /// series or goes up a folder. False when there is nothing left to back
-  /// out of.
+  /// open collection or goes up a folder. False when there is nothing left
+  /// to back out of.
   bool back() {
     if (_marked.isNotEmpty || _selecting) {
       _clearMarks();
@@ -943,11 +941,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     } else if (_query.isNotEmpty) {
       _search.clear();
       setState(() => _query = '');
-    } else if (_series != null || _favourites) {
+    } else if (_group != null || _favourites) {
       setState(() {
-        _series = null;
+        _group = null;
         _favourites = false;
-        _selected = _seriesSelected;
+        _selected = _groupSelected;
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
     } else if (!_folderUp()) {
@@ -1021,7 +1019,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     setState(() {
       _query = '';
       _favourites = true;
-      _seriesSelected = group == null ? null : SeriesItem(group).id;
+      _groupSelected = group == null ? null : GroupItem(group).id;
     });
     _autoFirst = true;
   }
@@ -1110,7 +1108,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   static Set<String> _books(LibraryItem? item) => switch (item) {
     BookItem(:final book) => {book.key},
-    SeriesItem(:final series) => {for (final b in series.books) b.key},
+    GroupItem(:final group) => {for (final b in group.books) b.key},
     _ => const {},
   };
 
@@ -1118,13 +1116,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   LibraryItem? get _selectedItem => _items.where((it) => it.id == _selected).firstOrNull;
 
   /// The book [contentKey] is about to be deleted: the cover next to it
-  /// takes the selection, the one after it or else the one before. A series
+  /// takes the selection, the one after it or else the one before. A group
   /// that keeps other books stays selected.
   void selectNeighbourOf(String contentKey) {
     final i = _items.indexWhere((it) => _books(it).contains(contentKey));
     if (i < 0) return;
     final item = _items[i];
-    if (item is SeriesItem && _books(item).length > 1) {
+    if (item is GroupItem && _books(item).length > 1) {
       setState(() => _selected = item.id);
       return;
     }
@@ -1192,13 +1190,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   void _activate(LibraryItem item) {
     switch (item) {
-      case SeriesItem(:final series) when tab == LibraryTab.collections && series.name == favouritesCollection:
+      case GroupItem(:final group) when tab == LibraryTab.collections && group.name == favouritesCollection:
         showFavourites();
-      case SeriesItem(:final series):
+      case GroupItem(:final group):
         setState(() {
-          _seriesSelected = item.id;
-          _series = series.id;
-          _selected = BookItem(series.next).id;
+          _groupSelected = item.id;
+          _group = group.id;
+          _selected = BookItem(group.next).id;
         });
         WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
       case FolderItem(:final folder):
@@ -1273,7 +1271,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   /// Marks every comic from the run's start to the item [to], on top of
   /// the marks from before the run; one the run went past and came back
-  /// from is unmarked again, as in a file manager. Folders and series in
+  /// from is unmarked again, as in a file manager. Folders and groups in
   /// between are passed over.
   void _markRun(int to) {
     final from = _items.indexWhere((it) => it.id == _anchor);
@@ -1389,7 +1387,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   }
 
   /// The books an S3 action is for: the marked ones, else the selected
-  /// cover's (a series' or folder's books too).
+  /// cover's (a group's or folder's books too).
   List<LibraryBook> _actOn() {
     final all = ref.read(booksProvider).value ?? const <LibraryBook>[];
     if (_marked.isNotEmpty) return all.where((b) => _marked.contains(b.key)).toList();
@@ -1610,7 +1608,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     message: _tip('Sort: ${_sort.label}', ReaderIntent.sortFolders),
     child: TextButton.icon(
       key: const Key('sort'),
-      style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+      // 48 tall, not the 40 of a compact button: it is on screen from the
+      // start (the Folders tab is where the app begins), and the tap-target
+      // guideline applies to it like to anything else.
+      style: TextButton.styleFrom(minimumSize: const Size(64, 48)),
       icon: Icon(_sort.reversed ? Icons.arrow_upward : Icons.sort),
       label: Text(narrow ? _sort.order.label : 'Sort: ${_sort.label}', maxLines: 1, overflow: TextOverflow.ellipsis),
       onPressed: _openSort,
@@ -1665,16 +1666,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       });
       return;
     }
-    if (_selected == item.id || item is SeriesItem || item is FolderItem) {
+    if (_selected == item.id || item is GroupItem || item is FolderItem) {
       _activate(item);
     } else {
       setState(() => _selected = item.id);
     }
   }
 
-  /// The groups a cover can open: series, or collections on their tab.
-  List<LibrarySeries> _groups(List<LibraryBook> books) =>
-      tab == LibraryTab.collections ? collectionGroups(books) : LibrarySeries.group(books);
+  /// The groups a cover can open: collections on their tab.
+  List<LibraryGroup> _groups(List<LibraryBook> books) => collectionGroups(books);
 
   /// Tabs that are lists of their own rather than cover grids.
   bool get _listTab => tab == LibraryTab.history;
@@ -1710,22 +1710,20 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           for (final b in _shown(favourites?.books ?? const <LibraryBook>[]))
             if (b.matches(q)) BookItem(b),
         ];
-      case LibraryTab.series || LibraryTab.collections:
+      case LibraryTab.collections:
         // Resolve the open group before filtering. An empty group stays
         // open, and collections keep the IDs assigned from all their names.
         final all = _groups(books);
-        final open = all.where((s) => s.id == _series).firstOrNull;
+        final open = all.where((g) => g.id == _group).firstOrNull;
         if (open != null) return [for (final b in _shown(open.books).where((b) => b.matches(q))) BookItem(b)];
-        final shown = [for (final s in all) LibrarySeries(s.id, s.name, _shown(s.books))];
-        return [
-          for (final s in shown.where((s) => s.matches(q)))
-            s.books.length == 1 && tab == LibraryTab.series ? BookItem(s.books.first) : SeriesItem(s),
-        ];
+        final shown = [for (final g in all) LibraryGroup(g.id, g.name, _shown(g.books))];
+        return [for (final g in shown.where((g) => g.matches(q))) GroupItem(g)];
       case LibraryTab.books:
+        // Every book, in file order: the same order as the Folders tab.
+        final every = [..._shown(books)]..sort(LibraryFolder.fileOrder);
         return [
-          for (final s in LibrarySeries.group(_shown(books)))
-            for (final b in s.books)
-              if (b.matches(q)) BookItem(b),
+          for (final b in every)
+            if (b.matches(q)) BookItem(b),
         ];
       case LibraryTab.folders:
         final now = DateTime.now();
@@ -1756,11 +1754,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         }
         final lower = q.toLowerCase();
         // Book by book in the order of the Books tab, each in reading order.
+        final every = [..._shown(books)]..sort(LibraryFolder.fileOrder);
         return [
-          for (final s in LibrarySeries.group(_shown(books)))
-            for (final b in s.books)
-              for (final m in byBook[b.key] ?? const <BookmarkInfo>[])
-                if (b.matches(q) || (m.note?.toLowerCase().contains(lower) ?? false)) BookmarkItem(m, b),
+          for (final b in every)
+            for (final m in byBook[b.key] ?? const <BookmarkInfo>[])
+              if (b.matches(q) || (m.note?.toLowerCase().contains(lower) ?? false)) BookmarkItem(m, b),
         ];
     }
   }
@@ -1775,7 +1773,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     // library, a tenth of a second for some thousands of comics. The lists
     // come new from their providers whenever anything in them changes; the
     // hour is there for the filter's dates, counted back from now.
-    final inputs = (books, roots, bookmarks, tab, _query, _filter, _favourites, _series, _folder, _sort, _hour());
+    final inputs = (books, roots, bookmarks, tab, _query, _filter, _favourites, _group, _folder, _sort, _hour());
     if (inputs != _itemsFrom) {
       _items = _itemsFor(books, roots, bookmarks);
       _itemsFrom = inputs;
@@ -1783,9 +1781,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     // A folder just opened: its first item, even as a scan adds more.
     if (_autoFirst && _items.isNotEmpty) _selected = _items.first.id;
     if (_selected != null && !_items.any((it) => it.id == _selected)) {
-      // An edit moved the book to another series, or renamed its series:
-      // the selection follows the books. Its completed mark took it off the
-      // filtered tab: the cover next to it.
+      // An edit changed the book's facts: the selection follows the books.
+      // Its completed mark took it off the filtered tab: the cover next to it.
       _selected =
           _items.where((it) => _books(it).any(_selectedBooks.contains)).firstOrNull?.id ??
           _neighbourUnderFilter(before, books);
@@ -1819,12 +1816,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final booksNow = ref.watch(booksProvider);
     final books = booksNow.value ?? const <LibraryBook>[];
     final roots = ref.watch(rootsProvider).value;
-    // Open on what you are reading when there is something; else the series.
-    // Decided once the books are read too: with the folders in first, a
-    // start with a comic begun opened on Series.
+    // Open on what you are reading when there is something; else the
+    // folders, which give the library its structure. Decided once the
+    // books are read too: with the folders in first, a start with a comic
+    // begun opened on Folders.
     _tab ??= roots == null || !(booksNow.hasValue || booksNow.hasError)
         ? null
-        : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.series);
+        : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.folders);
     // A library folder taken out of the library while we are in it. One
     // just added may not be in the list yet.
     if (_folderRoot != null && roots != null) {
@@ -1917,11 +1915,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                     _selecting = _marked.isNotEmpty;
                   }),
                 ),
-                SeriesItem(:final series) => SeriesDetail(
-                  series: series,
-                  onRead: read,
-                  canRename: tab == LibraryTab.series,
-                ),
+                GroupItem(:final group) => GroupDetail(group: group, onRead: read),
                 FolderItem() => _folderDetail(selectedItem, read),
                 BookmarkItem(:final book) => BookDetail(
                   book: book,
@@ -2019,14 +2013,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         onBack: onBack,
       );
 
-  /// The arrow that leaves an open series or collection; [text] says
+  /// The arrow that leaves an open collection; [text] says
   /// where to, and the tooltip adds the key.
   Widget _backButton(String text) =>
       IconButton(icon: const Icon(Icons.arrow_back), tooltip: _tip(text, ReaderIntent.back), onPressed: back);
 
   Widget _header(BuildContext context, List<LibraryBook> books) {
     final theme = Theme.of(context);
-    final series = _series == null ? null : _groups(books).where((s) => s.id == _series).firstOrNull;
+    final group = _group == null ? null : _groups(books).where((g) => g.id == _group).firstOrNull;
     // A phone's header is tight: smaller buttons, and gs alone reshuffles.
     final narrow = MediaQuery.sizeOf(context).width < 600;
     // A small tablet in portrait (600 to 840 wide) has the rail but not the
@@ -2037,10 +2031,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 4),
       child: Row(
         children: [
-          if (series != null) ...[
-            _backButton(tab == LibraryTab.collections ? 'Back to collections' : 'Back to series'),
+          if (group != null) ...[
+            _backButton('Back to collections'),
             Flexible(
-              child: Text(series.name, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
+              child: Text(group.name, style: theme.textTheme.titleLarge, overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 12),
           ] else if (tab == LibraryTab.collections && _favourites) ...[
@@ -2149,7 +2143,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     decoration: InputDecoration(
       isDense: true,
       prefixIcon: const Icon(Icons.search),
-      hintText: KeyHints.tip(context, 'Search titles, series, creators', ReaderIntent.search),
+      hintText: KeyHints.tip(context, 'Search titles, creators', ReaderIntent.search),
       border: const OutlineInputBorder(),
       // The filter, on any tab that lists comics: a funnel at the search
       // box's end, filled while a filter is on. The header row has no room
@@ -2446,13 +2440,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   }) {
     // The fingers of a pinch open nothing as they rest or lift.
     bool pinched() => _zoomArea.currentState?.pinched ?? false;
-    // A folder or series shuffles too: a random page of a random comic in it.
+    // A folder or group shuffles too: a random page of a random comic in it.
     final from = !shuffle
         ? null
         : switch (item) {
             BookItem(:final book) => book,
             FolderItem(:final folder) => shuffleBook(item.id, folder.books, _seed),
-            SeriesItem(:final series) => shuffleBook(item.id, series.books, _seed),
+            GroupItem(:final group) => shuffleBook(item.id, group.books, _seed),
             _ => null,
           };
     return CoverCard(

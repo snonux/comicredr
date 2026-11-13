@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path/path.dart' as p;
 import 'package:sqlite3/common.dart' show CommonDatabase;
 
 import 'data_dirs.dart';
@@ -15,7 +16,12 @@ part 'app_database.g.dart';
 class Books extends Table {
   TextColumn get contentKey => text()();
   TextColumn get title => text()();
-  IntColumn get seriesId => integer().nullable().references(SeriesTable, #id)();
+
+  /// The folder the book is in names it (`Batman` for
+  /// `Batman/Batman 181.cbz`), so the title reads `Batman #181`; a book
+  /// directly in a library root goes by its file name. Folders give the
+  /// library its structure, so this is a display fact, not a grouping one.
+  TextColumn get series => text()();
   TextColumn get number => text().nullable()();
   IntColumn get pageCount => integer()();
   TextColumn get format => text()(); // zip, pdf, folder
@@ -59,17 +65,6 @@ class Files extends Table {
 
   @override
   Set<Column> get primaryKey => {rootId, relPath};
-}
-
-@DataClassName('Series')
-class SeriesTable extends Table {
-  @override
-  String get tableName => 'series';
-
-  IntColumn get id => integer().autoIncrement()();
-  TextColumn get name => text()();
-  TextColumn get sortName => text()(); // seriesKey(name): what books group by
-  BoolColumn get rtl => boolean().withDefault(const Constant(false))();
 }
 
 class Progress extends Table {
@@ -259,7 +254,6 @@ class S3Books extends Table {
     Books,
     Roots,
     Files,
-    SeriesTable,
     Progress,
     Bookmarks,
     Panels,
@@ -292,7 +286,7 @@ class AppDatabase extends _$AppDatabase {
   static void _waitForLocks(CommonDatabase db) => db.execute('PRAGMA busy_timeout = 5000');
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   /// What the detector found about a book: redone by a reset of its panels.
   List<TableInfo<Table, Object?>> get detectionTables => [analysedPages, panels];
@@ -368,6 +362,55 @@ class AppDatabase extends _$AppDatabase {
         final names = columns.map((c) => c.read<String>('name')).toSet();
         if (!names.contains('place')) await m.addColumn(s3Books, s3Books.place);
         if (!names.contains('manifest_etag')) await m.addColumn(s3Books, s3Books.manifestEtag);
+      }
+      if (from >= 4 && from < 15) {
+        // Series are gone: folders name the books, so `series` becomes the
+        // name of the folder the book is in (see [Books.series]). A book
+        // directly in a library root keeps the name its file parsed to,
+        // which the folder rule would give it anyway. A scan never reads
+        // an unchanged book again, so the names are written here, not left
+        // to the next scan. The column is added by hand rather than
+        // m.addColumn, so it starts out empty and is filled before the
+        // table is rebuilt with it NOT NULL. (A database whose books table
+        // has the column already — an index a later version made — skips
+        // straight to the rebuild.)
+        final columns = await customSelect('PRAGMA table_info(books)').get();
+        if (!columns.any((c) => c.read<String>('name') == 'series')) {
+          // Only for an index whose series table never was; a real one has it.
+          await customStatement(
+            'CREATE TABLE IF NOT EXISTS series ('
+            'id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sort_name TEXT NOT NULL, '
+            'rtl INTEGER NOT NULL DEFAULT 0)',
+          );
+          await customStatement('ALTER TABLE books ADD COLUMN series TEXT');
+          final oldSeries = {
+            for (final r in await customSelect('SELECT id, name FROM series').get())
+              r.read<int>('id'): r.read<String>('name'),
+          };
+          final bookFiles = await customSelect(
+            'SELECT b.content_key, b.series_id, f.rel_path FROM books b '
+            'JOIN (SELECT content_key, rel_path, row_number() OVER '
+            '(PARTITION BY content_key ORDER BY root_id, rel_path) AS n FROM files) f '
+            'ON f.content_key = b.content_key AND f.n = 1',
+          ).get();
+          for (final r in bookFiles) {
+            final rel = r.read<String>('rel_path');
+            final folderName = p.split(rel).length > 1 ? p.basename(p.dirname(rel)) : null;
+            final name = folderName ?? oldSeries[r.readNullable<int>('series_id')] ?? p.basenameWithoutExtension(rel);
+            await customUpdate(
+              'UPDATE books SET series = ? WHERE content_key = ?',
+              variables: [Variable(name), Variable(r.read<String>('content_key'))],
+            );
+          }
+          // Books whose file is gone from the index (a scan removes them
+          // soon) still need the column: the name they had, or their file.
+          await customStatement(
+            "UPDATE books SET series = COALESCE((SELECT s.name FROM series s WHERE s.id = books.series_id), title) "
+            'WHERE series IS NULL',
+          );
+        }
+        await m.alterTable(TableMigration(books));
+        await customStatement('DROP TABLE IF EXISTS series');
       }
     },
   );

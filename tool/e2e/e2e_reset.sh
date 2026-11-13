@@ -126,7 +126,7 @@ key m m; sleep 3
 key Escape; key Escape; sleep 2 # Out of guided view, then out of the book.
 check "the new bookmark is there" test "$(count bookmarks 'deleted_at is null')" = 1
 # Books tab on the rail, then the one cover.
-click 43 160; click 190 200
+click 43 100; click 190 200
 shot 06_library_detail
 key shift+x; sleep 3
 shot 07_library_dialog

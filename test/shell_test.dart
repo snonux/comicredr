@@ -429,7 +429,15 @@ void main() {
   test('the index schema opens in memory', () async {
     await db
         .into(db.books)
-        .insert(BooksCompanion.insert(contentKey: 'k', title: 'Daredevil 181', pageCount: 32, format: 'zip'));
+        .insert(
+          BooksCompanion.insert(
+            contentKey: 'k',
+            title: 'Daredevil 181',
+            series: 'Daredevil',
+            pageCount: 32,
+            format: 'zip',
+          ),
+        );
     expect(await db.select(db.books).get(), hasLength(1));
   });
 
@@ -484,7 +492,14 @@ void main() {
     await upgraded
         .into(upgraded.books)
         .insert(
-          BooksCompanion.insert(contentKey: 'k', title: 'X', pageCount: 3, format: 'cbz', year: const Value(1982)),
+          BooksCompanion.insert(
+            contentKey: 'k',
+            title: 'X',
+            series: 'X',
+            pageCount: 3,
+            format: 'cbz',
+            year: const Value(1982),
+          ),
         );
     await upgraded.close();
   });
@@ -516,6 +531,49 @@ void main() {
     final upgraded = AppDatabase(NativeDatabase(file));
     expect(await upgraded.select(upgraded.bookmarks).get(), isEmpty);
     expect((await upgraded.select(upgraded.settings).get()).single.value, 'false');
+    await upgraded.close();
+  });
+
+  test('a series index names its books by their folders', () async {
+    final file = File('${tmp.path}/index.sqlite');
+    final old = AppDatabase(NativeDatabase(file));
+    // A schema-14 index: books grouped by a series table, no `series` column.
+    await old.customStatement('DROP TABLE books');
+    await old.customStatement(
+      'CREATE TABLE series ('
+      'id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, sort_name TEXT NOT NULL, rtl INTEGER NOT NULL DEFAULT 0)',
+    );
+    await old.customStatement(
+      'CREATE TABLE books ('
+      'content_key TEXT PRIMARY KEY, title TEXT NOT NULL, series_id INTEGER CONSTRAINT fk REFERENCES series(id), '
+      'number TEXT, page_count INTEGER NOT NULL, format TEXT NOT NULL, added_at INTEGER NOT NULL, '
+      'issue_title TEXT, volume INTEGER, year INTEGER, writers TEXT, artists TEXT, summary TEXT)',
+    );
+    await old.customStatement("INSERT INTO roots (id, path, added_at) VALUES (1, '${tmp.path}/Comics', 0)");
+    await old.customStatement(
+      "INSERT INTO series (id, name, sort_name, rtl) VALUES (5, 'The Spirit', 'spirit', 0), (6, 'Daredevil', 'daredevil', 0)",
+    );
+    await old.customStatement(
+      "INSERT INTO books (content_key, title, series_id, number, page_count, format, added_at) VALUES "
+      "('k1', 'The Spirit #2', 5, '2', 3, 'cbz', 0), "
+      "('k2', 'Daredevil #181', 6, '181', 4, 'cbz', 0)",
+    );
+    await old.customStatement(
+      "INSERT INTO files (content_key, root_id, rel_path, size, mtime) VALUES "
+      "('k1', 1, 'The Spirit/2.cbz', 10, 0), ('k2', 1, 'Daredevil 181.cbz', 11, 0)",
+    );
+    await old.customStatement('PRAGMA user_version = 14');
+    await old.close();
+    final upgraded = AppDatabase(NativeDatabase(file));
+    // The folder names the book; a book directly in a library root keeps
+    // the series its file parsed to.
+    final books = {for (final b in await upgraded.select(upgraded.books).get()) b.contentKey: b};
+    expect(books['k1']!.series, 'The Spirit');
+    expect(books['k2']!.series, 'Daredevil');
+    final left = await upgraded
+        .customSelect("SELECT count(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'series'")
+        .get();
+    expect(left.single.read<int>('n'), 0, reason: 'the series table is gone');
     await upgraded.close();
   });
 

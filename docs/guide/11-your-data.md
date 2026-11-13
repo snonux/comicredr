@@ -17,8 +17,8 @@ inside a folder book. It holds:
 - where you are, on each of your devices, and how the comic was turned;
 - the panels and balloons found on its pages;
 - your bookmarks, notes and marks;
-- your [edits](07-managing-comics.md#fix-a-title-or-series) to its title
-  and series;
+- your [edits](07-managing-comics.md#fix-a-comics-facts) to its title
+  and other facts;
 - the collections it is in, Favourites included;
 - whether it is [completed](03-library.md#completed-comics).
 
@@ -86,7 +86,7 @@ that is not a comic in one file, `comicredr-settings-2026-09-26.json`:
 - your `keys.toml`, if you have one;
 - for every comic, where you are, your bookmarks, notes and marks, the
   collections and Favourites, which comics are completed, your edits to
-  titles and series, and the reading history.
+  its facts, and the reading history.
 
 **Import settings…** reads such a file back, shows what it holds and
 asks before it changes anything. Everything shows at once: the settings,

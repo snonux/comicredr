@@ -43,7 +43,7 @@ in that folder.
 | `PageDown` `PageUp` (or `Ctrl+f` `Ctrl+b`) | Next or previous page, even in guided view |
 | `Home` `End` (or `gg` `G`, or `gg` `ge`) | First or last page |
 | `G12` | Page 12: `G`, then the number (Enter or a short pause ends it) |
-| `]` `[` | Next or previous book in the series (or in the same folder) |
+| `]` `[` | Next or previous book in the same folder |
 | `Esc` | Back to the library |
 
 ![Turning pages](images/turning.gif)

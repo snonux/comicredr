@@ -20,8 +20,8 @@ import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:comicredr/src/reader/reset_dialog.dart';
 import 'package:drift/drift.dart' show Table, TableInfo;
 import 'package:drift/native.dart';
+import 'package:flutter/material.dart' show Key, NavigationRail;
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' show Key;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:reader_input/reader_input.dart';
@@ -342,18 +342,18 @@ class _TrackedDoc implements ComicDocument {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _HeldNeighbourStore extends LibraryStore {
-  _HeldNeighbourStore(super.db, this.nextPath);
+/// Holds a `]`/`[` lookup until [release], then answers [nextPath].
+class _HeldSibling {
+  _HeldSibling(this.nextPath);
 
   final String nextPath;
   final entered = Completer<void>();
   final release = Completer<void>();
 
-  @override
-  Future<({String? path})?> seriesNeighbour(String contentKey, {required bool next}) async {
+  Future<String?> call(String path, {required bool next}) async {
     entered.complete();
     await release.future;
-    return (path: nextPath);
+    return nextPath;
   }
 }
 
@@ -1061,21 +1061,22 @@ void main() {
   test('back during a neighbour lookup does not open the next book', () async {
     final a = writeBookOf(tmp, 'First 01.cbz', [grid4Page()]);
     final b = writeBookOf(tmp, 'Second 02.cbz', [grid4Page()]);
-    final store = _HeldNeighbourStore(db, b);
     final c = ProviderContainer(
       overrides: [
         databaseProvider.overrideWithValue(db),
         noSidecars(db),
-        libraryStoreProvider.overrideWithValue(store),
+        libraryStoreProvider.overrideWithValue(LibraryStore(db)),
       ],
     );
     addTearDown(c.dispose);
     final reader = c.read(readerProvider.notifier);
     await reader.open(a);
+    final held = _HeldSibling(b);
+    reader.siblingLookup = held.call;
     final neighbour = reader.handle(const ReaderCommand(ReaderIntent.nextBook));
-    await store.entered.future;
+    await held.entered.future;
     await reader.close();
-    store.release.complete();
+    held.release.complete();
     await neighbour;
     expect(c.read(readerProvider).book, isNull);
   });
@@ -1104,21 +1105,22 @@ void main() {
 
   test('a neighbour command can finish after its provider is disposed', () async {
     final path = writeBookOf(tmp, 'Turning 01.cbz', [grid4Page(), grid4Page()]);
-    final store = _HeldNeighbourStore(db, path);
     final c = ProviderContainer(
       overrides: [
         databaseProvider.overrideWithValue(db),
         noSidecars(db),
-        libraryStoreProvider.overrideWithValue(store),
+        libraryStoreProvider.overrideWithValue(LibraryStore(db)),
       ],
     );
     final reader = c.read(readerProvider.notifier);
     await reader.open(path);
 
+    final held = _HeldSibling(path);
+    reader.siblingLookup = held.call;
     final neighbour = reader.handle(const ReaderCommand(ReaderIntent.nextBook));
-    await store.entered.future;
+    await held.entered.future;
     c.dispose();
-    store.release.complete();
+    held.release.complete();
     await neighbour;
   });
 
@@ -1442,7 +1444,7 @@ void main() {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
         await tester.pump();
       }
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await tester.pump();
       await tester.tap(find.text('Comics'));
       await tester.pump();

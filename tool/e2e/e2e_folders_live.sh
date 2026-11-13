@@ -54,7 +54,7 @@ xdotool windowactivate --sync "$win" mousemove 60 24 click 1 2>/dev/null || true
 await 3
 check "first scan" "$(books)" 3
 
-# Series is the first tab on a fresh library; Tab then F chooses Folders.
+# Folders is the first tab on a fresh library.
 xdotool mousemove 640 450; sleep 0.3
 key Tab; key f; key Return
 key l Return                  # Into Comics.

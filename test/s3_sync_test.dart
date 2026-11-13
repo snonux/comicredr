@@ -135,7 +135,7 @@ void main() {
     expect(bucket.objects[o.sidecar]!.metadata[writtenAtMeta], '${sidecarWrittenAt(side)}');
     expect((await laptop.book(key)).s3?.mark, S3Mark.synced);
     await pumpEventQueue();
-    expect(laptop.notices, contains('Uploaded Weird Comics #4 to S3'));
+    expect(laptop.notices, contains('Uploaded Golden Age #4 to S3'));
   });
 
   test('open pull timeout cancels before import and waits once replacement starts', () async {
@@ -632,8 +632,9 @@ void main() {
       expect(filesUnder(phone.root), ['Sub']);
       await pumpEventQueue();
       expect(phone.notices, [
-        'The download of Pep #1 did not match what was uploaded; nothing was kept',
-        startsWith('Could not download Pep #2: '),
+        // The folder names the books (docs/architecture.md): Sub, not Pep.
+        'The download of Sub #1 did not match what was uploaded; nothing was kept',
+        startsWith('Could not download Sub #2: '),
       ]);
       expect(phone.failures, phone.notices);
     });

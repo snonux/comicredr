@@ -35,7 +35,7 @@ come back here for a key you forgot.
    - [Keyboard shortcuts in the sidebar](03-library.md#keyboard-shortcuts-in-the-sidebar)
    - [Bigger and smaller covers](03-library.md#bigger-and-smaller-covers)
    - [The tabs](03-library.md#the-tabs): [reading](03-library.md#reading)
-     and [clearing it](03-library.md#clear-the-reading-list), [mark a comic as started](03-library.md#mark-a-comic-as-started), [series](03-library.md#series),
+     and [clearing it](03-library.md#clear-the-reading-list), [mark a comic as started](03-library.md#mark-a-comic-as-started), [how comics are named](03-library.md#how-comics-are-named),
      [folders](03-library.md#folders),
      [filter the library](03-library.md#filter-the-library),
      [sort it](03-library.md#sort-the-folders-tab),
@@ -83,7 +83,7 @@ come back here for a key you forgot.
    - [They travel with the comic](06-bookmarks.md#they-travel-with-the-comic)
 7. [Managing your comics](07-managing-comics.md)
    - [Details of a comic](07-managing-comics.md#details-of-a-comic)
-   - [Fix a title or series](07-managing-comics.md#fix-a-title-or-series)
+   - [Fix a comic's facts](07-managing-comics.md#fix-a-comics-facts)
    - [Reset a comic](07-managing-comics.md#reset-a-comic)
    - [Delete a comic](07-managing-comics.md#delete-a-comic)
 8. [Touch](08-touch.md)

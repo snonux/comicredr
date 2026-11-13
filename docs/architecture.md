@@ -55,7 +55,7 @@ flowchart TB
 | `packages/comic_analysis` | Everything about what is on a page: the `Panel` type, classic computer-vision panel detection, the model's input and output format, reading order, the confidence gate, frame outlines, margin trimming and scan clean-up. |
 | `packages/reader_input` | Every action the reader can take is a named `ReaderIntent`. The default keymap, the vi-style resolver (counts like `5l`, sequences like `gg`) and the touch map all produce intents. |
 | `packages/comic_sync` | S3 sync (design plan section 13): `RemoteStore`, the one interface the app uses for a bucket, `S3Store` over the `minio` package (SigV4, path-style, multipart, streamed downloads, a 3 s connect timeout so a switched-off server fails fast), `MemoryStore` for tests, `checkConnection`, and the shelf: `BookObjects` (the bucket layout), `Manifest`, `listShelf`, `compareSidecars` (newest `written_at` wins). |
-| `lib/src/library` | The library screen: scanning folders, covers, series, collections, search, settings, delete and actions on several comics, the filter (on every tab that lists comics), shuffle, the cover size (`lib/src/grid_zoom.dart`, shared with the reader's page grid), S3 actions. |
+| `lib/src/library` | The library screen: scanning folders, covers, collections, search, settings, delete and actions on several comics, the filter (on every tab that lists comics), shuffle, the cover size (`lib/src/grid_zoom.dart`, shared with the reader's page grid), S3 actions. |
 | `lib/src/reader` | The reader: `ReaderNotifier` holds the reading state, `ReaderView` draws it, `PageCache` decodes pages, `PanelDetector` and `ModelDetector` find panels. |
 | `lib/src/data` | The app's index database (Drift/SQLite) and the per-comic `.crdb` sidecar files that carry panels, bookmarks and positions with the comic. |
 | `lib/src/input` | Turns Flutter key and pointer events into key tokens and gestures, and loads `keys.toml`. |
@@ -434,6 +434,16 @@ flowchart LR
 - **The index database** is the working store the library and the reader
   read and write. It is rebuilt from the files and their sidecars, so it
   is really a cache of them plus this install's settings.
+- **Folders give the library its structure**; there are no series. The
+  folder a book is directly in names it (`Batman` for
+  `Batman/Batman 181.cbz`, so the title reads `Batman #181`, the issue
+  number coming from the file name or ComicInfo.xml); a book directly in
+  a library root, or outside the library, goes by what its file name or
+  ComicInfo says. A file name that is only a number (`2.cbz`) is the issue
+  number with no name of its own, so `Batman/2.cbr` is `Batman #2` too.
+  Nothing groups by these names: the Folders tab walks the folders on
+  disk, `]` and `[` go to the next book beside the file on disk, and
+  collections (Favourites among them) are the hand-made groups.
 - **Cover files** are `<cache>/covers/<content key>.jpg`, shared by the
   scanner's worker and Flutter decoders, sidecar imports and S3. Neither
   the comic's parent directory nor its file name enters that key: moves,

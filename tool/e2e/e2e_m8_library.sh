@@ -66,9 +66,9 @@ stop() {
 }
 
 start
-# The shelf opens on Series, one cover per series; Tab, S, Enter returns
-# to its grid. The second is Reptisaurus #5.
-key Tab; key s; key Return; key l; key l
+# The shelf opens on Folders; Tab, B, Enter goes to the Books tab's grid.
+# The second cover is Reptisaurus #5.
+key Tab; key b; key Return; key l; key l
 shot 01_book_detail
 # Its details on the right: Add to a collection, a new one called Charlton.
 click 1008 535; type Charlton; key Return
@@ -79,7 +79,7 @@ check "both books are in Charlton" \
   test "$(q "$db" "select count(*) from collection_books where name = 'Charlton' and removed_at is null")" = 2
 # The Collections tab (the rail on the left): one collection; a click on
 # it shows its two books.
-click 43 225
+click 43 163
 shot 03_collections
 click 190 200
 shot 04_collection_books
@@ -109,7 +109,7 @@ stop
 
 # A restart keeps it all.
 start
-click 43 225 # Collections
+click 43 163 # Collections
 shot 09_after_restart
 stop
 check "history survives a restart" test "$(q "$db" "select count(*) from read_log")" -ge 1

@@ -123,8 +123,7 @@ class LibraryStatus extends ConsumerWidget {
           ? 'Scanning the library folders…'
           : 'Scanning: ${scan.done} / ${scan.total} new or changed books';
     }
-    final series = books.map((b) => b.seriesId).toSet().length;
-    return '${books.length} books in $series series'
+    return '${books.length} ${books.length == 1 ? 'book' : 'books'}'
         '${scan.failed.isEmpty ? '' : '  ·  ${scan.failed.length} could not be read'}';
   }
 

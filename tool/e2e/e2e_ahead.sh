@@ -69,7 +69,7 @@ wait_for() { # wait_for seconds condition...
 # open TITLE: finds a book on the Books tab with the library search and
 # opens it.
 open() {
-  xdotool mousemove 43 160 click 1 mousemove 640 400; sleep 0.8
+  xdotool mousemove 43 100 click 1 mousemove 640 400; sleep 0.8
   key slash; key ctrl+a; xdotool type --delay 60 "$1"; key Return; key Return; sleep 2
 }
 

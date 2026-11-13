@@ -105,7 +105,7 @@ read_and_mark() {
 }
 
 start home
-# Series (on the rail): a click selects a cover; the two books sit side
+# Books (on the rail): a click selects a cover; the two books sit side
 # by side.
 click 43 100
 click 190 200

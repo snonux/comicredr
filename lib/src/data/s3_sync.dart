@@ -549,8 +549,8 @@ class S3Sync {
   Future<Manifest?> _manifestFor(String key, ({String path, bool folder}) at) async {
     final book = await _db
         .customSelect(
-          'SELECT b.title, b.number, b.year, b.page_count, b.format, s.name AS series FROM books b '
-          'LEFT JOIN series s ON s.id = b.series_id WHERE b.content_key = ?',
+          'SELECT b.title, b.number, b.year, b.page_count, b.format, b.series FROM books b '
+          'WHERE b.content_key = ?',
           variables: [Variable(key)],
         )
         .getSingleOrNull();

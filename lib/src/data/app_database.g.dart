@@ -3,299 +3,6 @@
 part of 'app_database.dart';
 
 // ignore_for_file: type=lint
-class $SeriesTableTable extends SeriesTable
-    with TableInfo<$SeriesTableTable, Series> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $SeriesTableTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
-    aliasedName,
-    false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
-  );
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-    'name',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _sortNameMeta = const VerificationMeta(
-    'sortName',
-  );
-  @override
-  late final GeneratedColumn<String> sortName = GeneratedColumn<String>(
-    'sort_name',
-    aliasedName,
-    false,
-    type: DriftSqlType.string,
-    requiredDuringInsert: true,
-  );
-  static const VerificationMeta _rtlMeta = const VerificationMeta('rtl');
-  @override
-  late final GeneratedColumn<bool> rtl = GeneratedColumn<bool>(
-    'rtl',
-    aliasedName,
-    false,
-    type: DriftSqlType.bool,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'CHECK ("rtl" IN (0, 1))',
-    ),
-    defaultValue: const Constant(false),
-  );
-  @override
-  List<GeneratedColumn> get $columns => [id, name, sortName, rtl];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'series';
-  @override
-  VerificationContext validateIntegrity(
-    Insertable<Series> instance, {
-    bool isInserting = false,
-  }) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-        _nameMeta,
-        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('sort_name')) {
-      context.handle(
-        _sortNameMeta,
-        sortName.isAcceptableOrUnknown(data['sort_name']!, _sortNameMeta),
-      );
-    } else if (isInserting) {
-      context.missing(_sortNameMeta);
-    }
-    if (data.containsKey('rtl')) {
-      context.handle(
-        _rtlMeta,
-        rtl.isAcceptableOrUnknown(data['rtl']!, _rtlMeta),
-      );
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  Series map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Series(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
-      )!,
-      name: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}name'],
-      )!,
-      sortName: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}sort_name'],
-      )!,
-      rtl: attachedDatabase.typeMapping.read(
-        DriftSqlType.bool,
-        data['${effectivePrefix}rtl'],
-      )!,
-    );
-  }
-
-  @override
-  $SeriesTableTable createAlias(String alias) {
-    return $SeriesTableTable(attachedDatabase, alias);
-  }
-}
-
-class Series extends DataClass implements Insertable<Series> {
-  final int id;
-  final String name;
-  final String sortName;
-  final bool rtl;
-  const Series({
-    required this.id,
-    required this.name,
-    required this.sortName,
-    required this.rtl,
-  });
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['name'] = Variable<String>(name);
-    map['sort_name'] = Variable<String>(sortName);
-    map['rtl'] = Variable<bool>(rtl);
-    return map;
-  }
-
-  SeriesTableCompanion toCompanion(bool nullToAbsent) {
-    return SeriesTableCompanion(
-      id: Value(id),
-      name: Value(name),
-      sortName: Value(sortName),
-      rtl: Value(rtl),
-    );
-  }
-
-  factory Series.fromJson(
-    Map<String, dynamic> json, {
-    ValueSerializer? serializer,
-  }) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Series(
-      id: serializer.fromJson<int>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      sortName: serializer.fromJson<String>(json['sortName']),
-      rtl: serializer.fromJson<bool>(json['rtl']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'name': serializer.toJson<String>(name),
-      'sortName': serializer.toJson<String>(sortName),
-      'rtl': serializer.toJson<bool>(rtl),
-    };
-  }
-
-  Series copyWith({int? id, String? name, String? sortName, bool? rtl}) =>
-      Series(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        sortName: sortName ?? this.sortName,
-        rtl: rtl ?? this.rtl,
-      );
-  Series copyWithCompanion(SeriesTableCompanion data) {
-    return Series(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      sortName: data.sortName.present ? data.sortName.value : this.sortName,
-      rtl: data.rtl.present ? data.rtl.value : this.rtl,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Series(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('sortName: $sortName, ')
-          ..write('rtl: $rtl')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, name, sortName, rtl);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Series &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.sortName == this.sortName &&
-          other.rtl == this.rtl);
-}
-
-class SeriesTableCompanion extends UpdateCompanion<Series> {
-  final Value<int> id;
-  final Value<String> name;
-  final Value<String> sortName;
-  final Value<bool> rtl;
-  const SeriesTableCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.sortName = const Value.absent(),
-    this.rtl = const Value.absent(),
-  });
-  SeriesTableCompanion.insert({
-    this.id = const Value.absent(),
-    required String name,
-    required String sortName,
-    this.rtl = const Value.absent(),
-  }) : name = Value(name),
-       sortName = Value(sortName);
-  static Insertable<Series> custom({
-    Expression<int>? id,
-    Expression<String>? name,
-    Expression<String>? sortName,
-    Expression<bool>? rtl,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (sortName != null) 'sort_name': sortName,
-      if (rtl != null) 'rtl': rtl,
-    });
-  }
-
-  SeriesTableCompanion copyWith({
-    Value<int>? id,
-    Value<String>? name,
-    Value<String>? sortName,
-    Value<bool>? rtl,
-  }) {
-    return SeriesTableCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      sortName: sortName ?? this.sortName,
-      rtl: rtl ?? this.rtl,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (sortName.present) {
-      map['sort_name'] = Variable<String>(sortName.value);
-    }
-    if (rtl.present) {
-      map['rtl'] = Variable<bool>(rtl.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('SeriesTableCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('sortName: $sortName, ')
-          ..write('rtl: $rtl')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -321,19 +28,14 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _seriesIdMeta = const VerificationMeta(
-    'seriesId',
-  );
+  static const VerificationMeta _seriesMeta = const VerificationMeta('series');
   @override
-  late final GeneratedColumn<int> seriesId = GeneratedColumn<int>(
-    'series_id',
+  late final GeneratedColumn<String> series = GeneratedColumn<String>(
+    'series',
     aliasedName,
-    true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'REFERENCES series (id)',
-    ),
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _numberMeta = const VerificationMeta('number');
   @override
@@ -442,7 +144,7 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
   List<GeneratedColumn> get $columns => [
     contentKey,
     title,
-    seriesId,
+    series,
     number,
     pageCount,
     format,
@@ -482,11 +184,13 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
     } else if (isInserting) {
       context.missing(_titleMeta);
     }
-    if (data.containsKey('series_id')) {
+    if (data.containsKey('series')) {
       context.handle(
-        _seriesIdMeta,
-        seriesId.isAcceptableOrUnknown(data['series_id']!, _seriesIdMeta),
+        _seriesMeta,
+        series.isAcceptableOrUnknown(data['series']!, _seriesMeta),
       );
+    } else if (isInserting) {
+      context.missing(_seriesMeta);
     }
     if (data.containsKey('number')) {
       context.handle(
@@ -569,10 +273,10 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
         DriftSqlType.string,
         data['${effectivePrefix}title'],
       )!,
-      seriesId: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}series_id'],
-      ),
+      series: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}series'],
+      )!,
       number: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}number'],
@@ -625,7 +329,12 @@ class $BooksTable extends Books with TableInfo<$BooksTable, Book> {
 class Book extends DataClass implements Insertable<Book> {
   final String contentKey;
   final String title;
-  final int? seriesId;
+
+  /// The folder the book is in names it (`Batman` for
+  /// `Batman/Batman 181.cbz`), so the title reads `Batman #181`; a book
+  /// directly in a library root goes by its file name. Folders give the
+  /// library its structure, so this is a display fact, not a grouping one.
+  final String series;
   final String? number;
   final int pageCount;
   final String format;
@@ -639,7 +348,7 @@ class Book extends DataClass implements Insertable<Book> {
   const Book({
     required this.contentKey,
     required this.title,
-    this.seriesId,
+    required this.series,
     this.number,
     required this.pageCount,
     required this.format,
@@ -656,9 +365,7 @@ class Book extends DataClass implements Insertable<Book> {
     final map = <String, Expression>{};
     map['content_key'] = Variable<String>(contentKey);
     map['title'] = Variable<String>(title);
-    if (!nullToAbsent || seriesId != null) {
-      map['series_id'] = Variable<int>(seriesId);
-    }
+    map['series'] = Variable<String>(series);
     if (!nullToAbsent || number != null) {
       map['number'] = Variable<String>(number);
     }
@@ -690,9 +397,7 @@ class Book extends DataClass implements Insertable<Book> {
     return BooksCompanion(
       contentKey: Value(contentKey),
       title: Value(title),
-      seriesId: seriesId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(seriesId),
+      series: Value(series),
       number: number == null && nullToAbsent
           ? const Value.absent()
           : Value(number),
@@ -726,7 +431,7 @@ class Book extends DataClass implements Insertable<Book> {
     return Book(
       contentKey: serializer.fromJson<String>(json['contentKey']),
       title: serializer.fromJson<String>(json['title']),
-      seriesId: serializer.fromJson<int?>(json['seriesId']),
+      series: serializer.fromJson<String>(json['series']),
       number: serializer.fromJson<String?>(json['number']),
       pageCount: serializer.fromJson<int>(json['pageCount']),
       format: serializer.fromJson<String>(json['format']),
@@ -745,7 +450,7 @@ class Book extends DataClass implements Insertable<Book> {
     return <String, dynamic>{
       'contentKey': serializer.toJson<String>(contentKey),
       'title': serializer.toJson<String>(title),
-      'seriesId': serializer.toJson<int?>(seriesId),
+      'series': serializer.toJson<String>(series),
       'number': serializer.toJson<String?>(number),
       'pageCount': serializer.toJson<int>(pageCount),
       'format': serializer.toJson<String>(format),
@@ -762,7 +467,7 @@ class Book extends DataClass implements Insertable<Book> {
   Book copyWith({
     String? contentKey,
     String? title,
-    Value<int?> seriesId = const Value.absent(),
+    String? series,
     Value<String?> number = const Value.absent(),
     int? pageCount,
     String? format,
@@ -776,7 +481,7 @@ class Book extends DataClass implements Insertable<Book> {
   }) => Book(
     contentKey: contentKey ?? this.contentKey,
     title: title ?? this.title,
-    seriesId: seriesId.present ? seriesId.value : this.seriesId,
+    series: series ?? this.series,
     number: number.present ? number.value : this.number,
     pageCount: pageCount ?? this.pageCount,
     format: format ?? this.format,
@@ -794,7 +499,7 @@ class Book extends DataClass implements Insertable<Book> {
           ? data.contentKey.value
           : this.contentKey,
       title: data.title.present ? data.title.value : this.title,
-      seriesId: data.seriesId.present ? data.seriesId.value : this.seriesId,
+      series: data.series.present ? data.series.value : this.series,
       number: data.number.present ? data.number.value : this.number,
       pageCount: data.pageCount.present ? data.pageCount.value : this.pageCount,
       format: data.format.present ? data.format.value : this.format,
@@ -815,7 +520,7 @@ class Book extends DataClass implements Insertable<Book> {
     return (StringBuffer('Book(')
           ..write('contentKey: $contentKey, ')
           ..write('title: $title, ')
-          ..write('seriesId: $seriesId, ')
+          ..write('series: $series, ')
           ..write('number: $number, ')
           ..write('pageCount: $pageCount, ')
           ..write('format: $format, ')
@@ -834,7 +539,7 @@ class Book extends DataClass implements Insertable<Book> {
   int get hashCode => Object.hash(
     contentKey,
     title,
-    seriesId,
+    series,
     number,
     pageCount,
     format,
@@ -852,7 +557,7 @@ class Book extends DataClass implements Insertable<Book> {
       (other is Book &&
           other.contentKey == this.contentKey &&
           other.title == this.title &&
-          other.seriesId == this.seriesId &&
+          other.series == this.series &&
           other.number == this.number &&
           other.pageCount == this.pageCount &&
           other.format == this.format &&
@@ -868,7 +573,7 @@ class Book extends DataClass implements Insertable<Book> {
 class BooksCompanion extends UpdateCompanion<Book> {
   final Value<String> contentKey;
   final Value<String> title;
-  final Value<int?> seriesId;
+  final Value<String> series;
   final Value<String?> number;
   final Value<int> pageCount;
   final Value<String> format;
@@ -883,7 +588,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   const BooksCompanion({
     this.contentKey = const Value.absent(),
     this.title = const Value.absent(),
-    this.seriesId = const Value.absent(),
+    this.series = const Value.absent(),
     this.number = const Value.absent(),
     this.pageCount = const Value.absent(),
     this.format = const Value.absent(),
@@ -899,7 +604,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   BooksCompanion.insert({
     required String contentKey,
     required String title,
-    this.seriesId = const Value.absent(),
+    required String series,
     this.number = const Value.absent(),
     required int pageCount,
     required String format,
@@ -913,12 +618,13 @@ class BooksCompanion extends UpdateCompanion<Book> {
     this.rowid = const Value.absent(),
   }) : contentKey = Value(contentKey),
        title = Value(title),
+       series = Value(series),
        pageCount = Value(pageCount),
        format = Value(format);
   static Insertable<Book> custom({
     Expression<String>? contentKey,
     Expression<String>? title,
-    Expression<int>? seriesId,
+    Expression<String>? series,
     Expression<String>? number,
     Expression<int>? pageCount,
     Expression<String>? format,
@@ -934,7 +640,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     return RawValuesInsertable({
       if (contentKey != null) 'content_key': contentKey,
       if (title != null) 'title': title,
-      if (seriesId != null) 'series_id': seriesId,
+      if (series != null) 'series': series,
       if (number != null) 'number': number,
       if (pageCount != null) 'page_count': pageCount,
       if (format != null) 'format': format,
@@ -952,7 +658,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
   BooksCompanion copyWith({
     Value<String>? contentKey,
     Value<String>? title,
-    Value<int?>? seriesId,
+    Value<String>? series,
     Value<String?>? number,
     Value<int>? pageCount,
     Value<String>? format,
@@ -968,7 +674,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     return BooksCompanion(
       contentKey: contentKey ?? this.contentKey,
       title: title ?? this.title,
-      seriesId: seriesId ?? this.seriesId,
+      series: series ?? this.series,
       number: number ?? this.number,
       pageCount: pageCount ?? this.pageCount,
       format: format ?? this.format,
@@ -992,8 +698,8 @@ class BooksCompanion extends UpdateCompanion<Book> {
     if (title.present) {
       map['title'] = Variable<String>(title.value);
     }
-    if (seriesId.present) {
-      map['series_id'] = Variable<int>(seriesId.value);
+    if (series.present) {
+      map['series'] = Variable<String>(series.value);
     }
     if (number.present) {
       map['number'] = Variable<String>(number.value);
@@ -1036,7 +742,7 @@ class BooksCompanion extends UpdateCompanion<Book> {
     return (StringBuffer('BooksCompanion(')
           ..write('contentKey: $contentKey, ')
           ..write('title: $title, ')
-          ..write('seriesId: $seriesId, ')
+          ..write('series: $series, ')
           ..write('number: $number, ')
           ..write('pageCount: $pageCount, ')
           ..write('format: $format, ')
@@ -5888,7 +5594,6 @@ class S3BooksCompanion extends UpdateCompanion<S3Book> {
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
-  late final $SeriesTableTable seriesTable = $SeriesTableTable(this);
   late final $BooksTable books = $BooksTable(this);
   late final $RootsTable roots = $RootsTable(this);
   late final $FilesTable files = $FilesTable(this);
@@ -5913,7 +5618,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
   List<DatabaseSchemaEntity> get allSchemaEntities => [
-    seriesTable,
     books,
     roots,
     files,
@@ -5931,279 +5635,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   ];
 }
 
-typedef $$SeriesTableTableCreateCompanionBuilder =
-    SeriesTableCompanion Function({
-      Value<int> id,
-      required String name,
-      required String sortName,
-      Value<bool> rtl,
-    });
-typedef $$SeriesTableTableUpdateCompanionBuilder =
-    SeriesTableCompanion Function({
-      Value<int> id,
-      Value<String> name,
-      Value<String> sortName,
-      Value<bool> rtl,
-    });
-
-final class $$SeriesTableTableReferences
-    extends BaseReferences<_$AppDatabase, $SeriesTableTable, Series> {
-  $$SeriesTableTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static MultiTypedResultKey<$BooksTable, List<Book>> _booksRefsTable(
-    _$AppDatabase db,
-  ) => MultiTypedResultKey.fromTable(
-    db.books,
-    aliasName: 'series__id__books__series_id',
-  );
-
-  $$BooksTableProcessedTableManager get booksRefs {
-    final manager = $$BooksTableTableManager(
-      $_db,
-      $_db.books,
-    ).filter((f) => f.seriesId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_booksRefsTable($_db));
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: cache),
-    );
-  }
-}
-
-class $$SeriesTableTableFilterComposer
-    extends Composer<_$AppDatabase, $SeriesTableTable> {
-  $$SeriesTableTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get sortName => $composableBuilder(
-    column: $table.sortName,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<bool> get rtl => $composableBuilder(
-    column: $table.rtl,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  Expression<bool> booksRefs(
-    Expression<bool> Function($$BooksTableFilterComposer f) f,
-  ) {
-    final $$BooksTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.books,
-      getReferencedColumn: (t) => t.seriesId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$BooksTableFilterComposer(
-            $db: $db,
-            $table: $db.books,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-}
-
-class $$SeriesTableTableOrderingComposer
-    extends Composer<_$AppDatabase, $SeriesTableTable> {
-  $$SeriesTableTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get id => $composableBuilder(
-    column: $table.id,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get name => $composableBuilder(
-    column: $table.name,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get sortName => $composableBuilder(
-    column: $table.sortName,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<bool> get rtl => $composableBuilder(
-    column: $table.rtl,
-    builder: (column) => ColumnOrderings(column),
-  );
-}
-
-class $$SeriesTableTableAnnotationComposer
-    extends Composer<_$AppDatabase, $SeriesTableTable> {
-  $$SeriesTableTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<String> get sortName =>
-      $composableBuilder(column: $table.sortName, builder: (column) => column);
-
-  GeneratedColumn<bool> get rtl =>
-      $composableBuilder(column: $table.rtl, builder: (column) => column);
-
-  Expression<T> booksRefs<T extends Object>(
-    Expression<T> Function($$BooksTableAnnotationComposer a) f,
-  ) {
-    final $$BooksTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.id,
-      referencedTable: $db.books,
-      getReferencedColumn: (t) => t.seriesId,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$BooksTableAnnotationComposer(
-            $db: $db,
-            $table: $db.books,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return f(composer);
-  }
-}
-
-class $$SeriesTableTableTableManager
-    extends
-        RootTableManager<
-          _$AppDatabase,
-          $SeriesTableTable,
-          Series,
-          $$SeriesTableTableFilterComposer,
-          $$SeriesTableTableOrderingComposer,
-          $$SeriesTableTableAnnotationComposer,
-          $$SeriesTableTableCreateCompanionBuilder,
-          $$SeriesTableTableUpdateCompanionBuilder,
-          (Series, $$SeriesTableTableReferences),
-          Series,
-          PrefetchHooks Function({bool booksRefs})
-        > {
-  $$SeriesTableTableTableManager(_$AppDatabase db, $SeriesTableTable table)
-    : super(
-        TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$SeriesTableTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$SeriesTableTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$SeriesTableTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                Value<String> name = const Value.absent(),
-                Value<String> sortName = const Value.absent(),
-                Value<bool> rtl = const Value.absent(),
-              }) => SeriesTableCompanion(
-                id: id,
-                name: name,
-                sortName: sortName,
-                rtl: rtl,
-              ),
-          createCompanionCallback:
-              ({
-                Value<int> id = const Value.absent(),
-                required String name,
-                required String sortName,
-                Value<bool> rtl = const Value.absent(),
-              }) => SeriesTableCompanion.insert(
-                id: id,
-                name: name,
-                sortName: sortName,
-                rtl: rtl,
-              ),
-          withReferenceMapper: (p0) => p0
-              .map(
-                (e) => (
-                  e.readTable<$SeriesTableTable, Series>(table),
-                  $$SeriesTableTableReferences(db, table, e),
-                ),
-              )
-              .toList(),
-          prefetchHooksCallback: ({booksRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (booksRefs) db.books],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (booksRefs)
-                    await $_getPrefetchedData<Series, $SeriesTableTable, Book>(
-                      currentTable: table,
-                      referencedTable: $$SeriesTableTableReferences
-                          ._booksRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$SeriesTableTableReferences(db, table, p0).booksRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.seriesId == item.id),
-                      typedResults: items,
-                    ),
-                ];
-              },
-            );
-          },
-        ),
-      );
-}
-
-typedef $$SeriesTableTableProcessedTableManager =
-    ProcessedTableManager<
-      _$AppDatabase,
-      $SeriesTableTable,
-      Series,
-      $$SeriesTableTableFilterComposer,
-      $$SeriesTableTableOrderingComposer,
-      $$SeriesTableTableAnnotationComposer,
-      $$SeriesTableTableCreateCompanionBuilder,
-      $$SeriesTableTableUpdateCompanionBuilder,
-      (Series, $$SeriesTableTableReferences),
-      Series,
-      PrefetchHooks Function({bool booksRefs})
-    >;
 typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
   required String contentKey,
   required String title,
-  Value<int?> seriesId,
+  required String series,
   Value<String?> number,
   required int pageCount,
   required String format,
@@ -6219,7 +5654,7 @@ typedef $$BooksTableCreateCompanionBuilder = BooksCompanion Function({
 typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
   Value<String> contentKey,
   Value<String> title,
-  Value<int?> seriesId,
+  Value<String> series,
   Value<String?> number,
   Value<int> pageCount,
   Value<String> format,
@@ -6236,23 +5671,6 @@ typedef $$BooksTableUpdateCompanionBuilder = BooksCompanion Function({
 final class $$BooksTableReferences
     extends BaseReferences<_$AppDatabase, $BooksTable, Book> {
   $$BooksTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $SeriesTableTable _seriesIdTable(_$AppDatabase db) =>
-      db.seriesTable.createAlias('books__series_id__series__id');
-
-  $$SeriesTableTableProcessedTableManager? get seriesId {
-    final $_column = $_itemColumn<int>('series_id');
-    if ($_column == null) return null;
-    final manager = $$SeriesTableTableTableManager(
-      $_db,
-      $_db.seriesTable,
-    ).filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_seriesIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-      manager.$state.copyWith(prefetchedData: [item]),
-    );
-  }
 
   static MultiTypedResultKey<$FilesTable, List<BookFile>> _filesRefsTable(
     _$AppDatabase db,
@@ -6290,6 +5708,11 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
 
   ColumnFilters<String> get title => $composableBuilder(
     column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get series => $composableBuilder(
+    column: $table.series,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6343,29 +5766,6 @@ class $$BooksTableFilterComposer extends Composer<_$AppDatabase, $BooksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  $$SeriesTableTableFilterComposer get seriesId {
-    final $$SeriesTableTableFilterComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.seriesId,
-      referencedTable: $db.seriesTable,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$SeriesTableTableFilterComposer(
-            $db: $db,
-            $table: $db.seriesTable,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
-
   Expression<bool> filesRefs(
     Expression<bool> Function($$FilesTableFilterComposer f) f,
   ) {
@@ -6408,6 +5808,11 @@ class $$BooksTableOrderingComposer
 
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get series => $composableBuilder(
+    column: $table.series,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -6460,29 +5865,6 @@ class $$BooksTableOrderingComposer
     column: $table.summary,
     builder: (column) => ColumnOrderings(column),
   );
-
-  $$SeriesTableTableOrderingComposer get seriesId {
-    final $$SeriesTableTableOrderingComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.seriesId,
-      referencedTable: $db.seriesTable,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$SeriesTableTableOrderingComposer(
-            $db: $db,
-            $table: $db.seriesTable,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 }
 
 class $$BooksTableAnnotationComposer
@@ -6501,6 +5883,9 @@ class $$BooksTableAnnotationComposer
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get series =>
+      $composableBuilder(column: $table.series, builder: (column) => column);
 
   GeneratedColumn<String> get number =>
       $composableBuilder(column: $table.number, builder: (column) => column);
@@ -6533,29 +5918,6 @@ class $$BooksTableAnnotationComposer
 
   GeneratedColumn<String> get summary =>
       $composableBuilder(column: $table.summary, builder: (column) => column);
-
-  $$SeriesTableTableAnnotationComposer get seriesId {
-    final $$SeriesTableTableAnnotationComposer composer = $composerBuilder(
-      composer: this,
-      getCurrentColumn: (t) => t.seriesId,
-      referencedTable: $db.seriesTable,
-      getReferencedColumn: (t) => t.id,
-      builder:
-          (
-            joinBuilder, {
-            $addJoinBuilderToRootComposer,
-            $removeJoinBuilderFromRootComposer,
-          }) => $$SeriesTableTableAnnotationComposer(
-            $db: $db,
-            $table: $db.seriesTable,
-            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-            joinBuilder: joinBuilder,
-            $removeJoinBuilderFromRootComposer:
-                $removeJoinBuilderFromRootComposer,
-          ),
-    );
-    return composer;
-  }
 
   Expression<T> filesRefs<T extends Object>(
     Expression<T> Function($$FilesTableAnnotationComposer a) f,
@@ -6596,7 +5958,7 @@ class $$BooksTableTableManager
           $$BooksTableUpdateCompanionBuilder,
           (Book, $$BooksTableReferences),
           Book,
-          PrefetchHooks Function({bool seriesId, bool filesRefs})
+          PrefetchHooks Function({bool filesRefs})
         > {
   $$BooksTableTableManager(_$AppDatabase db, $BooksTable table)
     : super(
@@ -6613,7 +5975,7 @@ class $$BooksTableTableManager
               ({
                 Value<String> contentKey = const Value.absent(),
                 Value<String> title = const Value.absent(),
-                Value<int?> seriesId = const Value.absent(),
+                Value<String> series = const Value.absent(),
                 Value<String?> number = const Value.absent(),
                 Value<int> pageCount = const Value.absent(),
                 Value<String> format = const Value.absent(),
@@ -6628,7 +5990,7 @@ class $$BooksTableTableManager
               }) => BooksCompanion(
                 contentKey: contentKey,
                 title: title,
-                seriesId: seriesId,
+                series: series,
                 number: number,
                 pageCount: pageCount,
                 format: format,
@@ -6645,7 +6007,7 @@ class $$BooksTableTableManager
               ({
                 required String contentKey,
                 required String title,
-                Value<int?> seriesId = const Value.absent(),
+                required String series,
                 Value<String?> number = const Value.absent(),
                 required int pageCount,
                 required String format,
@@ -6660,7 +6022,7 @@ class $$BooksTableTableManager
               }) => BooksCompanion.insert(
                 contentKey: contentKey,
                 title: title,
-                seriesId: seriesId,
+                series: series,
                 number: number,
                 pageCount: pageCount,
                 format: format,
@@ -6681,41 +6043,11 @@ class $$BooksTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({seriesId = false, filesRefs = false}) {
+          prefetchHooksCallback: ({filesRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [if (filesRefs) db.files],
-              addJoins:
-                  <
-                    T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic
-                    >
-                  >(state) {
-                    if (seriesId) {
-                      state = state.withJoin(
-                        currentTable: table,
-                        currentColumn: table.seriesId,
-                        referencedTable: $$BooksTableReferences._seriesIdTable(
-                          db,
-                        ),
-                        referencedColumn: $$BooksTableReferences
-                            ._seriesIdTable(db)
-                            .id,
-                      ) as T;
-                    }
-
-                    return state;
-                  },
+              addJoins: null,
               getPrefetchedDataCallback: (items) async {
                 return [
                   if (filesRefs)
@@ -6752,7 +6084,7 @@ typedef $$BooksTableProcessedTableManager =
       $$BooksTableUpdateCompanionBuilder,
       (Book, $$BooksTableReferences),
       Book,
-      PrefetchHooks Function({bool seriesId, bool filesRefs})
+      PrefetchHooks Function({bool filesRefs})
     >;
 typedef $$RootsTableCreateCompanionBuilder = RootsCompanion Function({
   Value<int> id,
@@ -9502,8 +8834,6 @@ typedef $$S3BooksTableProcessedTableManager =
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
-  $$SeriesTableTableTableManager get seriesTable =>
-      $$SeriesTableTableTableManager(_db, _db.seriesTable);
   $$BooksTableTableManager get books =>
       $$BooksTableTableManager(_db, _db.books);
   $$RootsTableTableManager get roots =>

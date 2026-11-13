@@ -2,8 +2,10 @@ import 'dart:convert';
 
 /// The book facts a person can edit in the library. The names are the
 /// `field` values of the `overrides` table in the index and the sidecar.
+/// There is no series any more: the folder the comic is in names it
+/// (docs/architecture.md), and a sidecar from a version that still edited
+/// one is read with its `series` rows ignored ([byName] knows none).
 enum MetaField {
-  series('Series'),
   number('Issue'),
   title('Title'),
   volume('Volume'),

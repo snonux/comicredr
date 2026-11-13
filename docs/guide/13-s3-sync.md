@@ -46,7 +46,7 @@ Do the same on each device, with the same bucket and folder.
 
 Nothing goes to the bucket until you ask. Select a cover in the library
 and press `gu`, or press **Upload to S3** on the comic's page; in the
-reader, `gu` uploads the open comic. On a series or a folder, `gu`
+reader, `gu` uploads the open comic. On a collection or a folder, `gu`
 uploads every comic in it.
 
 To upload several at once, [mark them first](03-library.md#several-comics-at-once):

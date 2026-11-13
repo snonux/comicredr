@@ -122,7 +122,7 @@ void main() {
     expect(c.read(readerProvider).page, 3);
     await press(tester, LogicalKeyboardKey.escape);
     expect(c.read(readerProvider).book, isNull);
-    expect(find.byTooltip('Continue Swamp Thing 21 (C)'), findsOneWidget);
+    expect(find.byTooltip('Continue Swamp Thing #21 (C)'), findsOneWidget);
 
     // C in the library: back on page 4.
     await continueKey(tester);
@@ -193,7 +193,7 @@ void main() {
     // Moved again while the app is closed, where the index has not seen it:
     // the start opens it once its scan has.
     await tester.runAsync(() => c.read(readerProvider.notifier).close());
-    final again = p.join(root.path, 'Marvel', 'Old', 'Daredevil 181.cbz');
+    final again = p.join(root.path, 'Marvel', 'Daredevil', 'Daredevil 181.cbz');
     await tester.runAsync(() async {
       Directory(p.dirname(again)).createSync();
       File(moved).renameSync(again);
@@ -207,9 +207,9 @@ void main() {
     await tester.runAsync(() async => File(again).deleteSync());
     // The start's own Continue finds it gone: the notice, and the library.
     c = await pumpApp(tester);
-    await until(tester, () => expect(c.read(readerProvider).message, contains('Daredevil 181 is gone from')));
+    await until(tester, () => expect(c.read(readerProvider).message, contains('Daredevil #181 is gone from')));
     expect(c.read(readerProvider).book, isNull);
-    expect(c.read(recentBooksProvider).map((b) => b.title), ['Swamp Thing 21']);
+    expect(c.read(recentBooksProvider).map((b) => b.title), ['Swamp Thing #21']);
     await continueKey(tester);
     expect(c.read(readerProvider).book?.path, swamp);
     await tester.runAsync(() => c.read(readerProvider.notifier).close());

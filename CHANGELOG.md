@@ -5,6 +5,22 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## Unreleased
+
+- Series are gone: the folders are the library's structure now. The
+  Series tab, grouping by parsed series names and renaming a series from
+  the app are removed. A comic is named by the folder it is directly in
+  (`Batman/Batman 181.cbz` is *Batman #181*); a file name that is only a
+  number is its issue (`Batman/181.cbz` too); a comic directly in a
+  library root keeps the name its file or `ComicInfo.xml` gives. The
+  index upgrades in place, the old series names becoming folder names
+  where the folders hold the books.
+- `]` and `[` go to the next and previous book in the same folder, and
+  the Books tab lists every book in file order, as the Folders tab does.
+- The Folders tab's **Series** sort order is **Issue** (volume, then
+  issue number); the app opens on the Folders tab when nothing is part
+  way read, and the edit form (`e`) has no series field any more.
+
 ## 0.9.10
 
 - The underlined letter of a dialog button now presses it without `Alt`

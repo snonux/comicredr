@@ -106,7 +106,7 @@ void main() {
       await c.read(scannerProvider).scan();
     });
     await until(tester, () => expect(bookPaths(c), containsAll(files)));
-    await tester.tap(find.text('Folders'));
+    await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
     await settle(tester);
     await key(tester, LogicalKeyboardKey.keyL);
     await key(tester, LogicalKeyboardKey.enter);

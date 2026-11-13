@@ -79,7 +79,7 @@ check "the linked comic, folder and folder book are listed once each" \
   wait_files 'Hellboy/Hellboy 1.cbz|Pepper|Saga 1.cbz'
 echo "  index: $(files)"
 check "each has a cover" test "$(find "$home" -path '*covers*' -maxdepth 6 -name '*.jpg' | wc -l)" -ge 3
-xdotool mousemove 43 100 click 1; sleep 2 # The Series tab.
+xdotool mousemove 43 100 click 1; sleep 2 # The Books tab.
 shot 01_library
 
 # A comic copied into the linked folder's real folder.

@@ -3,7 +3,7 @@
 [Contents](README.md) · Previous: [Bookmarks and marks](06-bookmarks.md) · Next: [Touch](08-touch.md)
 
 This chapter covers everything you can do *to* a comic rather than with
-it: look at its details, fix its title, start it afresh, or delete it.
+it: look at its details, fix its facts, start it afresh, or delete it.
 
 ## Details of a comic
 
@@ -19,7 +19,7 @@ everything ComicRedr knows about it:
   their JPEG quality, and a plain verdict on how sharp the scans will look
   on your screen ("Plenty of pixels", "A little soft on this screen"). For
   a PDF it lists the images inside it.
-- **Metadata**: series, issue, title, year, writers, artists and summary,
+- **Metadata**: issue, title, year, writers, artists and summary,
   and where they came from.
 - **Reading**: how far you are, whether it is
   [completed](03-library.md#completed-comics) and why, when you last read it, how long you have
@@ -38,11 +38,11 @@ everything ComicRedr knows about it:
 `j` `k`, the arrow keys, `Space`, `PageDown` `PageUp` and `Home` `End`
 (or `G` for the end) scroll; `Esc` or `I` closes it.
 
-## Fix a title or series
+## Fix a comic's facts
 
-When a comic's name or series is wrong, select it in the library and
-press `e` (or the pencil in its details). You can change the series, issue,
-volume, year, title, writers, artists and summary.
+When a comic's issue number, year or title is wrong, select it in the
+library and press `e` (or the pencil in its details). You can change the
+issue, volume, year, title, writers, artists and summary.
 
 ![Editing a comic's details](images/edit.webp)
 
@@ -50,8 +50,11 @@ volume, year, title, writers, artists and summary.
   [sidecar](11-your-data.md), so they travel with it.
 - A field you edited earlier shows an undo
   arrow that puts back what the comic itself says.
-- To rename a whole series, select the series on the Series tab and press
-  `e` (or **Rename** in its details). Giving it the name of another series puts the two together.
+- The name the comic goes by (the *Batman* in *Batman #181*) comes from
+  the folder it is in, so that is changed by renaming the folder on disk,
+  not here: see [how comics are named](03-library.md#how-comics-are-named).
+  The issue number in the name follows the edit, and what the file itself
+  says still shows behind an undo arrow.
 
 ## Reset a comic
 

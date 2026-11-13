@@ -5,8 +5,13 @@ import 'document.dart';
 /// usual mutations, such as `Series_Name_003`, `Series-Name-v2-005`,
 /// `Series Name 003 - Title` and `Series Name 01 of 12`.
 ///
+/// A name that is only a number (`2.cbz`, `01.cbr`) is the issue number,
+/// with no series of its own: the folder the file is in names the book
+/// (the app does that with it; see docs/architecture.md).
+///
 /// [name] is a file or folder name, with or without its extension. The
-/// series is never null: a name without a number is a series of one.
+/// series is null only for a name that is only a number: a name without
+/// a number is a series of one.
 ComicMeta parseFileName(String name) {
   var s = name.replaceFirst(RegExp(r'\.(cbz|cbr|cbt|zip|tar|epub|pdf|png|jpe?g|webp)$', caseSensitive: false), '');
   s = s.replaceAll('_', ' ');
@@ -54,12 +59,20 @@ ComicMeta parseFileName(String name) {
   // `003` is issue 3; a string op, so a name with a huge number still parses.
   if (number != null && RegExp(r'^\d+$').hasMatch(number)) number = number.replaceFirst(RegExp(r'^0+(?=\d)'), '');
   var series = _clean(s);
+  // A name that is only a number is an issue: `Batman/2.cbr` is `Batman #2`,
+  // the folder naming the series. (A number like that at a library root, or
+  // outside the library, leaves the book nothing to be named by but its
+  // file name, which is what the fallback there does with it.)
+  if (number == null && RegExp(r'^\d{1,4}(?:\.\d+)?[a-z]?$', caseSensitive: false).hasMatch(series)) {
+    number = RegExp(r'^\d+$').hasMatch(series) ? series.replaceFirst(RegExp(r'^0+(?=\d)'), '') : series.toLowerCase();
+    series = '';
+  }
   // An all-lowercase name reads better in the library title-cased.
   if (series == series.toLowerCase()) {
     series = series.replaceAllMapped(RegExp(r'(^|\s)(\p{L})', unicode: true), (m) => '${m[1]}${m[2]!.toUpperCase()}');
   }
   return ComicMeta(
-    series: series.isEmpty ? name : series,
+    series: series.isEmpty ? (number == null ? name : null) : series,
     number: number,
     volume: volume,
     year: year,

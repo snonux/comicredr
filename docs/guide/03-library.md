@@ -12,8 +12,8 @@ It is where the app opens, and `Esc` from a comic brings you back to it.
 - The arrow keys (or `h` `j` `k` `l`) move from cover to cover; `PageUp`
   and `PageDown` move a screenful, `Home` and `End` go to the first and
   last cover.
-- `Enter` opens the selected book, series or folder. With the mouse, one
-  click opens a series or folder; on a book it selects the cover, and a
+- `Enter` opens the selected book or folder. With the mouse, one
+  click opens a folder; on a book it selects the cover, and a
   second click opens it.
 - In a narrower window (a phone, a tablet held upright, a small laptop
   window) there is no room for details beside the covers, so one click or
@@ -22,17 +22,16 @@ It is where the app opens, and `Esc` from a comic brings you back to it.
 - `Tab` or `Shift+Tab` moves between the left sidebar and the covers.
   In a phone-wide window, with tabs along the bottom, they go to the
   next and previous tab.
-- `Esc` backs out one step: out of a series, a folder or a search.
+- `Esc` backs out one step: out of an open collection, a folder or a search.
 
 On a wide window the selected book's details sit beside the covers: its
 cover, how far you are, a **Read** (or **Continue reading**, or **Read
 again**) button, a star for [Favourites](#favourites), a tick for
-[completed](#completed-comics), a pencil to [fix its title or series](07-managing-comics.md#fix-a-title-or-series), its
+[completed](#completed-comics), a pencil to [fix its facts](07-managing-comics.md#fix-a-comics-facts), its
 [collections](#collections), its [bookmarks](06-bookmarks.md), the
 file's path, and buttons to [see its details, reset it or delete
 it](07-managing-comics.md) and to [mark it](#several-comics-at-once).
-A selected series shows a button to read its next book, and on the
-Series tab **Rename**.
+A selected collection shows a button to read its next book.
 
 On the phone the tabs sit along the bottom, and a tap on a cover opens a
 page with the same details:
@@ -47,14 +46,14 @@ Small marks on the covers tell you where you are:
 - a **thin bar** along the bottom: you are part way through it;
 - a **green check**: it is [completed](#completed-comics), read to the end;
 - an **amber star**: it is one of your favourites;
-- a **number** on a series or folder: how many comics are in it;
+- a **number** on a collection or folder: how many comics are in it;
 - a **tick**: it is [marked](#several-comics-at-once);
 - a **cloud**: it is [on S3](13-s3-sync.md#the-cloud-on-a-cover).
 
 ## Keyboard shortcuts in the sidebar
 
 Press `Tab` to give the left sidebar the keyboard focus. Each destination
-underlines its letter: `R` for Reading, `S` for Series, `B` for Books,
+underlines its letter: `R` for Reading, `B` for Books,
 `C` for Collections, `H` for History, `F` for Folders and `M` for
 Bookmarks (the **m** in Bookmarks, since Books already has `B`). Press
 the letter, with or without Shift, to show that destination. The letters
@@ -112,7 +111,7 @@ back to it: after `+`, a `-` is the usual size again, exactly as if you
 had never changed it.
 
 The cover you selected stays in view while the size changes. The size
-is the same on every tab of covers (Reading, Series, Books, Collections
+is the same on every tab of covers (Reading, Books, Collections
 and Folders) and is remembered across restarts. The History and
 Bookmarks tabs are lists and have no size to change, and neither `+`
 nor `-` does anything while a cover's details fill the screen on a
@@ -123,9 +122,8 @@ into it like any other character.
 
 | Tab | What it shows |
 |---|---|
-| **Reading** | The books you have started, unfinished ones first, most recent first. ComicRedr opens on this tab while a book is part way read, otherwise on Series. See [Reading](#reading). |
-| **Series** | One cover per series. A series with more than one book opens to show its books. |
-| **Books** | Every book, series by series, in issue order. |
+| **Reading** | The books you have started, unfinished ones first, most recent first. ComicRedr opens on this tab while a book is part way read, otherwise on Folders. See [Reading](#reading). |
+| **Books** | Every book, in file order, the same order as the Folders tab. |
 | **Collections** | Your own groups of books, including [Favourites](#favourites). |
 | **History** | What you read, day by day. |
 | **Folders** | Your comics as they are on disk, folder by folder. |
@@ -133,7 +131,7 @@ into it like any other character.
 
 ![The Reading tab: the books you have started](images/reading-tab.webp)
 
-![The Books tab: every book, in series order](images/books.webp)
+![The Books tab: every book, in file order](images/books.webp)
 
 ### Reading
 
@@ -177,15 +175,25 @@ reads the sidecar (a shared folder, or [S3 sync](13-s3-sync.md)) drops
 its own place in those comics too. A place saved after the clearing,
 on any device, counts again as usual. There is no undo.
 
-### Series
+### How comics are named
 
-ComicRedr reads the series, issue number, title, year and creators from
-the comic's own `ComicInfo.xml` when it has one, and from the file name
-otherwise: `All Top Comics 6 (1959).cbz` becomes issue 6 of *All Top
-Comics*, from 1959. Books in a series are sorted by volume and issue, so
-issue 10 comes after issue 9, and specials like *Annual* go last.
+There are no series in ComicRedr: your folders are the structure, and
+the folder a comic is directly in names it. A comic at
+`Comics/Batman/Batman 181.cbz` is called *Batman #181* — the folder
+gives the name, and the issue number comes from the file name or the
+comic's own `ComicInfo.xml`. A file name that is only a number is the
+issue: `Comics/Batman/181.cbz` is *Batman #181* too.
 
-When the name is wrong, [fix it in the app](07-managing-comics.md#fix-a-title-or-series).
+The rest of what a name is made of — the issue's own title, the year,
+the writers and artists — is read from `ComicInfo.xml` when the comic
+has one, and from the file name otherwise: `All Top Comics 6 (1959).cbz`
+becomes issue 6 of *All Top Comics*, from 1959.
+
+A comic directly in a library folder (`Comics/All Top Comics 6.cbz`),
+or one opened from outside the library, goes by its file name or
+`ComicInfo.xml`, as just described. To change what a comic is called,
+rename its folder (or its file) on disk; to fix the facts inside it,
+[fix them in the app](07-managing-comics.md#fix-a-comics-facts).
 
 ### Folders
 
@@ -218,7 +226,7 @@ their own covers. A missing cached cover is made again on the next scan
 
 Press `F`, or tap the funnel at the search box's right end, to show only
 some of your comics. The filter works on every tab that lists comics:
-the Folders tab, Books, Series, Reading, Collections, History and
+the Folders tab, Books, Reading, Collections, History and
 Bookmarks alike.
 
 - **Type**: CBZ, CBT, PDF, EPUB, image folder or single image. Only the
@@ -253,7 +261,7 @@ is.) For the thick volumes only, tap **Over 200 pages** under
 **Length**, or press `Tab` until it is ringed and `Space`.
 
 On the Folders tab a subfolder with nothing that passes is hidden, and
-a folder's count is of the comics that pass. An open series or collection
+a folder's count is of the comics that pass. An open collection
 stays open when the filter hides every comic in it: clear the filter to
 see them again, or press `Esc` to go back to the groups. While a filter
 is on, the line under the search box says what it lets through: tap a
@@ -283,7 +291,7 @@ end of the line under the search box, and pick an order:
 | **Modified** | the newest file, by its date as your file manager shows it | `M` |
 | **Size** | the biggest file | `S` |
 | **Pages** | the comic with the most pages | `P` |
-| **Series** | A to Z by series, then by volume and issue number | `E` |
+| **Issue** | volume, then issue number (issue 10 after issue 9; specials like *Annual*, with no number, last) | `I` |
 | **Year** | the newest comic, by the year it came out | `Y` |
 
 Each letter picks its order pressed on its own (the window has nothing
@@ -330,10 +338,10 @@ bookmarks and collections stay.
 ## Search
 
 Press `/` (or click the search box) and type. The covers narrow down as
-you type. Every word has to match somewhere in the title, series, issue,
+you type. Every word has to match somewhere in the title, issue,
 year, writers, artists or file name, ignoring case, so `top 1959`
-finds *All Top Comics 6*. A series or folder stays when its name or any
-book in it matches. On the Bookmarks tab the search looks in your notes too.
+finds *All Top Comics 6*. A collection or folder stays when its name or
+any book in it matches. On the Bookmarks tab the search looks in your notes too.
 
 `Enter` jumps to the first match; `Esc` clears the search.
 
@@ -343,7 +351,7 @@ book in it matches. On the Bookmarks tab the search looks in your notes too.
 
 Press `S` on any tab of covers (or the shuffle button at the top) and
 each comic shows a random page from inside it instead of its cover, and
-each series or folder a random page of a random comic in it. It is a
+each collection or folder a random page of a random comic in it. It is a
 nice way to rediscover what you have. `gs` (or the dice button beside
 it) picks other pages, and `S` again brings the covers back. On a phone,
 where there is no room for the dice, press shuffle twice. Opening a book
@@ -377,8 +385,8 @@ offers, so it waits for the Undo to show.)
 ## Completed comics
 
 A comic you have read to the end is *completed*: its cover gets a green
-check, its details say **Completed**, a series and a folder count it as
-read, and the [library filter](#filter-the-library) can show only the
+check, its details say **Completed**, a collection and a folder count it
+as read, and the [library filter](#filter-the-library) can show only the
 completed ones or hide them.
 
 - **Reading does it.** Read on to the last page of a comic (a key, a tap
@@ -424,7 +432,7 @@ stays.
 **Completed part-way.** A comic you mark completed in the middle is done
 with: its cover loses the progress line, **Continue reading** in its
 details becomes **Read again**, the Reading tab puts it after the comics
-still being read, and it is not what a series goes on with. It still
+still being read, and it is not what a collection goes on with. It still
 opens on the page you left it at.
 
 The mark is kept [with the comic](11-your-data.md), so it follows it to
@@ -538,7 +546,7 @@ into a folder, press `Shift+End`, and every comic in it is marked.
   several** in a comic's details marks it and does the same, so a
   touchscreen needs no keyboard.
 
-Only comics get marked; folders and series in between are skipped.
+Only comics get marked; folders and collections in between are skipped.
 Marked covers show a tick, and a bar over the covers says how many are
 marked, with what you can do to all of them at once:
 

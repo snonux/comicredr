@@ -150,8 +150,8 @@ detected() {
 # tab NAME: clicks a library tab in the rail of the 1280 px wide window.
 tab() {
   local y
-  case $1 in Reading) y=35 ;; Series) y=100 ;; Books) y=160 ;; Collections) y=228 ;;
-    History) y=292 ;; Folders) y=356 ;; Bookmarks) y=420 ;; esac
+  case $1 in Reading) y=35 ;; Books) y=100 ;; Collections) y=163 ;;
+    History) y=228 ;; Folders) y=292 ;; Bookmarks) y=356 ;; esac
   click 43 "$y"; park
 }
 clear_search() { key slash; xdotool key ctrl+a BackSpace; key Return; park; }
@@ -169,8 +169,8 @@ start
 for s in "${sections[@]}"; do case $s in
 
 library)
-  tab Series; key Right; still library
-  tab Books; still books
+  tab Books; key Right; still library
+  still books
   rec search 8; key slash; sleep 0.5; xdotool type --delay 200 "top 1959"; sleep 2; key Return; sleep 2; gif search
   key Escape
   tab Folders; key Right; still folders
@@ -182,7 +182,7 @@ library)
 
 sidebar)
   key Escape; key Escape; key Escape
-  tab Series; key Tab; still sidebar-keys
+  tab Books; key Tab; still sidebar-keys
   key Return
   ;;
 
@@ -378,7 +378,7 @@ unread)
       "https://www.peppercarrot.com/0_sources/ep22_The-Voting-System/low-res/en_Pepper-and-Carrot_by-David-Revoy_E22P$i.jpg" ||
       rm -f "$ep22/page-$i.jpg"
   done
-  key Escape; key Escape; tab Series
+  key Escape; key Escape; tab Collections
   # Not while the first scan of the library runs: what that finds is not new.
   for _ in $(seq 1 120); do [[ "$(q "select count(*) from roots where scanned_at is null")" == 0 ]] && break; sleep 1; done
   cp -r "$ep22" "$comics/Pepper&Carrot/"

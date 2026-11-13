@@ -119,7 +119,7 @@ tap 1212 28 5; tap 560 548
 expect "$(setting library.shuffle)" false "and again: shuffle off"
 
 # 2. A comic, opened by taps on the Books tab.
-tap 43 160; tap 190 200; tap 190 200 3; shot 04_comic
+tap 43 100; tap 190 200; tap 190 200 3; shot 04_comic
 expect "$(view | cut -d'|' -f1)" 1 "two taps on a cover open the comic"
 
 # 3. ⋮ on the status line: Favourite.

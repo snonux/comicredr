@@ -22,8 +22,7 @@ class OpenBook {
 
   /// The same book with the facts edited by hand in the library on top of
   /// what the file and its name say.
-  OpenBook withEdits(Map<MetaField, String?> edits) {
-    if (edits.isEmpty) return this;
+  OpenBook withEdits(Map<MetaField, String?> edits, {Iterable<String> roots = const []}) {
     final m = mergeMeta(meta, parseFileName(p.basename(path)));
     String? v(MetaField f) {
       if (!edits.containsKey(f)) return null;
@@ -38,7 +37,7 @@ class OpenBook {
       doc: doc,
       folder: folder,
       meta: ComicMeta(
-        series: v(MetaField.series) ?? m.series ?? (folder ? p.basename(path) : p.basenameWithoutExtension(path)),
+        series: folderSeries(path, roots, m.series ?? (folder ? p.basename(path) : p.basenameWithoutExtension(path))),
         number: pick(MetaField.number, m.number, (s) => s),
         title: pick(MetaField.title, m.title, (s) => s),
         volume: pick(MetaField.volume, m.volume, (s) => int.tryParse(s ?? '')),
@@ -59,6 +58,18 @@ class OpenBook {
     }
     return folder ? p.basename(path) : p.basenameWithoutExtension(path);
   }
+}
+
+/// The book's "series" name as the library shows it ([LibraryBook.series]):
+/// the folder the book is in, when that folder is strictly inside one of
+/// the library folders [roots] (`Batman` for `Batman/Batman 181.cbz`). A
+/// book directly in a library root, or outside the library, goes by
+/// [fallback]: what its ComicInfo.xml or file name says. Folders give the
+/// library its structure; there is no grouping by this name anywhere.
+String folderSeries(String path, Iterable<String> roots, String fallback) {
+  final dir = p.dirname(path);
+  if (roots.any((r) => p.isWithin(r, dir))) return p.basename(dir);
+  return fallback;
 }
 
 /// Why a file could not be opened, phrased for the person reading.

@@ -46,13 +46,16 @@ void main() {
       expect(MetaEdit.decode('Batman').value, 'Batman');
     });
 
-    test('merging keeps the later edit per fact, an undo included', () {
-      final a = {'series': MetaEdit('Spirit', at: t0).encode(), 'year': MetaEdit('1940', at: t1).encode()};
-      final b = {'series': MetaEdit.undo(at: t1).encode(), 'year': MetaEdit('1941', at: t0).encode()};
-      for (final merged in [mergeEdits(a, b), mergeEdits(b, a)]) {
-        expect(activeEdits(merged), {MetaField.year: '1940'});
-      }
-    });
+    test(
+      'merging keeps the later edit per fact, an undo included, and the series edits of an older version are ignored',
+      () {
+        final a = {'series': MetaEdit('Spirit', at: t0).encode(), 'year': MetaEdit('1940', at: t1).encode()};
+        final b = {'series': MetaEdit.undo(at: t1).encode(), 'year': MetaEdit('1941', at: t0).encode()};
+        for (final merged in [mergeEdits(a, b), mergeEdits(b, a)]) {
+          expect(activeEdits(merged), {MetaField.year: '1940'}, reason: 'series is no fact this version knows');
+        }
+      },
+    );
   });
 
   group('store', () {
@@ -65,13 +68,12 @@ void main() {
       return (store, scanner);
     }
 
-    test('edits win over the file, survive a rescan, regroup and search, and undo', () async {
+    test('edits win over the file, survive a rescan, and undo', () async {
       final (store, scanner) = await scanned();
-      final bride = (await store.books()).firstWhere((b) => b.series == 'Barefoot Bride');
-      expect(bride.fromFile, isEmpty);
+      final indie = (await store.books()).firstWhere((b) => b.series == 'Indie');
+      expect(indie.fromFile, isEmpty);
 
-      await store.editBook(bride.key, {
-        MetaField.series: MetaEdit('The Spirit', at: t0),
+      await store.editBook(indie.key, {
         MetaField.number: MetaEdit('3', at: t0),
         MetaField.title: MetaEdit('The Bride', at: t0),
         MetaField.year: MetaEdit('1941', at: t0),
@@ -79,38 +81,21 @@ void main() {
       });
       await scanner.scan(); // A rescan reads the files again.
       var books = await store.books();
-      var edited = books.firstWhere((b) => b.key == bride.key);
-      expect((edited.name, edited.issueTitle, edited.year), ('The Spirit #3', 'The Bride', 1941));
+      var edited = books.firstWhere((b) => b.key == indie.key);
+      expect((edited.name, edited.issueTitle, edited.year), ('Indie #3', 'The Bride', 1941));
       expect(edited.writers, ['Will Eisner', 'Jules Feiffer']);
-      expect(edited.fromFile[MetaField.series], 'Barefoot Bride');
-      expect(edited.fromFile[MetaField.number], isNull);
-      final spirit = LibrarySeries.group(books).firstWhere((s) => s.name == 'The Spirit');
-      expect(spirit.books.map((b) => b.number), ['1', '2', '3']);
+      expect(edited.fromFile[MetaField.number], isNull, reason: 'what the file says is kept apart');
       expect(edited.matches('feiffer'), isTrue);
 
       // Clearing a fact empties it; undo brings the file's back.
-      await store.editBook(bride.key, {
+      await store.editBook(indie.key, {
         MetaField.year: MetaEdit(null, at: t1),
-        MetaField.series: MetaEdit.undo(at: t1),
         MetaField.number: MetaEdit.undo(at: t1),
       });
       books = await store.books();
-      edited = books.firstWhere((b) => b.key == bride.key);
-      expect((edited.name, edited.year, edited.issueTitle), ('Barefoot Bride', null, 'The Bride'));
+      edited = books.firstWhere((b) => b.key == indie.key);
+      expect((edited.name, edited.year, edited.issueTitle), ('Indie', null, 'The Bride'));
       expect(edited.fromFile.keys.toSet(), {MetaField.year, MetaField.title, MetaField.writers});
-      expect(LibrarySeries.group(books).firstWhere((s) => s.name == 'The Spirit').books, hasLength(2));
-      await scanner.dispose();
-    });
-
-    test('renaming a series shows the typed name, even when only its case changes', () async {
-      final (store, scanner) = await scanned();
-      final spirit = (await store.books()).where((b) => b.series == 'The Spirit').toList();
-      for (final b in spirit) {
-        await store.editBook(b.key, {MetaField.series: MetaEdit('THE SPIRIT', at: t0)});
-      }
-      final groups = LibrarySeries.group(await store.books());
-      expect(groups.map((s) => s.name), containsAll(['THE SPIRIT']));
-      expect(groups.firstWhere((s) => s.name == 'THE SPIRIT').books, hasLength(2));
       await scanner.dispose();
     });
   });
@@ -193,7 +178,7 @@ void main() {
       await settle(tester);
     }
 
-    testWidgets('e edits the selected book, e on a series renames it, and the reader shows the edit', (tester) async {
+    testWidgets('e edits the selected book, and the reader shows the edit', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester);
       await tester.runAsync(() async {
@@ -202,11 +187,14 @@ void main() {
       });
       await settle(tester);
 
-      // Series tab: Barefoot Bride, Pepper Carrot, The Spirit.
-      await key(tester, LogicalKeyboardKey.keyL);
+      // The Books tab: Indie, Pepper Carrot #6, The Spirit #1, The Spirit #2.
+      await key(tester, LogicalKeyboardKey.tab);
+      await key(tester, LogicalKeyboardKey.keyB);
+      await key(tester, LogicalKeyboardKey.enter);
+      await key(tester, LogicalKeyboardKey.keyL); // Indie is selected.
       await key(tester, LogicalKeyboardKey.keyE, character: 'e');
       expect(find.byKey(const Key('editDialog')), findsOneWidget);
-      await tester.enterText(find.byKey(const Key('edit.series')), 'The Spirit');
+      expect(find.byKey(const Key('edit.series')), findsNothing, reason: 'there is no series field any more');
       await tester.enterText(find.byKey(const Key('edit.number')), '3');
       await tester.enterText(find.byKey(const Key('edit.year')), 'soon');
       await tester.tap(find.byKey(const Key('editSave')));
@@ -219,37 +207,24 @@ void main() {
       });
       await settle(tester);
       expect(find.byKey(const Key('editDialog')), findsNothing);
-      expect(find.text('3 books'), findsOneWidget, reason: 'Barefoot Bride joined The Spirit');
       expect(
-        find.descendant(of: find.byKey(const Key('detail')), matching: find.text('3 books · 0 read')),
+        find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Indie #3')),
         findsOneWidget,
-        reason: 'the selection followed the book into its new series',
+        reason: 'the number edit named the book anew',
       );
-      final bride = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!
+      final indie = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!
           .firstWhere((b) => b.number == '3');
-      expect((bride.series, bride.year), ('The Spirit', 1941));
-      final side = await tester.runAsync(() async => readSidecar(sidecarPath(bride.path, folder: false)));
-      expect(activeEdits(side!.overrides)[MetaField.series], 'The Spirit', reason: 'written beside the comic');
-
-      // e on the series cover renames every book in it.
-      await key(tester, LogicalKeyboardKey.keyE, character: 'e');
-      expect(find.byKey(const Key('renameSeriesDialog')), findsOneWidget);
-      await tester.enterText(find.byKey(const Key('seriesName')), 'Spirit Section');
-      await tester.runAsync(() async {
-        await tester.tap(find.byKey(const Key('renameSave')));
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-      });
-      await settle(tester);
-      expect(find.text('Spirit Section'), findsWidgets);
-      expect(find.text('The Spirit'), findsNothing);
+      expect((indie.year), 1941);
+      final side = await tester.runAsync(() async => readSidecar(sidecarPath(indie.path, folder: false)));
+      expect(activeEdits(side!.overrides)[MetaField.number], '3', reason: 'written beside the comic');
 
       // The reader's title follows the edit.
       await tester.runAsync(() async {
-        await c.read(readerProvider.notifier).open(bride.path);
+        await c.read(readerProvider.notifier).open(indie.path);
         await Future<void>.delayed(const Duration(milliseconds: 300));
       });
       await settle(tester);
-      expect(c.read(readerProvider).book?.title, 'Spirit Section #3');
+      expect(c.read(readerProvider).book?.title, 'Indie #3');
     });
   });
 }

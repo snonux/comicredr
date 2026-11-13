@@ -96,7 +96,7 @@ differs() { awk -v a="$1" -v b="$2" 'BEGIN { d = a - b; exit !(d > 0.01 || d < -
 
 # 1. A comic opened by taps on the Books tab, then fullscreen by a tap in
 # the middle: no status line, so no Fit width button.
-tap 43 160; tap 190 200; tap 190 200 3; shot 01_comic
+tap 43 100; tap 190 200; tap 190 200 3; shot 01_comic
 expect "$(field 1)" 1 "two taps on a cover open the comic"
 tap 640 360 2; shot 02_fullscreen
 expect "$(q "select value from settings where key = 'reader.fullscreen'")" true "a tap in the middle: fullscreen"

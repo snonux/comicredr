@@ -107,7 +107,7 @@ void main() {
     await tester.tap(
       size.width < 600
           ? find.descendant(of: find.byType(NavigationBar), matching: find.byIcon(Icons.folder))
-          : find.text('Folders'),
+          : find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')),
     );
     await settle(tester);
     // A tap on a folder opens it, and its first comic is selected.

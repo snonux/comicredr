@@ -37,7 +37,7 @@ table of contents.
   JPEG or WebP pages.
 - Single pages or two-page spreads, with zoom, a night filter, margin
   trimming and clean-up for yellowed old scans.
-- A **library** of your comics folders: covers, series, folders, search,
+- A **library** of your comics folders: covers, folders, search,
   collections, favourites, bookmarks with notes and a reading history.
 - **Picks up where you left off**, on the same page, panel and zoom, and
   carries that and your bookmarks to the phone or tablet with the file,
@@ -46,7 +46,7 @@ table of contents.
   support, and every key and tap zone can be changed.
 - Free software under the Apache License 2.0.
 
-![The library: series of covers, with the selected book's details beside them](docs/screenshots/library.webp)
+![The library: covers, with the selected book's details beside them](docs/screenshots/library.webp)
 
 | | |
 |---|---|

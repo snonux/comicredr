@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 LibraryBook book(String format, {int? size, DateTime? modified, int pages = 1}) => LibraryBook(
   key: '$format-$size-$modified-$pages',
   series: 'S',
-  seriesId: 1,
   pageCount: pages,
   format: format,
   path: '/c/$format',

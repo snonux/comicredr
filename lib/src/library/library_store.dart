@@ -16,7 +16,6 @@ class LibraryBook {
   const LibraryBook({
     required this.key,
     required this.series,
-    required this.seriesId,
     required this.pageCount,
     required this.format,
     required this.path,
@@ -44,8 +43,13 @@ class LibraryBook {
   });
 
   final String key;
+
+  /// The name of the folder the book is in (`Batman` for
+  /// `Batman/Batman 181.cbz`); a book directly in a library root goes by
+  /// its file name. Folders give the library its structure: there is no
+  /// grouping by this name, it only names the book in the title
+  /// ([name], `Batman #181`) and on the S3 shelf's manifest.
   final String series;
-  final int seriesId;
   final String? number;
   final int? volume;
   final int? year;
@@ -79,7 +83,6 @@ class LibraryBook {
       yield LibraryBook(
         key: key,
         series: series,
-        seriesId: seriesId,
         pageCount: pageCount,
         format: format,
         path: c.path,
@@ -151,7 +154,6 @@ class LibraryBook {
 
   /// The book's value of [f] as the edit dialog shows it.
   String? fact(MetaField f) => switch (f) {
-    MetaField.series => series,
     MetaField.number => number,
     MetaField.title => issueTitle,
     MetaField.volume => volume?.toString(),
@@ -161,7 +163,9 @@ class LibraryBook {
     MetaField.summary => summary,
   };
 
-  /// `Daredevil #181`, or the series alone for a book without a number.
+  /// `Daredevil #181`, or the series alone for a book without a number:
+  /// the folder the book is in, and the issue number from its file name
+  /// or ComicInfo.xml.
   String get name => number == null ? series : '$series #$number';
 
   /// A folder of page images rather than a comic file: its sidecar goes
@@ -195,8 +199,8 @@ class LibraryBook {
     return words.every(hay.contains);
   }
 
-  /// Series order: volume, then issue number, then anything else by name.
-  static int seriesOrder(LibraryBook a, LibraryBook b) {
+  /// Book order: volume, then issue number, then anything else by name.
+  static int bookOrder(LibraryBook a, LibraryBook b) {
     final v = (a.volume ?? 0).compareTo(b.volume ?? 0);
     if (v != 0) return v;
     final na = issueOrder(a.number), nb = issueOrder(b.number);
@@ -230,9 +234,10 @@ class S3Shelf {
   final int? size;
 }
 
-/// A series as the library shows it: its books in reading order.
-class LibrarySeries {
-  const LibrarySeries(this.id, this.name, this.books);
+/// A collection as the library shows it: its books in reading order.
+/// (There were series once; collections are the only groups now.)
+class LibraryGroup {
+  const LibraryGroup(this.id, this.name, this.books);
 
   final int id;
   final String name;
@@ -244,24 +249,7 @@ class LibrarySeries {
   LibraryBook get next => books.firstWhere((b) => !b.completed, orElse: () => books.first);
 
   bool matches(String query) => books.any((b) => b.matches(query));
-
-  /// Groups [books] by series, series in name order, books in series order.
-  static List<LibrarySeries> group(List<LibraryBook> books) {
-    final by = <int, List<LibraryBook>>{};
-    for (final b in books) {
-      by.putIfAbsent(b.seriesId, () => []).add(b);
-    }
-    return [
-      for (final MapEntry(key: id, value: list) in by.entries)
-        LibrarySeries(id, _name(list), list..sort(LibraryBook.seriesOrder)),
-    ]..sort((a, b) => naturalCompare(seriesKey(a.name), seriesKey(b.name)));
-  }
 }
-
-/// A series' name: as typed where a book's series was edited by hand, so
-/// renaming `spirit` to `The Spirit` shows, else as the first book has it.
-String _name(List<LibraryBook> books) =>
-    books.where((b) => b.fromFile.containsKey(MetaField.series)).firstOrNull?.series ?? books.first.series;
 
 /// The collection `*` and the star put a book in: an ordinary collection,
 /// shown with the others. Renamed or emptied, the next favourite makes it
@@ -273,10 +261,10 @@ const favouritesCollection = 'Favourites';
 /// `leaveUnread`). An ordinary collection otherwise.
 const unreadCollection = 'Unread';
 
-/// The hand-made collections among [books], as groups the library shows
-/// like series: collections in name order, books in series order. Ids are
-/// negative, so they never meet a series id.
-List<LibrarySeries> collectionGroups(List<LibraryBook> books) {
+/// The hand-made collections among [books], as groups the library shows:
+/// collections in name order, books by the folder each is in, then issue.
+/// Ids are negative, so they never meet a folder's.
+List<LibraryGroup> collectionGroups(List<LibraryBook> books) {
   final by = <String, List<LibraryBook>>{};
   for (final b in books) {
     for (final c in b.collections) {
@@ -284,12 +272,12 @@ List<LibrarySeries> collectionGroups(List<LibraryBook> books) {
     }
   }
   final names = by.keys.toList()..sort(naturalCompare);
-  int bySeries(LibraryBook a, LibraryBook b) {
+  int byFolder(LibraryBook a, LibraryBook b) {
     final s = naturalCompare(seriesKey(a.series), seriesKey(b.series));
-    return s != 0 ? s : LibraryBook.seriesOrder(a, b);
+    return s != 0 ? s : LibraryBook.bookOrder(a, b);
   }
 
-  return [for (final (i, n) in names.indexed) LibrarySeries(-1 - i, n, by[n]!..sort(bySeries))];
+  return [for (final (i, n) in names.indexed) LibraryGroup(-1 - i, n, by[n]!..sort(byFolder))];
 }
 
 /// A folder in the Folders tab: a library folder or one somewhere under it,
@@ -401,9 +389,10 @@ class BookmarkInfo {
   int get hashCode => Object.hash(id, page, panel, mark, note);
 }
 
-/// The library's side of the app index: roots, books, series, and the
+/// The library's side of the app index: roots, books, collections, and the
 /// queries the library screens watch. The index is a cache; everything here
-/// can be rebuilt by a rescan.
+/// can be rebuilt by a rescan. Folders give the library its structure
+/// (there is no grouping by series name; the folder a book is in names it).
 class LibraryStore {
   LibraryStore(this.db);
 
@@ -569,15 +558,18 @@ class LibraryStore {
   /// Records [info] as the book at [relPath] under [rootId].
   Future<void> putBook(int rootId, String relPath, int size, DateTime mtime, BookInfo info) => db.transaction(() async {
     final meta = info.meta;
-    final seriesName = meta.series ?? p.basenameWithoutExtension(relPath);
-    final seriesId = await _seriesId(seriesName);
+    // The folder the book is in names it; a book directly in a library
+    // root goes by its file name (ComicInfo.xml's series, else the name).
+    final seriesName = p.split(relPath).length > 1
+        ? p.basename(p.dirname(relPath))
+        : (meta.series ?? p.basenameWithoutExtension(relPath));
     await db
         .into(db.books)
         .insertOnConflictUpdate(
           BooksCompanion.insert(
             contentKey: info.contentKey,
             title: meta.number == null ? seriesName : '$seriesName #${meta.number}',
-            seriesId: Value(seriesId),
+            series: seriesName,
             number: Value(meta.number),
             pageCount: info.pageCount,
             format: info.kind.name,
@@ -602,31 +594,15 @@ class LibraryStore {
         );
   });
 
-  /// Books group by [seriesKey], so `The Spirit` and `spirit` are one series
-  /// under the first name seen.
-  Future<int> _seriesId(String name) async {
-    final key = seriesKey(name);
-    // The first: two edits racing can each have made one.
-    final existing =
-        await (db.select(db.seriesTable)
-              ..where((s) => s.sortName.equals(key))
-              ..orderBy([(s) => OrderingTerm(expression: s.id)])
-              ..limit(1))
-            .getSingleOrNull();
-    if (existing != null) return existing.id;
-    return db.into(db.seriesTable).insert(SeriesTableCompanion.insert(name: name, sortName: key));
-  }
-
   static const _booksSql = '''
 SELECT b.content_key, b.number, b.page_count, b.format, b.added_at, b.issue_title, b.volume, b.year,
-       b.writers, b.artists, b.summary, b.series_id, s.name AS series_name,
+       b.writers, b.artists, b.summary, b.series AS series_name,
        fp.path, fp.size AS f_size, fp.mtime AS f_mtime,
        pr.page AS p_page, pr.percent AS p_percent, pr.finished AS p_finished, pr.updated_at AS p_updated,
        instr(pr.view_json, '"peek":true') > 0 AS p_peek,
        (SELECT group_concat(c.name, char(31)) FROM collection_books c
          WHERE c.content_key = b.content_key AND c.removed_at IS NULL) AS collections
 FROM books b
-JOIN series s ON s.id = b.series_id
 LEFT JOIN progress pr ON pr.content_key = b.content_key
 JOIN (SELECT f.content_key, r.path || '/' || f.rel_path AS path, f.size, f.mtime,
              row_number() OVER (PARTITION BY f.content_key ORDER BY r.id, f.rel_path) AS n
@@ -643,16 +619,8 @@ ORDER BY r.id, f.rel_path
 
   /// Every book in the library, live: a scan adding a book or a page turn
   /// saving progress updates whoever watches.
-  Stream<List<LibraryBook>> watchBooks() => _live({
-    db.books,
-    db.seriesTable,
-    db.files,
-    db.roots,
-    db.progress,
-    db.collectionBooks,
-    db.overrides,
-    db.s3Books,
-  }, books);
+  Stream<List<LibraryBook>> watchBooks() =>
+      _live({db.books, db.files, db.roots, db.progress, db.collectionBooks, db.overrides, db.s3Books}, books);
 
   /// What the overrides rows say, by content key: the hand edits in
   /// effect, and the completed marks.
@@ -672,16 +640,6 @@ ORDER BY r.id, f.rel_path
   Future<List<LibraryBook>> books() async {
     final rows = await db.customSelect(_booksSql).get();
     final (edits, marks, starts) = await _overrides();
-    // An edited series groups with the series of that name, made here when
-    // the edit came in from another device's sidecar.
-    final names = {
-      for (final e in edits.values)
-        if (e[MetaField.series]?.trim() case final s? when s.isNotEmpty) seriesKey(s): s,
-    };
-    final ids = <String, int>{};
-    for (final MapEntry(:key, :value) in names.entries) {
-      ids[key] = await _seriesId(value);
-    }
     final shelf = {
       for (final r in await (db.select(
         db.s3Books,
@@ -701,7 +659,6 @@ ORDER BY r.id, f.rel_path
         _book(
           r,
           edits[r.read<String>('content_key')] ?? const {},
-          ids,
           shelf,
           files[r.read<String>('content_key')],
           marks[r.read<String>('content_key')],
@@ -758,7 +715,6 @@ ORDER BY r.id, f.rel_path
     return LibraryBook(
       key: m.contentKey,
       series: series,
-      seriesId: await _seriesId(series),
       number: m.number,
       year: m.year,
       pageCount: m.pageCount ?? 0,
@@ -783,7 +739,6 @@ ORDER BY r.id, f.rel_path
   /// what the file says until undone (MetaEdit.undo).
   Future<void> editBook(String contentKey, Map<MetaField, MetaEdit> edits) => db.transaction(() async {
     for (final MapEntry(key: f, value: e) in edits.entries) {
-      if (f == MetaField.series && !e.fromFile && e.value != null) await _seriesId(e.value!.trim());
       await db
           .into(db.overrides)
           .insertOnConflictUpdate(OverridesCompanion.insert(contentKey: contentKey, field: f.name, value: e.encode()));
@@ -899,8 +854,7 @@ ORDER BY r.id, f.rel_path
 
   LibraryBook _book(
     QueryRow r,
-    Map<MetaField, String?> edits,
-    Map<String, int> seriesIds, [
+    Map<MetaField, String?> edits, [
     Map<String, S3Book> shelf = const {},
     List<({String path, DateTime? modified})>? files,
     bool? completedMark,
@@ -919,14 +873,13 @@ ORDER BY r.id, f.rel_path
       return v == null || v.isEmpty ? null : v;
     }
 
-    // A series cannot be blank: clearing it shows the file's again.
-    final series = get(MetaField.series) ?? file[MetaField.series]!;
+    // The folder the book is in; a fact of the file, not editable.
+    final series = r.read<String>('series_name');
     final collections = r.readNullable<String>('collections')?.split('\x1f') ?? const <String>[];
     final path = p.normalize(r.read<String>('path'));
     return LibraryBook(
       key: r.read<String>('content_key'),
       series: series,
-      seriesId: seriesIds[seriesKey(series)] ?? r.read<int>('series_id'),
       number: get(MetaField.number),
       volume: int.tryParse(get(MetaField.volume) ?? ''),
       year: int.tryParse(get(MetaField.year) ?? ''),
@@ -960,7 +913,6 @@ ORDER BY r.id, f.rel_path
   /// What the comic's file says of itself in the row [r] of [_booksSql],
   /// as the edit form's fields: what a hand edit is laid over.
   static Map<MetaField, String?> _fileFacts(QueryRow r) => {
-    MetaField.series: r.read<String>('series_name'),
     MetaField.number: r.readNullable<String>('number'),
     MetaField.title: r.readNullable<String>('issue_title'),
     MetaField.volume: r.readNullable<int>('volume')?.toString(),
@@ -973,19 +925,6 @@ ORDER BY r.id, f.rel_path
   static S3Shelf _shelf(S3Book row, S3Mark mark) {
     final m = Manifest.decode(row.manifest);
     return S3Shelf(mark, uploadedBy: m?.uploadedBy, uploadedAt: m?.uploadedAt, size: m?.size);
-  }
-
-  /// The book before or after [contentKey] in its series, for `]` and `[`.
-  /// Null when the book is not in the library or is alone in its series;
-  /// otherwise a record whose path is null at either end of the series.
-  Future<({String? path})?> seriesNeighbour(String contentKey, {required bool next}) async {
-    final all = await books();
-    final me = all.where((b) => b.key == contentKey).firstOrNull;
-    if (me == null) return null;
-    final series = all.where((b) => b.seriesId == me.seriesId && !b.remoteOnly).toList()..sort(LibraryBook.seriesOrder);
-    if (series.length < 2) return null;
-    final i = series.indexWhere((b) => b.key == contentKey) + (next ? 1 : -1);
-    return (path: i >= 0 && i < series.length ? series[i].path : null);
   }
 
   Stream<List<BookmarkInfo>> watchBookmarks(String contentKey) =>

@@ -14,7 +14,6 @@ void main() {
     final book = LibraryBook(
       key: 'k',
       series: 'S',
-      seriesId: 1,
       pageCount: 4,
       format: 'cbz',
       path: '${tmp.path}/b.cbz',
@@ -31,15 +30,7 @@ void main() {
     final path = writeBookOf(tmp, 'b.cbz', [page, page, page]);
     final pages = ShufflePages(dir: '${tmp.path}/pages');
     addTearDown(pages.close);
-    final book = LibraryBook(
-      key: 'k',
-      series: 'S',
-      seriesId: 1,
-      pageCount: 3,
-      format: 'cbz',
-      path: path,
-      addedAt: DateTime(2026),
-    );
+    final book = LibraryBook(key: 'k', series: 'S', pageCount: 3, format: 'cbz', path: path, addedAt: DateTime(2026));
     // The real making, on its worker and isolates: waited for itself, with
     // a limit that only says "never", far beyond what a busy machine needs.
     final (usual, big) = (await tester.runAsync(() async {

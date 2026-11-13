@@ -6,7 +6,6 @@ import '../hotkeys.dart';
 
 import '../reader/guided.dart';
 import 'cover_card.dart';
-import 'edit_dialog.dart';
 import 'library_store.dart';
 import 'providers.dart';
 
@@ -94,25 +93,22 @@ class HistoryPane extends ConsumerWidget {
   }
 }
 
-class SeriesDetail extends ConsumerWidget {
-  const SeriesDetail({super.key, required this.series, required this.onRead, this.canRename = false});
+class GroupDetail extends ConsumerWidget {
+  const GroupDetail({super.key, required this.group, required this.onRead});
 
-  final LibrarySeries series;
+  final LibraryGroup group;
   final void Function(LibraryBook, {Place? at}) onRead;
-
-  /// A series, not a collection.
-  final bool canRename;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final next = series.next;
+    final next = group.next;
     return ListView(
       key: const Key('detail'),
       padding: const EdgeInsets.all(16),
       children: [
-        Text(series.name, style: theme.textTheme.headlineSmall),
-        Text('${series.books.length} books · ${series.read} read'),
+        Text(group.name, style: theme.textTheme.headlineSmall),
+        Text('${group.books.length} books · ${group.read} read'),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -125,26 +121,19 @@ class SeriesDetail extends ConsumerWidget {
               icon: const Icon(Icons.chrome_reader_mode),
               label: Text('${next.inProgress ? 'Continue' : 'Read'} ${next.name}'),
             ),
-            if (canRename)
-              OutlinedButton.icon(
-                key: const Key('renameSeries'),
-                onPressed: () => renameSeries(context, ref, series),
-                icon: const Icon(Icons.edit),
-                label: Text(KeyHints.tip(context, 'Rename', ReaderIntent.editBook)),
-              ),
           ],
         ),
         const SizedBox(height: 12),
         Text('Enter or a tap shows the books', style: theme.textTheme.bodySmall),
         // No keys of their own: Enter shows the books, the arrows and Enter read one.
-        for (final b in series.books) _bookRow(b),
+        for (final b in group.books) _bookRow(b),
       ],
     );
   }
 
-  /// One comic of the series: its name, how far it is read, a tap reads it.
+  /// One comic of the group: its name, how far it is read, a tap reads it.
   Widget _bookRow(LibraryBook b) => ListTile(
-    key: Key('seriesBook-${b.key}'),
+    key: Key('groupBook-${b.key}'),
     dense: true,
     contentPadding: EdgeInsets.zero,
     title: Text(b.name),

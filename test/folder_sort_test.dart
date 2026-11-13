@@ -15,7 +15,6 @@ LibraryBook book(
 }) => LibraryBook(
   key: name,
   series: series,
-  seriesId: 1,
   number: number,
   pageCount: pages,
   format: 'cbz',
@@ -44,7 +43,7 @@ void main() {
       SortOrder.modified: ['a 2', 'a 10', 'b'],
       SortOrder.size: ['a 10', 'b', 'a 2'],
       SortOrder.pages: ['b', 'a 10', 'a 2'],
-      SortOrder.series: ['a 2', 'b', 'a 10'],
+      SortOrder.issue: ['a 2', 'b', 'a 10'],
       SortOrder.year: ['a 10', 'b', 'a 2'],
     };
     // Reversed, every comic with a value turns round; one without stays last.
@@ -55,7 +54,7 @@ void main() {
       SortOrder.modified: ['a 10', 'a 2', 'b'],
       SortOrder.size: ['a 2', 'b', 'a 10'],
       SortOrder.pages: ['a 10', 'b', 'a 2'],
-      SortOrder.series: ['a 10', 'b', 'a 2'],
+      SortOrder.issue: ['a 10', 'b', 'a 2'],
       SortOrder.year: ['b', 'a 10', 'a 2'],
     };
     for (final o in SortOrder.values) {
@@ -98,6 +97,9 @@ void main() {
     for (final text in [null, '', 'colour', 'size:upside', 'size:reversed:x', ':reversed']) {
       expect(FolderSort.decode(text), FolderSort.usual, reason: '$text');
     }
+    // The series order of the version that still grouped by series.
+    expect(FolderSort.decode('series'), const FolderSort(order: SortOrder.issue));
+    expect(FolderSort.decode('series:reversed'), const FolderSort(order: SortOrder.issue, reversed: true));
   });
 
   test('go steps through every order and back, the way round kept; gO turns it', () {

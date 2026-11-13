@@ -115,6 +115,11 @@ class ReaderNotifier extends Notifier<ReaderState> {
   @visibleForTesting
   Future<OpenBook> Function(String) openDocument = openBook;
 
+  /// The next or previous book beside the open one, for `]` and `[`; tests
+  /// can hold it at a known point in a race.
+  @visibleForTesting
+  Future<String?> Function(String path, {required bool next}) siblingLookup = siblingBook;
+
   /// Called before and after close or exit waits for completion writes.
   @visibleForTesting
   void Function(bool drained)? onCompletionBarrier;
@@ -185,9 +190,18 @@ class ReaderNotifier extends Notifier<ReaderState> {
     if (superseded()) return book.doc.close();
     timing('open: sidecar', clock);
     // Titles edited in the library, some perhaps just now from the sidecar.
+    // With no edits, the folder the book is in names it, as in the library.
     final edits = await _orNull(() => ref.read(libraryStoreProvider).edits(book.key));
     if (superseded()) return book.doc.close();
-    if (edits != null) book = book.withEdits(edits);
+    final roots = await _orNull(() => ref.read(libraryStoreProvider).roots());
+    if (superseded()) return book.doc.close();
+    book = book.withEdits(
+      edits ?? const {},
+      roots: [
+        if (roots != null)
+          for (final r in roots) r.path,
+      ],
+    );
     // A broken index must not keep a book from opening: each of these falls
     // back to nothing saved.
     final saved = await _orNull(() => _progress.load(book.key));
@@ -1599,25 +1613,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
         .catchError((Object e) => debugPrint('Could not save setting: $e')),
   );
 
-  /// `]` and `[`: the next or previous book in the series when the book is
-  /// in the library with others in its series, the next or previous book in
-  /// its folder otherwise.
+  /// `]` and `[`: the next or previous book in the folder the book is in.
   Future<void> _neighbour({required bool next}) async {
     final book = state.book!;
     final opening = _opening;
     bool superseded() => !ref.mounted || opening != _opening || !identical(state.book, book);
-    final inSeries = await _orNull(() => ref.read(libraryStoreProvider).seriesNeighbour(book.key, next: next));
-    if (superseded()) return;
-    if (inSeries != null) {
-      final path = inSeries.path;
-      if (path == null) {
-        _notice(next ? 'This is the last book in the series' : 'This is the first book in the series');
-      } else {
-        await open(path);
-      }
-      return;
-    }
-    final path = await siblingBook(book.path, next: next);
+    final path = await siblingLookup(book.path, next: next);
     if (superseded()) return;
     if (path == null) {
       _notice(next ? 'No next book in this folder' : 'No previous book in this folder');

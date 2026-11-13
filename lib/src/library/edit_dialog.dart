@@ -30,25 +30,6 @@ Future<void> editBook(BuildContext context, WidgetRef ref, LibraryBook book) asy
   }
 }
 
-/// `e` on a series: renames it, which is an edit to every book in it.
-Future<void> renameSeries(BuildContext context, WidgetRef ref, LibrarySeries series) async {
-  final messenger = ScaffoldMessenger.of(context);
-  final save = _saver(ref);
-  final name = await showDialog<String>(
-    context: context,
-    builder: (_) => _RenameSeriesDialog(series: series),
-  );
-  if (name == null || name == series.name) return;
-  try {
-    final at = DateTime.now();
-    await save(series.books, {MetaField.series: MetaEdit(name, at: at)});
-    final n = series.books.length;
-    showNotice(messenger, 'Renamed $n ${n == 1 ? 'book' : 'books'} to $name');
-  } catch (e) {
-    showNotice(messenger, 'Could not rename ${series.name}: $e', mustRead: true);
-  }
-}
-
 /// Saves edits to books in the index, then writes their sidecars.
 Future<void> Function(List<LibraryBook>, Map<MetaField, MetaEdit>) _saver(WidgetRef ref) {
   final store = ref.read(libraryStoreProvider);
@@ -110,11 +91,6 @@ class _EditBookDialogState extends State<EditBookDialog> {
       final file = widget.book.fromFile.containsKey(f) ? widget.book.fromFile[f] ?? '' : null;
       if (_undone.contains(f) && text == file) {
         edits[f] = MetaEdit.undo(at: at);
-      } else if (f == MetaField.series && text.isEmpty) {
-        // A book always has a series: a blank one means the file's again.
-        if (widget.book.fromFile.containsKey(f)) {
-          edits[f] = MetaEdit.undo(at: at);
-        }
       } else if (text != (widget.book.fact(f) ?? '')) {
         edits[f] = MetaEdit(text.isEmpty ? null : text, at: at);
       }
@@ -172,10 +148,9 @@ class _EditBookDialogState extends State<EditBookDialog> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _field(MetaField.series, autofocus: true),
                   Row(
                     children: [
-                      Expanded(child: _field(MetaField.number)),
+                      Expanded(child: _field(MetaField.number, autofocus: true)),
                       const SizedBox(width: 12),
                       Expanded(child: _field(MetaField.volume)),
                       const SizedBox(width: 12),
@@ -207,65 +182,4 @@ class _EditBookDialogState extends State<EditBookDialog> {
     TextButton(key: const Key('editCancel'), onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
     FilledButton(key: const Key('editSave'), onPressed: _save, child: const Mnemonic('Save')),
   ];
-}
-
-class _RenameSeriesDialog extends StatefulWidget {
-  const _RenameSeriesDialog({required this.series});
-
-  final LibrarySeries series;
-
-  @override
-  State<_RenameSeriesDialog> createState() => _RenameSeriesDialogState();
-}
-
-class _RenameSeriesDialogState extends State<_RenameSeriesDialog> {
-  late final _field = TextEditingController(text: widget.series.name);
-
-  @override
-  void dispose() {
-    _field.dispose();
-    super.dispose();
-  }
-
-  void _done() {
-    final name = _field.text.trim();
-    if (name.isNotEmpty) Navigator.pop(context, name);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final n = widget.series.books.length;
-    return DialogHotkeys(
-      child: AlertDialog(
-        key: const Key('renameSeriesDialog'),
-        title: Text('Rename ${widget.series.name}'),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                key: const Key('seriesName'),
-                controller: _field,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Series'),
-                onSubmitted: (_) => _done(),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Sets the series of all $n ${n == 1 ? 'book' : 'books'} in it. A name another series has '
-                'already puts them together.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Mnemonic('Cancel')),
-          FilledButton(key: const Key('renameSave'), onPressed: _done, child: const Mnemonic('Rename')),
-        ],
-      ),
-    );
-  }
 }

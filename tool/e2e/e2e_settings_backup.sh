@@ -163,8 +163,8 @@ swipeUp = "showTime"
 EOF
 
 start
-at 43 100 # Series
-at 390 200 # Test Comic #1
+at 43 100 # Books
+at 190 200 # Test Comic #1, the first cover
 key Return; sleep 2
 key Next Next # page 3
 key m m # a bookmark
@@ -181,7 +181,7 @@ key g less # and a notch crisper
 key p; key plus plus; key Escape # bigger page thumbnails
 shot 01_reading
 key Escape; sleep 2
-at 43 380 # Folders
+at 43 292 # Folders
 key shift+s # shuffle
 key shift+f; sleep 1; key space; key Escape # a folder filter: the first type
 key g shift+o # the Folders tab sorted the other way round
@@ -200,7 +200,7 @@ stop
 # collection made in the details.
 key_of_test=$(q "select content_key from files where rel_path like 'Indie/%'")
 key_of_other=$(q "select content_key from files where rel_path like 'Other%'")
-q "insert into overrides (content_key, field, value) values ('$key_of_test', 'series', '{\"value\":\"Swamp Thing\",\"at\":1790000000000}')"
+q "insert into overrides (content_key, field, value) values ('$key_of_test', 'title', '{\"value\":\"Swamp Thing\",\"at\":1790000000000}')"
 q "insert into collection_books (name, content_key, added_at) values ('Moore', '$key_of_other', 1790000000)"
 
 want_changed() { # every setting away from its default
@@ -282,8 +282,8 @@ key Escape
 # The imported keys.toml is live: F2 takes the selected comic out of the
 # Favourites, with no restart.
 origin
-click $((ox + 43)) $((oy + 100)) # Series
-click $((ox + 390)) $((oy + 200)) # Test Comic #1, the favourite
+click $((ox + 43)) $((oy + 100)) # Books
+click $((ox + 190)) $((oy + 200)) # Test Comic #1, the first cover, the favourite
 fav() { q "select removed_at is null from collection_books where name = 'Favourites'"; }
 before_fav=$(fav)
 key F2
@@ -312,7 +312,7 @@ printf '{"app": "org.snonux.comicredr", "kind": "settings", "format": 99, "setti
 printf '[keys]\nnextStep = ["n"]\n' >"$files/keys.json"
 n=12
 for bad in other newer keys; do
-  at 43 100 # Series, with nothing selected: the gear is at the right again
+  at 43 100 # Books, with nothing selected: the gear is at the right again
   settings_bottom
   backup_button import
   sleep 1.5

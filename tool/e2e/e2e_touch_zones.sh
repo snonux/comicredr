@@ -156,7 +156,7 @@ click "$lx" "$ly"; shot 06_settings_left_handed
 expect "$(q "select value from settings where key = 'touch.preset'")" '"leftHanded"' "Settings saved the preset"
 click 868 656
 # The Books tab lists both; the second one opens with a click and Enter.
-click 43 160; shot 07_books
+click 43 100; shot 07_books
 click 400 205; key Return; sleep 1; shot 08_zones_on_open
 sleep 3.5; shot 09_zones_on_open_gone
 d=$(differ 08_zones_on_open 09_zones_on_open_gone)

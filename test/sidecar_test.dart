@@ -493,7 +493,8 @@ void main() {
       workers: 1,
       onBookRead: (path, key, {required folder}) => phone.sync.attach(path, key, folder: folder),
     ).scan();
-    expect((await store.books()).map((b) => b.name).toSet(), {'Barefoot Bride', 'Pepper Carrot #6'});
+    // The folder names the book: Indie, not the file name.
+    expect((await store.books()).map((b) => b.name).toSet(), {'Indie', 'Pepper Carrot #6'});
     expect((await phone.bookmarks(keys[0])).single.page, 2);
     expect((await phone.bookmarks(keys[1])).single.page, 1);
 

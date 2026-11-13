@@ -115,7 +115,7 @@ changed() {
 # 1. The library, by touch: the Books tab, a tap selects a cover and a
 # second tap opens it.
 shot 01_library
-tap 43 160;  shot 02_books_tab
+tap 43 100;  shot 02_books_tab
 tap 190 200; shot 03_cover_selected
 tap 190 200; sleep 1; shot 04_opened
 expect "$(page)" 1 "two taps on a cover open the comic"

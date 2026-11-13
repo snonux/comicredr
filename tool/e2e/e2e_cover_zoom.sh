@@ -247,7 +247,7 @@ click 43 170 # Books
 look books_usual
 books_usual=$cols
 if ((books_usual >= 4)); then ok "the Books tab at the usual size: $cols covers a row, $width px"; else fail "Books tab: $cols covers a row"; fi
-click 43 380 # Folders
+click 43 292 # Folders
 click 190 200 # The library folder.
 pane=895
 look folder_usual
@@ -338,7 +338,7 @@ else
 fi
 
 # 9. Two fingers. Spread: bigger; pinched together: smaller. Nothing opens.
-click 43 380 # Folders, still in the folder; nothing selected.
+click 43 292 # Folders, still in the folder; nothing selected.
 look before_pinch
 before=$cols
 kept=$(size)

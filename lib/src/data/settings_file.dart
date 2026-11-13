@@ -76,7 +76,7 @@ class SettingsFile {
   /// Every overrides row: the metadata edits and the completed marks.
   final List<Override> edits;
 
-  /// The overrides rows that are edits to a comic's title, series and the
+  /// The overrides rows that are edits to a comic's title, issue and the
   /// like, and the ones that are completed marks (either way, an undone one
   /// too): told apart for the import's question and notice, where thirty
   /// comics marked completed are not "30 edits".

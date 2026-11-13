@@ -77,7 +77,7 @@ read_and_mark() {
 
 # The laptop: reads both books, which writes their sidecars.
 start home
-click 43 100 # Series, on the rail: the two books side by side.
+click 43 100 # Books, on the rail: the two books side by side.
 click 190 200
 read_and_mark 2
 click 390 200

@@ -264,7 +264,7 @@ Things, all drawn since.
 ## Library sidebar keys (p83)
 
 At 600 dp and wider, cycleModeForward/Back toggle the sidebar's real
-FocusNode and the content. Its labels underline R/S/B/C/H/F/M only while
+FocusNode and the content. Its labels underline R/B/C/H/F/M only while
 it has primary focus. Its local KeySequenceResolver contains only the
 live cycle-mode bindings, so custom multi-key bindings work there too.
 Other plain characters stay local and start no ReaderKeyboard prefix;
@@ -387,6 +387,16 @@ refreshes right away instead of within six hours.
   and `inode/directory` for Open With; `linux/packaging/keep-viewer.sh`
   pins the previous default viewer and file manager when installing into
   `~/.local` would otherwise take them over.
+- Folders name the books; there are no series. The folder a book is
+  directly in is its `books.series` (`Batman` for
+  `Batman/Batman 181.cbz`, so the title reads `Batman #181`, the number
+  from ComicInfo.xml or the file name parse — a file name that is only
+  a number, `2.cbz`, is the issue with no name of its own). A book
+  directly in a library root, or outside the library, goes by what its
+  file or ComicInfo.xml says (`folderSeries` in `open_book.dart`).
+  Nothing groups by these names: the Folders tab is the structure,
+  collections are the hand-made groups, and the schema-15 migration
+  rewrote each old series name to the folder that holds the book.
 - A folder given on the command line, by Open With, a drop or `O` opens as
   a book when `findBooks` sees it as one folder book; otherwise, when
   books are under it, the Folders tab opens at it (`HomeScreen._openPath`),
@@ -429,6 +439,10 @@ refreshes right away instead of within six hours.
   in comic_formats), so a link back up the tree ends the walk; a dangling
   link is skipped. A linked book's sidecar goes beside the link, and
   deleting it removes the link only (`removePath`).
+- `]` and `[`: the next or previous book in the same folder
+  (`siblingBook` in `open_book.dart`, natural file order, folder books
+  and loose one-page images included); no notice at either end beyond
+  "No next book in this folder".
 - Panels are detected in the background for the open book only, guided
   view on or off (`_ensurePanels`, `reader_notifier.dart`): the current
   page, the two ahead and the one behind, then the rest of the book ahead
@@ -744,7 +758,7 @@ refreshes right away instead of within six hours.
   at or above it; an entry the walk no longer meets fails too. The
   exceptions: the breadcrumb's folder names
   (`Backspace`, a folder at a time; their tooltips say so), **Read** /
-  **Continue** in a series' or a folder's details (`readNext`,
+  **Continue** in a collection's or a folder's details (`readNext`,
   `continueInFolder`: Enter, then Enter on the comic), the x on a part
   of the filter line and its Clear filter (`F`, then the chips and
   Alt+C; the tooltips name `F`), Note and Remove on a bookmark and the x
@@ -754,8 +768,8 @@ refreshes right away instead of within six hours.
   narrow bottom tabs still cycle with Tab/Shift+Tab), and rows and covers (arrows
   and Enter: covers `b:` `f:` `s:`, the page grid's `pageTile-`, the
   Bookmarks tab's `bookmarkItem-`, the reader's list's `bookmarkRow-`,
-  History's `history-`), the comics listed in a series' details
-  (`seriesBook-`: Enter shows the books, then the arrows and Enter) and
+  History's `history-`), the comics listed in a collection's details
+  (`groupBook-`: Enter shows the books, then the arrows and Enter) and
   the bookmarks listed in a comic's details (`detailBookmark-`: the
   Bookmarks tab or `M`, then the arrows and Enter), the parts picker's
   backdrop (`partsPicker`: Esc). A folder's details have no rows.
@@ -1071,7 +1085,7 @@ refreshes right away instead of within six hours.
   `LibraryBook.pageCount`, task 363; a count of 0, a comic on S3 whose
   manifest said none, passes only Any length). It applies to every tab
   that lists comics (`_shown` in `library_screen.dart`, before the
-  per-tab listings are built: series and collections with none passing
+  per-tab listings are built: collections and folders with none passing
   go, as folders on the Folders tab already did, where folder counts are
   of what passes); the sort stays Folders-only. `gF` cycles the
   completed part, every comic → not completed → completed only, with a
@@ -1101,7 +1115,7 @@ refreshes right away instead of within six hours.
   `nextSortOrder`, `gO` `reverseSort`; `FolderSort` in
   `lib/src/library/folder_sort.dart`, its window in
   `folder_sort_dialog.dart`): a `SortOrder` (name, added, last read,
-  modified, size, pages, series, year) and `reversed`. Applied in
+  modified, size, pages, issue, year) and `reversed`. Applied in
   `_itemsFor` after the filter, to the books (`FolderSort.books`) and to
   the folders (`FolderSort.folders`: each by its first book in the
   order; by name they keep the order `LibraryFolder` gives, which for
@@ -1129,8 +1143,8 @@ refreshes right away instead of within six hours.
   mark). `LibraryBook.completed` is `completedMark ?? finished`, so
   comics left on their last page before the mark existed count, and a
   mark either way wins over the page. The cover's green check
-  (`completedBadge`), the read counts of series and folders,
-  `LibrarySeries.next`, the Reading tab's order and `inProgress` go by
+  (`completedBadge`), the read counts of collections and folders,
+  `LibraryGroup.next`, the Reading tab's order and `inProgress` go by
   `completed`. No table and no schema change: an overrides row is keyed
   by content key and dated, `mergeEdits` lets the later one win when
   sidecars meet (so taking the mark off travels), `SettingsFile` exports
@@ -1218,7 +1232,7 @@ refreshes right away instead of within six hours.
   is gone when the comic is read again from page 1, and positions are
   per device, so another device would never hear of it. A comic marked
   completed part-way is not `inProgress`: no progress line on the cover,
-  Read again in the details, out of `LibrarySeries.next`, last on the
+  Read again in the details, out of `LibraryGroup.next`, last on the
   Reading tab; it still opens where it was left. `ComicDetails` (`I`)
   has a Completed row saying which of the two decided. A settings import
   counts the mark's rows apart from the metadata edits
@@ -1392,7 +1406,7 @@ refreshes right away instead of within six hours.
   makes the library's own build give back its last widget while a comic
   is open (still watching its providers). `_takeItems` keeps `_items`
   while its inputs (`_itemsFrom`: the lists by identity, tab, query,
-  filter, sort, folder, series, the hour) are the same.
+  filter, sort, folder, the hour) are the same.
   `LibraryStore._live` folds the table changes that come while a query
   runs into one (`_folded`), so a burst is one more query, not one each;
   it stays an async* generator (a StreamController version ran on while
@@ -1571,7 +1585,7 @@ refreshes right away instead of within six hours.
   `library.defaultFolderRemoved` stay per install and are never exported),
   the library folders, `keys.toml`'s text and the `progress`, `bookmarks`,
   `collection_books`, `overrides` and `read_log` rows by content key.
-  Books, series, files, panels and covers stay out: a rescan and the
+  Books, files, panels and covers stay out: a rescan and the
   sidecars rebuild them. A newer `format`, another `app` or not JSON is
   refused; unknown keys and broken rows are skipped and counted. Import
   sets the settings to the file's (missing ones back to default, except
@@ -1757,7 +1771,7 @@ make icons                       # re-render linux/packaging/icons/*.png after e
 (cd packages/comic_analysis && dart run tool/detect_pgm.dart page.pgm)  # Dart detector on one page, to compare with detector/detect_cv.py
 tool/e2e/e2e_linux.sh [book.cbz|book.pdf|folder]  # release build under Xvfb, driven by real keys incl. guided view and by injected GTK touches, screenshots in build/e2e/
 tool/e2e/e2e_modern.sh            # guided view on real modern comics from test/corpus-modern, screenshots in build/e2e-modern/
-tool/e2e/e2e_library.sh           # library over the fetched corpus: scan, covers, series, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
+tool/e2e/e2e_library.sh           # library over the fetched corpus: scan, covers, folders naming the books, search, ] [, bookmarks, live folder changes, restart, phone layout and touch; checks the index with sqlite3
 tool/e2e/e2e_sidecar.sh a.cbz b.pdf folder/  # two installs as laptop and phone: sidecar written, copied and renamed, re-linked, resumed without detecting, position offered back; plus a read-only shelf
 tool/e2e/e2e_m8_library.sh        # collections made from book details, a sitting in the history, the settings dialog, a restart; checks the index and a sidecar with sqlite3
 tool/e2e/e2e_resume.sh book.cbz   # closes and reopens the release build mid-panel, mid-balloon, zoomed, and killed; fails if the view differs
@@ -1797,7 +1811,7 @@ tool/e2e/e2e_favourites.sh        # * from the reader and on a cover, gf and the
 tool/e2e/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books
 tool/e2e/e2e_data_dir.sh          # app data in ~/Comics/.comicredr with fresh HOMEs: with ~/Comics, without it, an existing XDG database kept, ~/Comics a symlink (taken out stays out), a dangling one; nothing else written, .comicredr not in the library; makes its own books
 tool/e2e/e2e_delete.sh             # gd and Shift+Delete: cancelled by Enter and Esc, then confirmed from the reader and the library; checks nothing lands in the trash, sidecars, index and thumbnails; makes its own books
-tool/e2e/e2e_edit.sh a.cbz b.cbz folder/  # e: edit a book into another series, rename the series, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
+tool/e2e/e2e_edit.sh a.cbz [folder/]  # e: edit a book's facts, restart, a second install reads the edits from the sidecars; checks both indexes and the sidecars
 tool/e2e/e2e_shuffle.sh           # S and gs on the Folders tab over two CBZs, a PDF and a folder book: pages not covers, stable while moving, reshuffled, a book opens on page 1, kept across a restart
 tool/e2e/e2e_sidebar_keys.sh    # sidebar focus, underlined letters, context isolation, arrows and Tab exits; makes its own books
 tool/e2e/e2e_search_key.sh        # / on the Folders tab: search, a click into a folder with the cursor in the box, / again selects the search, Enter, Esc; makes its own books

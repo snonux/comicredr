@@ -290,11 +290,7 @@ class SidecarSync {
       (_db.select(_db.overrides)..where((r) => r.contentKey.equals(contentKey))).get(),
       (_db.select(_db.collectionBooks)..where((r) => r.contentKey.equals(contentKey))).get(),
       _db
-          .customSelect(
-            'SELECT b.*, s.name AS series_name FROM books b LEFT JOIN series s ON s.id = b.series_id '
-            'WHERE b.content_key = ?',
-            variables: [Variable(contentKey)],
-          )
+          .customSelect('SELECT b.* FROM books b WHERE b.content_key = ?', variables: [Variable(contentKey)])
           .getSingleOrNull(),
     ).wait;
     Uint8List? cover;
@@ -308,7 +304,7 @@ class SidecarSync {
           ? null
           : SidecarBook(
               title: book.read<String>('title'),
-              series: book.readNullable<String>('series_name'),
+              series: book.readNullable<String>('series'),
               number: book.readNullable<String>('number'),
               volume: book.readNullable<int>('volume'),
               year: book.readNullable<int>('year'),

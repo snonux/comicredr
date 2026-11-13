@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end check of the library on the Linux build, over real comics from
 # the test corpus (detector/fetch_corpus.py fetches them into test/corpus/).
-# Builds a comics folder from the corpus plus a two-issue series whose
-# ComicInfo.xml numbers run against the file names and a genuine RAR,
+# Builds a comics folder from the corpus plus a two-issue folder series
+# (files named by issue, ComicInfo.xml giving the numbers) and a genuine RAR,
 # starts the release build on it with --add-root, and drives it with real
 # keys, mouse clicks and injected touches. Screenshots after each step;
 # the index is checked with sqlite3 along the way.
@@ -28,14 +28,15 @@ add "$corpus/silver-age/reptisaurus-v2-005.cbz" "$comics/"
 for f in "$corpus"/golden-age-pdf/*.pdf "$corpus"/bw-indie/*.pdf "$corpus"/modern-indie/*.pdf; do add "$f" "$comics/"; done
 for d in "$corpus"/modern/pepper-carrot-*; do cp -r "$d" "$comics/Pepper&Carrot/"; done
 python3 - "$comics" <<'EOF'
-import sys, zipfile, glob
+import os, sys, zipfile, glob
 from PIL import Image, ImageDraw, ImageFont
 out = sys.argv[1]
 font = ImageFont.load_default(size=150)
-# Files named a and b, but ComicInfo says b is #1: the library must follow
-# ComicInfo, and ] must go #1 -> #2.
-for name, number in (("spirit-a.cbz", "2"), ("spirit-b.cbz", "1")):
-    with zipfile.ZipFile(f"{out}/{name}", "w", zipfile.ZIP_STORED) as z:
+# The folder names the series; the files are named by issue, and ComicInfo
+# repeats the number with a title of its own.
+os.mkdir(f"{out}/The Spirit")
+for name, number in (("spirit-1.cbz", "1"), ("spirit-2.cbz", "2")):
+    with zipfile.ZipFile(f"{out}/The Spirit/{name}", "w", zipfile.ZIP_STORED) as z:
         for i in range(1, 5):
             im = Image.new("RGB", (1000, 1500), "#f4e9d0")
             d = ImageDraw.Draw(im)
@@ -45,7 +46,7 @@ for name, number in (("spirit-a.cbz", "2"), ("spirit-b.cbz", "1")):
             z.write(f"{out}/.p.jpg", f"page{i}.jpg")
         z.writestr("ComicInfo.xml", f"<ComicInfo><Series>The Spirit</Series><Number>{number}</Number>"
                    f"<Title>Test issue {number}</Title><Year>1946</Year><Writer>Will Eisner</Writer></ComicInfo>")
-import os; os.remove(f"{out}/.p.jpg")
+os.remove(f"{out}/.p.jpg")
 open(f"{out}/real.cbr", "wb").write(b"Rar!\x1a\x07\x00" + b"\0" * 64)
 open(f"{out}/README.txt", "w").write("not a comic")
 EOF
@@ -98,10 +99,11 @@ done
 t1=$(date +%s.%N)
 sleep 1.5 # The last cover lands on screen.
 echo "first scan: $(python3 -c "print(round($t1 - $t0, 1))") s from launch to $expected books indexed"
-shot 01_series
+shot 01_library
 check "books indexed" "$(sql 'select count(*) from books')" $expected
-check "series" "$(sql 'select count(*) from series')" 11
-check "Spirit #1 is spirit-b.cbz" "$(sql "select f.rel_path from books b join files f using (content_key) where b.title = 'The Spirit #1'")" spirit-b.cbz
+check "folder names the book" "$(sql "select series from books where title = 'Golden Age #4'")" "Golden Age"
+check "Spirit #1 is spirit-1.cbz" "$(sql "select f.rel_path from books b join files f using (content_key) where b.title = 'The Spirit #1'")" "The Spirit/spirit-1.cbz"
+check "series table gone" "$(sql "select count(*) from sqlite_master where type = 'table' and name = 'series'")" 0
 check "covers" "$(ls "$out"/home/.cache/org.snonux.comicredr/covers/*.jpg 2>/dev/null | wc -l)" $expected
 
 # Keys: move through the covers; the detail pane follows the selection.
@@ -117,25 +119,25 @@ key l l;                 shot 09_page_3
 key m m;                 shot 10_bookmarked
 key Escape; sleep 1;     shot 11_back_in_library
 check "bookmark saved" "$(sql 'select count(*) from bookmarks where mark is null')" 1
-check "progress saved" "$(sql "select p.page from progress p join books b using (content_key) where b.title like 'Weird Comics%'")" 2
+check "progress saved" "$(sql "select p.page from progress p join books b using (content_key) where b.title = 'Golden Age #4'")" 2
 key Escape;              shot 12_search_cleared
-# Series: into Pepper&Carrot, open the first episode, ] to the next.
-key Tab; key s; key Return;        shot 13_series_tab
-key slash; type pepper; key Return
-key Return;              shot 14_in_series
-key Return; sleep 2;     shot 15_reading_e06
-key bracketright; sleep 2; shot 16_bracket_next_e22
-key Escape; sleep 1;     shot 17_back_in_series
-# The Spirit, by ComicInfo: #1 then ] to #2 though the files sort b after a.
+# Pepper&Carrot on the Folders tab: into the folder, open an episode, ] to
+# the one beside it on the disk.
+key Tab; key f; key Return
+key slash; type pepper; key Return; key Return;   shot 13_in_pepper_carrot
+key Return; sleep 2;                                 shot 14_reading_e06
+key bracketright; sleep 2; shot 15_bracket_next_e22
+key Escape; sleep 1;     shot 16_back_in_pepper_carrot
+# The Spirit: search it, open #1, ] to #2 (the file beside it).
 key Escape; key Escape
-key slash; type spirit; key Return; key Return; key Return; sleep 2; shot 18_spirit_1
-key bracketright; sleep 2; shot 19_spirit_2
-key bracketright;        shot 20_spirit_last_in_series
+key slash; type spirit; key Return; key Return; key Return; sleep 2; shot 17_spirit_1
+key bracketright; sleep 2; shot 18_spirit_2
+key bracketright;        shot 19_spirit_last_in_folder
 key Escape; key Escape; key Escape
 # The Reading tab shows what was opened, the last one first. Six tabs:
-# Reading, Series, Books, Collections, History, Folders.
-key Tab; key r; key Return;        shot 21_reading_tab
-key Tab; key f; key Return;        shot 22_folders_tab
+# Reading, Books, Collections, History, Folders, Bookmarks.
+key Tab; key r; key Return;        shot 20_reading_tab
+key Tab; key f; key Return;        shot 21_folders_tab
 # Folders: walk into the comics folder and its sub-folders and back out.
 key l;                   shot 22a_folders_root_selected
 key Return;              shot 22b_in_comics
@@ -145,10 +147,10 @@ key l Return;            shot 22e_in_pepper_carrot
 key Return; sleep 2;     shot 22f_reading_from_folder
 key Escape; sleep 1;     shot 22g_back_in_pepper_carrot
 key BackSpace BackSpace; shot 22h_folders_top
-# Mouse, on the Series tab: click a cover to select it, click again to read.
-key Tab; key s; key Return; sleep 0.5
-xdotool mousemove 190 200 click 1; sleep 1; shot 23_click_selects
-xdotool click 1; sleep 2;                  shot 24_click_again_reads
+# Mouse, on the Books tab: click a cover to select it, click again to read.
+key Tab; key b; key Return; sleep 0.5
+xdotool mousemove 190 200 click 1; sleep 1; shot 22_click_selects
+xdotool click 1; sleep 2;                  shot 23_click_again_reads
 key Escape; sleep 1
 
 # A book copied into the folder while the app runs shows up by itself.

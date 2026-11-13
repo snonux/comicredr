@@ -21,7 +21,7 @@ int shufflePage(String bookKey, int pageCount, int seed) {
   return 1 + math.Random(Object.hash(bookKey, seed)).nextInt(pageCount - 1);
 }
 
-/// A folder's or series' tile in shuffle (its item id [group]): one of its
+/// A folder's or group's tile in shuffle (its item id [group]): one of its
 /// comics, picked by [seed] as [shufflePage] picks pages. Null when none can
 /// be opened here.
 LibraryBook? shuffleBook(String group, List<LibraryBook> books, int seed) {

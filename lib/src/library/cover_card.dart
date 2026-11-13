@@ -112,7 +112,7 @@ class CoverCard extends StatelessWidget {
   final int? shufflePage;
 
   /// The comic [shufflePage] is from, when it is not the tile's own: for a
-  /// folder or a series, one of the comics in it.
+  /// folder or a group, one of the comics in it.
   final LibraryBook? shuffleBook;
   final bool selected;
   final VoidCallback onTap;
@@ -123,11 +123,11 @@ class CoverCard extends StatelessWidget {
     final theme = Theme.of(context);
     final (book, title, subtitle, count) = switch (item) {
       BookItem(:final book) => (book, book.name, book.subtitle, null),
-      SeriesItem(:final series) => (
-        series.next,
-        series.name,
-        '${series.books.length} books${series.read > 0 ? ' · ${series.read} read' : ''}',
-        series.books.length,
+      GroupItem(:final group) => (
+        group.next,
+        group.name,
+        '${group.books.length} books${group.read > 0 ? ' · ${group.read} read' : ''}',
+        group.books.length,
       ),
       // A library folder can be empty (~/Comics before any comic is in it).
       FolderItem(:final folder) => (folder.books.firstOrNull, folder.name, folderCount(folder), folder.books.length),
@@ -156,7 +156,7 @@ class CoverCard extends StatelessWidget {
     );
   }
 
-  /// The comic the tile is, when it is one comic and not a series, a folder
+  /// The comic the tile is, when it is one comic and not a group, a folder
   /// or a bookmark: only such a tile has the signs that are about a comic.
   LibraryBook? get _onlyBook => switch (item) {
     BookItem(:final book) => book,
@@ -165,7 +165,7 @@ class CoverCard extends StatelessWidget {
 
   /// The tile's picture: the cover of [book] (or the shuffled page) with
   /// the selection's frame around it and the signs over it, [count] the
-  /// comics of a series or folder.
+  /// comics of a group or folder.
   Widget _picture(ThemeData theme, LibraryBook? book, int? count) => DecoratedBox(
     position: DecorationPosition.foreground,
     decoration: BoxDecoration(

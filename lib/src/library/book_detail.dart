@@ -409,7 +409,8 @@ Future<void> showBookDetails(BuildContext context, WidgetRef ref, LibraryBook bo
   final keymap = ref.read(keymapProvider);
   final OpenBook open;
   try {
-    open = (await openBook(book.path)).withEdits(await store.edits(book.key));
+    open = (await openBook(book.path))
+        .withEdits(await store.edits(book.key), roots: [for (final r in await store.roots()) r.path]);
   } catch (e) {
     showNotice(messenger, 'Could not open ${book.name}: $e', mustRead: true);
     return;

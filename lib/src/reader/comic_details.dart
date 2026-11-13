@@ -373,7 +373,6 @@ class _ComicDetailsState extends ConsumerState<ComicDetails> {
     String mark(MetaField f, String s) => r.edited.contains(f) ? '$s  (edited)' : s;
     return [
       _heading('Metadata', note: 'From ${r.metaSource}${r.edited.isEmpty ? '' : ', with edits made here (e)'}'),
-      if (m?.series != null) _row('Series', mark(MetaField.series, m!.series!)),
       if (m?.number != null) _row('Issue', mark(MetaField.number, m!.number!)),
       if (m?.title != null) _row('Title', mark(MetaField.title, m!.title!)),
       if (m?.volume != null) _row('Volume', mark(MetaField.volume, '${m!.volume}')),

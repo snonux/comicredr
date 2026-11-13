@@ -191,7 +191,9 @@ You need a copy of the ComicRedr source (the tool is
 `tool/llm_panels.py`), Python 3 with Pillow (`pip install pillow`,
 and `pypdfium2` for PDFs), and Claude Code or Codex. Do it on a
 computer; the sidecar takes the panels to your phone. CBZ, CBT, PDF,
-folders of pages and single images work; EPUB does not.
+folders of pages, single images and comic EPUBs work. EPUB pages follow
+the book's spine order, including image-based XHTML/SVG wrappers; text
+ebooks are refused rather than annotated as a handful of illustrations.
 
 ### Your whole library
 

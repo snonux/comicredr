@@ -30,6 +30,13 @@ void main() {
     expect(parse('Preacher'), ('Preacher', null, null, null, null));
   });
 
+  test('a name that is only a number is the issue, with no series of its own', () {
+    expect(parse('01.cbz'), (null, '1', null, null, null));
+    expect(parse('2.cbr'), (null, '2', null, null, null));
+    expect(parse('12a'), (null, '12a', null, null, null));
+    expect(parse('3.5'), (null, '3.5', null, null, null));
+  });
+
   test('series keys ignore case, punctuation and a leading The', () {
     expect(seriesKey('The Amazing Spider-Man'), seriesKey('amazing spider man'));
     expect(seriesKey('Pepper&Carrot'), seriesKey('pepper and carrot'));

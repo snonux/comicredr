@@ -89,7 +89,6 @@ extension on LibraryBook {
   LibraryBook marked(bool on) => LibraryBook(
     key: key,
     series: series,
-    seriesId: seriesId,
     pageCount: pageCount,
     format: format,
     path: path,
@@ -395,17 +394,16 @@ void main() {
       progress.save(daredevil, const ReadingPosition(page: 0), 4);
       await progress.flush();
       expect(await completed(store), ['Daredevil #181']);
-      final series = LibrarySeries.group(await store.books());
-      expect(series.firstWhere((s) => s.name == 'Daredevil').read, 1);
-      expect(series.firstWhere((s) => s.name == 'Preacher').read, 0);
+      final all = await store.books();
+      expect(named(all, 'Daredevil #181').completed, isTrue);
+      expect(named(all, 'Preacher #1').completed, isFalse);
     });
   });
 
-  test("a series' next comic goes by completed, not by the page it was left on", () {
+  test("a collection's next comic goes by completed, not by the page it was left on", () {
     LibraryBook issue(int n, {bool? mark, bool finished = false, int? page}) => LibraryBook(
       key: 'k$n',
       series: 'Saga',
-      seriesId: 1,
       number: '$n',
       pageCount: 3,
       format: 'cbz',
@@ -414,9 +412,10 @@ void main() {
       page: page,
       finished: finished,
       completedMark: mark,
+      collections: const ['Saga'],
     );
     // #1 marked completed part-way, #2 marked not completed on its last page, #3 untouched.
-    final saga = LibrarySeries.group([
+    final saga = collectionGroups([
       issue(1, mark: true, page: 1),
       issue(2, mark: false, finished: true, page: 2),
       issue(3),
@@ -424,7 +423,7 @@ void main() {
     expect(saga.read, 1);
     expect(saga.next.number, '2', reason: '#1 is completed though not on its last page; #2 is not, though on it');
     // All completed: back to the first.
-    expect(LibrarySeries.group([issue(1, mark: true), issue(2, finished: true, page: 2)]).single.next.number, '1');
+    expect(collectionGroups([issue(1, mark: true), issue(2, finished: true, page: 2)]).single.next.number, '1');
   });
 
   group('sidecars', () {
@@ -552,7 +551,6 @@ void main() {
     LibraryBook book({bool? mark, bool finished = false}) => LibraryBook(
       key: 'k',
       series: 'S',
-      seriesId: 1,
       pageCount: 3,
       format: 'cbz',
       path: '/c/k.cbz',
@@ -718,7 +716,7 @@ void main() {
       });
       final c = await pumpApp(tester);
       await settle(tester);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       await type(tester, 'l');
       await press(tester, LogicalKeyboardKey.enter); // Into Comics.
@@ -1233,7 +1231,8 @@ void main() {
       });
     }
 
-    for (final tab in ['Series', 'Collections']) {
+    {
+      const tab = 'Collections';
       testWidgets('an open $tab group stays empty when its last matching comic is completed', (tester) async {
         writeBook(root, 'Akira 1.cbz', 5);
         writeBook(root, 'Akira 2.cbz', 6);
@@ -1288,9 +1287,9 @@ void main() {
       expect(tester.widget<CoverCard>(find.byType(CoverCard)).item, isA<BookItem>());
       expect((tester.widget<CoverCard>(find.byType(CoverCard)).item as BookItem).book.key, b.key);
       await press(tester, LogicalKeyboardKey.escape);
-      final groups = tester.widgetList<CoverCard>(find.byType(CoverCard)).map((w) => w.item as SeriesItem).toList();
-      expect(groups.map((s) => s.series.name), ['B', 'C']);
-      expect(groups.map((s) => s.id), ['s:-2', 's:-3']);
+      final groups = tester.widgetList<CoverCard>(find.byType(CoverCard)).map((w) => w.item as GroupItem).toList();
+      expect(groups.map((g) => g.group.name), ['B', 'C']);
+      expect(groups.map((g) => g.id), ['s:-2', 's:-3']);
     });
 
     testWidgets('under Not completed a selected comic that leaves the library for another reason takes the selection '
@@ -1423,7 +1422,7 @@ void main() {
       expect(lineOn('Swamp Thing #21'), findsNothing);
     });
 
-    testWidgets("a series' cover has no sign of one comic: not the tick or the star of the comic it would open", (
+    testWidgets("a collection's cover has no sign of one comic: not the tick or the star of the comic it would open", (
       tester,
     ) async {
       writeBook(root, 'Akira 1.cbz', 5);
@@ -1431,23 +1430,24 @@ void main() {
       final store = (await tester.runAsync(shelf))!;
       final books = (await tester.runAsync(store.books))!;
       await tester.runAsync(() async {
-        // Every Akira completed, so the series' next comic is its first,
-        // which is completed and a favourite.
+        // Every Akira completed and in the collection, so the group's next
+        // comic is its first, which is completed and a favourite.
         for (final name in const ['Akira #1', 'Akira #2']) {
           await store.setCompleted(named(books, name).key, true);
+          await store.addToCollection(named(books, name).key, 'Akira');
         }
         await store.setFavourite(named(books, 'Akira #1').key, true);
       });
       await pumpApp(tester);
       await settle(tester);
-      await tester.tap(find.text('Series').first);
+      await tester.tap(find.text('Collections').first);
       await settle(tester);
       final akira = find.ancestor(
         of: find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Akira')),
         matching: find.byType(CoverCard),
       );
       expect(akira, findsOneWidget);
-      expect(tester.widget<CoverCard>(akira).item, isA<SeriesItem>());
+      expect(tester.widget<CoverCard>(akira).item, isA<GroupItem>());
       for (final sign in const ['completedBadge', 'favouriteBadge']) {
         expect(
           find.descendant(of: akira, matching: find.byKey(Key(sign))),
@@ -1456,7 +1456,7 @@ void main() {
         );
       }
       expect(find.descendant(of: akira, matching: find.byType(LinearProgressIndicator)), findsNothing);
-      // The comics of the series, each a cover of its own, do have them.
+      // The comics of the collection, each a cover of its own, do have them.
       await tester.tap(akira);
       await settle(tester);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -1472,7 +1472,6 @@ void main() {
       LibraryBook book(String name, {bool remote = false}) => LibraryBook(
         key: name,
         series: name,
-        seriesId: 1,
         pageCount: 4,
         format: 'cbz',
         path: '${root.path}/$name.cbz',
@@ -1591,7 +1590,7 @@ void main() {
       await tester.runAsync(() => store.setCompleted(named(books, 'Daredevil #181').key, true));
       await pumpApp(tester);
       await settle(tester);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       expect(find.text('3 books · 1 read'), findsOneWidget);
       await type(tester, 'l');
@@ -1642,7 +1641,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await pumpApp(tester);
       await settle(tester);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       expect(find.byKey(const Key('filterBarCompleted')), findsOneWidget);
       expect(find.text('2 books'), findsOneWidget);

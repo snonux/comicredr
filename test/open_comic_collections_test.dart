@@ -502,7 +502,7 @@ void main() {
     final books = (await tester.runAsync(store.books))!;
     await pumpApp(tester, store: app);
     await settle(tester);
-    await tester.tap(find.text('Folders'));
+    await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
     await settle(tester);
     await type(tester, 'l');
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);

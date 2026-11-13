@@ -1,10 +1,10 @@
-import 'package:comic_formats/comic_formats.dart' show naturalCompare, seriesKey;
+import 'package:comic_formats/comic_formats.dart' show naturalCompare;
 
 import 'library_store.dart';
 
 /// What the Folders tab can be sorted by (`gS`, `go`), each with the way
-/// round it goes unless reversed (`gO`): names and series A to Z, the
-/// rest newest, latest, biggest or most first.
+/// round it goes unless reversed (`gO`): names A to Z, the rest newest,
+/// latest, biggest or most first. Issue is volume, then issue number.
 enum SortOrder {
   name('Name', 'n', 'A to Z', 'Z to A'),
   added('Added', 'a', 'newest first', 'oldest first'),
@@ -12,7 +12,7 @@ enum SortOrder {
   modified('Modified', 'm', 'newest first', 'oldest first'),
   size('Size', 's', 'biggest first', 'smallest first'),
   pages('Pages', 'p', 'most first', 'fewest first'),
-  series('Series', 'e', 'A to Z', 'Z to A'),
+  issue('Issue', 'i', 'first to last', 'last to first'),
   year('Year', 'y', 'newest first', 'oldest first');
 
   const SortOrder(this.label, this.letter, this.way, this.reversedWay);
@@ -52,10 +52,13 @@ class FolderSort {
   String? encode() => isUsual ? null : (reversed ? '${order.name}:reversed' : order.name);
 
   /// What [encode] wrote; anything else (a file edited by hand, an order
-  /// a later version added) is the usual order.
+  /// a later version added) is the usual order. `series` was the order of
+  /// the same name while the library still grouped by series; it reads as
+  /// the issue order now.
   static FolderSort decode(String? text) {
     final [name, ...rest] = (text ?? '').split(':');
-    final order = SortOrder.values.where((o) => o.name == name).firstOrNull;
+    final order =
+        SortOrder.values.where((o) => o.name == name).firstOrNull ?? (name == 'series' ? SortOrder.issue : null);
     if (order == null || rest.length > 1 || (rest.isNotEmpty && rest.first != 'reversed')) return usual;
     return FolderSort(order: order, reversed: rest.isNotEmpty);
   }
@@ -67,8 +70,8 @@ class FolderSort {
     final int c;
     if (order == SortOrder.name) {
       c = LibraryFolder.fileOrder(a, b);
-    } else if (order == SortOrder.series) {
-      c = _bySeries(a, b);
+    } else if (order == SortOrder.issue) {
+      c = LibraryBook.bookOrder(a, b);
     } else {
       final va = _value(a), vb = _value(b);
       if (va == null && vb == null) return LibraryFolder.fileOrder(a, b);
@@ -88,13 +91,8 @@ class FolderSort {
     SortOrder.size => b.size,
     SortOrder.pages => b.pageCount > 0 ? b.pageCount : null,
     SortOrder.year => b.year,
-    SortOrder.name || SortOrder.series => null,
+    SortOrder.name || SortOrder.issue => null,
   } as Comparable<Object>?;
-
-  static int _bySeries(LibraryBook a, LibraryBook b) {
-    final s = naturalCompare(seriesKey(a.series), seriesKey(b.series));
-    return s != 0 ? s : LibraryBook.seriesOrder(a, b);
-  }
 
   /// [books] in this order.
   List<LibraryBook> books(List<LibraryBook> books) => [...books]..sort(compareBooks);

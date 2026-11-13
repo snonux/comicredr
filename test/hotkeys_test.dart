@@ -62,7 +62,7 @@ void main() {
     for (final n in ['Akira', 'Blacksad', 'Corto', 'Dredd']) {
       writeBook(root, '$n.cbz', n.codeUnitAt(0) - 63);
     }
-    // And a series of two, for the Series tab.
+    // And a series of two, for the Collections tab.
     writeBook(root, 'Zot 1.cbz', 7);
     writeBook(root, 'Zot 2.cbz', 8);
   });
@@ -1846,7 +1846,6 @@ void main() {
       LibraryBook book(S3Mark mark) => LibraryBook(
         key: 'k-${mark.name}',
         series: 'Akira',
-        seriesId: 1,
         pageCount: 4,
         format: 'cbz',
         path: '${root.path}/Akira.cbz',
@@ -2054,14 +2053,14 @@ void main() {
     /// nearest key at or above them, whole or its start. A new control of
     /// any kind that is not here has to name a key.
     const noKey = <String, String>{
-      'readNext': 'a shortcut: Enter on the series, then Enter on the comic',
+      'readNext': 'a shortcut: Enter on the collection, then Enter on the comic',
       'continueInFolder': 'a shortcut: Enter on the folder, then Enter on the comic',
       'b:': 'a comic\'s cover: the arrows select it and Enter opens it',
       'f:': 'a folder\'s cover: the arrows and Enter',
-      's:': 'a series\' or a collection\'s cover: the arrows and Enter',
+      's:': 'a collection\'s cover: the arrows and Enter',
       'bookmarkItem-': 'a row of the Bookmarks tab: the arrows and Enter',
       'detailBookmark-': 'a bookmark in a comic\'s details: the Bookmarks tab and M reach it with the arrows and Enter',
-      'seriesBook-': 'a comic in a series\' details: Enter shows the books, the arrows and Enter read one',
+      'groupBook-': 'a comic in a collection\'s details: Enter shows the books, the arrows and Enter read one',
       'history-': 'a sitting on the History tab: the arrows and Enter',
       'pageTile-': 'a page of the page grid: the arrows and Enter',
       'bookmarkRow-': 'a row of the reader\'s bookmark list: the arrows and Enter',
@@ -2203,12 +2202,18 @@ void main() {
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('History')));
       await settle(tester);
       expectKeysNamed(tester, keymap, where: 'the History tab', atLeast: 4);
-      // A series selected: Rename has a key, Read is a shortcut (noKey).
-      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Series')));
+      // A collection selected: Read is a shortcut (noKey).
+      await tester.runAsync(() async {
+        final store = c.read(libraryStoreProvider);
+        for (final b in await store.books()) {
+          if (b.series == 'Zot') await store.addToCollection(b.key, 'Zot');
+        }
+      });
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Collections')));
       await settle(tester);
       await key(ReaderIntent.lastPage);
       expect(find.byKey(const Key('readNext')), findsOneWidget);
-      expectKeysNamed(tester, keymap, where: 'the Series tab with a series selected', atLeast: 6);
+      expectKeysNamed(tester, keymap, where: 'the Collections tab with a collection selected', atLeast: 6);
       // A notice with an Undo: its button names the key too.
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
@@ -2444,12 +2449,6 @@ void main() {
       await check('Bookmark note', open: () => type(tester, 'e'));
       await press(tester, LogicalKeyboardKey.escape);
       await press(tester, LogicalKeyboardKey.escape);
-      // A series' new name.
-      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Series')));
-      await settle(tester);
-      await press(tester, LogicalKeyboardKey.end);
-      await check('Rename series', open: () => type(tester, 'e'));
-      expect(find.byKey(const Key('readNext')), findsOneWidget);
     });
 
     /// What opens something over the screen that is no AlertDialog,

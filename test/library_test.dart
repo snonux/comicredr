@@ -39,13 +39,16 @@ String writeInfoBook(Directory dir, String name, int pages, {required String ser
   return path;
 }
 
-/// A shelf with a two-book series (named by ComicInfo, files named
-/// otherwise), a book in a subfolder, a folder book, a README and a RAR.
+/// A shelf with a folder series of two (files named by issue only, one
+/// with ComicInfo.xml), a comic in a folder of its own, a folder book, a
+/// README and a RAR. The folders name the books: the folder a book is in
+/// is its "series" name (docs/architecture.md).
 void writeShelf(Directory root) {
-  writeInfoBook(root, 'spirit-a.cbz', 3, series: 'The Spirit', number: '2');
-  writeInfoBook(root, 'spirit-b.cbz', 4, series: 'The Spirit', number: '1');
-  Directory('${root.path}/Indie').createSync();
-  writeBook(Directory('${root.path}/Indie'), 'Barefoot Bride.cbz', 5);
+  final spirit = Directory('${root.path}/The Spirit')..createSync();
+  writeInfoBook(spirit, '2.cbz', 3, series: 'The Spirit', number: '2');
+  writeBook(spirit, '1.cbz', 4);
+  final indie = Directory('${root.path}/Indie')..createSync();
+  writeBook(indie, 'Barefoot Bride.cbz', 5);
   final folder = Directory('${root.path}/Pepper Carrot e06')..createSync();
   for (var i = 1; i <= 2; i++) {
     File('${folder.path}/p$i.png').writeAsBytesSync([...png, i]);
@@ -76,7 +79,7 @@ void main() {
   tearDown(() => tmp.deleteSync(recursive: true));
 
   group('scanner', () {
-    test('finds books, groups series, writes covers and skips what it cannot read', () async {
+    test('finds books, names them by their folders, writes covers and skips what it cannot read', () async {
       writeShelf(root);
       final store = LibraryStore(db);
       final scanner = LibraryScanner(store, coverDir: covers, workers: 2);
@@ -84,15 +87,13 @@ void main() {
       await scanner.scan();
 
       final books = await store.books();
-      expect(books.map((b) => b.name).toSet(), {
-        'The Spirit #1',
-        'The Spirit #2',
-        'Barefoot Bride',
-        'Pepper Carrot #6',
-      });
-      final spirit = LibrarySeries.group(books).firstWhere((s) => s.name == 'The Spirit');
-      expect(spirit.books.map((b) => b.number), ['1', '2'], reason: 'series order, not file order');
-      expect(spirit.books.first.writers, ['Will Eisner']);
+      // The folder each book is in names it; the digits-only file name is
+      // the issue number; a folder book directly in the root goes by its
+      // own parsed name.
+      expect(books.map((b) => b.name).toSet(), {'The Spirit #1', 'The Spirit #2', 'Indie', 'Pepper Carrot #6'});
+      final spirit = books.where((b) => b.series == 'The Spirit').toList();
+      expect(spirit.map((b) => b.number), unorderedEquals(['1', '2']));
+      expect(spirit.firstWhere((b) => b.number == '2').writers, ['Will Eisner'], reason: 'from ComicInfo.xml');
       expect(books.firstWhere((b) => b.name == 'Pepper Carrot #6').format, 'folder');
       for (final b in books) {
         expect(File('$covers/${b.key}.jpg').existsSync(), isTrue, reason: 'cover for ${b.name}');
@@ -228,40 +229,40 @@ void main() {
       expect(find.text('Open a comic'), findsOneWidget);
     });
 
-    testWidgets('keys move through series and books, open one, and Esc comes back', (tester) async {
+    testWidgets('keys move over the books, open one, and Esc comes back', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester);
       await scan(tester, c);
-      expect(status(tester), '4 books in 3 series  ·  1 could not be read');
-      // Series tab: Barefoot Bride, Pepper Carrot, The Spirit (a series of
-      // two shows as one cover; a series of one as its book).
-      expect(find.text('The Spirit'), findsWidgets);
-      expect(find.text('2 books'), findsOneWidget);
+      expect(status(tester), '4 books  ·  1 could not be read');
+      // The Books tab: every book, in file order.
+      await key(tester, LogicalKeyboardKey.tab); // The sidebar.
+      await key(tester, LogicalKeyboardKey.keyB);
+      await key(tester, LogicalKeyboardKey.enter); // Books tab.
+      expect(find.text('The Spirit #1'), findsOneWidget);
+      expect(find.text('The Spirit #2'), findsOneWidget);
+      expect(find.text('Indie'), findsOneWidget);
 
-      await key(tester, LogicalKeyboardKey.keyL); // Selects the first cover.
-      await key(tester, LogicalKeyboardKey.keyL);
-      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.keyL); // Indie.
+      await key(tester, LogicalKeyboardKey.keyL); // Pepper Carrot #6.
+      await key(tester, LogicalKeyboardKey.keyL); // The Spirit #1.
       // The wide layout shows the selection in the detail pane.
       expect(
-        find.descendant(of: find.byKey(const Key('detail')), matching: find.text('2 books · 0 read')),
+        find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Not started · 4 pages')),
         findsOneWidget,
       );
-      await key(tester, LogicalKeyboardKey.enter); // Into the series.
-      expect(find.text('The Spirit #1'), findsWidgets);
-      expect(find.text('The Spirit #2'), findsOneWidget);
-      await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter)); // Opens #1.
+      await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter)); // Opens it.
       expect(c.read(readerProvider).book?.title, 'The Spirit #1');
 
-      // ] follows the series (#1 → #2), though the files sort the other way.
+      // ] follows the folder (#1 → #2).
       await tester.runAsync(() => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.nextBook)));
       await settle(tester);
       expect(c.read(readerProvider).book?.title, 'The Spirit #2');
       await tester.runAsync(() => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.nextBook)));
       await settle(tester);
-      expect(status(tester), 'This is the last book in the series');
+      expect(status(tester), 'No next book in this folder');
 
-      // mm bookmarks the page; Esc goes back to the library, into the series
-      // where we were, and the book shows its bookmark.
+      // mm bookmarks the page; Esc goes back to the library, to the books,
+      // and the book shows its bookmark in the detail pane.
       await key(tester, LogicalKeyboardKey.keyL);
       await tester.runAsync(() => c.read(readerProvider.notifier).handle(const ReaderCommand(ReaderIntent.bookmark)));
       await settle(tester);
@@ -275,14 +276,12 @@ void main() {
       expect(find.text('Page 2'), findsOneWidget);
       expect(find.text('On page 2 of 3'), findsOneWidget);
 
-      // Esc leaves the series; the sidebar's R goes to Reading.
-      await key(tester, LogicalKeyboardKey.escape);
-      expect(find.text('2 books'), findsOneWidget);
+      // The sidebar's R goes to Reading.
       await key(tester, LogicalKeyboardKey.tab);
       await key(tester, LogicalKeyboardKey.keyR);
       await key(tester, LogicalKeyboardKey.enter);
       expect(find.text('The Spirit #2'), findsOneWidget);
-      expect(find.text('Barefoot Bride'), findsNothing, reason: 'never opened');
+      expect(find.text('Indie'), findsNothing, reason: 'never opened');
     });
 
     bool sidebarFocused(WidgetTester tester) =>
@@ -307,14 +306,13 @@ void main() {
       await scan(tester, c);
       expect(underlines(tester), 0);
       await key(tester, LogicalKeyboardKey.keyB);
-      expect(current(tester), LibraryTab.series, reason: 'B outside the sidebar is no navigation');
+      expect(current(tester), LibraryTab.folders, reason: 'B outside the sidebar is no navigation');
       await key(tester, LogicalKeyboardKey.tab);
-      expect(current(tester), LibraryTab.series, reason: 'Tab moves focus, not the destination');
+      expect(current(tester), LibraryTab.folders, reason: 'Tab moves focus, not the destination');
       expect(sidebarFocused(tester), isTrue);
-      expect(underlines(tester), 7);
+      expect(underlines(tester), 6);
       for (final (letter, destination) in [
         (LogicalKeyboardKey.keyR, LibraryTab.reading),
-        (LogicalKeyboardKey.keyS, LibraryTab.series),
         (LogicalKeyboardKey.keyB, LibraryTab.books),
         (LogicalKeyboardKey.keyC, LibraryTab.collections),
         (LogicalKeyboardKey.keyH, LibraryTab.history),
@@ -324,7 +322,7 @@ void main() {
         await key(tester, letter);
         expect(current(tester), destination);
         expect(sidebarFocused(tester), isTrue);
-        expect(underlines(tester), 7);
+        expect(underlines(tester), 6);
         expect(c.read(readerProvider).book, isNull);
       }
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
@@ -343,12 +341,12 @@ void main() {
       expect(underlines(tester), 0);
       await key(tester, LogicalKeyboardKey.keyB);
       expect(current(tester), LibraryTab.bookmarks);
-      await tester.tap(find.text('Series').first);
+      await tester.tap(find.text('Books').first);
       await settle(tester);
       expect(sidebarFocused(tester), isFalse);
       expect(underlines(tester), 0);
       await key(tester, LogicalKeyboardKey.keyB);
-      expect(current(tester), LibraryTab.series, reason: 'a pointer-selected destination enables no hidden letters');
+      expect(current(tester), LibraryTab.books, reason: 'a pointer-selected destination enables no hidden letters');
     });
 
     testWidgets('sidebar arrows, ends and exit keys; prefixes and pointer/search focus stay local', (tester) async {
@@ -357,9 +355,9 @@ void main() {
       await scan(tester, c);
       await key(tester, LogicalKeyboardKey.tab);
       await key(tester, LogicalKeyboardKey.arrowDown);
-      expect(current(tester), LibraryTab.books);
+      expect(current(tester), LibraryTab.bookmarks);
       await key(tester, LogicalKeyboardKey.keyK);
-      expect(current(tester), LibraryTab.series);
+      expect(current(tester), LibraryTab.folders);
       await key(tester, LogicalKeyboardKey.end);
       expect(current(tester), LibraryTab.bookmarks);
       await key(tester, LogicalKeyboardKey.home);
@@ -430,7 +428,7 @@ void main() {
       await key(tester, LogicalKeyboardKey.keyB);
       await key(tester, LogicalKeyboardKey.enter);
       await key(tester, LogicalKeyboardKey.keyL);
-      final title = find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Barefoot Bride'));
+      final title = find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Indie'));
       expect(title, findsOneWidget);
       await key(tester, LogicalKeyboardKey.tab);
       await tester.tap(title);
@@ -502,9 +500,9 @@ void main() {
       await settle(tester);
       expect(find.byKey(const Key('librarySidebar')), findsNothing);
       await key(tester, LogicalKeyboardKey.tab);
-      expect(current(tester), LibraryTab.books);
+      expect(current(tester), LibraryTab.bookmarks);
       await key(tester, LogicalKeyboardKey.keyC);
-      expect(current(tester), LibraryTab.books);
+      expect(current(tester), LibraryTab.bookmarks);
     });
 
     testWidgets('phone bottom navigation keeps Tab cycling', (tester) async {
@@ -512,12 +510,12 @@ void main() {
       final c = await pumpApp(tester, size: const Size(411, 800));
       await scan(tester, c);
       await key(tester, LogicalKeyboardKey.tab);
-      expect(current(tester), LibraryTab.books);
+      expect(current(tester), LibraryTab.bookmarks);
       expect(find.byKey(const Key('librarySidebar')), findsNothing);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await key(tester, LogicalKeyboardKey.tab);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-      expect(current(tester), LibraryTab.series);
+      expect(current(tester), LibraryTab.folders);
     });
 
     testWidgets('/ searches, Enter returns to the covers, Esc clears', (tester) async {
@@ -531,27 +529,28 @@ void main() {
       await key(tester, LogicalKeyboardKey.slash, character: '/');
       await tester.enterText(find.byKey(const Key('search')), 'eisner');
       await settle(tester);
-      expect(find.text('The Spirit #1'), findsOneWidget);
-      expect(find.text('Barefoot Bride'), findsNothing);
+      expect(find.text('The Spirit #2'), findsOneWidget);
+      expect(find.text('The Spirit #1'), findsNothing);
+      expect(find.text('Indie'), findsNothing);
       // l typed into the field is text, not a key command.
       expect(c.read(readerProvider).book, isNull);
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await settle(tester);
       await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter)); // Opens the first result.
-      expect(c.read(readerProvider).book?.title, 'The Spirit #1');
+      expect(c.read(readerProvider).book?.title, 'The Spirit #2');
       await key(tester, LogicalKeyboardKey.escape);
       await key(tester, LogicalKeyboardKey.escape); // Clears the search.
-      expect(find.text('Barefoot Bride'), findsOneWidget);
+      expect(find.text('Indie'), findsOneWidget);
     });
 
     testWidgets('/ still reaches the search after a folder opens while it is typed in', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester);
       await scan(tester, c);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       await key(tester, LogicalKeyboardKey.slash, character: '/');
-      await tester.enterText(find.byKey(const Key('search')), 'spirit');
+      await tester.enterText(find.byKey(const Key('search')), 'pepper');
       await settle(tester);
       // A click on the folder while the cursor is in the search box.
       await tester.tap(find.text('Comics'), kind: PointerDeviceKind.mouse);
@@ -572,7 +571,7 @@ void main() {
       await settle(tester);
       expect(searching(), isFalse);
       await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
-      expect(c.read(readerProvider).book?.title, startsWith('The Spirit'));
+      expect(c.read(readerProvider).book?.title, 'Pepper Carrot #6');
     });
 
     testWidgets('an empty library folder shows a plain tile and its details', (tester) async {
@@ -582,7 +581,7 @@ void main() {
       await scan(tester, c);
       await tester.runAsync(() => c.read(libraryStoreProvider).addRoot(empty.path));
       await settle(tester);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       expect(tester.takeException(), isNull);
       expect(find.text('Empty'), findsOneWidget);
@@ -597,7 +596,7 @@ void main() {
       writeBook(old, 'Old One.cbz', 2);
       final c = await pumpApp(tester);
       await scan(tester, c);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       // The top: the library folder, with every book under it.
       expect(find.text('Comics'), findsOneWidget);
@@ -608,23 +607,23 @@ void main() {
       // Sub-folders first, then the books; a folder of pages is a book.
       expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
       expect(find.text('Indie'), findsWidgets);
-      expect(find.text('2 books'), findsWidgets);
+      expect(find.text('2 books'), findsWidgets, reason: 'the The Spirit folder counts its two');
       expect(find.text('Pepper Carrot #6'), findsWidgets);
-      expect(find.text('The Spirit #1'), findsWidgets);
+      expect(find.text('The Spirit'), findsWidgets, reason: 'the folder tile, not its books');
+      expect(find.text('The Spirit #1'), findsNothing, reason: 'it is inside the The Spirit folder');
       expect(find.text('Barefoot Bride'), findsNothing, reason: 'it is inside Indie');
 
       await key(tester, LogicalKeyboardKey.enter); // Indie is selected first.
-      expect(find.text('Barefoot Bride'), findsWidgets);
       expect(find.text('Old'), findsWidgets);
       await tester.tap(find.text('Old').first); // A tap goes straight in.
       await settle(tester);
-      expect(find.text('Old One'), findsWidgets);
+      expect(find.text('Old'), findsWidgets, reason: 'the book in it is named by the folder');
 
       // The breadcrumb goes back to any folder above.
       await tester.tap(find.descendant(of: find.byKey(const Key('breadcrumb')), matching: find.text('Comics')));
       await settle(tester);
       expect(find.text('Indie'), findsWidgets);
-      expect(find.text('Old One'), findsNothing);
+      expect(find.text('Old'), findsNothing);
 
       // Esc goes up a folder, with the folder you left selected.
       await key(tester, LogicalKeyboardKey.enter);
@@ -638,12 +637,11 @@ void main() {
       expect(find.text('5 books'), findsWidgets);
 
       // A book opens from inside a folder.
-      await key(tester, LogicalKeyboardKey.enter);
-      await key(tester, LogicalKeyboardKey.enter);
-      await key(tester, LogicalKeyboardKey.keyL); // Barefoot Bride, after Old.
-      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.enter); // Into Comics; Indie, the first folder, is selected.
+      await key(tester, LogicalKeyboardKey.enter); // Into Indie; Old, the first in it, is selected.
+      await key(tester, LogicalKeyboardKey.keyL); // The book in it, named Indie.
       await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
-      expect(c.read(readerProvider).book?.title, 'Barefoot Bride');
+      expect(c.read(readerProvider).book?.title, 'Indie');
       // Esc from the reader comes back to the same folder.
       await key(tester, LogicalKeyboardKey.escape);
       expect(find.text('Old'), findsWidgets);
@@ -663,39 +661,39 @@ void main() {
       });
       await settle(tester);
       expect(find.text('Old'), findsNothing);
-      expect(find.text('The Spirit #1'), findsWidgets);
+      expect(find.text('The Spirit'), findsWidgets);
       expect(find.text('No books in this folder any more.'), findsNothing);
     });
 
     testWidgets('a comic with copies in two folders shows in both, and opens the copy you are on', (tester) async {
-      final xman = Directory('${root.path}/xman')..createSync();
-      final unread = Directory('${root.path}/Unread/xman')..createSync(recursive: true);
-      final copy = writeBook(xman, 'Nancy.cbz', 3);
+      final nancy = Directory('${root.path}/Nancy')..createSync();
+      final unread = Directory('${root.path}/Unread/Nancy')..createSync(recursive: true);
+      final copy = writeBook(nancy, 'Nancy.cbz', 3);
       File(copy).copySync('${unread.path}/Nancy.cbz');
       final c = await pumpApp(tester);
       await scan(tester, c);
       final books = await tester.runAsync(() => c.read(libraryStoreProvider).books());
       expect(books, hasLength(1), reason: 'one comic, two files');
-      expect(books!.single.copies.map((f) => f.path), [p.normalize(copy)]);
+      expect(books!.single.copies.map((f) => f.path), [p.normalize('${unread.path}/Nancy.cbz')]);
+      expect(books.single.name, 'Nancy');
 
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       expect(find.text('2 books'), findsWidgets, reason: 'a file in each folder');
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter); // Into Comics.
-      // "Unread" sorts first and held the only cover; xman has its own now.
-      await tester.tap(find.text('xman').first);
+      // "Unread" sorts first; its copy is a folder of its own now.
+      await tester.tap(find.text('Unread').first);
       await settle(tester);
-      expect(find.text('Nancy'), findsWidgets);
+      await tester.tap(find.text('Nancy').first);
+      await settle(tester);
       await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
-      expect(c.read(readerProvider).book?.path, p.normalize(copy));
+      expect(c.read(readerProvider).book?.path, p.normalize('${unread.path}/Nancy.cbz'));
       await key(tester, LogicalKeyboardKey.escape);
 
       await tester.tap(find.descendant(of: find.byKey(const Key('breadcrumb')), matching: find.text('Comics')));
       await settle(tester);
-      await tester.tap(find.text('Unread').first);
-      await settle(tester);
-      await tester.tap(find.text('xman').first);
+      await tester.tap(find.text('Nancy').first);
       await settle(tester);
       expect(find.text('Nancy'), findsWidgets);
     });
@@ -704,7 +702,7 @@ void main() {
       writeShelf(root);
       final c = await pumpApp(tester);
       await scan(tester, c);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter); // Into Comics.
@@ -716,15 +714,15 @@ void main() {
       // S turns it on: every book tile makes a page other than its cover,
       // and a folder's tile a page of a comic in it.
       await key(tester, LogicalKeyboardKey.keyS, character: 'S');
-      for (var i = 0; i < 50 && shuffled().evaluate().length < 4; i++) {
+      for (var i = 0; i < 50 && shuffled().evaluate().length < 3; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
         await tester.pump();
       }
       final keys = {for (final e in shuffled().evaluate()) (e.widget.key! as ValueKey<String>).value};
-      expect(keys, hasLength(4), reason: 'Pepper Carrot, both Spirit books, and Indie with Barefoot Bride');
-      final barefoot = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!
-          .firstWhere((b) => b.name == 'Barefoot Bride');
-      expect(keys.where((k) => k.startsWith('shuffled-${barefoot.key}-')), hasLength(1), reason: 'the Indie folder');
+      expect(keys, hasLength(3), reason: 'the Indie and The Spirit folders, and Pepper Carrot');
+      final indie = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!
+          .firstWhere((b) => b.name == 'Indie');
+      expect(keys.where((k) => k.startsWith('shuffled-${indie.key}-')), hasLength(1), reason: 'the Indie folder');
       final pages = Directory('$covers/pages')
           .listSync(recursive: true)
           .whereType<File>()
@@ -747,11 +745,12 @@ void main() {
         }
         changed = !{for (final e in shuffled().evaluate()) (e.widget.key! as ValueKey<String>).value}.containsAll(keys);
       }
-      expect(changed, isTrue, reason: 'Spirit #2 has four pages to pick from');
+      expect(changed, isTrue, reason: 'The Spirit #1 has four pages to pick from');
 
       // A book still opens where it was.
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.keyL); // Pepper Carrot, after the two folders.
       await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
       expect(c.read(readerProvider).book, isNotNull);
       expect(c.read(readerProvider).page, 0);
@@ -763,25 +762,33 @@ void main() {
       await tester.runAsync(() => SettingsStore(db).saveBool(SettingsStore.continueAtStart, false));
       final c2 = await pumpApp(tester);
       await settle(tester);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter);
-      for (var i = 0; i < 50 && shuffled().evaluate().length < 4; i++) {
+      for (var i = 0; i < 50 && shuffled().evaluate().length < 3; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
         await tester.pump();
       }
-      expect(shuffled(), findsNWidgets(4));
+      expect(shuffled(), findsNWidgets(3));
       await key(tester, LogicalKeyboardKey.keyS, character: 'S');
       expect(shuffled(), findsNothing);
       expect(find.byKey(const Key('reshuffle')), findsNothing);
       expect(c2.read(readerProvider).book, isNull);
     });
 
-    testWidgets('S shuffles the Series and Books tabs too, a series with a page of one of its comics', (tester) async {
+    testWidgets('S shuffles the Books and Collections tabs too, a collection with a page of one of its comics', (
+      tester,
+    ) async {
       writeShelf(root);
       final c = await pumpApp(tester);
       await scan(tester, c);
+      // A collection, so the Collections tab has a group tile to shuffle.
+      await tester.runAsync(() async {
+        final store = c.read(libraryStoreProvider);
+        final books = await store.books();
+        await store.addToCollection(books.first.key, 'Barefoot');
+      });
       Finder shuffled() => find.byWidgetPredicate(
         (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('shuffled-'),
       );
@@ -792,16 +799,12 @@ void main() {
         }
       }
 
-      await tester.tap(find.text('Series').first);
+      await tester.tap(find.text('Collections').first);
       await settle(tester);
       expect(shuffled(), findsNothing);
       await key(tester, LogicalKeyboardKey.keyS, character: 'S');
-      await waitFor(3);
-      final books = (await tester.runAsync(() => c.read(libraryStoreProvider).books()))!;
-      final spirit = {for (final b in books.where((b) => b.series == 'The Spirit')) b.key};
-      final keys = {for (final e in shuffled().evaluate()) (e.widget.key! as ValueKey<String>).value};
-      expect(keys, hasLength(3), reason: 'The Spirit, Barefoot Bride and Pepper Carrot');
-      expect(keys.where((k) => spirit.any((s) => k.startsWith('shuffled-$s-'))), hasLength(1), reason: 'the series');
+      await waitFor(1);
+      expect(shuffled(), findsOneWidget, reason: 'the Barefoot collection');
       expect(find.byKey(const Key('shuffle')), findsOneWidget);
 
       await tester.tap(find.text('Books').first);
@@ -818,11 +821,11 @@ void main() {
       writeShelf(root);
       File('${root.path}/Sunday Strip 7.png').writeAsBytesSync([...png, 7]);
       writeBook(root, 'Long Saga.cbz', 30);
-      // Spirit #2 last changed two years ago; the rest just now.
-      File('${root.path}/spirit-a.cbz').setLastModifiedSync(DateTime.now().subtract(const Duration(days: 730)));
+      // The Spirit #2 last changed two years ago; the rest just now.
+      File('${root.path}/The Spirit/2.cbz').setLastModifiedSync(DateTime.now().subtract(const Duration(days: 730)));
       final c = await pumpApp(tester);
       await scan(tester, c);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       expect(find.text('6 books'), findsOneWidget);
       await key(tester, LogicalKeyboardKey.keyL);
@@ -863,7 +866,7 @@ void main() {
       );
       await settle(tester);
       expect(find.byKey(const Key('filterBarClear')), findsNothing);
-      expect(find.text('The Spirit #1'), findsWidgets);
+      expect(find.text('The Spirit'), findsWidgets, reason: 'the folder tile; its books are inside it');
 
       // By length: of these only the comic of 30 pages is 24 to 64 pages
       // long. (The cursor is still in the search box, so by the button.)
@@ -903,8 +906,8 @@ void main() {
       await settle(tester);
       await tester.tap(find.byKey(const Key('filterDone')));
       await settle(tester);
-      expect(find.text('The Spirit #2'), findsWidgets);
-      expect(find.text('The Spirit #1'), findsNothing);
+      expect(find.text('The Spirit'), findsWidgets, reason: 'the folder holds the only book that old');
+      expect(find.text('Pepper Carrot #6'), findsNothing);
       expect(find.text('Sunday Strip #7'), findsNothing);
       final saved = await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter));
       expect(saved, contains('older'));
@@ -913,7 +916,7 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await pumpApp(tester);
       await settle(tester);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       expect(find.byKey(const Key('filterBarClear')), findsOneWidget);
       expect(find.text('1 book'), findsOneWidget);
@@ -964,7 +967,7 @@ void main() {
       Future<String?> saved() =>
           tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderSort)).then((v) => v);
 
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter); // Into Comics.
@@ -986,23 +989,23 @@ void main() {
       expect(find.byKey(const Key('sortDialog')), findsNothing);
       expect(find.text('Sort: Pages, fewest first'), findsOneWidget);
 
-      // go: the next order (series), still reversed, and a notice says so.
+      // go: the next order (issue), still reversed, and a notice says so.
       await key(tester, LogicalKeyboardKey.keyG, character: 'g');
       await key(tester, LogicalKeyboardKey.keyO, character: 'o');
       expect(shown(), ['Gamma', 'Beta', 'Alpha']);
-      expect(find.text('Sorted by series, z to a'), findsOneWidget);
+      expect(find.text('Sorted by issue, last to first'), findsOneWidget);
       // gO: the other way round.
       await key(tester, LogicalKeyboardKey.keyG, character: 'g');
       await key(tester, LogicalKeyboardKey.keyO, character: 'O');
       expect(shown(), ['Alpha', 'Beta', 'Gamma']);
-      expect(await saved(), 'series');
+      expect(await saved(), 'issue');
 
       // A new start keeps it; the button opens the window, a chip picks.
       await tester.runAsync(() => SettingsStore(db).saveString(SettingsStore.folderSort, 'pages'));
       await tester.pumpWidget(const SizedBox());
       await pumpApp(tester);
       await settle(tester);
-      await tester.tap(find.text('Folders'));
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter);
@@ -1035,13 +1038,14 @@ void main() {
       // Inside the library folder Comics: walked to Indie, not added again.
       expect(c.read(readerProvider).book, isNull);
       expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
-      expect(find.text('Barefoot Bride'), findsWidgets);
+      expect(find.text('Indie'), findsWidgets);
       expect(find.text('Old'), findsWidgets);
       expect((await LibraryStore(db).roots()).length, 1);
       await key(tester, LogicalKeyboardKey.backspace); // Up to Comics.
-      expect(find.text('Indie'), findsWidgets);
+      expect(find.text('Indie'), findsWidgets, reason: 'the folder you came from stays selected');
       // Read last by the scan, which may still be making covers.
-      await eventually(tester, () => expect(find.text('The Spirit #1'), findsWidgets), settle: settle);
+      await eventually(tester, () => expect(find.text('The Spirit'), findsWidgets), settle: settle);
+      await eventually(tester, () => expect(find.text('Pepper Carrot #6'), findsWidgets), settle: settle);
     });
 
     testWidgets('a folder outside the library given at start is added and shown', (tester) async {
@@ -1070,13 +1074,13 @@ void main() {
       await settle(tester);
       await tester.tap(find.text('Comics'));
       await settle(tester);
-      await tester.tap(find.text('Indie'));
+      await tester.tap(find.text('The Spirit'));
       await settle(tester);
-      expect(find.text('Barefoot Bride'), findsOneWidget);
+      expect(find.text('The Spirit #1'), findsOneWidget);
       // Android's back gesture goes up a folder at a time.
       await tester.binding.handlePopRoute();
       await settle(tester);
-      expect(find.text('Indie'), findsOneWidget);
+      expect(find.text('The Spirit'), findsOneWidget);
       await tester.tap(find.byKey(const Key('folderUp')));
       await settle(tester);
       expect(find.byKey(const Key('breadcrumb')), findsNothing);
@@ -1087,11 +1091,15 @@ void main() {
       final c = await pumpApp(tester, size: const Size(400, 800));
       await scan(tester, c);
       expect(find.byType(NavigationBar), findsOneWidget);
-      await tester.tap(find.text('Barefoot Bride'));
+      await tester.tap(find.text('Comics'));
       await settle(tester);
-      expect(find.text('Not started · 5 pages'), findsOneWidget);
+      await tester.tap(find.text('The Spirit'));
+      await settle(tester);
+      await tester.tap(find.text('The Spirit #1'));
+      await settle(tester);
+      expect(find.text('Not started · 4 pages'), findsOneWidget);
       await opening(tester, () => tester.tap(find.byKey(const Key('read'))));
-      expect(c.read(readerProvider).book?.title, 'Barefoot Bride');
+      expect(c.read(readerProvider).book?.title, 'The Spirit #1');
     });
   });
 }
