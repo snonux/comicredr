@@ -13,6 +13,7 @@ import 'package:comicredr/src/reader/reader_notifier.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -199,6 +200,106 @@ void main() {
       await settle(tester);
       expect(find.text('Daredevil #181'), findsWidgets);
       expect(find.text('Swamp Thing #21'), findsNothing);
+    });
+
+    // Task z74: a collection's next comic (Read or Continue, its cover, the
+    // selection on opening it) and the details pane's list follow the
+    // Collections tab's sort, the order the open collection lists them in.
+    testWidgets('a collection reads on, lists and opens in the tab\'s sort order, the usual one and a changed one', (
+      tester,
+    ) async {
+      // By path The Zed comes before Yak; by the folder name with "The"
+      // left out (the order collections had before) Yak came first. Pages:
+      // The Zed #1 3, Yak #1 9, Yak #2 5.
+      final zed = Directory('${root.path}/The Zed')..createSync();
+      final yak = Directory('${root.path}/Yak')..createSync();
+      writeBook(zed, '1.cbz', 3);
+      writeBook(yak, '1.cbz', 9);
+      writeBook(yak, '2.cbz', 5);
+      final store = LibraryStore(db);
+      final books = (await tester.runAsync(() async {
+        await store.addRoot(root.path);
+        await LibraryScanner(store, coverDir: covers, workers: 1).scan();
+        final books = await store.books();
+        for (final b in books) {
+          await store.addToCollection(b.key, 'Mix');
+        }
+        return books;
+      }))!;
+      final nameOf = {for (final b in books) b.key: b.name};
+      final c = await pumpApp(tester);
+      await settle(tester);
+      await tab(tester, 'Collections');
+
+      Finder inDetail(String text) => find.descendant(of: find.byKey(const Key('detail')), matching: find.text(text));
+      // The comics' rows in the details pane, or the covers, top to bottom
+      // and left to right.
+      List<String> listed(String prefix) {
+        final found = find
+            .byWidgetPredicate(
+              (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith(prefix),
+            )
+            .evaluate()
+            .toList();
+        final at = {for (final e in found) e: tester.getTopLeft(find.byWidget(e.widget))};
+        found.sort((a, b) => at[a]!.dy != at[b]!.dy ? at[a]!.dy.compareTo(at[b]!.dy) : at[a]!.dx.compareTo(at[b]!.dx));
+        final keys = [for (final e in found) (e.widget.key! as ValueKey<String>).value.substring(prefix.length)];
+        return [for (final k in keys) nameOf[prefix == 'b:' ? k.split(':').first : k]!];
+      }
+
+      Future<void> sortBy(String order) async {
+        await tester.tap(find.byKey(const Key('sort')));
+        await settle(tester);
+        await tester.tap(find.byKey(Key('sort-$order')));
+        await settle(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await settle(tester);
+      }
+
+      Future<void> open() async {
+        // A tap selects a collection, a tap on the selected one opens it.
+        for (var i = 0; i < 2 && listed('b:').isEmpty; i++) {
+          await tester.tap(find.text('Mix').first);
+          await settle(tester);
+        }
+      }
+
+      Future<void> back() async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await settle(tester);
+      }
+
+      // The usual order, by name (path): The Zed first everywhere. Opened,
+      // the collection lists it first and selects it, the comic Read opens.
+      await open();
+      expect(listed('b:'), ['The Zed #1', 'Yak #1', 'Yak #2']);
+      expect(inDetail('The Zed #1'), findsOneWidget, reason: 'the comic Read opens is selected');
+      // Back on the collections, the details pane lists them so and reads on there.
+      await back();
+      expect(listed('groupBook-'), ['The Zed #1', 'Yak #1', 'Yak #2']);
+      expect(inDetail('Read The Zed #1'), findsOneWidget);
+
+      // By pages, most first: Yak #1 leads, in the details pane, in the
+      // open collection and as the comic selected on opening it.
+      await sortBy('pages');
+      expect(listed('groupBook-'), ['Yak #1', 'Yak #2', 'The Zed #1']);
+      expect(inDetail('Read Yak #1'), findsOneWidget);
+      await open();
+      expect(listed('b:'), ['Yak #1', 'Yak #2', 'The Zed #1']);
+      expect(inDetail('Yak #1'), findsOneWidget, reason: 'the comic Read opens is selected');
+      await back();
+
+      // Yak #1 completed: Read goes on with the next in this order, Yak #2
+      // (by name it would have been The Zed #1), and opens it.
+      final yak1 = books.firstWhere((b) => b.name == 'Yak #1').key;
+      await tester.runAsync(() => store.setCompleted(yak1, true));
+      await settle(tester);
+      expect(inDetail('Read Yak #2'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('readNext')));
+      for (var i = 0; i < 20 && c.read(readerProvider).book == null; i++) {
+        await settle(tester);
+      }
+      expect(c.read(readerProvider).book?.title, 'Yak #2');
     });
 
     testWidgets('the History tab lists what was read, newest first', (tester) async {

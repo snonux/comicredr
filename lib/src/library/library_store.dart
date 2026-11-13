@@ -234,8 +234,10 @@ class S3Shelf {
   final int? size;
 }
 
-/// A collection as the library shows it: its books in reading order.
-/// (There were series once; collections are the only groups now.)
+/// A collection as the library shows it: its books in the order they are
+/// listed in, which on the Collections tab is the tab's sort order
+/// (`LibraryScreenState._itemsFor`). (There were series once; collections
+/// are the only groups now.)
 class LibraryGroup {
   const LibraryGroup(this.id, this.name, this.books);
 
@@ -245,7 +247,8 @@ class LibraryGroup {
 
   int get read => books.where((b) => b.completed).length;
 
-  /// The book to go on with: the first one not completed.
+  /// The book to go on with: the first one not completed in [books]' order,
+  /// else the first.
   LibraryBook get next => books.firstWhere((b) => !b.completed, orElse: () => books.first);
 
   bool matches(String query) => books.any((b) => b.matches(query));
@@ -263,7 +266,8 @@ const unreadCollection = 'Unread';
 
 /// The hand-made collections among [books], as groups the library shows:
 /// collections in name order, books by the folder each is in, then issue.
-/// Ids are negative, so they never meet a folder's.
+/// The Collections tab puts each group's books in its own sort order before
+/// it shows them. Ids are negative, so they never meet a folder's.
 List<LibraryGroup> collectionGroups(List<LibraryBook> books) {
   final by = <String, List<LibraryBook>>{};
   for (final b in books) {

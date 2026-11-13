@@ -463,7 +463,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       LibraryTab.folders => 'Sub-folders come first, in the same order. $last',
       LibraryTab.reading => 'Completed comics come after the others, each in this order. $last',
       LibraryTab.collections =>
-        'Collections go by their first comic in this order, and the comics in one in it too. $last',
+        'Collections go by their first comic in this order, and the comics in one in it too: '
+            'Read goes on with the first not completed. $last',
       LibraryTab.bookmarks => 'Bookmarks go comic by comic in this order, each comic\'s in page order. $last',
       _ => last,
     };
@@ -1242,6 +1243,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         setState(() {
           _groupSelected = item.id;
           _group = group.id;
+          // The group's comics are in the tab's order (_itemsFor), so this
+          // is the first comic not completed in the list that opens.
           _selected = BookItem(group.next).id;
         });
         WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
@@ -1764,10 +1767,13 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
               if (b.matches(q)) BookItem(b),
           ];
         }
-        // A group keeps its comics in their own order (folder, then
-        // issue), which LibraryGroup.next reads on with; only the list of
-        // collections follows the tab's order, by each one's first comic.
-        final shown = [for (final g in all) LibraryGroup(g.id, g.name, _shown(g.books))];
+        // Each collection's comics go in the tab's order, the order the
+        // open collection lists them in (above), so its cover, Read or
+        // Continue (LibraryGroup.next: the first not completed), the
+        // details pane's list and the selection on opening it all agree
+        // with what opening it shows (task z74). The list of collections
+        // follows the same order, by each one's first comic.
+        final shown = [for (final g in all) LibraryGroup(g.id, g.name, _sort.books(_shown(g.books)))];
         return [
           for (final g in _sort.byFirstBook(shown, (g) => g.books, (g) => g.name))
             if (g.matches(q)) GroupItem(g),

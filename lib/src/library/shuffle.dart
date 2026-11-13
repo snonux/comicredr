@@ -23,9 +23,11 @@ int shufflePage(String bookKey, int pageCount, int seed) {
 
 /// A folder's or group's tile in shuffle (its item id [group]): one of its
 /// comics, picked by [seed] as [shufflePage] picks pages. Null when none can
-/// be opened here.
+/// be opened here. The comics are put in content-key order first, so the
+/// pick does not follow the tab's sort: changing the order, or reading a
+/// comic under the last-read order, keeps the page a tile shows.
 LibraryBook? shuffleBook(String group, List<LibraryBook> books, int seed) {
-  final local = books.where((b) => !b.remoteOnly).toList();
+  final local = books.where((b) => !b.remoteOnly).toList()..sort((a, b) => a.key.compareTo(b.key));
   if (local.isEmpty) return null;
   return local[math.Random(Object.hash(group, seed)).nextInt(local.length)];
 }
