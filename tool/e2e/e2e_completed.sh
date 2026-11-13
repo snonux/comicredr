@@ -39,7 +39,7 @@ EOF
 done
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
-export DISPLAY=:93
+export DISPLAY=${E2E_DISPLAY:-:93}
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
@@ -95,6 +95,10 @@ stop() { kill "$app"; wait "$app" 2>/dev/null || true; app=; }
 shot() { import -window root "$top/$out/shot_$1.png"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 0.9; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1; }
+# tab LETTER: a library tab by keys (Tab focuses the sidebar, its
+# underlined letter picks the tab, Enter goes back to the covers), which
+# holds wherever the rail's tabs sit.
+tab() { key Tab; key "$1"; key Return; sleep 1; }
 wait_books() { for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 3 ]] && break; sleep 0.5; done; }
 # chip N: in the filter window, the Nth control from the first type (Tab N
 # times) pressed with Space. With CBZ the only type here: CBZ (0), the
@@ -112,7 +116,7 @@ first_in_comics() {
 start --add-root "$comics"
 wait_books
 check "books indexed" "$(sql 'select count(*) from books')" 3
-click 43 355; shot 01_folders # The Folders tab (the rail, left).
+tab f; shot 01_folders # The Folders tab.
 
 # 1. In the reader: Alpha (the first in Comics) open, gC marks it, gC again
 # marks it not completed, and once more completed. The comic stays open.
@@ -168,7 +172,7 @@ stop
 # it, Bravo, is selected: Enter opens it (the comic read last before was
 # Charlie). And Bravo opens first when the folder is walked into again.
 start --add-root "$comics" # In the library: the comic read last would open otherwise.
-click 43 355; shot 10_restart_filtered
+tab f; shot 10_restart_filtered
 check "kept across a restart" "$(filter | grep -c '"completed\\*":\\*"hide')" 1
 key shift+f; sleep 1; chip 13; key Escape; sleep 1
 check "Completed only is saved" "$(filter | grep -c '"completed\\*":\\*"only')" 1
@@ -216,7 +220,7 @@ for _ in $(seq 1 40); do
   [[ "$(mark Alpha 2>/dev/null)" == no && "$(mark Charlie 2>/dev/null)" == yes ]] && break
   sleep 0.5
 done
-click 43 355; key l; key Return; shot 16_second_install
+tab f; key l; key Return; shot 16_second_install
 check "the second install: Alpha not completed" "$(mark Alpha)" no
 check "the second install: Bravo unmarked" "$(mark Bravo)" ""
 check "the second install: Charlie completed" "$(mark Charlie)" yes

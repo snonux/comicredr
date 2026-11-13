@@ -61,7 +61,7 @@ touch -d '2 years ago' "$comics/Golden Age/mystery-men.cbz"
 ls -l "$comics/Golden Age"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
-export DISPLAY=:97
+export DISPLAY=${E2E_DISPLAY:-:97}
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
@@ -93,7 +93,13 @@ shot() { import -window root "$top/$out/shot_$1.png"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 0.8; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1; }
 sql() { python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(sys.argv[2]).fetchone()[0])' "$db" "$1"; }
-read_() { sql "select count(*) from progress p join books b using (content_key) where b.title = '$1'"; }
+# read_ FILE: whether the comic in that file was opened. By file, since
+# the comics in one folder all take its name as their title.
+read_() { sql "select count(*) from progress p join files f using (content_key) where f.rel_path like '%/$1'"; }
+# tab LETTER: a library tab by keys (Tab focuses the sidebar, its
+# underlined letter picks the tab, Enter goes back to the covers), which
+# holds wherever the rail's tabs sit.
+tab() { key Tab; key "$1"; key Return; sleep 1; }
 # The comic opened last: the first of the Continue list.
 last_read() {
   sql "select value from settings where key = 'reader.recent'" | python3 -c '
@@ -131,7 +137,7 @@ start --add-root "$comics"
 for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 6 ]] && break; sleep 0.5; done
 check "books indexed" "$(sql 'select count(*) from books')" 6
 
-click 43 355; shot 01_folders # The Folders tab (the rail, left).
+tab f; shot 01_folders # The Folders tab.
 
 # By type: F, the PDF chip. Only Zeppelin passes; Modern has none and goes.
 key l; key Return; key Return
@@ -141,23 +147,23 @@ key Escape; sleep 1; shot 04_golden_age_pdf_only
 key BackSpace; shot 05_comics_modern_gone
 key BackSpace
 first_in_golden_age 06_read_zeppelin
-check "the PDF opened first" "$(read_ 'Zeppelin')" 1
+check "the PDF opened first" "$(read_ zeppelin.pdf)" 1
 check "the filter is saved" "$(sql "select value like '%pdf%' from settings where key = 'library.folderFilter'")" 1
 stop
 
 # A restart keeps it; then by size: PDF off, 10 to 50 MB on.
 start --add-root "$comics" # In the library: the comic read last would open otherwise.
-click 43 355; shot 07_restart_filtered
+tab f; shot 07_restart_filtered
 key shift+f; sleep 1; chip 2; key Escape
 key shift+f; sleep 1; chip 6; shot 08_size_picked; key Escape
 first_in_golden_age 09_read_space_ranger
-check "the big CBZ opened" "$(read_ 'Space Ranger')" 1
+check "the big CBZ opened" "$(read_ space-ranger.cbz)" 1
 
 # By date: size back to any, Over a year ago.
 key shift+f; sleep 1; chip 4; key Escape
 key shift+f; sleep 1; chip 14; key Escape; shot 10_date_older
 first_in_golden_age 11_read_mystery_men
-check "the two-year-old CBZ opened" "$(read_ 'Mystery Men')" 1
+check "the two-year-old CBZ opened" "$(read_ mystery-men.cbz)" 1
 check "the filter says so" "$(sql "select value like '%older%' from settings where key = 'library.folderFilter'")" 1
 
 # The mouse, in Comics: the date part's x on the filter line takes it off.
@@ -179,7 +185,7 @@ check "Clear all cleared it" "$(sql "select count(*) from settings where key = '
 key BackSpace
 key shift+f; sleep 1; chip 20; shot 16_length_picked; key Escape; sleep 1; shot 17_length_top
 key l; key Return; key Return; key Return; sleep 2; shot 18_read_saga; key Escape; sleep 1
-check "the 30-page comic opened" "$(read_ 'Saga')" 1
+check "the 30-page comic opened" "$(read_ saga.cbz)" 1
 check "the filter says so" "$(sql "select value like '%to64%' from settings where key = 'library.folderFilter'")" 1
 stop
 
@@ -187,7 +193,7 @@ stop
 # (where the app starts) chooses Books, and only Zeppelin is a PDF. F opens the window
 # there as well; Clear all takes the filter off again.
 start --add-root "$comics" # In the library: the comic read last would open otherwise.
-key Tab; key b; key Return; shot 19_books_tab
+tab b; shot 19_books_tab
 key shift+f; sleep 1; chip 23; key Escape # The length filter from before, off.
 key shift+f; sleep 1; chip 2; key Escape; sleep 1; shot 20_books_pdf_only
 key l; key Return; sleep 2; key Escape; sleep 1
@@ -201,7 +207,7 @@ stop
 # Mystery Men leaves the tab under the first, comes back alone under the
 # second, and all are back under the third.
 start --add-root "$comics"
-click 43 355 # The Folders tab, its top; the filter from before is still on.
+tab f # The Folders tab, its top; the filter from before is still on.
 key shift+f; sleep 1; chip 23; key Escape # Clear all: every comic again.
 key l; key Return; key Return; sleep 1 # Comics, then Golden Age: Mystery Men first.
 key g C; sleep 0.5; shot 21_marked

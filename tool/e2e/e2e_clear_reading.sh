@@ -38,7 +38,7 @@ EOF
 done
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
-export DISPLAY=:94
+export DISPLAY=${E2E_DISPLAY:-:94}
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
@@ -86,6 +86,10 @@ stop() { kill "$app"; wait "$app" 2>/dev/null || true; app=; }
 shot() { import -window root "$top/$out/shot_$1.png"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 0.9; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1; }
+# tab LETTER: a library tab by keys (Tab focuses the sidebar, its
+# underlined letter picks the tab, Enter goes back to the covers), which
+# holds wherever the rail's tabs sit.
+tab() { key Tab; key "$1"; key Return; sleep 1; }
 wait_books() { for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 3 ]] && break; sleep 0.5; done; }
 # open N: from the top of the Folders tab, into Comics and the Nth comic.
 open() {
@@ -100,7 +104,7 @@ close() { key Escape; sleep 1.5; key BackSpace; }
 start --add-root "$comics"
 wait_books
 check "books indexed" "$(sql 'select count(*) from books')" 3
-click 43 355 # The Folders tab (the rail, left).
+tab f # The Folders tab.
 open 1; key l; shot 01_alpha_peek
 close
 check "a look keeps the place, as a peek" "$(place Alpha)" "1 peek"
@@ -122,7 +126,7 @@ check "five minutes on one page start it" "$(place Bravo)" "0 started"
 open 3; key g C
 close
 check "Charlie marked" "$(mark Charlie)" yes
-click 43 120; shot 03_reading_tab # The Reading tab: Bravo alone.
+tab r; shot 03_reading_tab # The Reading tab: Bravo alone.
 stop
 # The Reading tab's covers are not read off the screen: the index says it.
 check "only Bravo on the Reading tab" \
@@ -138,7 +142,7 @@ check "only Bravo on the Reading tab" \
 home="$top/$out/home2"
 start --add-root "$comics"
 wait_books
-click 43 355
+tab f
 open 2; key l
 close
 check "second install: Bravo started, on page 2" "$(place Bravo)" "1 started"
@@ -147,7 +151,7 @@ stop
 # 3. Back on the first: Alpha opens where the look left it. Then gR.
 home="$top/$out/home"
 start --add-root "$comics"
-click 43 355
+tab f
 open 1
 check "Alpha reopened on its page (still a peek)" "$(place Alpha)" "1 peek"
 close
@@ -171,7 +175,7 @@ stop
 # its own place went and the comic starts on page 1, as a peek.
 home="$top/$out/home2"
 start --add-root "$comics"
-click 43 355
+tab f
 open 2; shot 07_second_starts_over
 close
 check "second install: Bravo starts over" "$(place Bravo)" "0 peek"

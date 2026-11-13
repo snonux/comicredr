@@ -63,7 +63,7 @@ done
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
 
-export DISPLAY=:91
+export DISPLAY=${E2E_DISPLAY:-:91}
 # -noreset: without it Xvfb starts over when its last client goes, which
 # the app is when it is stopped for a restart, and the next start could
 # find the display closed for that moment ("cannot open display").
@@ -100,6 +100,10 @@ stop() { kill "$app"; wait "$app" 2>/dev/null || true; app=; }
 shot() { import -window root -crop 1280x720+0+0 +repage "$top/$out/$1.png"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 0.25; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1.2; }
+# tab LETTER: a library tab by keys (Tab focuses the sidebar, its
+# underlined letter picks the tab, Enter goes back to the covers), which
+# holds wherever the rail's tabs sit.
+tab() { key Tab; key "$1"; key Return; sleep 1; }
 
 # measure shot: "top height" of the first thing written at the left edge
 # of the help, the title's K: the first run of lines down the screenshot
@@ -446,7 +450,7 @@ check "the covers behind the help were not sized" "$(setting library.coverSize)"
 key Escape
 look_until help_closed k_same "$closed"
 check "Esc closes the help: the library's left edge again" "$ktop $kheight" "$closed"
-click 43 170 # Books
+tab b # Books
 key plus
 for _ in $(seq 1 25); do [[ -n "$(setting library.coverSize)" ]] && break; sleep 0.2; done
 if [[ -n "$(setting library.coverSize)" ]]; then ok "+ with the help away sizes the covers ($(setting library.coverSize))"; else fail "+ in the library kept no cover size"; fi

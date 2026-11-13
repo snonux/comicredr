@@ -22,7 +22,7 @@ cp -r "$corpus/modern/pepper-carrot-e06" "$comics/"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
 cc -o "$out/close_window" tool/e2e/close_window.c -lX11
-export DISPLAY=:93
+export DISPLAY=${E2E_DISPLAY:-:93}
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
@@ -42,6 +42,10 @@ key() { xdotool key "$@" 2>/dev/null; sleep 0.9; }
 type() { xdotool type --delay 60 "$1" 2>/dev/null; sleep 0.6; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1.2; }
 shot() { import -window root "$out/$1.png"; }
+# tab LETTER: a library tab by keys (Tab focuses the sidebar, its
+# underlined letter picks the tab, Enter goes back to the covers), which
+# holds wherever the rail's tabs sit.
+tab() { key Tab; key "$1"; key Return; sleep 1; }
 start() {
   # GDK_BACKEND: on a desktop running Wayland GTK would otherwise open the
   # window there instead of in Xvfb, where the keys and clicks go. No
@@ -66,9 +70,9 @@ stop() {
 }
 
 start
-# The shelf opens on Folders; Tab, B, Enter goes to the Books tab's grid.
-# The second cover is Reptisaurus #5.
-key Tab; key b; key Return; key l; key l
+# The shelf opens on Folders; the Books tab's grid. The second cover is
+# Reptisaurus #5.
+tab b; key l; key l
 shot 01_book_detail
 # Its details on the right: Add to a collection, a new one called Charlton.
 click 1008 535; type Charlton; key Return
@@ -77,9 +81,8 @@ key l # Space War #2, into the same collection.
 click 1008 535; type Charlton; key Return
 check "both books are in Charlton" \
   test "$(q "$db" "select count(*) from collection_books where name = 'Charlton' and removed_at is null")" = 2
-# The Collections tab (the rail on the left): one collection; a click on
-# it shows its two books.
-click 43 163
+# The Collections tab: one collection; a click on it shows its two books.
+tab c
 shot 03_collections
 click 190 200
 shot 04_collection_books
@@ -93,7 +96,7 @@ check "the sitting is in the history" \
   test "$(q "$db" "select pages from read_log")" -ge 4
 check "the Reptisaurus sidecar carries the collection" \
   test "$(q "$comics/.reptisaurus-v2-005.cbz.crdb" "select name from collections where removed_at is null")" = Charlton
-click 43 290 # History
+tab h # History
 shot 06_history
 
 # Settings (the gear, top right when no book is selected): turn
@@ -109,7 +112,7 @@ stop
 
 # A restart keeps it all.
 start
-click 43 163 # Collections
+tab c # Collections
 shot 09_after_restart
 stop
 check "history survives a restart" test "$(q "$db" "select count(*) from read_log")" -ge 1

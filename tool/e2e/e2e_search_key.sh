@@ -41,7 +41,7 @@ book "$comics/Golden Age/Old/mystery-men.cbz" green
 book "$comics/Modern/weird-future.cbz" yellow
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
-export DISPLAY=:96
+export DISPLAY=${E2E_DISPLAY:-:96}
 Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
@@ -65,8 +65,14 @@ key() { xdotool key "$@" 2>/dev/null; sleep 0.8; }
 type() { xdotool type --delay 60 "$1"; sleep 0.8; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1; }
 sql() { python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute(sys.argv[2]).fetchone()[0])' "$db" "$1"; }
-read_() { sql "select count(*) from progress p join books b using (content_key) where b.title = '$1'"; }
+# read_ FILE: whether the comic in that file was opened. By file, since
+# the comics in one folder all take its name as their title.
+read_() { sql "select count(*) from progress p join files f using (content_key) where f.rel_path like '%/$1'"; }
 failed=0
+# tab LETTER: a library tab by keys (Tab focuses the sidebar, its
+# underlined letter picks the tab, Enter goes back to the covers), which
+# holds wherever the rail's tabs sit.
+tab() { key Tab; key "$1"; key Return; sleep 1; }
 check() { # check "what" actual expected
   if [[ "$2" == "$3" ]]; then echo "ok    $1: $2"; else echo "FAIL  $1: $2, expected $3"; failed=1; fi
 }
@@ -75,8 +81,8 @@ start --add-root "$comics"
 for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 4 ]] && break; sleep 0.5; done
 check "books indexed" "$(sql 'select count(*) from books')" 4
 
-# The Folders tab (the rail, left), / and a search.
-click 43 355;                         shot 01_folders
+# The Folders tab (the sidebar's f), / and a search.
+tab f;                                shot 01_folders
 key slash; type weird;                shot 02_slash_weird
 # A click opens the Comics folder while the cursor is in the box.
 click 190 200;                        shot 03_clicked_into_comics
@@ -87,7 +93,7 @@ type future;                          shot 05_future
 key Return;                           shot 06_enter_to_grid
 key Return; key Return; sleep 1;      shot 07_reading_weird_future
 key Escape
-check "Weird Future opened from the search" "$(read_ 'Weird Future')" 1
+check "Weird Future opened from the search" "$(read_ weird-future.cbz)" 1
 
 # Esc leaves the box and keeps the search: the keys move through what it found.
 key BackSpace;                        shot 08_back_in_comics
@@ -95,7 +101,7 @@ key slash; type ranger; key Escape;   shot 09_esc_keeps_search
 key l; key Return;                    shot 10_golden_age_filtered
 key Return; sleep 1;                  shot 11_reading_space_ranger
 key Escape
-check "Space Ranger opened after Esc" "$(read_ 'Space Ranger')" 1
+check "Space Ranger opened after Esc" "$(read_ space-ranger.cbz)" 1
 check "nothing else opened" "$(sql 'select count(*) from progress')" 2
 # Esc on the covers clears the search.
 key Escape;                           shot 12_esc_clears

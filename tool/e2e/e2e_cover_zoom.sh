@@ -50,7 +50,7 @@ done
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
 cc -shared -fPIC -o "$out/touch_inject.so" tool/e2e/touch_inject.c $(pkg-config --cflags --libs gtk+-3.0)
 
-export DISPLAY=:89
+export DISPLAY=${E2E_DISPLAY:-:89}
 # -noreset: without it Xvfb starts over when its last client goes, which
 # the app is when it is stopped for a restart, and the next start could
 # find the display closed for that moment ("cannot open display").
@@ -89,6 +89,11 @@ stop() { kill "$app"; wait "$app" 2>/dev/null || true; app=; }
 shot() { import -window root -crop 1280x720+0+0 +repage "$top/$out/$1.png"; }
 key() { xdotool key "$@" 2>/dev/null; sleep 0.25; }
 click() { xdotool mousemove "$1" "$2" click 1; sleep 1.2; }
+# tab LETTER: a library tab by keys (Tab focuses the sidebar, its
+# underlined letter picks the tab, Enter goes back to the covers), which
+# holds wherever the rail's tabs sit. Like a click on the rail it leaves
+# no cover selected.
+tab() { key Tab; key "$1"; key Return; sleep 1.2; }
 # Touches in the Flutter view's logical pixels, 16 ms apart as a
 # touchscreen reports them.
 touch() { echo "$@" >>"$touches"; sleep 0.016; }
@@ -243,11 +248,11 @@ start --add-root "$top/$out/Comics"
 for _ in $(seq 1 120); do [[ "$(q 'select count(*) from books' 2>/dev/null)" == 40 ]] && break; sleep 0.5; done
 check "the library has the comics" "$(q 'select count(*) from books')" 40
 sleep 4 # Covers.
-click 43 170 # Books
+tab b # Books
 look books_usual
 books_usual=$cols
 if ((books_usual >= 4)); then ok "the Books tab at the usual size: $cols covers a row, $width px"; else fail "Books tab: $cols covers a row"; fi
-click 43 292 # Folders
+tab f # Folders
 click 190 200 # The library folder.
 pane=895
 look folder_usual
@@ -327,7 +332,7 @@ look search_cleared
 if ((cols >= usual - 1)); then ok "Esc twice brings the covers back ($cols a row)"; else fail "after the search: $cols a row"; fi
 
 # 8. The Books tab has the size too: fewer covers a row than at first.
-click 43 170
+tab b # Books
 look books_zoomed
 # With more room than the folder had beside the details, its covers are
 # at least the kept width.
@@ -338,7 +343,7 @@ else
 fi
 
 # 9. Two fingers. Spread: bigger; pinched together: smaller. Nothing opens.
-click 43 292 # Folders, still in the folder; nothing selected.
+tab f # Folders, still in the folder; nothing selected.
 look before_pinch
 before=$cols
 kept=$(size)
@@ -403,7 +408,7 @@ sleep 1.5
 # 10. Settings' Cover size buttons, for a phone without a pinch: the same
 # steps, on the covers behind the dialog. From the usual size on the Books
 # tab (no details beside the covers).
-click 43 170
+tab b # Books
 pane=1280
 step equal "= before Settings" before_settings
 check "the Books tab at the usual size again" "$cols" "$books_usual"
@@ -440,7 +445,7 @@ want=$cols
 kept=$(size)
 stop
 start --add-root "$top/$out/Comics" # In the library, not the comic read last.
-click 43 170
+tab b # Books
 look after_restart
 check "the kept size after a restart" "$(size)" "$kept"
 check "and the covers a row" "$cols" "$want"
@@ -451,7 +456,7 @@ stop
 for bad in NaN -12 Infinity; do
   q "insert or replace into settings (key, value) values ('library.coverSize', '\"$bad\"')"
   start --add-root "$top/$out/Comics"
-  click 43 170
+  tab b # Books
   look "bad_size_$bad"
   check "a kept size of $bad: the covers a row are the usual" "$cols" "$books_usual"
   step plus "+ after a kept size of $bad" "bad_size_${bad}_plus"
