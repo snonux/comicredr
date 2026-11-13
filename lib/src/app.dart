@@ -1462,8 +1462,14 @@ extension on _HomeScreenState {
   /// bar come over it for a moment on a notice, while keys are typed, or
   /// while the mouse is along the bottom; the pointer hides when the mouse
   /// rests. The page keeps its size either way, so nothing reflows.
+  /// The page grid (`p`) is fullscreen too (task m44): it takes the whole
+  /// screen with no status line or progress bar under it, and gives the
+  /// status line room at its bottom only when that comes for one of the
+  /// reasons above. The bookmark list and the parts picker still bring the
+  /// status line with them, its buttons lit for them; the grid was left
+  /// out of that so it could be borderless like the page.
   Widget _fullscreenReader(ReaderState s) {
-    final chrome = _chromeShown || _pending.isNotEmpty || _showPages || _showBookmarks || _showParts;
+    final chrome = _chromeShown || _pending.isNotEmpty || _showBookmarks || _showParts;
     return LayoutBuilder(
       builder: (context, constraints) => MouseRegion(
         cursor: _pointerShown ? MouseCursor.defer : SystemMouseCursors.none,

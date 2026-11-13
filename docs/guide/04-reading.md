@@ -378,7 +378,9 @@ way.
 
 `f` and `F11` also work while the [page grid](#see-every-page-at-once) is open.
 For example, press `p`, move to a page with the arrows, then press `F11`
-for more room: the grid stays open on your selection. `Enter` reads that
+for more room: the grid stays open on your selection and, like the page,
+takes the whole screen, with no title bar, border or status line (the
+mouse at the bottom edge brings the status line back). `Enter` reads that
 page; `Esc` closes the grid and keeps the fullscreen setting.
 
 ## What time is it?

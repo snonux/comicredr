@@ -20,6 +20,9 @@ the `?` overlay.
 - The Folders tab's **Series** sort order is **Issue** (volume, then
   issue number); the app opens on the Folders tab when nothing is part
   way read, and the edit form (`e`) has no series field any more.
+- The page grid (`p`) in fullscreen takes the whole screen like the
+  page: the status line no longer stays under it (the mouse at the
+  bottom edge still brings it).
 
 ## 0.9.10
 
