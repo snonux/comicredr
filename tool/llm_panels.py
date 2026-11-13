@@ -12,9 +12,9 @@ detector's, page by page.
 ~/Comics. A page is done once panels for it were imported; `pages` leaves
 done pages out unless --all, so a stopped run goes on where it was.
 
-BOOK is a CBZ, CBT, PDF, a folder of page images or one image, read in the
-app's page order (packages/comic_formats: natural order, junk skipped). EPUB
-is not read here. Needs Pillow, and pypdfium2 for a PDF.
+BOOK is a CBZ, CBT, PDF, comic EPUB, a folder of page images or one image,
+read in the app's page order (EPUB spine order, otherwise natural order,
+junk skipped). Needs Pillow, and pypdfium2 for a PDF.
 
 panels.json, every number a percent of the page's width or height:
 
@@ -41,6 +41,7 @@ the panels and the record again.
 import argparse
 import functools
 import hashlib
+import html
 import io
 import json
 import os
@@ -224,9 +225,100 @@ def kind_of(path):
 
 def sniff(path):
     kind = kind_of(path)
-    if kind in (None, "epub"):
-        sys.exit(f"{path}: not a CBZ, CBT, PDF, image or folder (EPUB is not read by this tool)")
+    if kind is None:
+        sys.exit(f"{path}: not a CBZ, CBT, PDF, comic EPUB, image or folder")
     return kind
+
+
+def epub_pages(z):
+    """Image entry names in EpubDocument's reading order, not ZIP/name order.
+
+    Keep the package parsing, wrapper selection and text-book rejection in
+    step with packages/comic_formats/lib/src/epub.dart. Repeated references
+    remain repeated pages, and non-linear spine items are omitted.
+    """
+    files = {f.filename: f for f in z.infolist() if not f.is_dir()}
+
+    def read(name):
+        return z.read(files[name]).decode('utf-8', errors='replace')
+
+    def attr(tag, name):
+        m = re.search(r'(?:^|\s)' + re.escape(name) + r'''\s*=\s*(?:"([^"]*)"|'([^']*)')''', tag)
+        return html.unescape(m[1] if m[1] is not None else m[2]) if m else None
+
+    def resolve(directory, href):
+        href = href.split('#')[0].split('?')[0]
+        parts = []
+        for part in ([] if href.startswith('/') else directory.split('/')) + urllib.parse.unquote(href).split('/'):
+            if part == '..':
+                if parts:
+                    parts.pop()
+            elif part not in ('', '.'):
+                parts.append(part)
+        return '/'.join(parts)
+
+    def directory(name):
+        return name.rsplit('/', 1)[0] if '/' in name else ''
+
+    if 'META-INF/container.xml' not in files:
+        raise ValueError('Not an EPUB, no META-INF/container.xml')
+    root = re.search(r'<(?:\w+:)?rootfile\b[^>]*>', read('META-INF/container.xml'))
+    opf = attr(root[0] if root else '', 'full-path')
+    opf = urllib.parse.unquote(opf) if opf is not None else None
+    if opf not in files:
+        raise ValueError('The EPUB names no readable package file')
+    package = read(opf)
+    manifest = {}
+    for m in re.finditer(r'<(?:\w+:)?item\b[^>]*>', package):
+        ident, href = attr(m[0], 'id'), attr(m[0], 'href')
+        if ident is not None and href is not None:
+            manifest[ident] = (resolve(directory(opf), href), attr(m[0], 'media-type') or '')
+    spine = [manifest[attr(m[0], 'idref')] for m in re.finditer(r'<(?:\w+:)?itemref\b[^>]*>', package)
+             if attr(m[0], 'linear') != 'no' and attr(m[0], 'idref') in manifest]
+    if not spine:
+        raise ValueError('The EPUB has an empty spine')
+    fixed = bool(re.search(r'''property\s*=\s*["']rendition:layout["'][^>]*>\s*pre-paginated''', package)
+                 or re.search(r'''name\s*=\s*["']fixed-layout["']\s+content\s*=\s*["']true''', package))
+    names, page_items, mixed, cut = [], 0, 0, 0
+    for path, media in spine:
+        if (media.startswith('image/') and media != 'image/svg+xml') or is_page_entry(path):
+            if path in files:
+                names.append(path)
+                page_items += 1
+            continue
+        if path not in files:
+            continue
+        body = read(path)
+        refs = []
+        for m in re.finditer(r'<(?:\w+:)?(?:img|image)\b[^>]*>', body):
+            src = next((v for v in (attr(m[0], 'src'), attr(m[0], 'xlink:href'), attr(m[0], 'href')) if v is not None), None)
+            if src is not None:
+                refs.append(src)
+        refs.extend(m[1] for m in re.finditer(r'''url\(\s*["']?([^"')]+)["']?\s*\)''', body))
+        images = [p for src in refs if (p := resolve(directory(path), src)) in files and is_page_entry(p)]
+        if not images:
+            continue
+        visible = re.search(r'<body\b.*', body, re.S)
+        visible = visible[0] if visible else body
+        visible = re.sub(r'<(script|style)\b.*?</\1>', '', visible, flags=re.S)
+        visible = re.sub(r'\s+', ' ', html.unescape(re.sub(r'<[^>]*>', ' ', visible))).strip()
+        # Dart String.length counts UTF-16 code units.
+        words = len(visible.encode('utf-16-le')) // 2
+        if fixed:
+            names.append(max(images, key=lambda p: files[p].file_size))
+        elif len(images) == 1 and words < 200:
+            names.extend(images)
+        elif words < 20:
+            names.extend(images)
+        else:
+            mixed += 1
+            cut += len(images) > 1
+            continue
+        page_items += 1
+    if not names or page_items * 2 < len(spine) or mixed * 10 > page_items + mixed:
+        what = 'text beside cut-out pictures' if cut * 2 > mixed else 'a text ebook'
+        raise ValueError(f'Not a comic EPUB, {what} rather than page images ({page_items} of {len(spine)} parts are page images)')
+    return names
 
 
 def folder_pages(root):
@@ -259,9 +351,9 @@ def pages(book):
         for name in folder_pages(book):
             yield Image.open(os.path.join(book, name)).convert("RGB")
         return
-    if kind == "zip":
+    if kind in ("zip", "epub"):
         with zipfile.ZipFile(book) as z:
-            names = natural_sorted([n for n in z.namelist() if not n.endswith("/") and is_page_entry(n)])
+            names = epub_pages(z) if kind == "epub" else natural_sorted([n for n in z.namelist() if not n.endswith("/") and is_page_entry(n)])
             for n in names:
                 yield Image.open(io.BytesIO(z.read(n))).convert("RGB")
         return
@@ -280,11 +372,34 @@ def page_count(book):
         return 1
     if kind == "folder":
         return len(folder_pages(book))
-    if kind == "zip":
+    if kind in ("zip", "epub"):
         with zipfile.ZipFile(book) as z:
+            if kind == "epub":
+                return len(epub_pages(z))
             return sum(1 for n in z.namelist() if not n.endswith("/") and is_page_entry(n))
     with tarfile.open(book) as t:
         return sum(1 for m in t.getmembers() if m.isfile() and is_page_entry(m.name))
+
+
+def numbered_pages(book, wanted):
+    """Only decode requested ZIP/EPUB pages, retaining 1-based app indexes.
+
+    Large omnibuses must not decode hundreds of images for every ten-page
+    annotation/check batch. Other formats keep their existing reader.
+    """
+    if kind_of(book) in ('zip', 'epub'):
+        from PIL import Image
+
+        with zipfile.ZipFile(book) as z:
+            names = epub_pages(z) if kind_of(book) == 'epub' else natural_sorted(
+                [n for n in z.namelist() if not n.endswith('/') and is_page_entry(n)])
+            for n, name in enumerate(names, 1):
+                if n in wanted:
+                    yield n, Image.open(io.BytesIO(z.read(name))).convert('RGB')
+    else:
+        for n, img in enumerate(pages(book), 1):
+            if n in wanted:
+                yield n, img
 
 
 def content_key(book):
@@ -489,9 +604,9 @@ def cmd_library(a):
     print(f"Looking in {', '.join(roots)}" + (f"; sidecars in {index.sidecar_dir}" if index.sidecar_dir else ""))
     total = todo = 0
     for path, kind in books:
-        if kind == "epub" or kind is None:
+        if kind is None:
             if not a.todo:
-                print(f"  -      {path}  (EPUB: not read by this tool)")
+                print(f"  -      {path}  (not read by this tool)")
             continue
         try:
             count = page_count(path)
@@ -549,7 +664,7 @@ def cmd_pages(a):
         (work / "PROMPT.md").unlink(missing_ok=True)
         print("Every page asked for is done already (--all draws them again)")
         return
-    for n, img in enumerate(pages(a.book), 1):
+    for n, img in numbered_pages(a.book, wanted):
         if n in wanted:
             draw_grid(scaled(img)).save(work / f"page-{n:03d}.jpg", quality=85)
     prompt = PROMPT.replace("{tool}", os.path.abspath(__file__)).replace("{book}", _quote(os.path.abspath(a.book)))
@@ -608,7 +723,7 @@ def cmd_check(a):
     work = Path(a.work)
     found = read_panels(work / "panels.json", page_count(a.book))
     (work / "check").mkdir(exist_ok=True)
-    for n, img in enumerate(pages(a.book), 1):
+    for n, img in numbered_pages(a.book, found):
         if n not in found:
             continue
         page = found[n]

@@ -76,7 +76,9 @@ another model. Finish each batch by successfully importing its data.
 
 The tool reads CBZ, CBT, PDF (with pypdfium2), folders of pages and
 single images in the app's page order, and computes the content key the
-app does, both written again in Python; EPUB is not read. A change in
+app does, both written again in Python. Comic EPUBs follow the OPF spine
+and the app's image-wrapper selection and text-ebook rejection rules;
+archive image-name sorting is not used for EPUB. A change in
 Dart to the sidecar schema, `contentKey`, the page order or `findBooks`
 (`packages/comic_formats`), the app's data folder or
 `storedSidecarPath` must be made in the tool too.

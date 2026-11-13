@@ -51,7 +51,8 @@ API prices, 3 to 5 US cents a page (docs/llm-panels.md).
    ```
 
    It lists each comic with pages done out of pages (`0/36`), and the
-   total of pages not done. EPUBs are listed as not read by the tool.
+   total of pages not done. Comic EPUBs use the app's OPF spine order;
+   text ebooks are refused by the same page-selection rules as the app.
    To pick the comics where drawing helps most, triage first ("Triage:
    which comics to draw" below).
 
