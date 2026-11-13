@@ -31,7 +31,9 @@ again**) button, a star for [Favourites](#favourites), a tick for
 [collections](#collections), its [bookmarks](06-bookmarks.md), the
 file's path, and buttons to [see its details, reset it or delete
 it](07-managing-comics.md) and to [mark it](#several-comics-at-once).
-A selected collection shows a button to read its next book.
+A selected collection shows a button to read its next book: the first
+one not completed in the [order](#sort-the-library) the Collections tab is sorted
+by, the order its books are listed in.
 
 On the phone the tabs sit along the bottom, and a tap on a cover opens a
 page with the same details:
@@ -320,9 +322,11 @@ which starts with **Last read**. What the order does on each tab:
   order.
 - **Collections**: the collections go by their first comic in the order
   (by **Name** they are A to Z), and the comics in an open collection, the
-  Favourites among them, follow it too. **Read** in a collection's
-  details still goes on with its first comic not completed by folder and
-  issue.
+  Favourites among them, follow it too. So does everything that goes on
+  with a collection: **Read** (or **Continue**) in its details and its
+  cover are its first comic not completed in this order, the list of its
+  comics in the details is in this order, and opening it selects that
+  comic.
 - **Books**: every book in the order.
 - **Bookmarks**: comic by comic in the order, each comic's bookmarks
   from its first page on.
@@ -510,7 +514,8 @@ them.
   comics marked there, `x` takes all of them out, and says so when none
   of the marked ones is in that collection.
 - The Collections tab shows each collection as a cover; open one to see
-  its books.
+  its books, listed in the tab's [order](#sort-the-library), with the
+  first one not completed selected: the one **Read** opens.
 
 ### Unread: the comics that are new
 

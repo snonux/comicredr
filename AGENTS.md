@@ -1146,9 +1146,15 @@ refreshes right away instead of within six hours.
   comics stay last (`books(completedLast: true)`). On Collections the list
   of collections goes by each one's first comic like folders
   (`byFirstBook`; by name A to Z as before), and an open collection's
-  comics, Favourites included, follow the order; `LibraryGroup.books`
-  keeps the folder-then-issue order, which `next` (Read, Continue) goes
-  by. An open collection's name order is now file order (path), where it
+  comics, Favourites included, follow the order. So does each
+  collection's `LibraryGroup.books` on that tab (task z74: `_itemsFor`
+  sorts every group's comics with the tab's order before the list of
+  collections is sorted), so `next` (the first not completed: Read and
+  Continue in `GroupDetail`, the group's cover, the selection on opening
+  it in `_activate`) and the details pane's `groupBook-` rows are the
+  order the open collection shows. `collectionGroups` itself still gives
+  folder then issue; only callers outside the tab's listing see that.
+  An open collection's name order is now file order (path), where it
   was folder name then issue. Bookmarks go comic by comic in the order.
   The filter line, with the sort button at its end, shows on every
   sortable tab, so the covers of Reading, Books, Collections and

@@ -23,6 +23,11 @@ the `?` overlay.
   Each tab keeps its own order across restarts and in settings files;
   Reading starts with last read and keeps completed comics last, the
   others start by name.
+- A collection goes on in the order it is listed in: **Read** or
+  **Continue** in its details, its cover, the comic selected on opening
+  it and the list in its details all follow the Collections tab's sort
+  (the first comic not completed in it), where they went by folder and
+  issue while the open collection was sorted.
 - The Folders tab's **Series** sort order is **Issue** (volume, then
   issue number); the app opens on the Folders tab when nothing is part
   way read, and the edit form (`e`) has no series field any more.
