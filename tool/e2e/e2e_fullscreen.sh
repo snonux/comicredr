@@ -100,7 +100,9 @@ sys.exit(0 if shown >= 3 else 1)
 EOF
 }
 # The fullscreen grid reaches the bottom of the screen: the bottom rows are
-# its dark background, with no status line's text or buttons in them.
+# its dark background, with no status line's text or buttons in them. This
+# holds because the script's made-up book is six pages, one or two rows of
+# thumbnails at 1280 px: a longer book would put pages in those rows.
 grid_to_bottom() {
   python3 - "$run/$1.png" <<'EOF'
 import sys
