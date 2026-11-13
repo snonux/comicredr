@@ -126,6 +126,32 @@ void main() {
     expect(c.read(readerProvider).page, 2, reason: 'the selected page survives both fullscreen changes');
   });
 
+  testWidgets('the fullscreen page grid takes the whole screen, with no status line under it (m44)', (tester) async {
+    final c = await openBook(tester);
+    final screen = tester.getRect(find.byType(Scaffold));
+    await key(tester, LogicalKeyboardKey.keyP, character: 'p');
+    expect(status(), findsOneWidget, reason: 'windowed, the status line stays under the grid');
+    expect(tester.getRect(find.byKey(const Key('pageGrid'))).height, lessThan(screen.height));
+
+    await key(tester, LogicalKeyboardKey.keyF, character: 'f');
+    expect(c.read(readerProvider).fullscreen, isTrue);
+    expect(windowAsked(), [true]);
+    // The status line a typed key brings goes again after a moment.
+    await tester.pump(const Duration(seconds: 3));
+    expect(status(), findsNothing);
+    expect(bar(), findsNothing);
+    expect(tester.getRect(find.byKey(const Key('pageGrid'))), screen);
+
+    // The mouse along the bottom still brings the status line, under the grid.
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: screen.center);
+    await mouse.moveTo(Offset(screen.center.dx, screen.bottom - 30));
+    await tester.pump();
+    expect(status(), findsOneWidget);
+    expect(tester.getRect(find.byKey(const Key('pageGrid'))).bottom, lessThan(screen.bottom));
+  });
+
   testWidgets('Esc closes a fullscreen page grid without closing the book or changing reading mode', (tester) async {
     final c = await openBook(tester);
     final book = c.read(readerProvider).book;

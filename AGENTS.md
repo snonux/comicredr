@@ -1458,7 +1458,10 @@ refreshes right away instead of within six hours.
   1.5 s after the mouse stops. The library keeps its tabs and search in
   fullscreen. `HomeScreen._onCommand` also takes fullscreen while the `p`
   grid is open, keeping its selection; other page commands stay blocked
-  by the grid. Esc keeps its meanings (guided view, the book, the search, a
+  by the grid. The fullscreen grid is borderless like the page (m44): it
+  no longer forces the status line on (`chrome` in `_fullscreenReader`),
+  which comes under it only for the usual reasons; the bookmark list and
+  the parts picker still bring it. Esc keeps its meanings (guided view, the book, the search, a
   folder up) and leaves fullscreen only when the library has nothing left
   to back out of (`LibraryScreenState.handle` returns false).
 - The `?` help's text size (snonux, task 163): the help

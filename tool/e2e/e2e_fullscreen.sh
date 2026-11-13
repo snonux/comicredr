@@ -11,8 +11,9 @@
 # fullscreen, a book opened there is fullscreen, `f` in the search box is a
 # letter while F11 still works, Esc at the top leaves fullscreen, `f` goes
 # back in, and a launch into the library comes back fullscreen.
-# The page grid stays open across f and F11, keeping its selection; Esc
-# closes it without picking a page or leaving fullscreen.
+# The page grid stays open across f and F11, keeping its selection, and in
+# fullscreen covers the whole screen with no status line under it (task
+# m44); Esc closes it without picking a page or leaving fullscreen.
 #
 #   tool/e2e/e2e_fullscreen.sh
 #   COMICREDR_E2E_BUNDLE=/path/to/copied/bundle tool/e2e/e2e_fullscreen.sh
@@ -50,7 +51,7 @@ with zipfile.ZipFile(sys.argv[1], 'w') as z:
         z.writestr(f'{i + 1:02d}.png', b.getvalue())
 EOF
 
-export DISPLAY=:96
+export DISPLAY=${E2E_DISPLAY:-:96}
 Xvfb "$DISPLAY" -screen 0 1280x800x24 >/dev/null 2>&1 &
 xvfb=$!
 wm=
@@ -96,6 +97,19 @@ shown = sum(sum(n for n, pixel in counts
                 if max(abs(a - b) for a, b in zip(pixel, colour)) < 10) > 500
             for colour in colours)
 sys.exit(0 if shown >= 3 else 1)
+EOF
+}
+# The fullscreen grid reaches the bottom of the screen: the bottom rows are
+# its dark background, with no status line's text or buttons in them. This
+# holds because the script's made-up book is six pages, one or two rows of
+# thumbnails at 1280 px: a longer book would put pages in those rows.
+grid_to_bottom() {
+  python3 - "$run/$1.png" <<'EOF'
+import sys
+from PIL import Image
+low, high = Image.open(sys.argv[1]).convert('L').crop((0, 740, 1280, 800)).getextrema()
+print(f'  bottom rows: brightness {low} to {high}')
+sys.exit(0 if high < 80 else 1)
 EOF
 }
 # Whether the X server's current cursor has no visible pixel.
@@ -195,21 +209,30 @@ one_run() {
 
   key p
   key Right # grid selection: page 5; the reader stays on page 4
+  sleep 2 # the status line a key brought goes again
   shot 7a_grid
   grid_visible 7a_grid && ok "P shows the page grid" \
     || fail "P did not show the grid"
+  grid_to_bottom 7a_grid && ok "the fullscreen grid takes the whole screen, no status line" \
+    || fail "the fullscreen grid leaves room for the status line"
   key f
+  sleep 2 # the window back to its size, the thumbnails decoded at the new one
   shot 7b_grid_windowed
   fullscreen && fail "f in the grid did not leave fullscreen" \
     || ok "f in the grid leaves fullscreen"
   grid_visible 7b_grid_windowed && ok "f keeps the grid open" \
     || fail "f closed the grid"
   key F11
+  sleep 2
   shot 7c_grid_fullscreen
   fullscreen && ok "F11 in the grid enters fullscreen" \
     || fail "F11 in the grid did nothing"
+  geo=$(xdotool getwindowgeometry "$win" | awk '/Geometry/ {print $2}')
+  [[ $geo == 1280x800 ]] && ok "the grid's window covers the screen ($geo)" || fail "the grid's window is $geo"
   grid_visible 7c_grid_fullscreen && ok "F11 keeps the grid open" \
     || fail "F11 closed the grid"
+  grid_to_bottom 7c_grid_fullscreen && ok "borderless: the grid alone, down to the bottom edge" \
+    || fail "the status line stays under the fullscreen grid"
   key Return
   sleep 2
   shot 7d_grid_picked
@@ -231,12 +254,14 @@ one_run() {
   fullscreen && ok "Esc: back in the library, still fullscreen" || fail "Esc out of the book left fullscreen"
   geo=$(xdotool getwindowgeometry "$win" | awk '/Geometry/ {print $2}')
   [[ $geo == 1280x800 ]] && ok "the library covers the screen ($geo)" || fail "the library window is $geo"
-  key Right Return # select the one cover, open it
+  key Right Return # the Folders tab: select the book's folder, go in
+  key Return # open the one cover, selected there
   sleep 2
   shot 9_reopened
   only_page 9_reopened 4 && ok "a book opened from the library is fullscreen, only the page" \
     || fail "the book opened from the library is not only the page"
-  key Escape
+  key Escape # out of the book
+  key BackSpace # up out of its folder
   sleep 1
   key slash
   xdotool type --delay 100 f
@@ -251,6 +276,9 @@ one_run() {
   fullscreen && ok "Esc leaves the search, still fullscreen" || fail "Esc in the search left fullscreen"
   key Escape
   sleep 1
+  # Coming up out of a folder leaves that folder selected, and the first Esc
+  # may only drop the selection: then one more is at the top.
+  if fullscreen; then key Escape; sleep 1; fi
   shot 11_esc_at_top
   fullscreen && fail "Esc at the top of the library did not leave fullscreen" \
     || ok "Esc with nothing left to back out of leaves fullscreen"
