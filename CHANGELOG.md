@@ -5,7 +5,7 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
-## Unreleased
+## 0.10.0
 
 - Series are gone: the folders are the library's structure now. The
   Series tab, grouping by parsed series names and renaming a series from

@@ -1,0 +1,1 @@
+Folders are the library now: the Series tab is gone and a comic is named by the folder it is in. Every tab that lists comics can be sorted (gS, go, gO), each keeping its own order; a collection's Read follows that order. The page grid in fullscreen takes the whole screen.
