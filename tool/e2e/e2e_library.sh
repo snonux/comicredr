@@ -137,9 +137,12 @@ key Escape; key Escape; key Escape
 # The Reading tab shows what was opened, the last one first. Six tabs:
 # Reading, Books, Collections, History, Folders, Bookmarks.
 key Tab; key r; key Return;        shot 20_reading_tab
-key Tab; key f; key Return;        shot 21_folders_tab
-# Folders: walk into the comics folder and its sub-folders and back out.
-key l;                   shot 22a_folders_root_selected
+# Folders chosen twice: once where it was left, again its top, which is
+# inside the comics folder, the only library folder.
+key Tab; key f; key Return; key Tab; key f; key Return; shot 21_folders_tab
+# Folders: up to the list of library folders, then walk into the comics
+# folder and its sub-folders and back out.
+key BackSpace;           shot 22a_folders_root_selected
 key Return;              shot 22b_in_comics
 key Return;              shot 22c_in_golden_age
 key Escape;              shot 22d_back_in_comics

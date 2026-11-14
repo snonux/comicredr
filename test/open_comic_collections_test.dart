@@ -504,10 +504,10 @@ void main() {
     await settle(tester);
     await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
     await settle(tester);
-    await type(tester, 'l');
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await settle(tester);
+    // The only library folder: the top of the tab is inside it.
     expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+    await type(tester, 'l'); // Its first comic.
+    await settle(tester);
     return (store, books);
   }
 

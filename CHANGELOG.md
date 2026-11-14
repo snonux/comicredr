@@ -5,6 +5,17 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## Unreleased
+
+- The library always opens on the Folders tab (it opened on Reading
+  while a comic was part way read). With a single library folder, such
+  as `~/Comics`, the tab starts inside it: at start, when the folder is
+  added, and when Folders is chosen again. `Backspace` or **Folders** in
+  the path goes up to the list of library folders, which stays until
+  you go into a folder or choose the tab again. On a phone the rescan
+  button is left out of the header inside a folder, where it no longer
+  fit beside the up arrow; the menu (⋮) still rescans.
+
 ## 0.10.0
 
 - Series are gone: the folders are the library's structure now. The

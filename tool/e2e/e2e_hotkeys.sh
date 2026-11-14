@@ -348,7 +348,8 @@ wait_q "select count(*) from collection_books where name = 'Favourites' and remo
 check "u undoes that: a favourite again" "$(in_collection Favourites)" 1
 key Escape
 
-# 6. The Folders tab's filter. gf left the library on Collections.
+# 6. The Folders tab's filter, inside Comics, where it opened. gf left the
+# library on Collections.
 key Tab; key f; key Return # Sidebar -> Folders.
 sleep 6 # The notice of the undo gone.
 shot folders
@@ -371,7 +372,9 @@ same filter_done "$folders" "Alt+D is Done: the Folders tab as it was"
 
 # 7. The library folder taken out by gA; the comics stay.
 check "one library folder" "$(q 'select count(*) from roots')" 1
-key l
+# The Folders tab is inside it, the only one: Backspace goes up to the list
+# of library folders with it selected.
+key BackSpace
 key g A
 wait_q 'select count(*) from roots' 0 || true
 check "gA takes the selected library folder out" "$(q 'select count(*) from roots')" 0

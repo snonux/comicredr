@@ -81,8 +81,9 @@ start --add-root "$comics"
 for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 4 ]] && break; sleep 0.5; done
 check "books indexed" "$(sql 'select count(*) from books')" 4
 
-# The Folders tab (the sidebar's f), / and a search.
-tab f;                                shot 01_folders
+# The Folders tab (the sidebar's f), up from inside Comics, the only
+# library folder, to the list of library folders; / and a search.
+tab f; key BackSpace;                 shot 01_folders
 key slash; type weird;                shot 02_slash_weird
 # A click opens the Comics folder while the cursor is in the box.
 click 190 200;                        shot 03_clicked_into_comics

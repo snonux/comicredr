@@ -31,6 +31,9 @@ Xvfb "$DISPLAY" -screen 0 1280x900x24 >/dev/null 2>&1 &
 xvfb=$!
 app=
 trap 'kill $app $xvfb 2>/dev/null || true' EXIT
+# Xvfb takes a moment to listen: the app dies on a display that is not
+# there yet ("cannot open display"), and the script with it.
+for _ in $(seq 1 100); do xdotool getdisplaygeometry >/dev/null 2>&1 && break; sleep 0.1; done
 
 start() {
   HOME="$top/$out/home" "$top/build/linux/x64/release/bundle/comicredr" "$@" >>"$top/$out/app.log" 2>&1 &
@@ -67,9 +70,10 @@ start --add-root "$top/$out/Comics"
 for _ in $(seq 1 60); do [[ "$(sql 'select count(*) from files' 2>/dev/null)" == 4 ]] && break; sleep 0.5; done
 check "books indexed" "$(sql 'select count(*) from files')" 4
 
-# Folders tab (Tab, F, Enter), into Comics, into Mixed.
+# Folders tab (Tab, F, Enter), whose top is inside Comics (the only
+# library folder), into Mixed.
 key Tab; key f; key Return
-key l Return; key Return
+key l Return
 sleep 1;                                     shot 01_covers
 check "no pages made before shuffle" "$(pages | wc -l)" 0
 
@@ -105,11 +109,11 @@ check "opened on the first page" "$(sql 'select page from progress limit 1')" "0
 key Escape; sleep 1;                         shot 06_back
 stop
 
-# Restart: still on; S turns it off. A book was opened, so the library
-# starts on Reading: Tab, F, Enter chooses Folders.
+# Restart: still on; S turns it off. The library starts on Folders inside
+# Comics; Tab, F, Enter chooses it again, which stays there.
 start --add-root "$top/$out/Comics" # In the library, not the comic read last.
 key Tab; key f; key Return
-key l Return; key Return
+key l Return
 sleep 3;                                     shot 07_after_restart
 d=$(differ 01_covers 07_after_restart)
 python3 -c "import sys; sys.exit(0 if float('$d') > 0.05 else 1)" && echo "ok    still shuffled after a restart: RMSE $d" ||

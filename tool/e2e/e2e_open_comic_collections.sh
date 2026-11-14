@@ -150,8 +150,9 @@ sleep 2
 # window forward.
 click 640 450
 
-# 1. In the reader: open Alpha. gc, a name typed and Esc writes nothing,
-# and the comic is still open: l and h turn its pages.
+# 1. In the reader: open Alpha, the first comic at the top of the Folders
+# tab (inside Comics, the only library folder). gc, a name typed and Esc
+# writes nothing, and the comic is still open: l and h turn its pages.
 key l; key Return
 sleep 2
 gc
@@ -284,10 +285,11 @@ shot 14_library_typed_ahead
 key Return
 check "Enter closes the dialog" "$(wait_gone)" gone
 shot 15_library_added
-# Which of the two covers comes first on the Reading tab depends on what
-# was saved of the last sitting, so either may be the one: exactly one of
-# them is in the new collection, and both keep what they were in (a reset
-# would have taken that away).
+# The library opens on Folders inside Comics, so l selected Alpha; the
+# check counts rather than names it, as it did when the Reading tab, whose
+# order depends on the last sitting, opened first: exactly one of them is
+# in the new collection, and both keep what they were in (a reset would
+# have taken that away).
 check "gc and the name with no pause on a cover puts that one comic in it" \
   "$(sql "select count(*) from collection_books c join files f on f.content_key = c.content_key
           where c.name = 'gd Xtra' and c.removed_at is null")" 1

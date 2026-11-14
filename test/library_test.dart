@@ -549,6 +549,7 @@ void main() {
       await scan(tester, c);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
+      await key(tester, LogicalKeyboardKey.backspace); // Up to the list of library folders.
       await key(tester, LogicalKeyboardKey.slash, character: '/');
       await tester.enterText(find.byKey(const Key('search')), 'pepper');
       await settle(tester);
@@ -598,9 +599,13 @@ void main() {
       await scan(tester, c);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
-      // The top: the library folder, with every book under it.
-      expect(find.text('Comics'), findsOneWidget);
-      expect(find.text('5 books'), findsOneWidget);
+      // The only library folder: the tab starts inside it. Backspace goes up
+      // to the list of library folders: the one, with every book under it.
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+      await key(tester, LogicalKeyboardKey.backspace);
+      // Comics, selected, so its details beside the covers name it too.
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Comics')), findsOneWidget);
+      expect(find.text('5 books'), findsWidgets);
 
       await key(tester, LogicalKeyboardKey.keyL); // Selects it.
       await key(tester, LogicalKeyboardKey.enter); // Into Comics.
@@ -679,6 +684,7 @@ void main() {
 
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
+      await key(tester, LogicalKeyboardKey.backspace); // Up to the list of library folders.
       expect(find.text('2 books'), findsWidgets, reason: 'a file in each folder');
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter); // Into Comics.
@@ -704,8 +710,8 @@ void main() {
       await scan(tester, c);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
-      await key(tester, LogicalKeyboardKey.keyL);
-      await key(tester, LogicalKeyboardKey.enter); // Into Comics.
+      // The only library folder: the tab starts inside it.
+      await key(tester, LogicalKeyboardKey.keyL); // Its first item.
       Finder shuffled() => find.byWidgetPredicate(
         (w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('shuffled-'),
       );
@@ -764,8 +770,7 @@ void main() {
       await settle(tester);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
-      await key(tester, LogicalKeyboardKey.keyL);
-      await key(tester, LogicalKeyboardKey.enter);
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget, reason: 'inside Comics');
       for (var i = 0; i < 50 && shuffled().evaluate().length < 3; i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
         await tester.pump();
@@ -827,7 +832,8 @@ void main() {
       await scan(tester, c);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
-      expect(find.text('6 books'), findsOneWidget);
+      await key(tester, LogicalKeyboardKey.backspace); // Up to the list of library folders.
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('6 books')), findsOneWidget);
       await key(tester, LogicalKeyboardKey.keyL);
       await key(tester, LogicalKeyboardKey.enter); // Into Comics.
       expect(find.byKey(const Key('filterBarClear')), findsNothing);
@@ -918,8 +924,9 @@ void main() {
       await settle(tester);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
+      await key(tester, LogicalKeyboardKey.backspace);
       expect(find.byKey(const Key('filterBarClear')), findsOneWidget);
-      expect(find.text('1 book'), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('1 book')), findsOneWidget);
 
       // Too big for anything here: said so, and Clear filter brings all back.
       await key(tester, LogicalKeyboardKey.keyF, character: 'F');
@@ -930,7 +937,7 @@ void main() {
       expect(find.text('No comics match the filter.'), findsOneWidget);
       await tester.tap(find.byKey(const Key('filterBarClear')));
       await settle(tester);
-      expect(find.text('6 books'), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('6 books')), findsOneWidget);
       expect(await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)), isNull);
     });
 
@@ -969,8 +976,7 @@ void main() {
 
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
-      await key(tester, LogicalKeyboardKey.keyL);
-      await key(tester, LogicalKeyboardKey.enter); // Into Comics.
+      expect(find.byKey(const Key('breadcrumb')), findsOneWidget, reason: 'inside Comics, the only library folder');
       expect(shown(), ['Alpha', 'Beta', 'Gamma']);
       expect(find.text('Sort: Name, A to Z'), findsOneWidget);
 
@@ -1007,8 +1013,6 @@ void main() {
       await settle(tester);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
-      await key(tester, LogicalKeyboardKey.keyL);
-      await key(tester, LogicalKeyboardKey.enter);
       expect(shown(), ['Beta', 'Gamma', 'Alpha']);
       await tester.tap(find.byKey(const Key('sort')));
       await settle(tester);
@@ -1144,14 +1148,127 @@ void main() {
       expect(await LibraryStore(db).roots(), isEmpty);
     });
 
+    bool inside(WidgetTester tester) => find.byKey(const Key('breadcrumb')).evaluate().isNotEmpty;
+    Future<void> chooseFolders(WidgetTester tester) async {
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
+      await settle(tester);
+    }
+
+    testWidgets('the library starts on Folders inside the only library folder, a comic begun or not', (tester) async {
+      writeShelf(root);
+      // Scanned before the app starts, on the real event loop (isolates).
+      await tester.runAsync(() async {
+        final store = LibraryStore(db);
+        final scanner = LibraryScanner(store, coverDir: covers, workers: 1);
+        await store.addRoot(root.path);
+        await scanner.scan();
+        await scanner.dispose();
+        // A comic part way read: the library used to open on Reading for it.
+        final key = (await store.books()).firstWhere((b) => b.name == 'Indie').key;
+        await db
+            .into(db.progress)
+            .insert(ProgressCompanion.insert(contentKey: key, page: 2, percent: 0.6, updatedAt: DateTime.now()));
+      });
+      final c = await pumpApp(tester);
+      await starting(tester);
+      expect(c.read(readerProvider).book, isNull);
+      expect(current(tester), LibraryTab.folders);
+      expect(inside(tester), isTrue, reason: 'inside Comics, not on its one tile');
+      await eventually(tester, () => expect(find.text('The Spirit'), findsWidgets), settle: settle);
+      expect(find.text('Indie'), findsWidgets);
+    });
+
+    testWidgets('Backspace goes up to the library folders and stays; choosing Folders again goes back in', (
+      tester,
+    ) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      expect(inside(tester), isTrue);
+
+      // Backspace: the list of library folders, the one tile.
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(inside(tester), isFalse);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Comics')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('4 books')), findsOneWidget);
+      // It stays there, whatever builds the screen again: a scan, more keys.
+      await scan(tester, c);
+      await key(tester, LogicalKeyboardKey.keyL);
+      await key(tester, LogicalKeyboardKey.backspace);
+      expect(inside(tester), isFalse);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('4 books')), findsOneWidget);
+
+      // Folders chosen again goes back in.
+      await chooseFolders(tester);
+      expect(inside(tester), isTrue);
+      expect(find.text('The Spirit'), findsWidgets);
+
+      // The breadcrumb's Folders goes up and stays up too.
+      await tester.tap(find.descendant(of: find.byKey(const Key('breadcrumb')), matching: find.text('Folders')));
+      await settle(tester);
+      expect(inside(tester), isFalse);
+      await scan(tester, c);
+      expect(inside(tester), isFalse);
+      // Another tab and back: chosen again, so inside.
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Books')));
+      await settle(tester);
+      await chooseFolders(tester);
+      expect(inside(tester), isTrue);
+
+      // Walking into the library folder from the list is as before.
+      await key(tester, LogicalKeyboardKey.backspace);
+      await key(tester, LogicalKeyboardKey.enter); // The folder left is selected.
+      expect(inside(tester), isTrue);
+    });
+
+    testWidgets('with two library folders the top of Folders lists both', (tester) async {
+      writeShelf(root);
+      final other = Directory('${tmp.path}/Other')..createSync();
+      writeBook(other, 'Solo.cbz', 2);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      await tester.runAsync(() async {
+        await c.read(libraryStoreProvider).addRoot(other.path);
+        await c.read(scannerProvider).scan();
+      });
+      await settle(tester);
+      // Chosen again: the top, which lists both.
+      await chooseFolders(tester);
+      expect(inside(tester), isFalse);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Comics')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Other')), findsOneWidget);
+      // A new start opens there too.
+      await tester.pumpWidget(const SizedBox());
+      await tester.runAsync(() => SettingsStore(db).saveBool(SettingsStore.continueAtStart, false));
+      await pumpApp(tester);
+      await starting(tester);
+      expect(current(tester), LibraryTab.folders);
+      expect(inside(tester), isFalse);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Comics')), findsOneWidget);
+      expect(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Other')), findsOneWidget);
+    });
+
+    testWidgets('a library folder added after start is entered', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await settle(tester);
+      expect(find.byKey(const Key('addRootEmpty')), findsOneWidget);
+      expect(current(tester), LibraryTab.folders);
+      await scan(tester, c); // Adds Comics, as the first start's ~/Comics is.
+      expect(inside(tester), isTrue);
+      expect(find.text('The Spirit'), findsWidgets);
+      expect(find.text('Pepper Carrot #6'), findsWidgets);
+    });
+
     testWidgets('on a phone-sized screen a tap goes into a folder, and back comes out', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester, size: const Size(400, 800));
       await scan(tester, c);
-      await tester.tap(find.text('Folders'));
+      // The bottom tab: the header inside a folder names the tab too.
+      await tester.tap(find.descendant(of: find.byType(NavigationBar), matching: find.text('Folders')));
       await settle(tester);
-      await tester.tap(find.text('Comics'));
-      await settle(tester);
+      // Inside Comics, the only library folder; a tap goes into The Spirit.
+      expect(find.byKey(const Key('folderUp')), findsOneWidget);
       await tester.tap(find.text('The Spirit'));
       await settle(tester);
       expect(find.text('The Spirit #1'), findsOneWidget);
@@ -1161,7 +1278,12 @@ void main() {
       expect(find.text('The Spirit'), findsOneWidget);
       await tester.tap(find.byKey(const Key('folderUp')));
       await settle(tester);
-      expect(find.byKey(const Key('breadcrumb')), findsNothing);
+      expect(find.byKey(const Key('folderUp')), findsNothing);
+      expect(
+        find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Comics')),
+        findsOneWidget,
+        reason: 'the list of library folders',
+      );
     });
 
     testWidgets('on a phone-sized screen a tap shows the book, and Read opens it', (tester) async {
@@ -1169,8 +1291,7 @@ void main() {
       final c = await pumpApp(tester, size: const Size(400, 800));
       await scan(tester, c);
       expect(find.byType(NavigationBar), findsOneWidget);
-      await tester.tap(find.text('Comics'));
-      await settle(tester);
+      // The Folders tab, inside Comics, the only library folder.
       await tester.tap(find.text('The Spirit'));
       await settle(tester);
       await tester.tap(find.text('The Spirit #1'));

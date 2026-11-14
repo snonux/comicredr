@@ -110,10 +110,11 @@ void main() {
           : find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')),
     );
     await settle(tester);
-    // A tap on a folder opens it, and its first comic is selected.
-    await tester.tap(find.byType(CoverCard).first);
-    await settle(tester);
+    // The only library folder: the top of the tab is inside it. A step
+    // selects its first comic.
     expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await settle(tester);
     return c;
   }
 

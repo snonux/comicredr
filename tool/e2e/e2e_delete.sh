@@ -133,7 +133,7 @@ check "and the position" test "$(rows progress "$k")" = 0
 check "the cover is gone" test ! -e "$covers/$k.jpg"
 check "the page thumbnails are gone" test ! -e "$covers/pages/$k"
 
-# Back in the library, on the Reading tab it was opened from. The Books
+# Back in the library, on the Folders tab, where it opens. The Books
 # tab, its first cover (the folder book), and Shift+Delete there: the
 # dialog says how many pages the folder has.
 xdotool mousemove 43 100 click 1; sleep 1.5

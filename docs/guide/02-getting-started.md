@@ -35,7 +35,9 @@ the PNG as the page.
 
 Put your comics in a folder called `Comics` in your home folder
 (`~/Comics`). The first time ComicRedr starts it finds that folder, adds
-it to the library and shows every comic in it as a cover.
+it to the library and shows every comic in it as a cover. The library
+opens on its [Folders tab](03-library.md#folders), inside `~/Comics`
+while that is your only library folder.
 
 Keep them somewhere else? Press `A` (or click the folder button at the top
 of the library) and pick the folder. You can add as many folders as you like.

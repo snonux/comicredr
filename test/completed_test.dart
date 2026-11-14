@@ -718,8 +718,8 @@ void main() {
       await settle(tester);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
-      await type(tester, 'l');
-      await press(tester, LogicalKeyboardKey.enter); // Into Comics.
+      // The only library folder: the top of the tab is inside it.
+      await type(tester, 'l'); // Its first comic.
       return (c, store, books);
     }
 
@@ -1407,6 +1407,9 @@ void main() {
       });
       await pumpApp(tester);
       await settle(tester);
+      // The library opens on Folders.
+      await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Reading')));
+      await settle(tester);
       Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
       expect(cover('Preacher #1'), findsNothing, reason: 'the Reading tab: only comics begun');
       // By the page alone neither is finished and the later read would be first.
@@ -1592,7 +1595,10 @@ void main() {
       await settle(tester);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
-      expect(find.text('3 books · 1 read'), findsOneWidget);
+      // Up from the only library folder to the list of library folders.
+      await press(tester, LogicalKeyboardKey.backspace);
+      // Selected, so its details beside the covers have its count too.
+      expect(find.text('3 books · 1 read'), findsWidgets);
       await type(tester, 'l');
       await tester.sendKeyEvent(LogicalKeyboardKey.enter); // Into Comics.
       await settle(tester);
@@ -1643,8 +1649,9 @@ void main() {
       await settle(tester);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
+      await press(tester, LogicalKeyboardKey.backspace); // Up to the library folders.
       expect(find.byKey(const Key('filterBarCompleted')), findsOneWidget);
-      expect(find.text('2 books'), findsOneWidget);
+      expect(find.text('2 books'), findsWidgets);
       expect(find.text('3 books · 1 read'), findsNothing);
 
       // The part's x takes it off: all three again.
@@ -1656,7 +1663,7 @@ void main() {
       );
       await settle(tester);
       expect(find.byKey(const Key('filterBarCompleted')), findsNothing);
-      expect(find.text('3 books · 1 read'), findsOneWidget);
+      expect(find.text('3 books · 1 read'), findsWidgets);
       expect(await tester.runAsync(() => SettingsStore(db).loadString(SettingsStore.folderFilter)), isNull);
     });
 

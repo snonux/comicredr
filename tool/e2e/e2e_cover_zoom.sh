@@ -252,8 +252,8 @@ tab b # Books
 look books_usual
 books_usual=$cols
 if ((books_usual >= 4)); then ok "the Books tab at the usual size: $cols covers a row, $width px"; else fail "Books tab: $cols covers a row"; fi
-tab f # Folders
-click 190 200 # The library folder.
+tab f # Folders, inside the library folder, the only one.
+click 190 200 # Its first comic: selected, its details on the right.
 pane=895
 look folder_usual
 usual=$cols usual_width=$width

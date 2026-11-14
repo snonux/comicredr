@@ -120,8 +120,10 @@ check() { # check "what" actual expected
 # picks those), Any length, Under 24, 24 to 64, 64 to 200, Over 200 pages
 # (18-22), then Clear all (23).
 chip() { for _ in $(seq 1 "$1"); do xdotool key Tab; sleep 0.15; done; key space; }
-# first_in_golden_age: from the top of the Folders tab, into Comics, then
-# Golden Age (the first folder there), and reads the first comic in it.
+# first_in_golden_age: from the list of library folders (one Backspace up
+# from the top of the Folders tab, which is inside Comics, the only
+# library folder), into Comics, then Golden Age (the first folder there),
+# and reads the first comic in it; then back up to that list.
 first_in_golden_age() {
   key l; key Return; key Return; key Return; sleep 2; shot "$1"; key Escape; sleep 1
   key BackSpace; key BackSpace
@@ -137,10 +139,10 @@ start --add-root "$comics"
 for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 6 ]] && break; sleep 0.5; done
 check "books indexed" "$(sql 'select count(*) from books')" 6
 
-tab f; shot 01_folders # The Folders tab.
+tab f; shot 01_folders # The Folders tab, inside Comics.
 
 # By type: F, the PDF chip. Only Zeppelin passes; Modern has none and goes.
-key l; key Return; key Return
+key l; key Return # Into Golden Age.
 key shift+f; sleep 1; shot 02_filter_window
 chip 2; shot 03_pdf_picked
 key Escape; sleep 1; shot 04_golden_age_pdf_only
@@ -154,6 +156,7 @@ stop
 # A restart keeps it; then by size: PDF off, 10 to 50 MB on.
 start --add-root "$comics" # In the library: the comic read last would open otherwise.
 tab f; shot 07_restart_filtered
+key BackSpace # Up to the list of library folders, where first_in_golden_age starts.
 key shift+f; sleep 1; chip 2; key Escape
 key shift+f; sleep 1; chip 6; shot 08_size_picked; key Escape
 first_in_golden_age 09_read_space_ranger
@@ -189,7 +192,7 @@ check "the 30-page comic opened" "$(read_ saga.cbz)" 1
 check "the filter says so" "$(sql "select value like '%to64%' from settings where key = 'library.folderFilter'")" 1
 stop
 
-# The Books tab is filtered too: Tab, B, Enter from the Reading tab
+# The Books tab is filtered too: Tab, B, Enter from the Folders tab
 # (where the app starts) chooses Books, and only Zeppelin is a PDF. F opens the window
 # there as well; Clear all takes the filter off again.
 start --add-root "$comics" # In the library: the comic read last would open otherwise.
@@ -207,9 +210,12 @@ stop
 # Mystery Men leaves the tab under the first, comes back alone under the
 # second, and all are back under the third.
 start --add-root "$comics"
-tab f # The Folders tab, its top; the filter from before is still on.
+tab f # The Folders tab; the filter from before is still on.
 key shift+f; sleep 1; chip 23; key Escape # Clear all: every comic again.
-key l; key Return; key Return; sleep 1 # Comics, then Golden Age: Mystery Men first.
+# With no filter left to clear, chip 23 lands on Done and the Esc goes to
+# the library, up out of Comics: the tab chosen again is inside it whatever.
+tab f
+key l; key Return; sleep 1 # Golden Age: Mystery Men first.
 key g C; sleep 0.5; shot 21_marked
 check "gC marked Mystery Men" "$(sql "select count(*) from overrides where field = 'completed'")" 1
 key g F; sleep 0.5; shot 22_gf_not_completed

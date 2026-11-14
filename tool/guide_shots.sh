@@ -173,7 +173,9 @@ library)
   still books
   rec search 8; key slash; sleep 0.5; xdotool type --delay 200 "top 1959"; sleep 2; key Return; sleep 2; gif search
   key Escape
-  tab Folders; key Right; still folders
+  # The tab starts inside Comics, the only library folder: Backspace goes
+  # up to the list of library folders, with Comics selected.
+  tab Folders; key BackSpace; key Right; still folders
   key Return; sleep 1.5; still folders-inside
   key Return; sleep 1.5; key shift+s; sleep 10; park; still shuffle
   key shift+s
@@ -191,9 +193,9 @@ filter)
   # the GIFs of the library section cannot be made. The Golden age folder
   # on the Folders tab, filtered to PDFs (the chips are CBZ, Image
   # folder, PDF), and its sort window.
-  # Folders clicked twice: once shows the tab where it was left, again its top.
+  # Folders clicked twice: once shows the tab where it was left, again its
+  # top, which is inside Comics, the only library folder.
   key Escape; key Escape; tab Folders; tab Folders; key Home; key Return; sleep 1.5
-  key Home; key Return; sleep 1.5
   key shift+f; sleep 1; key Tab; key Tab; key space; sleep 1.5; park; still filter-dialog
   key Escape; sleep 1; park; still filter
   key shift+f; sleep 1; key Tab; key Tab; key space; key Escape
@@ -357,8 +359,8 @@ empty)
 marks)
   # Golden age on the Folders tab, three comics marked with Shift+Right:
   # the bar of actions over the covers.
-  key Escape; key Escape; tab Folders; key Home; key Return; sleep 1.5
-  key Home; key Return; sleep 1.5
+  # Folders clicked twice: its top, inside Comics, the only library folder.
+  key Escape; key Escape; tab Folders; tab Folders; key Home; key Return; sleep 1.5
   key shift+Right; key shift+Right; park; still marks
   # gm: the folder picker, narrowed by typing.
   key g m; sleep 1; typ "silver"; park; still move

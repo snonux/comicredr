@@ -97,8 +97,8 @@ void main() {
   List<String> bookPaths(ProviderContainer c) =>
       [for (final b in c.read(booksProvider).value ?? const <LibraryBook>[]) b.path]..sort();
 
-  /// The Folders tab, inside the library folder, with its first comic
-  /// selected.
+  /// The Folders tab, inside the library folder (the only one, so its top
+  /// is inside it), with its first comic selected.
   Future<ProviderContainer> inFolder(WidgetTester tester, {Size size = const Size(1280, 800)}) async {
     final c = await pumpApp(tester, size: size);
     await whilePumping(tester, () async {
@@ -108,9 +108,8 @@ void main() {
     await until(tester, () => expect(bookPaths(c), containsAll(files)));
     await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
     await settle(tester);
-    await key(tester, LogicalKeyboardKey.keyL);
-    await key(tester, LogicalKeyboardKey.enter);
     expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+    await key(tester, LogicalKeyboardKey.keyL); // Its first comic.
     return c;
   }
 

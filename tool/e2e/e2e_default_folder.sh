@@ -103,9 +103,10 @@ check "a ~/Comics made later is added" "$(sql without 'select path from roots')"
 # 3. Taken out of the library, ~/Comics stays out after a restart.
 start with
 click 640 650
-# The Folders tab, its one folder, then the pane's "Take out of the
-# library" button.
-key Tab; key f; key Return; key Right
+# The Folders tab, which starts inside its one folder: Backspace goes up
+# to the list of library folders with that folder selected; then the
+# pane's "Take out of the library" button.
+key Tab; key f; key Return; key BackSpace
 shot 06_comics_selected
 click "${REMOVE_X:-1080}" "${REMOVE_Y:-528}"
 shot 07_comics_taken_out

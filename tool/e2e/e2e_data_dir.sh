@@ -219,11 +219,12 @@ check "linked: comic copied in through the link indexed" "$(sql "$data/comicredr
 check "linked: nothing from .comicredr in the index" \
   "$(sql "$data/comicredr.sqlite" "select count(*) from files where rel_path like '%.comicredr%'")" 0
 check "linked: nothing of the app's outside ~/Comics" "$(outside linked)" ""
-# Taken out of the library (the Folders tab, its one folder, the pane's
-# "Take out of the library" button, as in e2e_default_folder.sh).
+# Taken out of the library (the Folders tab, Backspace up from inside its
+# one folder to that folder, the pane's "Take out of the library" button,
+# as in e2e_default_folder.sh).
 start linked
 click 640 650
-key Tab; key f; key Return; key Right
+key Tab; key f; key Return; key BackSpace
 click "${REMOVE_X:-1080}" "${REMOVE_Y:-528}"
 shot 08_linked_taken_out
 stop

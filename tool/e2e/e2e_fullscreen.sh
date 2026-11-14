@@ -254,8 +254,9 @@ one_run() {
   fullscreen && ok "Esc: back in the library, still fullscreen" || fail "Esc out of the book left fullscreen"
   geo=$(xdotool getwindowgeometry "$win" | awk '/Geometry/ {print $2}')
   [[ $geo == 1280x800 ]] && ok "the library covers the screen ($geo)" || fail "the library window is $geo"
-  key Right Return # the Folders tab: select the book's folder, go in
-  key Return # open the one cover, selected there
+  # The Folders tab, inside Comics, the only library folder: select the
+  # one cover there and open it.
+  key Right Return
   sleep 2
   shot 9_reopened
   only_page 9_reopened 4 && ok "a book opened from the library is fullscreen, only the page" \

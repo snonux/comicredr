@@ -156,15 +156,14 @@ void main() {
     await settle(tester);
     await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
     await settle(tester);
+    // The only library folder: the top of the tab is inside it.
+    expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
+    // A step selects its first comic.
     if (remapped) {
       await type(tester, keymap!.hint(ReaderIntent.nextStep)!);
-      await type(tester, keymap.hint(ReaderIntent.activate)!);
     } else {
       await press(tester, LogicalKeyboardKey.arrowRight);
-      await press(tester, LogicalKeyboardKey.enter);
     }
-    expect(find.byKey(const Key('breadcrumb')), findsOneWidget);
-    // Entering the folder selects its first comic.
     expect(find.descendant(of: find.byKey(const Key('detail')), matching: find.text('Akira')), findsOneWidget);
     return c;
   }
@@ -1025,6 +1024,8 @@ void main() {
       await settle(tester);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
+      // Up from inside the only library folder to its tile.
+      await press(tester, LogicalKeyboardKey.backspace);
       await press(tester, LogicalKeyboardKey.arrowRight);
       await type(tester, 'gA');
       expect((await tester.runAsync(store.roots))!, isEmpty);
@@ -2217,6 +2218,8 @@ void main() {
       // A notice with an Undo: its button names the key too.
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
+      // Chosen again, the tab is inside the only library folder: up to it.
+      await key(ReaderIntent.up);
       await key(ReaderIntent.firstPage);
       // The library folder again, now with a comic begun: Continue.
       expect(find.byKey(const Key('continueInFolder')), findsOneWidget);

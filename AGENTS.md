@@ -402,6 +402,23 @@ refreshes right away instead of within six hours.
   books are under it, the Folders tab opens at it (`HomeScreen._openPath`),
   adding it as a library folder unless one already holds it. `--add-root`
   only adds, so the e2e scripts start on the usual tab.
+- The library always opens on the Folders tab (snonux, 2026-11-14; it
+  was Reading while a comic was part way read). With exactly one library
+  folder the top of that tab is inside it (`_onlyRoot` in
+  `library_screen.dart`, applied in `build`): at start, when the folder
+  is added later (the first start's `~/Comics`) and when Folders is
+  chosen again while on it. Nothing is selected there until a key or tap,
+  so `l` (or Right) selects the first item where Enter into the folder
+  used to. Backspace, Esc, the phone's up arrow or the breadcrumb's
+  **Folders** go up to the list of library folders through
+  `_openFolder(null, up: true)`, which sets `_upToRoots`, and it stays
+  there (a rescan, the folder put back by `u`) until a folder is walked
+  into or a tab is chosen (`_setTab`). With several library folders the
+  top lists them as before. So the e2e scripts that pass one `--add-root`
+  start inside it, and get to a library folder's details (`gA`) with
+  Backspace. A phone-wide header inside a folder leaves out the rescan
+  button (the menu has it): beside the up arrow it overflowed a 320 dp
+  phone by 32 px, which `test/accessibility_test.dart` met at start.
 - App data (`appDirs`, `lib/src/data/data_dirs.dart`): on Linux, when
   `~/Comics` exists and there is no `comicredr.sqlite` in
   `~/.local/share/org.snonux.comicredr` (or `$XDG_DATA_HOME`, or the old

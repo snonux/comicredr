@@ -152,11 +152,11 @@ check "shell move: nothing waits" "$(sql "select count(*) from s3_books where pe
 check "shell move: the comic was not sent again" "$(etag "$o/comic.cbz") $(modified "$o/comic.cbz")" \
   "$comic_tag $comic_at"
 
-# --- gm in the library: the Folders tab, into Comics, into Read (empty
-# folders are not shown, so it is the only one), then the move picker with
-# "done" typed.
+# --- gm in the library: the Folders tab, whose top is inside Comics (the
+# only library folder), into Read (empty folders are not shown, so it is
+# the only one), then the move picker with "done" typed.
 key Tab; key f; key Return
-key l; key Return; key Return; sleep 1
+key l; key Return; sleep 1
 shot 03_in_read
 key g m; sleep 2
 xdotool type --delay 80 done; sleep 1

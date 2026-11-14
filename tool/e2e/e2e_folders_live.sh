@@ -54,11 +54,11 @@ xdotool windowactivate --sync "$win" mousemove 60 24 click 1 2>/dev/null || true
 await 3
 check "first scan" "$(books)" 3
 
-# Folders is the first tab on a fresh library.
+# The library opens on Folders, inside Comics, its only library folder;
+# Folders chosen again stays there.
 xdotool mousemove 640 450; sleep 0.3
 key Tab; key f; key Return
-key l Return                  # Into Comics.
-key Return;                   shot 01_in_golden_age
+key l Return;                 shot 01_in_golden_age # Golden Age, the first in Comics.
 
 add_step() { # add_step name expected-count
   await "$2"; shot "$1"; check "$1" "$(books)" "$2"

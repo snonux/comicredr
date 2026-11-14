@@ -124,11 +124,11 @@ into it like any other character.
 
 | Tab | What it shows |
 |---|---|
-| **Reading** | The books you have started, unfinished ones first, most recent first (or [sorted](#sort-the-library) your way, completed ones still last). ComicRedr opens on this tab while a book is part way read, otherwise on Folders. See [Reading](#reading). |
+| **Reading** | The books you have started, unfinished ones first, most recent first (or [sorted](#sort-the-library) your way, completed ones still last). See [Reading](#reading). |
 | **Books** | Every book, in file order unless you [sort it](#sort-the-library). |
 | **Collections** | Your own groups of books, including [Favourites](#favourites). |
 | **History** | What you read, day by day. |
-| **Folders** | Your comics as they are on disk, folder by folder. |
+| **Folders** | Your comics as they are on disk, folder by folder. ComicRedr opens the library on this tab. See [Folders](#folders). |
 | **Bookmarks** | Every bookmark in every book. See [Bookmarks and marks](06-bookmarks.md#the-bookmarks-tab). |
 
 ![The Reading tab: the books you have started](images/reading-tab.webp)
@@ -200,14 +200,24 @@ rename its folder (or its file) on disk; to fix the facts inside it,
 ### Folders
 
 The Folders tab shows your library folders, and inside them their
-subfolders and comics, as they are on disk.
+subfolders and comics, as they are on disk. The library opens on it.
 
-![The Folders tab at the top: the library folders](images/folders.webp)
+With a single library folder (`~/Comics` for most) the tab starts inside
+that folder, with its subfolders and comics: a list of one folder would
+only be a step in the way. `Backspace`, or **Folders** in the path at the
+top, goes up to the list of library folders, where the folder's details
+can [take it out of the
+library](#adding-rescanning-and-taking-out-folders); the tab stays there
+until you go into a folder or choose the tab again. With several library
+folders the tab starts on that list.
+
+![The list of library folders, here the one: Comics](images/folders.webp)
 
 - `Enter` goes into a folder; `Backspace` goes up one level.
 - The path at the top shows where you are; click any part of it to go
   there.
-- Choosing the Folders tab again takes you back to the top.
+- Choosing the Folders tab again takes you back to the top: inside your
+  library folder when you have just the one.
 - Add, move or delete comics in your file manager and the tab follows
   along while it is open.
 - The same comic in two folders (say `xman/Nancy.cbr` and a copy in
@@ -633,11 +643,14 @@ the Folders tab, mark them with `Shift` and the arrows, press `gm`, type
 ## Adding, rescanning and taking out folders
 
 - `A`, or the folder button at the top, adds another folder.
-- `R`, or the rescan button at the top of the Folders tab, rescans the
-  library folders. You rarely need it: ComicRedr notices new, changed and
+- `R`, or the rescan button at the top of the Folders tab (on a phone
+  inside a folder, **Rescan the library folders** in the menu ⋮), rescans
+  the library folders. You rarely need it: ComicRedr notices new, changed and
   deleted comics by itself.
-- To take a folder out of the library, select it at the top of the
-  Folders tab (on a phone, hold your finger on it) and press `gA`, or
+- To take a folder out of the library, select it in the list of library
+  folders (the top of the Folders tab, or one `Backspace` up from it
+  when you have a single library folder; on a phone, hold your finger on
+  it) and press `gA`, or
   click **Take out of the library (the files stay)** in its details.
   Your comics are not touched, and the notice that says so has an
   **Undo** (`u`): the folder is in the library again and its comics are

@@ -79,11 +79,11 @@ failed=0
 check() { # check "what" actual expected
   if [[ "$2" == "$3" ]]; then echo "ok    $1: $2"; else echo "FAIL  $1: $2, expected $3"; failed=1; fi
 }
-# first NAME: from the top of the Folders tab, into Comics, opens the
-# first comic there and back; prints the title of the comic read last.
+# first NAME: at the top of the Folders tab, which is inside Comics (the
+# only library folder), opens the first comic (Home) and back; prints the
+# title of the comic read last.
 first() {
-  key l; key Return; key Return; sleep 2; shot "$1"; key Escape; sleep 1
-  key BackSpace
+  key Home; key Return; sleep 2; shot "$1"; key Escape; sleep 1
   # Closing the comic writes its sidecar and the index; a read of the index
   # in the middle of that makes the app's write fail as locked.
   sleep 2
@@ -103,7 +103,7 @@ window() { key g shift+s; sleep 1; key alt+"$1"; key alt+d; }
 start --add-root "$comics"
 for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 3 ]] && break; sleep 0.5; done
 check "books indexed" "$(sql 'select count(*) from books')" 3
-click 43 290; shot 01_folders # The Folders tab (the rail, left).
+click 43 290; shot 01_folders # The Folders tab (the rail, left), inside Comics.
 
 check "by name, at first" "$(first 02_name)" Alpha
 check "nothing saved for the usual order" "$(sort_)" unset

@@ -106,8 +106,10 @@ wait_books() { for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2
 # only, Not completed (12-14), the five lengths (15-19), then Clear all
 # (20).
 chip() { for _ in $(seq 1 "$1"); do xdotool key Tab; sleep 0.15; done; key space; }
-# first_in_comics: from the top of the Folders tab into Comics, and reads
-# the first comic shown there; then back out to the top.
+# first_in_comics: from the list of library folders (one Backspace up from
+# the top of the Folders tab, which is inside Comics, the only library
+# folder) into Comics, and reads the first comic shown there; then back
+# out to that list, where the tab stays.
 first_in_comics() {
   key l; key Return; key Return; sleep 2; shot "$1"; key Escape; sleep 1
   key BackSpace
@@ -116,11 +118,11 @@ first_in_comics() {
 start --add-root "$comics"
 wait_books
 check "books indexed" "$(sql 'select count(*) from books')" 3
-tab f; shot 01_folders # The Folders tab.
+tab f; shot 01_folders # The Folders tab, inside Comics.
 
 # 1. In the reader: Alpha (the first in Comics) open, gC marks it, gC again
 # marks it not completed, and once more completed. The comic stays open.
-key l; key Return; key Return; sleep 2
+key l; key Return; sleep 2
 check "nothing marked to begin with" "$(sql "select count(*) from overrides where field = 'completed'")" 0
 key g C; shot 02_reader_marked
 check "gC in the reader" "$(mark Alpha)" yes
@@ -176,7 +178,7 @@ tab f; shot 10_restart_filtered
 check "kept across a restart" "$(filter | grep -c '"completed\\*":\\*"hide')" 1
 key shift+f; sleep 1; chip 13; key Escape; sleep 1
 check "Completed only is saved" "$(filter | grep -c '"completed\\*":\\*"only')" 1
-key l; key Return; shot 11_completed_only
+key l; shot 11_completed_only # Inside Comics: Alpha selected.
 key g C; shot 12_alpha_unmarked_gone
 check "gC on Alpha's cover takes the mark off" "$(mark Alpha)" no
 check "before Enter the comic read last is still Charlie" "$(last_read)" "Charlie 1.cbz"
@@ -220,7 +222,7 @@ for _ in $(seq 1 40); do
   [[ "$(mark Alpha 2>/dev/null)" == no && "$(mark Charlie 2>/dev/null)" == yes ]] && break
   sleep 0.5
 done
-tab f; key l; key Return; shot 16_second_install
+tab f; key l; shot 16_second_install
 check "the second install: Alpha not completed" "$(mark Alpha)" no
 check "the second install: Bravo unmarked" "$(mark Bravo)" ""
 check "the second install: Charlie completed" "$(mark Charlie)" yes

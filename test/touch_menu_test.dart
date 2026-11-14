@@ -549,6 +549,10 @@ void main() {
       await settle(tester);
       await tester.tap(find.descendant(of: find.byType(NavigationRail), matching: find.text('Folders')));
       await settle(tester);
+      // Up from the only library folder, which the tab starts in, to the list
+      // of library folders.
+      await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
+      await settle(tester);
       final library = tester.state<LibraryScreenState>(find.byType(LibraryScreen));
       library.setShuffle(true);
       await settle(tester);
@@ -560,7 +564,7 @@ void main() {
       // Continue only once a comic was read; marking all only where comics
       // are shown, and the top of the Folders tab shows the library folder.
       expect(libraryMenu.difference(offered), {ReaderIntent.continueReading, ReaderIntent.markAll});
-      await tester.tap(find.text('Comics'));
+      await tester.tap(find.descendant(of: find.byKey(const Key('grid')), matching: find.text('Comics')));
       await settle(tester);
       expect(library.menuGroups().expand((g) => g.entries).map((e) => e.intent), contains(ReaderIntent.markAll));
       expect(offered, containsAll([ReaderIntent.reshuffle, ReaderIntent.showTouchGuide, ReaderIntent.showSettings]));

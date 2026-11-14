@@ -91,13 +91,14 @@ click() { xdotool mousemove "$1" "$2" click 1; sleep 1; }
 # holds wherever the rail's tabs sit.
 tab() { key Tab; key "$1"; key Return; sleep 1; }
 wait_books() { for _ in $(seq 1 40); do [[ "$(sql 'select count(*) from books' 2>/dev/null)" == 3 ]] && break; sleep 0.5; done; }
-# open N: from the top of the Folders tab, into Comics and the Nth comic.
+# open N: the Nth comic at the top of the Folders tab, which is inside
+# Comics, the only library folder.
 open() {
-  key l; key Return
+  key Home
   for _ in $(seq 2 "$1"); do key l; done
   key Return; sleep 2
 }
-close() { key Escape; sleep 1.5; key BackSpace; }
+close() { key Escape; sleep 1.5; }
 
 # 1. The first install: Alpha looked at for a few seconds (a page turned),
 # Bravo read for five minutes, Charlie looked at and marked completed.
@@ -113,7 +114,7 @@ open 1; key g b
 close
 check "gb starts Alpha immediately" "$(started_mark Alpha)" 1
 # Select Alpha inside its folder, without opening it.
-key l; key Return; key g b
+key Home; key g b
 check "library gb removes the start" "$(started_mark Alpha)" 0
 check "manual removal keeps the page" "$(place Alpha | cut -d' ' -f1)" 1
 # Reopen and close: the override keeps it off Reading, and saves a peek.

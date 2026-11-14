@@ -134,6 +134,9 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   String? _folder; // The folder walked into on the Folders tab, null at the top.
   String? _folderRoot; // The library folder it is under.
   bool _rootListed = false; // _folderRoot has been seen among the roots.
+  // Backspace or Esc went up out of the only library folder to the list of
+  // library folders; until the tab is chosen again it stays there.
+  bool _upToRoots = false;
   bool _autoFirst = false; // Keep the first item selected until a key or tap.
   String _query = '';
   final _search = TextEditingController();
@@ -553,9 +556,18 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   LibraryTab get tab => _tab ?? LibraryTab.folders;
 
+  /// The library folder the Folders tab starts in when it is the only one
+  /// (`~/Comics` for most): the list of library folders above it would be
+  /// that one tile. Backspace from it still goes up to that list, where the
+  /// folder's details (take it out of the library) are. Null with none or
+  /// several.
+  String? _onlyRoot(List<RootInfo>? roots) => roots?.length == 1 ? roots!.single.path : null;
+
   void _setTab(LibraryTab t) => setState(() {
-    // The Folders tab keeps its place; choosing it again goes to the top.
+    // The Folders tab keeps its place; choosing it again goes to the top,
+    // which with a single library folder is inside it (build enters it).
     if (t == LibraryTab.folders && tab == LibraryTab.folders) _folder = _folderRoot = null;
+    _upToRoots = false;
     _tab = t;
     _autoFirst = false;
     _group = null;
@@ -1046,7 +1058,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     _detail = false;
     if (_folder == _folderRoot) {
       final from = _folder!;
-      _openFolder(null);
+      _openFolder(null, up: true);
       setState(() => _selected = 'f:$from');
       WidgetsBinding.instance.addPostFrameCallback((_) => _reveal());
     } else {
@@ -1134,8 +1146,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
   }
 
   /// Walks to [dir] under the library folder [root]; null goes to the top.
-  void _openFolder(String? dir, {String? root}) {
+  /// [up] is a deliberate way up to the list of library folders (the
+  /// breadcrumb), which a single library folder is then not entered from.
+  void _openFolder(String? dir, {String? root, bool up = false}) {
     setState(() {
+      _upToRoots = dir == null && up;
       if (root != _folderRoot) _rootListed = false;
       _autoFirst = false;
       _folder = dir;
@@ -1875,13 +1890,22 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     final booksNow = ref.watch(booksProvider);
     final books = booksNow.value ?? const <LibraryBook>[];
     final roots = ref.watch(rootsProvider).value;
-    // Open on what you are reading when there is something; else the
-    // folders, which give the library its structure. Decided once the
-    // books are read too: with the folders in first, a start with a comic
-    // begun opened on Folders.
-    _tab ??= roots == null || !(booksNow.hasValue || booksNow.hasError)
-        ? null
-        : (books.any((b) => b.inProgress) ? LibraryTab.reading : LibraryTab.folders);
+    // Always open on the folders, which give the library its structure
+    // (snonux, 2026-11-14; it used to be Reading when a comic was begun).
+    // Decided once the folders and books are read.
+    if (_tab == null && roots != null && (booksNow.hasValue || booksNow.hasError)) _tab = LibraryTab.folders;
+    // The top of the Folders tab with a single library folder is inside it
+    // (see [_onlyRoot]): at start, when the folder is added later (the first
+    // start's ~/Comics) and when the tab is chosen again; not after going
+    // up out of it on purpose. A folder asked for (the command line, Open
+    // With) is already set, so it is kept.
+    if (_tab == LibraryTab.folders && _folder == null && !_upToRoots) {
+      if (_onlyRoot(roots) case final root?) {
+        _folder = _folderRoot = root;
+        _rootListed = false;
+        _selected = null;
+      }
+    }
     // A library folder taken out of the library while we are in it. One
     // just added may not be in the list yet.
     if (_folderRoot != null && roots != null) {
@@ -2117,8 +2141,8 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
             const SizedBox(width: 16),
           ],
           Expanded(child: _searchField()),
-          // On a phone, only on the Reading tab, where the app starts: the
-          // Folders tab's header has no room left for it.
+          // On a phone, only on the Reading tab: the Folders tab's header,
+          // where the app starts, has no room left for it.
           if (ref.watch(recentBooksProvider).firstOrNull case final last?
               when widget.onContinue != null && (!narrow || tab == LibraryTab.reading))
             IconButton(
@@ -2155,7 +2179,10 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                 onPressed: () => setState(_reshuffle),
               ),
           ],
-          if (tab == LibraryTab.folders)
+          // Not on a phone-wide header inside a folder, where the up arrow
+          // takes its room (32 px too many at 320 dp, the tab's start with a
+          // single library folder): the menu and R rescan there.
+          if (tab == LibraryTab.folders && !(narrow && _folder != null))
             IconButton(
               key: const Key('rescan'),
               icon: const Icon(Icons.refresh),
@@ -2272,7 +2299,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
           // No key of their own: Backspace goes up a folder at a time.
           Tooltip(
             message: KeyHints.tip(context, 'All library folders: up, a folder at a time', ReaderIntent.up),
-            child: TextButton(onPressed: () => _openFolder(null), child: const Text('Folders')),
+            child: TextButton(onPressed: () => _openFolder(null, up: true), child: const Text('Folders')),
           ),
           for (final (i, path) in paths.indexed) ...[
             const Icon(Icons.chevron_right, size: 18),
