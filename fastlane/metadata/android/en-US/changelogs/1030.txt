@@ -1,0 +1,1 @@
+The library always opens on the Folders tab, and with a single library folder such as ~/Comics it starts inside it. Backspace goes up to the list of library folders. On a phone the rescan button is in the menu inside a folder.
