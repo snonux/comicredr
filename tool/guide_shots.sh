@@ -47,16 +47,25 @@ mkdir -p "$out/raw" "$img"
 
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
 
-# The library: renamed copies, so titles read well in the reader.
+# The library: renamed copies, so titles read well in the reader. The
+# folder a comic is directly in names it (folderSeries), so each comic sits
+# in a folder of its series inside an age folder: "Golden age/All Top
+# Comics/All Top Comics 6 (1959).cbz" reads "All Top Comics #6", where a
+# comic directly in "Golden age" read "Golden age #6". The age folders stay,
+# so the Folders tab still has a level of folders to show and walk into.
+# shelf AGE SERIES SRC NAME: copies corpus file SRC to AGE/SERIES/NAME.
+shelf() {
+  mkdir -p "$comics/$1/$2"
+  cp "$corpus/$3" "$comics/$1/$2/$4"
+}
 if [[ ! -d "$comics" ]]; then
-  mkdir -p "$comics/Golden age" "$comics/Silver age" "$comics/Pepper&Carrot"
-  cp "$corpus/golden-age/all-top-comics-6.cbz" "$comics/Golden age/All Top Comics 6 (1959).cbz"
-  cp "$corpus/golden-age/international-comics-004.cbz" "$comics/Golden age/International Comics 4 (1947).cbz"
-  cp "$corpus/golden-age/mercy-for-millions.cbz" "$comics/Golden age/Mercy for Millions (1945).cbz"
-  cp "$corpus/golden-age/weird-comics-004.cbz" "$comics/Golden age/Weird Comics 4 (1940).cbz"
-  cp "$corpus/golden-age-pdf/first-love-illustrated-078.pdf" "$comics/Golden age/First Love Illustrated 78 (1957).pdf"
-  cp "$corpus/silver-age/space-war-002.cbz" "$comics/Silver age/Space War 2 (1959).cbz"
-  cp "$corpus/silver-age/reptisaurus-v2-005.cbz" "$comics/Silver age/Reptisaurus 5 (1962).cbz"
+  shelf "Golden age" "All Top Comics" golden-age/all-top-comics-6.cbz "All Top Comics 6 (1959).cbz"
+  shelf "Golden age" "International Comics" golden-age/international-comics-004.cbz "International Comics 4 (1947).cbz"
+  shelf "Golden age" "Mercy for Millions" golden-age/mercy-for-millions.cbz "Mercy for Millions (1945).cbz"
+  shelf "Golden age" "Weird Comics" golden-age/weird-comics-004.cbz "Weird Comics 4 (1940).cbz"
+  shelf "Golden age" "First Love Illustrated" golden-age-pdf/first-love-illustrated-078.pdf "First Love Illustrated 78 (1957).pdf"
+  shelf "Silver age" "Space War" silver-age/space-war-002.cbz "Space War 2 (1959).cbz"
+  shelf "Silver age" "Reptisaurus" silver-age/reptisaurus-v2-005.cbz "Reptisaurus 5 (1962).cbz"
   ep="$comics/Pepper&Carrot/Episode 6 - The Potion Contest"
   mkdir -p "$ep"
   for i in 01 02 03 04 05 06 07 08 09; do
@@ -177,9 +186,10 @@ library)
   # up to the list of library folders, with Comics selected.
   tab Folders; key BackSpace; key Right; still folders
   key Return; sleep 1.5; still folders-inside
-  key Return; sleep 1.5; key shift+s; sleep 10; park; still shuffle
+  # Shuffle on the Books tab, where every cover is a comic: inside an age
+  # folder there are only the series folders.
+  tab Books; key shift+s; sleep 10; park; still shuffle
   key shift+s
-  key BackSpace; key BackSpace
   ;;
 
 sidebar)
@@ -192,7 +202,8 @@ filter)
   # A section of its own, with stills only, so it can be retaken where
   # the GIFs of the library section cannot be made. The Golden age folder
   # on the Folders tab, filtered to PDFs (the chips are CBZ, Image
-  # folder, PDF), and its sort window.
+  # folder, PDF): only the First Love Illustrated folder, which holds the
+  # PDF, stays. Then its sort window.
   # Folders clicked twice: once shows the tab where it was left, again its
   # top, which is inside Comics, the only library folder.
   key Escape; key Escape; tab Folders; tab Folders; key Home; key Return; sleep 1.5
@@ -357,10 +368,10 @@ empty)
   ;;
 
 marks)
-  # Golden age on the Folders tab, three comics marked with Shift+Right:
-  # the bar of actions over the covers.
-  # Folders clicked twice: its top, inside Comics, the only library folder.
-  key Escape; key Escape; tab Folders; tab Folders; key Home; key Return; sleep 1.5
+  # Three comics marked with Shift+Right on the Books tab: the bar of
+  # actions over the covers. Not on the Folders tab: there each comic is
+  # alone in its series folder, and folders are never marked.
+  key Escape; key Escape; tab Books; key Home
   key shift+Right; key shift+Right; park; still marks
   # gm: the folder picker, narrowed by typing.
   key g m; sleep 1; typ "silver"; park; still move
