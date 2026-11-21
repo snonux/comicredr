@@ -232,7 +232,7 @@ its contents, so two different comics both called `Issue 01.cbz` keep
 their own covers. A missing cached cover is made again on the next scan
 (`R`).
 
-![Inside a folder: its comics](images/folders-inside.webp)
+![Inside a folder: its subfolders](images/folders-inside.webp)
 
 #### Filter the library
 
@@ -287,7 +287,7 @@ leaves the Reading tab too, for instance, not just the Folders tab.
 
 ![The filter over the Golden age folder, PDFs only](images/filter-dialog.webp)
 
-![The Golden age folder filtered to its PDF](images/filter.webp)
+![The Golden age folder filtered to PDFs: only the folder holding its PDF stays](images/filter.webp)
 
 #### Sort the library
 
