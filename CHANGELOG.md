@@ -5,6 +5,18 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## 0.11.0
+
+- Go to a library tab from anywhere: `g` and the tab's capital letter,
+  `gR` Reading, `gB` Books, `gC` Collections, `gH` History, `gF`
+  Folders, `gM` Bookmarks, the letters the focused sidebar underlines.
+  From a comic it closes the comic first, as `Esc` would. Hovering a tab
+  shows its keys.
+- To free those keys, three actions moved off `g`: mark completed is
+  now `y` (was `gC`), the filter's completed cycle `Y` (was `gF`) and
+  Clear the Reading list `E` (was `gR`). A `keys.toml` of your own keeps
+  its bindings.
+
 ## 0.10.1
 
 - The library always opens on the Folders tab (it opened on Reading

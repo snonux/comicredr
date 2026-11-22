@@ -1,0 +1,1 @@
+Go to a library tab from anywhere: gR Reading, gB Books, gC Collections, gH History, gF Folders, gM Bookmarks; from a comic it closes it first. Three keys moved to make room: mark completed is now y, the completed filter Y, and Clear the Reading list E.
