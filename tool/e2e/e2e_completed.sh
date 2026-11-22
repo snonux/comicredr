@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # End-to-end check of completed comics (task 273) on the Linux build, by
-# the keyboard: gC in the reader marks the open comic and takes the mark
+# the keyboard: y in the reader marks the open comic and takes the mark
 # off again; reading on to the last page marks a comic by itself, a jump
-# there (G) does not; gC on a cover marks it and u undoes that; the Folders
+# there (G) does not; y on a cover marks it and u undoes that; the Folders
 # tab's filter (F) hides the completed ones, then shows only them, each
 # proved by the comic that opens first, and is kept across a restart; a
-# comic that leaves the filtered tab on gC hands the selection to the cover
+# comic that leaves the filtered tab on y hands the selection to the cover
 # next to it, which Enter opens; Clear all takes the filter off; X with
 # Reset everything forgets the mark. A second install with nothing but the
 # comics and their sidecars then knows the marks. Checks the index and the
@@ -120,15 +120,15 @@ wait_books
 check "books indexed" "$(sql 'select count(*) from books')" 3
 tab f; shot 01_folders # The Folders tab, inside Comics.
 
-# 1. In the reader: Alpha (the first in Comics) open, gC marks it, gC again
+# 1. In the reader: Alpha (the first in Comics) open, y marks it, y again
 # marks it not completed, and once more completed. The comic stays open.
 key l; key Return; sleep 2
 check "nothing marked to begin with" "$(sql "select count(*) from overrides where field = 'completed'")" 0
-key g C; shot 02_reader_marked
-check "gC in the reader" "$(mark Alpha)" yes
-key g C
-check "gC again takes it off" "$(mark Alpha)" no
-key g C
+key y; shot 02_reader_marked
+check "y in the reader" "$(mark Alpha)" yes
+key y
+check "y again takes it off" "$(mark Alpha)" no
+key y
 check "and on again" "$(mark Alpha)" yes
 check "one row for it, rewritten" "$(sql "select count(*) from overrides where field = 'completed'")" 1
 key Escape; sleep 1.5
@@ -151,10 +151,10 @@ key Escape; sleep 1.5
 check "Bravo's sidecar says so" "$(sidecar Bravo)" yes
 shot 04_two_ticks
 
-# 3. On a cover: Charlie, gC, and u undoes it (a row with no say).
+# 3. On a cover: Charlie, y, and u undoes it (a row with no say).
 key l
-key g C; shot 05_cover_marked
-check "gC on a cover" "$(mark Charlie)" yes
+key y; shot 05_cover_marked
+check "y on a cover" "$(mark Charlie)" yes
 key u; shot 06_undone
 check "u undoes it" "$(mark Charlie)" undone
 
@@ -179,11 +179,11 @@ check "kept across a restart" "$(filter | grep -c '"completed\\*":\\*"hide')" 1
 key shift+f; sleep 1; chip 13; key Escape; sleep 1
 check "Completed only is saved" "$(filter | grep -c '"completed\\*":\\*"only')" 1
 key l; shot 11_completed_only # Inside Comics: Alpha selected.
-key g C; shot 12_alpha_unmarked_gone
-check "gC on Alpha's cover takes the mark off" "$(mark Alpha)" no
+key y; shot 12_alpha_unmarked_gone
+check "y on Alpha's cover takes the mark off" "$(mark Alpha)" no
 check "before Enter the comic read last is still Charlie" "$(last_read)" "Charlie 1.cbz"
 key Return; sleep 2; shot 12b_neighbour_opened
-check "Enter after gC opens the cover next to it" "$(last_read)" "Bravo 1.cbz"
+check "Enter after y opens the cover next to it" "$(last_read)" "Bravo 1.cbz"
 key Escape; sleep 1.5
 key BackSpace
 first_in_comics 13_read_bravo
@@ -196,7 +196,7 @@ check "Clear all cleared it" "$(sql "select count(*) from settings where key = '
 # 7. Charlie marked, to travel; Bravo reset (X, Alt+R is Reset everything):
 # its mark is forgotten, in the index and in its sidecar.
 key l; key Return; key l; key l
-key g C
+key y
 check "Charlie marked" "$(mark Charlie)" yes
 key h
 key shift+x; sleep 1; shot 14_reset_question

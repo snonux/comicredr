@@ -349,6 +349,57 @@ void main() {
       expect(current(tester), LibraryTab.books, reason: 'a pointer-selected destination enables no hidden letters');
     });
 
+    /// `g` and a capital letter, as typed: g, then Shift and the letter.
+    Future<void> goKey(WidgetTester tester, LogicalKeyboardKey letter, String character) async {
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(letter, character: character);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await settle(tester);
+    }
+
+    const goKeys = [
+      (LogicalKeyboardKey.keyR, 'R', LibraryTab.reading),
+      (LogicalKeyboardKey.keyB, 'B', LibraryTab.books),
+      (LogicalKeyboardKey.keyC, 'C', LibraryTab.collections),
+      (LogicalKeyboardKey.keyH, 'H', LibraryTab.history),
+      (LogicalKeyboardKey.keyF, 'F', LibraryTab.folders),
+      (LogicalKeyboardKey.keyM, 'M', LibraryTab.bookmarks),
+    ];
+
+    testWidgets('gR gB gC gH gF gM go to their tab from the content, the sidebar and an open comic', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      // From the content, without the sidebar.
+      for (final (letter, character, destination) in goKeys) {
+        await goKey(tester, letter, character);
+        expect(current(tester), destination, reason: 'g$character');
+        expect(sidebarFocused(tester), isFalse);
+      }
+      // From the focused sidebar: the keys come back to the content.
+      await key(tester, LogicalKeyboardKey.tab);
+      expect(sidebarFocused(tester), isTrue);
+      await goKey(tester, LogicalKeyboardKey.keyB, 'B');
+      expect(current(tester), LibraryTab.books);
+      // With a comic open: it closes and the tab shows.
+      await key(tester, LogicalKeyboardKey.tab);
+      expect(sidebarFocused(tester), isFalse);
+      await key(tester, LogicalKeyboardKey.keyL);
+      await opening(tester, () => tester.sendKeyEvent(LogicalKeyboardKey.enter));
+      expect(c.read(readerProvider).book, isNotNull);
+      await tester.runAsync(() async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyH, character: 'H');
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      });
+      await settle(tester);
+      expect(c.read(readerProvider).book, isNull);
+      expect(current(tester), LibraryTab.history);
+    });
+
     testWidgets('sidebar arrows, ends and exit keys; prefixes and pointer/search focus stay local', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester);

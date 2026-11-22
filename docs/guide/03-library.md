@@ -76,6 +76,26 @@ the search box and dialogs, the usual keys and typing work as before.
 On a narrow window with the tabs at the bottom, `Tab` and `Shift+Tab`
 still cycle tabs; there is no sidebar to focus.
 
+## Go to a tab from anywhere
+
+`g` followed by the tab's capital letter goes straight to that tab, from
+the covers, the sidebar or a comic you are reading, with no `Tab` first.
+They are the sidebar's letters, typed with Shift after `g`:
+
+| Keys | Tab |
+|---|---|
+| `gR` | Reading |
+| `gB` | Books |
+| `gC` | Collections |
+| `gH` | History |
+| `gF` | Folders |
+| `gM` | Bookmarks |
+
+For example, while reading press `gH` to close the comic and see your
+History, then `gF` to get back to your folders. A comic open when you
+press one closes first, as `Esc` would, and stays where you left it.
+Holding the pointer over a tab shows its keys too.
+
 ## Bigger and smaller covers
 
 `+` makes the covers bigger and `-` makes them smaller, a column fewer
@@ -160,7 +180,7 @@ the comic's sidecar, so another device sees the same choice.
 
 #### Clear the Reading list
 
-To start over with an empty Reading tab, type `gR`, or open the menu
+To start over with an empty Reading tab, type `E` (for erase), or open the menu
 (⋮ in the header) and pick **Clear the Reading list…**. ComicRedr asks
 first, saying how many comics it will clear; **Cancel** has the focus,
 so `Enter` clears nothing by accident, and `Alt+L` (or the **Clear**
@@ -261,13 +281,13 @@ The covers behind the window update as you pick. From the keyboard,
 has nothing to type into, so the letters work without `Alt` too). The
 five combine, and they combine with the search too: PDFs from the last
 week with "love" in the title is `F`, PDF, Last 7 days, then `/` and
-`love`. To see only what you have not read yet, `gF` is the whole
+`love`. To see only what you have not read yet, `Y` is the whole
 detour in one key: it turns the Completed part to **Not completed**,
 press it again for **Completed only** and a third time for every comic,
 with a notice saying where it is. (`F`, `Tab` to **Not completed**,
 `Space`, `Esc` does the same.) A comic you then mark completed leaves
-the tab at once and the cover next to it is selected, so `gC`, `gC`,
-`gC` ticks off one after the other, and `Enter` opens what comes next.
+the tab at once and the cover next to it is selected, so `y`, `y`,
+`y` ticks off one after the other, and `Enter` opens what comes next.
 (After **Undo** the comic is back and the selection stays where it
 is.) For the thick volumes only, tap **Over 200 pages** under
 **Length**, or press `Tab` until it is ringed and `Space`.
@@ -430,14 +450,14 @@ completed ones or hide them.
   on does it: jumping to the end to have a look (`G`, `G` and a page
   number, the page grid, the bar along the bottom, a bookmark, or taking
   up the place another device left the comic at) marks nothing.
-- **`gC` does it by hand.** On a cover, or in a comic you are reading,
-  `gC` marks the comic completed, and pressed again marks it not
+- **`y` does it by hand.** On a cover, or in a comic you are reading,
+  `y` marks the comic completed, and pressed again marks it not
   completed. Use it for a comic you read somewhere else, or to take the
   mark off one you only leafed through to the end. The tick in a book's
-  details does the same. In a comic `gC` is about the comic you have
+  details does the same. In a comic `y` is about the comic you have
   open, also over its page grid (`p`) or bookmark list (`M`).
 - In the library the notice has an **Undo** (`u`), both ways.
-- With comics [marked](#several-comics-at-once), `gC` or **Completed** in
+- With comics [marked](#several-comics-at-once), `y` or **Completed** in
   the bar marks them all completed; when they all are, it marks them all
   not completed.
 - A comic that is [only on S3](13-s3-sync.md) is left out, and the
@@ -446,7 +466,7 @@ completed ones or hide them.
 
 For example, to tick off a run of issues you read on paper: on the
 Folders tab go into their folder, press `Shift+End` to mark them all,
-then `gC`.
+then `y`.
 
 Opening a comic that is already on its last page does not mark it, so a
 mark you took off stays off until you read on to the last page again;
@@ -458,7 +478,7 @@ comics you had finished before ComicRedr knew of this got their check,
 and how a comic you jumped to the end of and left there gets one. Go
 back a page and it no longer counts. **A comic of a single page** is on
 its last page from the moment it is opened, so it counts as completed
-once you have opened it; `gC` on it marks it not completed, and that
+once you have opened it; `y` on it marks it not completed, and that
 stays.
 
 **Completed part-way.** A comic you mark completed in the middle is done
@@ -589,7 +609,7 @@ marked, with what you can do to all of them at once:
 |---|---|---|
 | **All** | `Ctrl+A` | Mark every comic shown, or unmark them |
 | **Favourite** | `*` | Put them all in your [Favourites](#favourites); **Unfavourite** when they all are |
-| **Completed** | `gC` | Mark them all [completed](#completed-comics); **Not completed** when they all are |
+| **Completed** | `y` | Mark them all [completed](#completed-comics); **Not completed** when they all are |
 | **Move** | `gm` | [Move them to another folder](#move-comics-to-another-folder) |
 | **Collection** | `gc` | Put them all in a [collection](#collections), new or one you have |
 | **Reset** | `X` | [Reset](07-managing-comics.md#reset-a-comic) them all: redo panels, or everything |

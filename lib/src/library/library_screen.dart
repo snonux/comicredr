@@ -57,6 +57,21 @@ enum LibraryTab {
   /// The label under the phone's bottom tabs, where a long one wraps.
   final String short;
   final IconData icon;
+
+  /// The intent that goes to this tab from anywhere: `g` and the tab's
+  /// capital letter by default (gR gB gC gH gF gM), the same letters the
+  /// focused sidebar underlines.
+  ReaderIntent get intent => switch (this) {
+    reading => ReaderIntent.goReading,
+    books => ReaderIntent.goBooks,
+    collections => ReaderIntent.goCollections,
+    history => ReaderIntent.goHistory,
+    folders => ReaderIntent.goFolders,
+    bookmarks => ReaderIntent.goBookmarks,
+  };
+
+  /// The tab [intent] goes to; null for an intent that goes to no tab.
+  static LibraryTab? of(ReaderIntent intent) => values.where((t) => t.intent == intent).firstOrNull;
 }
 
 /// The library (design plan sections 4 and 8): what you are reading, your
@@ -818,6 +833,15 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         _setTab(LibraryTab.bookmarks);
       case ReaderIntent.showFavourites:
         showFavourites();
+      case ReaderIntent.goReading ||
+          ReaderIntent.goBooks ||
+          ReaderIntent.goCollections ||
+          ReaderIntent.goHistory ||
+          ReaderIntent.goFolders ||
+          ReaderIntent.goBookmarks:
+        // From the sidebar too, which then hands the keys back to the content.
+        if (_sidebarFocus.hasPrimaryFocus) _leaveSidebar();
+        _setTab(LibraryTab.of(c.intent)!);
       case ReaderIntent.markLeft:
         extend((i) => i - c.times);
       case ReaderIntent.markRight:
@@ -870,7 +894,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
       case ReaderIntent.filterFolders:
         unawaited(_openFilter());
       case ReaderIntent.filterCompleted:
-        // gF: the completed part cycles, every comic → not completed →
+        // Y: the completed part cycles, every comic → not completed →
         // completed only, and the notice says where it is.
         final next = _filter.completed.cycled;
         setFilter(_filter.copyWith(completed: next));
@@ -940,7 +964,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     return true;
   }
 
-  /// The keys task 263 gave to buttons that had none, `gC` (completed) and
+  /// The keys task 263 gave to buttons that had none, `y` (completed) and
   /// `x` in an open collection: true when [c] was one of them. (`u`, the
   /// notice's Undo, is HomeScreen's: it works over an open comic too.)
   bool _buttonKeys(ReaderCommand c, List<LibraryBook> marked) {
@@ -1199,7 +1223,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
 
   /// The cover that takes the selection when the selected one has just left
   /// the current tab because the filter goes by completed and its mark
-  /// changed (`gC`, the marks bar, the tick in its details, or the reader
+  /// changed (`y`, the marks bar, the tick in its details, or the reader
   /// reaching its last page while the library waits under it); null when
   /// that is not what happened. Without this nothing was selected after:
   /// the details pane closed and Enter opened nothing. The rule is the one
@@ -2040,7 +2064,14 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                                 },
                                 destinations: [
                                   for (final t in LibraryTab.values)
-                                    NavigationRailDestination(icon: Icon(t.icon), label: _sidebarLabel(t)),
+                                    NavigationRailDestination(
+                                      // The tooltip names the tab's own key (gR … gM).
+                                      icon: Tooltip(
+                                        message: KeyHints.tip(context, t.label, t.intent),
+                                        child: Icon(t.icon),
+                                      ),
+                                      label: _sidebarLabel(t),
+                                    ),
                                 ],
                               ),
                             ),
@@ -2076,7 +2107,11 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
                   onDestinationSelected: (i) => _setTab(LibraryTab.values[i]),
                   destinations: [
                     for (final t in LibraryTab.values)
-                      NavigationDestination(icon: Icon(t.icon), label: t.short, tooltip: t.label),
+                      NavigationDestination(
+                        icon: Icon(t.icon),
+                        label: t.short,
+                        tooltip: KeyHints.tip(context, t.label, t.intent),
+                      ),
                   ],
                 ),
         );

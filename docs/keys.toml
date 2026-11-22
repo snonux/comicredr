@@ -149,8 +149,20 @@ bookmarkList = ["M"]
 toggleFavourite = ["*"]
 # The Favourites collection in the library
 showFavourites = ["gf"]
+# Go to the Reading tab of the library
+goReading = ["gR"]
+# Go to the Books tab of the library
+goBooks = ["gB"]
+# Go to the Collections tab of the library
+goCollections = ["gC"]
+# Go to the History tab of the library
+goHistory = ["gH"]
+# Go to the Folders tab of the library
+goFolders = ["gF"]
+# Go to the Bookmarks tab of the library
+goBookmarks = ["gM"]
 # Mark this comic completed (read to the end), or take the mark off; the selected book in the library, or every marked one
-toggleCompleted = ["gC"]
+toggleCompleted = ["y"]
 # Mark this comic as reading started, or mark it not started while keeping its place; the selected book in the library, or every marked one
 toggleStarted = ["gb"]
 # Remove the selected bookmark in a bookmark list; take the selected comic out of the Favourites
@@ -194,7 +206,7 @@ reshuffle = ["gs"]
 # Filter the library's tabs by type, size, modification date, completed or not and length
 filterFolders = ["F"]
 # The library's filter: cycle the completed part — every comic, not completed, completed only
-filterCompleted = ["gF"]
+filterCompleted = ["Y"]
 # Sort the library's tab: by name, date added, last read, file date, size, pages, issue or year
 sortFolders = ["gS"]
 # The library's tab: sort by the next order (name, added, last read, …)
@@ -202,7 +214,7 @@ nextSortOrder = ["go"]
 # The library's tab: reverse the sort order
 reverseSort = ["gO"]
 # Library: clear the Reading list, after asking: every comic's place and completed mark are forgotten, on every device its sidecar reaches; bookmarks and history stay
-clearReading = ["gR"]
+clearReading = ["E"]
 # Reset this comic: find its panels again, or forget its bookmarks and position too; in the library every marked one
 resetBook = ["X"]
 # Delete this comic and its sidecar, after asking; the selected book in the library, or every marked one

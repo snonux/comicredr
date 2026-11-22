@@ -48,7 +48,7 @@ class _RefusedStart extends LibraryStore {
 }
 
 /// The Reading list (snonux, 2026-10-17): a comic counts as started only
-/// once it was open for five minutes in one go, and `gR` clears the list, every
+/// once it was open for five minutes in one go, and `E` clears the list, every
 /// comic's place and completed mark, on every device its sidecar reaches.
 void main() {
   late Directory tmp;
@@ -371,7 +371,7 @@ void main() {
       expect((await laptop.progress.load(key))?.page, 3);
     });
 
-    testWidgets('gR asks, Enter cancels, Alt+L clears; with nothing to clear it only says so', (tester) async {
+    testWidgets('E asks, Enter cancels, Alt+L clears; with nothing to clear it only says so', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
@@ -400,16 +400,15 @@ void main() {
         }
       }
 
-      Future<void> gR() async {
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+      Future<void> clearKey() async {
         await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-        await tester.sendKeyEvent(LogicalKeyboardKey.keyR, character: 'R');
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyE, character: 'E');
         await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
         await settle();
       }
 
       await settle();
-      await gR();
+      await clearKey();
       expect(find.text('Clear the Reading list?'), findsOneWidget);
       expect(find.textContaining('Forgets where you are in 1 comic'), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -417,7 +416,7 @@ void main() {
       expect(find.text('Clear the Reading list?'), findsNothing);
       expect(await tester.runAsync(() => ProgressStore(db).load(key)), isNotNull, reason: 'Cancel had the focus');
 
-      await gR();
+      await clearKey();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
@@ -428,7 +427,7 @@ void main() {
 
       await tester.pump(const Duration(seconds: 5));
       await settle();
-      await gR();
+      await clearKey();
       expect(find.text('Clear the Reading list?'), findsNothing);
       expect(find.text('The Reading list is empty already'), findsOneWidget);
       await tester.pump(const Duration(seconds: 5));

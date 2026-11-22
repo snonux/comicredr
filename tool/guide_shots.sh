@@ -339,7 +339,7 @@ dialogs)
 
 reading-clear)
   # Mark a comic started by hand so it is on Reading for the next section.
-  # Then gR's question, left with Esc: nothing is cleared.
+  # Then E's question, left with Esc: nothing is cleared.
   open "weird comics"; key g b; sleep 1
   # Running this section again may have taken an existing mark off.
   if [[ $(q "select json_extract(value, '\$.value') from overrides
@@ -348,7 +348,7 @@ reading-clear)
     key g b
   fi
   key Escape; key Escape; clear_search; tab Reading
-  key g shift+r; sleep 1.5; still clear-reading; key Escape
+  key shift+e; sleep 1.5; still clear-reading; key Escape
   ;;
 
 history)

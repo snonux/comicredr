@@ -214,7 +214,7 @@ class BookDetail extends ConsumerWidget {
   }
 
   /// The tick: filled while the comic counts as completed, a press marks it
-  /// the other way, with the notice and Undo `gC` on its cover has.
+  /// the other way, with the notice and Undo `y` on its cover has.
   Widget _completedButton(BuildContext context, WidgetRef ref) => IconButton.outlined(
     key: const Key('completed'),
     onPressed: () => toggleCompleted(context, ref, [book]),

@@ -277,6 +277,19 @@ a destination releases sidebar focus. Under 600 dp the bottom tabs retain
 cycleModeForward/Back's old cycling. `test/library_test.dart` and
 `tool/e2e/e2e_sidebar_keys.sh` cover the boundary and context isolation.
 
+Going to a tab from anywhere (snonux, 2026-11-22): `g` is "go to", so
+`gR` `gB` `gC` `gH` `gF` `gM` (`ReaderIntent.goReading` … `goBookmarks`,
+`LibraryTab.intent` / `LibraryTab.of`) are the sidebar's letters as
+capitals after `g`. The three actions that had those keys moved off `g`:
+completed `y` (was `gC`), the completed filter `Y` (was `gF`), Clear the
+Reading list `E` (was `gR`). `HomeScreen._goToTab` takes them before the
+page grid and bookmark list, closes those and the open comic (fullscreen
+stays, as for Esc), then `LibraryScreenState.handle` sets the tab, also
+leaving the sidebar's focus. In the focused sidebar the `g` is swallowed
+and the capital picks the tab by its letter, the same result. The rail's
+icons and the bottom tabs' tooltips name the keys through `KeyHints.tip`.
+The touch way is the tabs themselves (`test/touch_menu_test.dart`).
+
 ## Releases
 
 A release is a `vX.Y.Z` tag on a commit whose `pubspec.yaml` says
@@ -565,7 +578,7 @@ refreshes right away instead of within six hours.
   Library and reader menus, the details' open-book button and the marks
   bar reach it by touch. The library offers Undo. Resume resets the
   five-minute timer, so background time does not count. Unread is left to
-  the open as before. Clearing it, `gR` (`clearReading`, the library's
+  the open as before. Clearing it, `E` (`clearReading`, the library's
   menu; `lib/src/library/clear_reading.dart`): one question (Cancel
   focused, Alt+L clears), then `LibraryStore.clearReading` deletes every
   `progress` row, undoes every started and completed mark and writes an overrides row
@@ -1093,7 +1106,7 @@ refreshes right away instead of within six hours.
   cover shows until the page is ready, and the 256 px page until a 512 px
   one is. On a phone-wide header the
   reshuffle button is left out; `gs` or `S` twice picks again.
-- The library's filter (`F`, `ReaderIntent.filterFolders`, and `gF`
+- The library's filter (`F`, `ReaderIntent.filterFolders`, and `Y`
   `filterCompleted`; `FolderFilter` in
   `lib/src/library/folder_filter.dart`, its window in
   `folder_filter_dialog.dart`): a set of `LibraryBook.format`s, a
@@ -1104,7 +1117,7 @@ refreshes right away instead of within six hours.
   that lists comics (`_shown` in `library_screen.dart`, before the
   per-tab listings are built: collections and folders with none passing
   go, as folders on the Folders tab already did, where folder counts are
-  of what passes); each tab but History has its own sort (below). `gF` cycles the
+  of what passes); each tab but History has its own sort (below). `Y` cycles the
   completed part, every comic → not completed → completed only, with a
   notice; `CompletedFilter.cycled`. Size and date are the first
   file's `files.size` and `files.mtime` (a folder book: its pages' total
@@ -1177,7 +1190,7 @@ refreshes right away instead of within six hours.
   sortable tab, so the covers of Reading, Books, Collections and
   Bookmarks sit one line lower than before; the window's title names the
   tab and its note says how the tab applies the order (`_sortNote`).
-- Completed comics (snonux, task 273; `gC`, `ReaderIntent.toggleCompleted`).
+- Completed comics (snonux, task 273; `y`, `ReaderIntent.toggleCompleted`).
   Two facts make it up. `LibraryBook.finished` is the old one, a column
   of `progress`: this device's saved page is the last. The mark is new:
   a row of `overrides` with the field `completed` (`completedField`,
@@ -1202,7 +1215,7 @@ refreshes right away instead of within six hours.
   library's by the saved row, and a store method by the debounced row
   would be neither).
   In the library `toggleCompleted` (bulk_actions.dart) is the one path
-  for `gC` on a cover or with marks (`_buttonKeys`), **Completed** in
+  for `y` on a cover or with marks (`_buttonKeys`), **Completed** in
   the marks bar and the tick in the details
   (`BookDetail._completedButton`): all completed unless every one is,
   then all not completed; only those that change are written, and the
@@ -1211,7 +1224,7 @@ refreshes right away instead of within six hours.
   for the mark to travel in) and said: `completedNotice` ends "; 2 are
   only on S3", and when they are all there is, `onlyOnS3Notice` ("Only
   on S3: download it first", "All 2 comics are only on S3: download them
-  first") and nothing goes ahead; `gC` therefore passes a selected cover
+  first") and nothing goes ahead; `y` therefore passes a selected cover
   that is only on S3 on, where `_markedOrSelected` would drop it. When
   the index fails part of the way it is as `takeOutOfCollection` has it:
   the comics marked before keep the mark, their sidecars are written,
@@ -1228,18 +1241,18 @@ refreshes right away instead of within six hours.
   completed part now rejects one): of the covers shown before, the first
   after the last that left, else the nearest before, which is delete's
   rule (`_deleteMarked`). It is in `build` and not in the key's handler
-  so that every cause has it: `gC`, the marks bar, the tick in the
+  so that every cause has it: `y`, the marks bar, the tick in the
   details, and the reader marking the comic at its last page while the
   library waits offstage under it. A change of the filter itself never
   gets there: `setFilter` drops the selection, as for the other parts,
   since a comic the new filter hides was not acted on. The Undo
   brings the comic back and leaves the selection, as the Undo of a
   favourite taken out does.
-  In the reader `gC` is taken by `HomeScreen._onOpenComic`
+  In the reader `y` is taken by `HomeScreen._onOpenComic`
   like `*`, so it works over the page grid and the bookmark list, and
   goes to `ReaderNotifier._toggleCompleted` (a status-line notice, no
-  Undo: `gC` again), which goes by `completedMarkOf(key) ?? _onLastPage`,
-  so on the last page of an unmarked comic the first `gC` says not
+  Undo: `y` again), which goes by `completedMarkOf(key) ?? _onLastPage`,
+  so on the last page of an unmarked comic the first `y` says not
   completed. The reader also marks by itself, and only when reading on
   arrives at the end (snonux, first review: "peeking at the end must not
   mark"): `ReaderNotifier.handle` wraps `_dispatch` and, when the
@@ -1266,7 +1279,7 @@ refreshes right away instead of within six hours.
   and stepped onto again. A one-page comic is on its last page from the
   start: no step arrives there and the reader never marks it, but it
   counts as completed from its first open all the same, by the fallback
-  (`finished` is true for it as soon as a position is saved); `gC`
+  (`finished` is true for it as soon as a position is saved); `y`
   marks it not completed, which stays. The same fallback counts a comic
   jumped to the end of and left there as completed until it is left on
   another page: that is kept (comics finished before the mark existed
@@ -1851,8 +1864,8 @@ tool/e2e/e2e_fit_width.sh        # touch alone in fullscreen: a swipe down fits 
 tool/e2e/e2e_touch_menu.sh       # touch alone: ⋮ on the status line and a swipe up open the menu, its lines turn the comic and make it a favourite (index), the tutorial from the menu paged through and closed, the library header's ⋮ opens the sort; makes its own books
 tool/e2e/e2e_clock.sh            # T and a long press show the time for 2 s: fullscreen, windowed, the library; fades; makes its own book
 tool/e2e/e2e_details.sh book.cbz book.pdf  # I: details over the reader, scrolled, a page picked from the list, a PDF's images, from the library
-tool/e2e/e2e_completed.sh         # gC in the reader on and off, reading on to the last page marks a comic and G there does not, gC on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, gC on a cover under the filter then Enter opens the cover next to it, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
-tool/e2e/e2e_clear_reading.sh     # a look of seconds keeps the place as a peek and off the Reading tab, five minutes start a comic; a second install shares one; gR: Enter cancels, Alt+L clears places and marks into the sidecars, gR again only says so; the second install then starts that comic over; checks the index and sidecars with sqlite3; makes its own books
+tool/e2e/e2e_completed.sh         # y in the reader on and off, reading on to the last page marks a comic and G there does not, y on a cover and u undoes it, F with Not completed and Completed only (each proved by the comic that opens first), kept across a restart, y on a cover under the filter then Enter opens the cover next to it, Clear all, X Reset everything forgets the mark, a second install reads the marks from the sidecars; keyboard alone but for the tab click; checks the index and the sidecars with sqlite3; makes its own books
+tool/e2e/e2e_clear_reading.sh     # a look of seconds keeps the place as a peek and off the Reading tab, five minutes start a comic; a second install shares one; E: Enter cancels, Alt+L clears places and marks into the sidecars, E again only says so; the second install then starts that comic over; checks the index and sidecars with sqlite3; makes its own books
 tool/e2e/e2e_unread.sh            # a comic copied into a running library goes in Unread, a moved one and the first scan do not; opened from the Collections tab it leaves (index and sidecar); after a restart a copy is not new and a comic in a new folder is; makes its own books
 tool/e2e/e2e_favourites.sh        # * from the reader and on a cover, gf and the header star (found by comparing two screenshots, not at a fixed place), x takes one out, a restart; checks the index and a sidecar with sqlite3; makes its own books
 tool/e2e/e2e_open_comic_collections.sh  # gc and * on the open comic: in the reader, over the page grid and over the bookmark list; the dialog seen by comparing screenshots, Esc in it, a name typed with no pause after gc, a collection it is in already (its row's added_at and removed_at unchanged seconds later), keys back with the grid, a restart (* and gc go by the index), a comic outside the library and its collection offered to a library comic, gc on a cover in the library with a name beginning gd X typed with no pause, then again with that name (row and sidecar unchanged); checks the index and the sidecars with sqlite3; makes its own books
@@ -1875,7 +1888,7 @@ tool/e2e/e2e_s3_outage.sh         # local HTTP 502 fixture, no Garage: fail an u
 tool/e2e/e2e_s3_move.sh           # two installs through a local Garage: gu, then the comic moved and renamed in the shell (the manifest follows at the next start, the comic not sent again), gm into another folder (follows at once), the second install lists and downloads it into that folder at the first's page, a restart leaves the bucket alone
 tool/e2e/e2e_smooth_scroll.sh     # arrow keys on a zoomed page recorded at 60 fps with ffmpeg: a press glides (frames in between), a held key keeps going, Left/Right pan and stop at the page edge, a fresh press there turns; makes its own book
 tool/e2e/e2e_pan_dim.sh           # H1 then ↓ ↓, H2 then k, a drag on Q1, j on a guided panel: nothing on screen left dimmed, the next step dims around again; makes its own book
-tool/e2e/e2e_folder_filter.sh     # F and the funnel in the search box: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x on the filter line and the funnel clicked, Clear all; the Books tab filtered too; gC marks a cover and gF cycles the completed part (not completed, completed only, every comic), each proved by the comic that opens first; checks the index with sqlite3; makes its own books
+tool/e2e/e2e_folder_filter.sh     # F and the funnel in the search box: by type, size and date picked with Tab and Space, each proved by the comic that opens first; kept across a restart; the x on the filter line and the funnel clicked, Clear all; the Books tab filtered too; y marks a cover and Y cycles the completed part (not completed, completed only, every comic), each proved by the comic that opens first; checks the index with sqlite3; makes its own books
 tool/e2e/e2e_folder_sort.sh       # gS and Alt+P, S, M, L in its window, gO and go, each proved by the comic that opens first; kept across a restart; the sort button clicked; then the Books tab's own order (gS, gO, go), kept apart from the Folders tab's and across a restart; checks the index with sqlite3; makes its own books
 tool/e2e/e2e_cover_zoom.sh        # + - = and Ctrl+wheel on the Folders tab, + then - keeps nothing, the same size on Books, a pinch by injected touches, a finger still scrolls and a tap still opens, a finger resting on the selected cover during a pinch opens nothing, + typed in the search box, Settings' Cover size buttons clicked (found from the dialog's end, so the checkout's path length does not move them), the size kept across a restart, a NaN size put in the index still shows covers; counts the covers in a row off screenshots and checks the index with sqlite3; makes its own books
 tool/e2e/e2e_help_zoom.sh         # + - = in the ? help: the text a step bigger and smaller, the biggest (3x) and smallest (0.7x), the list still scrolling, Ctrl+wheel, + alone and - alone typed in the help's search (the list changes and the kept size does not) and + after Enter, a step some way down the list keeps the same keys along its top (told by how wide the first six lines of keys are; the measure first proved on two places a wheel notch apart), the version's line at the biggest text as at the usual size, the covers behind not sized and + with the help away sizing them, a restart, NaN, -12 and 1000000 put in the index; measures the title's first letter off screenshots and checks help.textSize in the index with sqlite3; makes its own books

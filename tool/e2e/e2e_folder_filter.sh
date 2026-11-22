@@ -6,7 +6,7 @@
 # ones it let through; the filter kept across a restart; the filter line's
 # part x and the funnel in the search box clicked with the mouse, and the
 # window's Clear all; the Books tab filtered too (the filter is on every
-# tab that lists comics); gC marks a comic completed on its cover and gF
+# tab that lists comics); y marks a comic completed on its cover and Y
 # cycles the completed part of the filter: not completed, completed only,
 # every comic. Checks the index with sqlite3.
 #
@@ -205,7 +205,7 @@ key shift+f; sleep 1; chip 23; key Escape
 check "Clear all cleared it" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
 stop
 
-# gC marks Mystery Men completed on its cover; gF cycles the completed
+# y marks Mystery Men completed on its cover; Y cycles the completed
 # part of the filter: not completed first, completed only, every comic.
 # Mystery Men leaves the tab under the first, comes back alone under the
 # second, and all are back under the third.
@@ -216,18 +216,18 @@ key shift+f; sleep 1; chip 23; key Escape # Clear all: every comic again.
 # the library, up out of Comics: the tab chosen again is inside it whatever.
 tab f
 key l; key Return; sleep 1 # Golden Age: Mystery Men first.
-key g C; sleep 0.5; shot 21_marked
-check "gC marked Mystery Men" "$(sql "select count(*) from overrides where field = 'completed'")" 1
-key g F; sleep 0.5; shot 22_gf_not_completed
-check "gF set not completed" "$(sql "select value like '%completed%hide%' from settings where key = 'library.folderFilter'")" 1
+key y; sleep 0.5; shot 21_marked
+check "y marked Mystery Men" "$(sql "select count(*) from overrides where field = 'completed'")" 1
+key Y; sleep 0.5; shot 22_gf_not_completed
+check "Y set not completed" "$(sql "select value like '%completed%hide%' from settings where key = 'library.folderFilter'")" 1
 key l; key Return; sleep 2; key Escape; sleep 1
 check "not completed: Space Ranger opened first" "$(last_read)" "space-ranger.cbz"
-key g F; sleep 0.5; shot 23_gf_completed_only
-check "gF set completed only" "$(sql "select value like '%completed%only%' from settings where key = 'library.folderFilter'")" 1
+key Y; sleep 0.5; shot 23_gf_completed_only
+check "Y set completed only" "$(sql "select value like '%completed%only%' from settings where key = 'library.folderFilter'")" 1
 key l; key Return; sleep 2; key Escape; sleep 1
 check "completed only: Mystery Men opened first" "$(last_read)" "mystery-men.cbz"
-key g F; sleep 0.5; shot 24_gf_off
-check "gF took the filter off" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
+key Y; sleep 0.5; shot 24_gf_off
+check "Y took the filter off" "$(sql "select count(*) from settings where key = 'library.folderFilter'")" 0
 stop
 
 montage -label '%t' "$out"/shot_*.png -tile 4x -geometry 480x338+4+14 "$out/contact.png"

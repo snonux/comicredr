@@ -33,6 +33,7 @@ come back here for a key you forgot.
 3. [The library](03-library.md)
    - [Moving around](03-library.md#moving-around)
    - [Keyboard shortcuts in the sidebar](03-library.md#keyboard-shortcuts-in-the-sidebar)
+   - [Go to a tab from anywhere: `gR` … `gM`](03-library.md#go-to-a-tab-from-anywhere)
    - [Bigger and smaller covers](03-library.md#bigger-and-smaller-covers)
    - [The tabs](03-library.md#the-tabs): [reading](03-library.md#reading)
      and [clearing it](03-library.md#clear-the-reading-list), [mark a comic as started](03-library.md#mark-a-comic-as-started), [how comics are named](03-library.md#how-comics-are-named),

@@ -128,6 +128,31 @@ search_result=$(tesseract "$out/search.png" stdout 2>/dev/null)
 [[ "$search_text" == *Books* ]]
 key Escape
 shot search-left
+# g and the tab's capital letter go to that tab from the covers, without
+# the sidebar, and from an open comic, which closes first.
+header_says() {
+  shot "$1"
+  # Only the title: the search box beside it would garble the OCR.
+  convert "$out/$1.png" -crop 135x60+90+0 +repage -resize 200% "$out/header.png"
+  if ! tesseract "$out/header.png" stdout --psm 7 2>/dev/null | rg -qi "$2"; then
+    echo "FAIL $1 did not show $2" >&2
+    exit 1
+  fi
+}
+# The search left from above would hide Alpha: clear it, keys back to the covers.
+key slash ctrl+a BackSpace Return
+for pair in R:Reading B:Books C:Collections H:History M:Bookmarks F:Folders; do
+  letter=${pair%%:*}
+  key g "shift+${letter,,}"
+  header_says "go-$letter" "${pair#*:}"
+done
+# Folders: the only library folder is open; select Alpha and read it.
+key l Return
+sleep 2
+[[ "$(sqlite3 "$db" 'select count(*) from progress')" == 1 ]]
+key g shift+h
+sleep 1
+header_says go-from-reader History
 if rg -q 'Unhandled Exception|\[ERROR' "$out/app.log"; then
   echo 'FAIL errors in app log' >&2
   exit 1

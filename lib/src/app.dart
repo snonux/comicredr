@@ -668,7 +668,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (scope != null) await ref.read(readerProvider.notifier).reset(scope);
   }
 
-  /// `*`, `gC` and `gc` with a comic open; true when [c] was one of them. They
+  /// `gR` `gB` `gC` `gH` `gF` `gM`: a library tab from anywhere. With a
+  /// comic open, the page grid and bookmark list go and the comic closes
+  /// first, as Esc would (fullscreen stays, as it does for Esc); then the
+  /// library shows the tab. Taken before the grid and the list, which would
+  /// otherwise swallow the key.
+  Future<void> _goToTab(ReaderCommand c) async {
+    if (ref.read(readerProvider).book != null) {
+      if (_showPages) _setShowPages(false);
+      if (_showBookmarks) _setShowBookmarks(false);
+      if (_showParts) _setShowParts(false);
+      await ref.read(readerProvider.notifier).close();
+    }
+    _library.currentState?.handle(c);
+  }
+
+  /// `*`, `y` and `gc` with a comic open; true when [c] was one of them. They
   /// are about the open comic, not the page under the cursor, so they also
   /// work over the page grid and the bookmark list, which would otherwise
   /// swallow them; both stay up. With no comic open they are left to the
@@ -1071,6 +1086,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (_buttonKey(c) || _helpTook(c)) return;
     if (c.intent == ReaderIntent.openMenu) {
       unawaited(_menu());
+      return;
+    }
+    if (LibraryTab.of(c.intent) != null) {
+      unawaited(_goToTab(c));
       return;
     }
     // Shift+arrows mark covers in the library; in a comic they move as the

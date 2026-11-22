@@ -89,7 +89,7 @@ enum CompletedFilter {
     hide => !completed,
   };
 
-  /// The next state of the `gF` cycle: any → not completed → completed
+  /// The next state of the `Y` cycle: any → not completed → completed
   /// only → any. Not completed comes first from "any", as what is left
   /// to read is the more asked-for half.
   CompletedFilter get cycled => switch (this) {

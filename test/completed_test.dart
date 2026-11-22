@@ -97,7 +97,7 @@ extension on LibraryBook {
   );
 }
 
-/// Completed comics (task 273): the mark (`gC`, the tick in the details,
+/// Completed comics (task 273): the mark (`y`, the tick in the details,
 /// the last page reached in the reader), where it is kept and how it
 /// travels, the sign on the cover, and the Folders tab's filter by it.
 void main() {
@@ -173,7 +173,7 @@ void main() {
       return (c, store, a, b);
     }
 
-    test('uses the page shown when gC was pressed', () async {
+    test('uses the page shown when y was pressed', () async {
       final (c, held, a, _) = await opened();
       final reader = c.read(readerProvider.notifier);
       final key = c.read(readerProvider).book!.key;
@@ -186,7 +186,7 @@ void main() {
       expect(await LibraryStore(db).completedMarkOf(key), isTrue);
     });
 
-    test('uses the last page shown when gC was pressed even after jumping to the first', () async {
+    test('uses the last page shown when y was pressed even after jumping to the first', () async {
       final (c, held, _, _) = await opened();
       final reader = c.read(readerProvider.notifier);
       final key = c.read(readerProvider).book!.key;
@@ -212,7 +212,7 @@ void main() {
       expect(await LibraryStore(db).completedMarkOf(key), isFalse);
     });
 
-    test('an automatic last-page mark finishes before a later gC reads it', () async {
+    test('an automatic last-page mark finishes before a later y reads it', () async {
       final (c, held, _, _) = await opened();
       final reader = c.read(readerProvider.notifier);
       final key = c.read(readerProvider).book!.key;
@@ -220,21 +220,21 @@ void main() {
       await reader.handle(const ReaderCommand(ReaderIntent.nextPage));
       await held.entered.future;
       final toggle = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
-      expect(held.reads, 1, reason: 'gC must wait for the automatic mark');
+      expect(held.reads, 1, reason: 'y must wait for the automatic mark');
       held.release.complete();
       await toggle;
       expect(held.reads, 2);
       expect(await LibraryStore(db).completedMarkOf(key), isFalse);
     });
 
-    test('two rapid gC presses toggle twice in their invocation order', () async {
+    test('two rapid y presses toggle twice in their invocation order', () async {
       final (c, held, _, _) = await opened();
       final reader = c.read(readerProvider.notifier);
       final key = c.read(readerProvider).book!.key;
       final first = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
       await held.entered.future;
       final second = reader.handle(const ReaderCommand(ReaderIntent.toggleCompleted));
-      expect(held.reads, 1, reason: 'the second gC must wait for the first write');
+      expect(held.reads, 1, reason: 'the second y must wait for the first write');
       held.release.complete();
       await Future.wait([first, second]);
       expect(held.reads, 2);
@@ -250,7 +250,7 @@ void main() {
       final (before, after) = watchBarrier(reader);
       final opening = reader.open(b);
       await before.future;
-      expect(c.read(readerProvider).book, isNull, reason: 'the old book is closing while gC waits');
+      expect(c.read(readerProvider).book, isNull, reason: 'the old book is closing while y waits');
       expect(after.isCompleted, isFalse);
       held.release.complete();
       await Future.wait([opening, command]);
@@ -261,7 +261,7 @@ void main() {
     });
 
     for (final closeBook in [true, false]) {
-      test('${closeBook ? 'close' : 'exit flush'} waits for gC and writes its mark to the real sidecar', () async {
+      test('${closeBook ? 'close' : 'exit flush'} waits for y and writes its mark to the real sidecar', () async {
         final (c, held, a, _) = await opened(realSidecars: true);
         final reader = c.read(readerProvider.notifier);
         final key = c.read(readerProvider).book!.key;
@@ -634,6 +634,7 @@ void main() {
       for (final ch in keys.split('')) {
         final k = switch (ch.toLowerCase()) {
           'g' => LogicalKeyboardKey.keyG,
+          'y' => LogicalKeyboardKey.keyY,
           'c' => LogicalKeyboardKey.keyC,
           'l' => LogicalKeyboardKey.keyL,
           'h' => LogicalKeyboardKey.keyH,
@@ -723,7 +724,7 @@ void main() {
       return (c, store, books);
     }
 
-    testWidgets('gC in the reader marks the open comic and takes the mark off, over the page grid too', (tester) async {
+    testWidgets('y in the reader marks the open comic and takes the mark off, over the page grid too', (tester) async {
       final store = (await tester.runAsync(shelf))!;
       final book = named((await tester.runAsync(store.books))!, 'Daredevil #181');
       final c = await pumpApp(tester);
@@ -733,13 +734,13 @@ void main() {
       expect(c.read(readerProvider).page, 0);
       expect(await markOf(tester, store, book.key), isNull);
 
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(c.read(readerProvider).message, 'Marked as completed');
       expect(await markOf(tester, store, book.key), isTrue);
       expect(c.read(readerProvider).book, isNotNull, reason: 'the comic stays open');
       expect(c.read(readerProvider).page, 0);
 
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(c.read(readerProvider).message, 'Marked as not completed');
       expect(await markOf(tester, store, book.key), isFalse);
 
@@ -753,7 +754,7 @@ void main() {
       // Over the page grid it is still about the comic, and the grid stays.
       await type(tester, 'p');
       expect(find.byKey(const Key('pageGrid')), findsOneWidget);
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(await markOf(tester, store, book.key), isTrue);
       expect(find.byKey(const Key('pageGrid')), findsOneWidget);
     });
@@ -793,7 +794,7 @@ void main() {
       // Marked already: the row is left as it is, time included, so arriving
       // again is no newer change for a sidecar merge to go by.
       expect(await rowOf(tester, book.key), row);
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(await markOf(tester, store, book.key), isFalse);
       await tester.runAsync(reader.close);
       await settle(tester);
@@ -874,8 +875,8 @@ void main() {
         await stillUnmarked('the offered place');
 
         // Unmarked on its last page it counts as completed all the same, so
-        // the first gC there says not completed.
-        await type(tester, 'gC');
+        // the first y there says not completed.
+        await type(tester, 'y');
         expect(c.read(readerProvider).message, 'Marked as not completed');
         expect(await markOf(tester, store, book.key), isFalse);
 
@@ -1004,7 +1005,7 @@ void main() {
       await type(tester, '3l');
       expect(now().page, 3);
       expect(await markOf(tester, store, daredevil.key), isTrue);
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(await markOf(tester, store, daredevil.key), isFalse);
       // Back by the page key marks nothing, and then 3 PageDown does.
       await type(tester, '3');
@@ -1016,7 +1017,7 @@ void main() {
       expect(now().page, 3);
       expect(await markOf(tester, store, daredevil.key), isTrue);
       // G with a page number is a jump, also to the last page.
-      await type(tester, 'gC');
+      await type(tester, 'y');
       await send(tester, c, ReaderIntent.firstPage);
       await type(tester, 'G4');
       expect(now().page, 3);
@@ -1052,7 +1053,7 @@ void main() {
       expect(await markOf(tester, store, book.key), isNull);
     });
 
-    testWidgets('gC on a cover marks it with a sign on the cover, u undoes; with comics marked, all of them', (
+    testWidgets('y on a cover marks it with a sign on the cover, u undoes; with comics marked, all of them', (
       tester,
     ) async {
       final store = (await tester.runAsync(shelf))!;
@@ -1065,7 +1066,7 @@ void main() {
       expect(find.byKey(const Key('completedBadge')), findsNothing);
 
       await type(tester, 'l'); // Selects the first cover: Daredevil.
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(await markOf(tester, store, daredevil), isTrue);
       expect(find.byKey(const Key('completedBadge')), findsOneWidget);
       expect(find.text('Daredevil #181 marked as completed'), findsOneWidget);
@@ -1077,8 +1078,8 @@ void main() {
       expect(find.byKey(const Key('completedBadge')), findsNothing);
 
       // On, then off by the key: marked not completed, and Undo puts it on again.
-      await type(tester, 'gC');
-      await type(tester, 'gC');
+      await type(tester, 'y');
+      await type(tester, 'y');
       expect(await markOf(tester, store, daredevil), isFalse);
       expect(find.text('Daredevil #181 marked as not completed'), findsOneWidget);
       await type(tester, 'u');
@@ -1088,7 +1089,7 @@ void main() {
       // completed after; again, and both are not.
       await type(tester, 'VV');
       expect(find.byKey(const Key('marksCompleted')), findsOneWidget);
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(await tester.runAsync(() => completed(store)), ['Daredevil #181', 'Preacher #1']);
       expect(find.text('1 comic marked as completed'), findsNothing);
       expect(find.text('Preacher #1 marked as completed'), findsOneWidget, reason: 'only the one that changed');
@@ -1115,13 +1116,13 @@ void main() {
       await type(tester, 'l');
       final tick = find.byKey(const Key('completed'));
       expect(tick, findsOneWidget);
-      expect(tester.widget<IconButton>(tick).tooltip, 'Mark as completed (gC)');
+      expect(tester.widget<IconButton>(tick).tooltip, 'Mark as completed (y)');
       expect(find.text('Not started · 4 pages'), findsOneWidget);
 
       await tester.tap(tick);
       await settle(tester);
       expect(await markOf(tester, store, daredevil), isTrue);
-      expect(tester.widget<IconButton>(tick).tooltip, 'Mark as not completed (gC)');
+      expect(tester.widget<IconButton>(tick).tooltip, 'Mark as not completed (y)');
       expect(find.text('Completed'), findsOneWidget);
       expect(find.text('Not started · 4 pages'), findsNothing);
       expect(find.text('Read again'), findsOneWidget);
@@ -1140,7 +1141,7 @@ void main() {
       Finder cover(String name) => find.descendant(of: find.byKey(const Key('grid')), matching: find.text(name));
       // The first cover, selected on walking into the folder: the one after it.
       expect(selected(tester), 'Akira #1');
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(cover('Akira #1'), findsNothing);
       expect(selected(tester), 'Daredevil #181');
       // Undo brings it back and leaves the selection, as for a favourite.
@@ -1159,7 +1160,7 @@ void main() {
       // The last: the one before it, and Enter opens that one.
       await press(tester, LogicalKeyboardKey.end);
       expect(selected(tester), 'Zot #2');
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(cover('Zot #2'), findsNothing);
       expect(selected(tester), 'Swamp Thing #21');
       // The comic opens on isolates and real files, which need the real event loop.
@@ -1193,7 +1194,7 @@ void main() {
     });
 
     for (final tab in ['Books', 'Reading']) {
-      testWidgets('under Not completed the $tab tab selects the next comic after gC', (tester) async {
+      testWidgets('under Not completed the $tab tab selects the next comic after y', (tester) async {
         final store = (await tester.runAsync(shelf))!;
         final books = (await tester.runAsync(store.books))!;
         await tester.runAsync(() async {
@@ -1219,7 +1220,7 @@ void main() {
             .toList();
         expect(before, hasLength(3));
         expect(selected(tester), before.first.name);
-        await type(tester, 'gC');
+        await type(tester, 'y');
         expect(await markOf(tester, store, before.first.key), isTrue);
         expect(selected(tester), before[1].name);
         await tester.runAsync(() async {
@@ -1251,15 +1252,15 @@ void main() {
         await press(tester, LogicalKeyboardKey.home);
         await press(tester, LogicalKeyboardKey.enter);
         expect(selected(tester), 'Akira #1');
-        await type(tester, 'gF');
+        await type(tester, 'Y');
         // The filter drops the selection; select the one remaining comic.
         await press(tester, LogicalKeyboardKey.home);
         expect(selected(tester), 'Akira #1');
-        await type(tester, 'gC');
+        await type(tester, 'y');
         expect(find.byType(CoverCard), findsNothing, reason: 'other groups must not appear inside Akira');
         expect(find.text('Akira'), findsOneWidget, reason: 'the open group remains in the header');
         expect(find.text('No comics match the filter.'), findsOneWidget);
-        await type(tester, 'gF'); // Completed only: the same group returns.
+        await type(tester, 'Y'); // Completed only: the same group returns.
         final shown = tester.widgetList<CoverCard>(find.byType(CoverCard)).map((w) => (w.item as BookItem).book.name);
         expect(shown, ['Akira #1', 'Akira #2']);
       });
@@ -1282,7 +1283,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.home);
       await type(tester, 'l');
       await press(tester, LogicalKeyboardKey.enter); // B.
-      await type(tester, 'gF'); // A disappears.
+      await type(tester, 'Y'); // A disappears.
       expect(find.text('B'), findsOneWidget);
       expect(tester.widget<CoverCard>(find.byType(CoverCard)).item, isA<BookItem>());
       expect((tester.widget<CoverCard>(find.byType(CoverCard)).item as BookItem).book.key, b.key);
@@ -1356,7 +1357,7 @@ void main() {
       await type(tester, 'l');
       expect(selected(tester), 'Daredevil #181');
       await press(tester, LogicalKeyboardKey.arrowRight, shift: true);
-      await type(tester, 'gC');
+      await type(tester, 'y');
       expect(find.text('2 comics marked as not completed'), findsOneWidget);
       expect(cover('Daredevil #181'), findsNothing);
       expect(cover('Preacher #1'), findsNothing);
@@ -1668,7 +1669,7 @@ void main() {
     });
 
     for (final tab in ['History', 'Bookmarks']) {
-      testWidgets('gF filters the $tab rows by their comic and keeps the rows stored', (tester) async {
+      testWidgets('Y filters the $tab rows by their comic and keeps the rows stored', (tester) async {
         final store = (await tester.runAsync(shelf))!;
         final books = (await tester.runAsync(store.books))!;
         final done = named(books, 'Daredevil #181'), unread = named(books, 'Preacher #1');
@@ -1691,19 +1692,19 @@ void main() {
         );
         expect(row(done.name), findsOneWidget);
         expect(row(unread.name), findsOneWidget);
-        await type(tester, 'gF');
+        await type(tester, 'Y');
         expect(row(done.name), findsNothing);
         expect(row(unread.name), findsOneWidget);
-        await type(tester, 'gF');
+        await type(tester, 'Y');
         expect(row(done.name), findsOneWidget);
         expect(row(unread.name), findsNothing);
-        await type(tester, 'gF');
+        await type(tester, 'Y');
         expect(row(done.name), findsOneWidget);
         expect(row(unread.name), findsOneWidget);
         // With every recorded comic completed, Not completed hides all
         // the rows. The empty message explains the filter, and switching
         // to Completed only brings the stored rows back.
-        await type(tester, 'gF');
+        await type(tester, 'Y');
         await tester.runAsync(() => store.setCompleted(unread.key, true));
         await settle(tester);
         expect(row(done.name), findsNothing);
@@ -1712,7 +1713,7 @@ void main() {
           find.text(tab == 'History' ? 'No reading history matches the filter.' : 'No bookmarks match the filter.'),
           findsOneWidget,
         );
-        await type(tester, 'gF');
+        await type(tester, 'Y');
         expect(row(done.name), findsOneWidget);
         expect(row(unread.name), findsOneWidget);
         expect(await tester.runAsync(() => db.select(db.bookmarks).get()), hasLength(2));
@@ -1720,7 +1721,7 @@ void main() {
       });
     }
 
-    testWidgets('gF cycles the completed filter on any tab, with a notice; the funnel button and F work there too', (
+    testWidgets('Y cycles the completed filter on any tab, with a notice; the funnel button and F work there too', (
       tester,
     ) async {
       final store = (await tester.runAsync(shelf))!;
@@ -1737,9 +1738,9 @@ void main() {
       expect(find.byKey(const Key('filterBarClear')), findsNothing, reason: 'no filter');
       expect(find.byKey(const Key('sort')), findsOneWidget, reason: 'the Books tab is sorted too');
 
-      // gF: not completed first, as what is left to read is the more
+      // Y: not completed first, as what is left to read is the more
       // asked-for half.
-      await type(tester, 'gF');
+      await type(tester, 'Y');
       expect(find.text('Filter: not completed'), findsOneWidget);
       expect(cover('Daredevil #181'), findsNothing);
       expect(cover('Preacher #1'), findsOneWidget);
@@ -1753,11 +1754,11 @@ void main() {
       );
 
       // Again: completed only. And a third time: every comic, no filter.
-      await type(tester, 'gF');
+      await type(tester, 'Y');
       expect(find.text('Filter: completed only'), findsOneWidget);
       expect(cover('Daredevil #181'), findsOneWidget);
       expect(cover('Preacher #1'), findsNothing);
-      await type(tester, 'gF');
+      await type(tester, 'Y');
       expect(find.text('Filter: every comic'), findsOneWidget);
       expect(cover('Daredevil #181'), findsOneWidget);
       expect(cover('Preacher #1'), findsOneWidget);

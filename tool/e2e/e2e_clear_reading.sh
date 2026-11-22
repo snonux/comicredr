@@ -3,9 +3,9 @@
 # build, by the keyboard: a comic open for less than five minutes keeps its
 # place but stays off the Reading tab (its position saved as a peek), one
 # open for at least five minutes goes on it; a second install reads one of
-# them too. gR asks, Enter (Cancel) clears nothing, Alt+L
+# them too. E asks, Enter (Cancel) clears nothing, Alt+L
 # clears every place and completed mark, writing the clearing into the
-# sidecars; gR again only says the list is empty. The second install then
+# sidecars; E again only says the list is empty. The second install then
 # opens the comic it had read and starts it on page 1: the clearing came
 # to it in the sidecar. Checks the index and the sidecars with sqlite3 and
 # takes screenshots.
@@ -124,7 +124,7 @@ check "removal survives reopen" "$(place Alpha)" "1 peek"
 open 2; sleep 302; shot 02_bravo_five_minutes
 close
 check "five minutes on one page start it" "$(place Bravo)" "0 started"
-open 3; key g C
+open 3; key y
 close
 check "Charlie marked" "$(mark Charlie)" yes
 tab r; shot 03_reading_tab # The Reading tab: Bravo alone.
@@ -149,17 +149,17 @@ close
 check "second install: Bravo started, on page 2" "$(place Bravo)" "1 started"
 stop
 
-# 3. Back on the first: Alpha opens where the look left it. Then gR.
+# 3. Back on the first: Alpha opens where the look left it. Then E.
 home="$top/$out/home"
 start --add-root "$comics"
 tab f
 open 1
 check "Alpha reopened on its page (still a peek)" "$(place Alpha)" "1 peek"
 close
-key g R; sleep 3; shot 04_question
+key E; sleep 3; shot 04_question
 key Return
 check "Enter is Cancel: nothing cleared" "$(sql 'select count(*) from progress')" 3
-key g R
+key E
 key alt+l; sleep 2; shot 05_cleared
 check "every place gone" "$(sql 'select count(*) from progress')" 0
 check "Charlie's mark has no say" "$(mark Charlie)" undone
@@ -168,8 +168,8 @@ for name in Alpha Bravo Charlie; do
   check "$name's sidecar has it" "$(cleared_in_sidecar "$name")" 1
 done
 sleep 4
-key g R; shot 06_empty_already
-check "gR again changes nothing" "$(sql "select count(*) from overrides where field = 'readingCleared'")" 3
+key E; shot 06_empty_already
+check "E again changes nothing" "$(sql "select count(*) from overrides where field = 'readingCleared'")" 3
 stop
 
 # 4. The second install opens Bravo: the clearing came in its sidecar, so

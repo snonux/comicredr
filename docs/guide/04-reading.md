@@ -56,10 +56,10 @@ Reading on to the last page marks the comic
 [completed](03-library.md#completed-comics): its cover in the library
 gets a green check, also when several steps at once (`3l`) land there.
 Jumping there (`G`, the page grid, a bookmark) does not: a look at the
-end is no reading to it. `gC` takes the mark off
+end is no reading to it. `y` takes the mark off
 again, or puts it on a comic you are not going to read to the end here.
 It acts on the comic and page shown when you press it. For example, press
-`gC` on page 1, then jump to the last page while the library is busy:
+`y` on page 1, then jump to the last page while the library is busy:
 page 1's comic is marked completed.
 
 ## Going to a page
@@ -131,7 +131,7 @@ bigger or smaller, `=` puts the size back, and the grid remembers it. `Esc` or `
 Leafing through a comic in the grid and it turns out to be a keeper? `*`
 makes it a [favourite](03-library.md#favourites) and `gc` puts it in a
 [collection](03-library.md#collections) right there; the grid stays open.
-`gC` marks it [completed](03-library.md#completed-comics) the same way.
+`y` marks it [completed](03-library.md#completed-comics) the same way.
 
 ![The page grid](images/pages.webp)
 

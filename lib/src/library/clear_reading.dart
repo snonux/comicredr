@@ -7,7 +7,7 @@ import '../undo_notice.dart';
 import 'bulk_actions.dart' show comicsCount;
 import 'providers.dart';
 
-/// Clear the Reading list (`gR`, the library's menu; snonux, 2026-10-17):
+/// Clear the Reading list (`E`, the library's menu; snonux, 2026-10-17):
 /// after one question, every comic's reading status is forgotten, its
 /// place on this device and its completed mark (`LibraryStore.clearReading`),
 /// and its sidecar written, so the clearing travels to other devices. Says

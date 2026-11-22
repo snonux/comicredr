@@ -88,6 +88,14 @@ enum ReaderIntent {
     'Add this comic to the Favourites collection, or take it out; the selected book in the library, or every marked one',
   ),
   showFavourites('The Favourites collection in the library'),
+  // Go to a library tab from anywhere (g + the tab's capital letter); with a
+  // comic open it closes the comic first, as Esc would.
+  goReading('Go to the Reading tab of the library'),
+  goBooks('Go to the Books tab of the library'),
+  goCollections('Go to the Collections tab of the library'),
+  goHistory('Go to the History tab of the library'),
+  goFolders('Go to the Folders tab of the library'),
+  goBookmarks('Go to the Bookmarks tab of the library'),
   toggleCompleted(
     'Mark this comic completed (read to the end), or take the mark off; '
     'the selected book in the library, or every marked one',

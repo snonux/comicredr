@@ -89,6 +89,12 @@ void main() {
     ReaderIntent.undo: "the notice's Undo button",
     ReaderIntent.activate: 'a tap on a cover or a row',
     ReaderIntent.up: 'the breadcrumb and the up arrow on the Folders tab',
+    ReaderIntent.goReading: 'the library tabs (the sidebar, or the bottom tabs on a phone)',
+    ReaderIntent.goBooks: 'the library tabs',
+    ReaderIntent.goCollections: 'the library tabs',
+    ReaderIntent.goHistory: 'the library tabs',
+    ReaderIntent.goFolders: 'the library tabs',
+    ReaderIntent.goBookmarks: 'the library tabs',
   };
 
   /// Gestures of the standard preset, and what has no gesture by nature.

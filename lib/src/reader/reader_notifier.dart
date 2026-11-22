@@ -513,7 +513,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   /// book shows it), which is what the saved position calls finished.
   bool get _onLastPage => (state.unit.isEmpty ? state.page : state.unit.last) >= state.pageCount - 1;
 
-  /// `gC`: marks the book completed, or not completed when it counts as
+  /// `y`: marks the book completed, or not completed when it counts as
   /// completed (marked so, or unmarked and on its last page). Dated, so the
   /// later of two devices' changes wins when their sidecars meet. The page
   /// on screen stands in for the saved one ([LibraryBook.completed] goes by
@@ -533,7 +533,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
   }
 
   /// Completion changes to one book follow the order of the commands, so a
-  /// later gC reads the mark left by an earlier gC or last-page arrival.
+  /// later y reads the mark left by an earlier y or last-page arrival.
   Future<void> _queueCompleted(String key, Future<void> Function() change) {
     final previous = _completionTails[key];
     final write = previous == null ? change() : previous.then((_) => change());
@@ -1564,6 +1564,12 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.bookmarkList:
       case ReaderIntent.remove:
       case ReaderIntent.showFavourites:
+      case ReaderIntent.goReading:
+      case ReaderIntent.goBooks:
+      case ReaderIntent.goCollections:
+      case ReaderIntent.goHistory:
+      case ReaderIntent.goFolders:
+      case ReaderIntent.goBookmarks:
       case ReaderIntent.regionWhole:
       case ReaderIntent.regionPrevious:
       case ReaderIntent.regionUpperHalf:

@@ -126,7 +126,7 @@ class LibraryBook {
   /// removal. Null keeps older saved positions working as before.
   final bool? startedMark;
 
-  /// Marked completed by hand (`gC`, or by reaching the last page in the
+  /// Marked completed by hand (`y`, or by reaching the last page in the
   /// reader), or marked not completed; null when nobody said.
   final bool? completedMark;
 
@@ -801,7 +801,7 @@ ORDER BY r.id, f.rel_path
 
   /// The comics with a reading status: a position saved on this device
   /// (on the Reading tab, or a look of under five minutes) or a completed mark
-  /// either way. What Clear the Reading list (`gR`) clears.
+  /// either way. What Clear the Reading list (`E`) clears.
   Future<Set<String>> withReadingStatus() async => {
     for (final r in await db.select(db.progress).get()) r.contentKey,
     for (final o in await (db.select(db.overrides)..where((o) => o.field.equals(completedField))).get())

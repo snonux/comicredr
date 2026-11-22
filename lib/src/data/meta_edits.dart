@@ -186,7 +186,7 @@ class PanelImportRun {
 }
 
 /// The `field` of the overrides row that says when the comic's reading
-/// status was cleared (`gR`, Clear the Reading list): every device's
+/// status was cleared (`E`, Clear the Reading list): every device's
 /// position saved before that time no longer counts, so the comic leaves
 /// the Reading tab on every device its sidecar reaches. An overrides row,
 /// for the reasons [completedField] gives; [activeEdits] leaves it out.

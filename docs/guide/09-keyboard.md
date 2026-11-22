@@ -79,7 +79,7 @@ keep what you found and get the keys back, and then they size the text.
 | `11` `00` | Whole page in the split; leave the split | |
 | `mm` `M` | [Bookmark, bookmark list](06-bookmarks.md) | `M`: the Bookmarks tab |
 | `*` | [Favourite](03-library.md#favourites) this comic, also from the page grid or bookmark list | Favourite the selected cover, or the marked ones |
-| `gC` | Mark this comic [completed](03-library.md#completed-comics), or not completed, also from the page grid or bookmark list | The selected cover, or the marked ones |
+| `y` | Mark this comic [completed](03-library.md#completed-comics), or not completed, also from the page grid or bookmark list | The selected cover, or the marked ones |
 | `gc` | Put this comic in a [collection](03-library.md#collections), also from the page grid or bookmark list | The selected cover, or the marked ones |
 | `Shift`+arrows | As the arrows alone | [Mark a run of comics](03-library.md#several-comics-at-once) |
 | `Ctrl+A` | | Mark every comic shown |
@@ -88,9 +88,10 @@ keep what you found and get the keys back, and then they size the text.
 | `f` | [Fullscreen](04-reading.md#fullscreen) | Fullscreen |
 | `/` | | [Search](03-library.md#search) |
 | `F` | | [Filter](03-library.md#filter-the-library) the comics shown, on every tab |
-| `gF` | | The filter's Completed part in one key: not completed, completed only, every comic |
+| `Y` | | The filter's Completed part in one key: not completed, completed only, every comic |
 | `gb` | | [Mark as started or not started](03-library.md#mark-a-comic-as-started), keeping the saved page |
-| `gR` | | [Clear the Reading list](03-library.md#reading), after asking: every place and completed mark forgotten |
+| `E` | | [Clear the Reading list](03-library.md#reading), after asking: every place and completed mark forgotten |
+| `gR` `gB` `gC` `gH` `gF` `gM` | Close the comic and [go to that tab](03-library.md#go-to-a-tab-from-anywhere) | Go to Reading, Books, Collections, History, Folders, Bookmarks |
 | `g,` | [Settings](12-settings.md), over the comic | Settings |
 | `u` | Undo what the notice along the bottom offers to undo, while it shows | The same |
 | `?` | Every key (`+` `-` `=` in it: [bigger and smaller text](#bigger-and-smaller-text)) | Every key |
@@ -112,7 +113,7 @@ them all. The buttons that had no key before have one now:
 | Key | Button |
 |---|---|
 | `g,` | The gear at the top of the library: [Settings](12-settings.md). It works in a comic too, and the comic keeps its page. |
-| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections), `gC` marked one [completed](03-library.md#completed-comics) or not, or `gA` took a folder out of the library. It works wherever the notice shows, also over a comic you opened in the meantime or with the `?` help up, and only while it shows: the notice goes by itself after about ten seconds, or when another notice takes its place, and with no such notice `u` does nothing. |
+| `u` | **Undo** in the notice along the bottom, after `x` took a comic out of the [Favourites](03-library.md#favourites) or a [collection](03-library.md#collections), `y` marked one [completed](03-library.md#completed-comics) or not, or `gA` took a folder out of the library. It works wherever the notice shows, also over a comic you opened in the meantime or with the `?` help up, and only while it shows: the notice goes by itself after about ten seconds, or when another notice takes its place, and with no such notice `u` does nothing. |
 | `x` | In an open collection: takes the selected comic out of it (the **x** on its chip in the details), or all the [marked](03-library.md#several-comics-at-once) ones. |
 | `gA` | **Take out of the library** in a library folder's details: select the folder in the list of library folders first (with a single library folder, `Backspace` from the top of the Folders tab goes up to it). Its comics stay on disk, and the notice has an **Undo** (`u`) that puts the folder back. |
 | `gD` | **Download** on a comic that is [only on S3](13-s3-sync.md#on-the-other-device), or on the marked ones. |
@@ -128,7 +129,8 @@ a part of the [filter](03-library.md#filter-the-library)
 (`F`, then pick it off there), and **Note** and **Remove** on a bookmark
 in a book's details (`e` and `x` on the Bookmarks tab).
 `Tab` and `Shift+Tab` focus the [left sidebar](03-library.md#keyboard-shortcuts-in-the-sidebar),
-where the underlined `R` `S` `B` `C` `H` `F` `M` pick destinations;
+where the underlined `R` `B` `C` `H` `F` `M` pick destinations
+(`g` and the capital letter, `gR` … `gM`, go there from anywhere);
 on a phone-wide window they cycle the bottom tabs. Covers and pages use
 the arrows and `Enter`.
 

@@ -189,7 +189,7 @@ Future<bool> toggleFavourites(BuildContext context, WidgetRef ref, List<LibraryB
   return true;
 }
 
-/// `gC` on a cover or with comics marked, Completed in the marks bar, or
+/// `y` on a cover or with comics marked, Completed in the marks bar, or
 /// the tick in a comic's details: all of [books] marked completed, or,
 /// when every one counts as completed already, all marked not completed.
 /// The notice has an Undo (`u`) either way, which gives each comic back
@@ -298,7 +298,7 @@ Future<bool> toggleStarted(BuildContext context, WidgetRef ref, List<LibraryBook
   return done.length == changed.length;
 }
 
-/// What `gC` says when every comic it was asked for ([count] of them) is
+/// What `y` says when every comic it was asked for ([count] of them) is
 /// only on S3, where it marks nothing.
 String onlyOnS3Notice(int count) =>
     count == 1 ? 'Only on S3: download it first' : 'All $count comics are only on S3: download them first';
