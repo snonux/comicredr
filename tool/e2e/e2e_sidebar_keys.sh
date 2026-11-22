@@ -15,8 +15,14 @@ python3 - "$out" <<'PY'
 import sys, zipfile
 from pathlib import Path
 out = Path(sys.argv[1])
+# Two pages and three: a one-page comic counts as completed once opened,
+# which ga leaves out, and the page counts give two content keys.
 with zipfile.ZipFile(out / 'Comics/Alpha 1.cbz', 'w') as archive:
-    archive.write(out / 'pages/1.jpg', '1.jpg')
+    for n in (1, 2):
+        archive.write(out / 'pages/1.jpg', f'{n}.jpg')
+with zipfile.ZipFile(out / 'Comics/Bravo 1.cbz', 'w') as archive:
+    for n in (1, 2, 3):
+        archive.write(out / 'pages/1.jpg', f'{n}.jpg')
 PY
 [[ -n "${E2E_SKIP_BUILD:-}" ]] || flutter build linux --release
 export DISPLAY=${E2E_DISPLAY:-:97}
@@ -153,6 +159,20 @@ sleep 2
 key g shift+h
 sleep 1
 header_says go-from-reader History
+# ga: a random unread comic. Alpha was only looked at (two pages, still
+# unread) and Bravo never opened. Over Alpha, ga can only open Bravo; over
+# Bravo, only Alpha. The comic open is the first of the app's recent list.
+newest() { sqlite3 "$db" "select json_extract(value, '\$[0].path') from settings where key = 'reader.recent'"; }
+key g shift+f l Return # Folders, inside Comics: Alpha first.
+sleep 2
+[[ "$(newest)" == *Alpha* ]] || { echo "FAIL Alpha did not open: $(newest)" >&2; exit 1; }
+key g a
+sleep 2
+[[ "$(newest)" == *Bravo* ]] || { echo "FAIL ga over Alpha did not open Bravo: $(newest)" >&2; exit 1; }
+key g a
+sleep 2
+[[ "$(newest)" == *Alpha* ]] || { echo "FAIL ga over Bravo did not open Alpha: $(newest)" >&2; exit 1; }
+key Escape
 if rg -q 'Unhandled Exception|\[ERROR' "$out/app.log"; then
   echo 'FAIL errors in app log' >&2
   exit 1

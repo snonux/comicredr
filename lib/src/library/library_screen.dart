@@ -35,6 +35,7 @@ import 'library_status.dart';
 import 'library_store.dart';
 import 'move_books.dart';
 import 'providers.dart';
+import 'random_unread.dart';
 import 's3_actions.dart';
 import 'settings_dialog.dart';
 import 'shuffle.dart';
@@ -729,6 +730,7 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
         const MenuEntry(ReaderIntent.rescan, 'Rescan the library folders', Icons.refresh),
         const MenuEntry(ReaderIntent.showScanFailures, 'Comics the last scan could not read', Icons.report_outlined),
         const MenuEntry(ReaderIntent.showFavourites, 'Favourites', Icons.star_outline),
+        const MenuEntry(ReaderIntent.openRandomUnread, 'A random unread comic', Icons.casino_outlined),
         const MenuEntry(ReaderIntent.clearReading, 'Clear the Reading list…', Icons.playlist_remove),
         if (s3 && _marked.isNotEmpty) ...const [
           MenuEntry(ReaderIntent.uploadToS3, 'Upload the marked comics to S3', Icons.cloud_upload_outlined),
@@ -1090,6 +1092,23 @@ class LibraryScreenState extends ConsumerState<LibraryScreen> implements CoverSi
     }
     return true;
   }
+
+  /// `ga`: a random unread comic of the library that the filter (`F`)
+  /// lets through, not [except] (the open comic); see [pickUnread]. Null
+  /// when none is left. [randomForTests] makes the pick repeatable.
+  LibraryBook? randomUnread({String? except}) {
+    final books = ref.read(booksProvider).value ?? const <LibraryBook>[];
+    final now = DateTime.now();
+    return pickUnread(
+      books,
+      shown: (b) => !_filter.isActive || _filter.accepts(b, now),
+      except: except,
+      random: randomForTests,
+    );
+  }
+
+  @visibleForTesting
+  math.Random? randomForTests;
 
   /// `gf`, or the star in the header: the Favourites collection, open on
   /// the Collections tab, with its first comic selected.

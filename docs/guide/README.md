@@ -43,6 +43,7 @@ come back here for a key you forgot.
      [history](03-library.md#history)
    - [Search](03-library.md#search)
    - [Shuffle](03-library.md#shuffle)
+   - [A random unread comic: `ga`](03-library.md#a-random-unread-comic)
    - [Favourites](03-library.md#favourites)
    - [Completed comics](03-library.md#completed-comics)
    - [Collections](03-library.md#collections)

@@ -412,6 +412,21 @@ off, across restarts and on every tab.
 
 ![Shuffle: each comic shows a random page](images/shuffle.webp)
 
+## A random unread comic
+
+Can't decide what to read next? Press `ga` ("go to any") and a comic you
+have not read yet opens at random. Unread here means not
+[completed](#completed-comics) and not being read: a comic you only
+looked into for a moment still counts, one on the Reading tab does not.
+Press `ga` again, also while reading, for another one. The comic open
+at that moment is never picked twice in a row.
+
+The [filter](#filter-the-library) decides what can come up: with only
+PDFs and under 30 pages picked in `F`, `ga` opens a short unread PDF.
+Comics only on S3 are left out until they are downloaded. When nothing
+unread is left, a notice says so. By touch it is **A random unread
+comic** in the library's menu (⋮).
+
 ## Favourites
 
 Press `*` on a cover (or in a comic you are reading) to add it to your

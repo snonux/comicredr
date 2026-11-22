@@ -290,6 +290,19 @@ and the capital picks the tab by its letter, the same result. The rail's
 icons and the bottom tabs' tooltips name the keys through `KeyHints.tip`.
 The touch way is the tabs themselves (`test/touch_menu_test.dart`).
 
+A random unread comic, `ga` (`ReaderIntent.openRandomUnread`, "go to
+any"; snonux, 2026-11-22): `pickUnread` (`lib/src/library/random_unread.dart`)
+picks among the comics neither completed nor started (`LibraryBook.completed`,
+`LibraryBook.started`, so a peek still counts as unread; not the Unread
+collection), leaving out comics only on S3 and the open comic, through
+the library's filter, each content key once.
+`LibraryScreenState.randomUnread` feeds it the books and the filter;
+`HomeScreen._openRandomUnread` takes the key before the page grid and
+bookmark list, closes them and opens the pick in place of the open
+comic, or says "No unread comic left". The library menu has a line for
+it. `test/random_unread_test.dart`, `test/library_test.dart`,
+`tool/e2e/e2e_sidebar_keys.sh`.
+
 ## Releases
 
 A release is a `vX.Y.Z` tag on a commit whose `pubspec.yaml` says

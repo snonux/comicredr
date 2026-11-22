@@ -893,6 +893,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await reader.open(path);
   }
 
+  /// `ga`: a random unread comic ([LibraryScreenState.randomUnread]), from
+  /// the library or over the comic being read, which it takes the place of
+  /// as `C` does. The page grid and bookmark list go first, since the key
+  /// is taken before them. Nothing left: a notice.
+  Future<void> _openRandomUnread() async {
+    final reader = ref.read(readerProvider.notifier);
+    final here = ref.read(readerProvider).book;
+    final pick = _library.currentState?.randomUnread(except: here?.key);
+    if (pick == null) {
+      reader.notice('No unread comic left');
+      return;
+    }
+    if (_showPages) _setShowPages(false);
+    if (_showBookmarks) _setShowBookmarks(false);
+    if (_showParts) _setShowParts(false);
+    await reader.open(pick.path);
+  }
+
   /// At start, when the command line named no comic, folder or library
   /// folder (a comic named there wins, and a scripted start that adds a
   /// library folder stays in the library): the comic read last, at the
@@ -1152,6 +1170,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
     if (c.intent == ReaderIntent.continueReading) {
       unawaited(_continueReading());
+      return;
+    }
+    if (c.intent == ReaderIntent.openRandomUnread) {
+      unawaited(_openRandomUnread());
       return;
     }
     if (_onOpenComic(c)) return;

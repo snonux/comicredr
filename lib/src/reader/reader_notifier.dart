@@ -1570,6 +1570,7 @@ class ReaderNotifier extends Notifier<ReaderState> {
       case ReaderIntent.goHistory:
       case ReaderIntent.goFolders:
       case ReaderIntent.goBookmarks:
+      case ReaderIntent.openRandomUnread:
       case ReaderIntent.regionWhole:
       case ReaderIntent.regionPrevious:
       case ReaderIntent.regionUpperHalf:

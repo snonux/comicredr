@@ -185,6 +185,8 @@ openFile = ["o"]
 continueReading = ["C"]
 # Open a folder of page images as a book
 openFolder = ["O"]
+# Go to a random unread comic (not completed, not being read) that the library filter shows, and open it; again for another
+openRandomUnread = ["ga"]
 # Back out one level, ending at the library
 back = ["Esc"]
 # Up to the folder above in the library

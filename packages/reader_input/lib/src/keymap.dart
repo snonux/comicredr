@@ -164,6 +164,7 @@ class Keymap {
       Binding(['g', 'H'], ReaderIntent.goHistory),
       Binding(['g', 'F'], ReaderIntent.goFolders),
       Binding(['g', 'M'], ReaderIntent.goBookmarks),
+      Binding(['g', 'a'], ReaderIntent.openRandomUnread), // go to any
       Binding(['X'], ReaderIntent.resetBook),
       Binding(['e'], ReaderIntent.editBook),
       Binding(['g', 'd'], ReaderIntent.deleteBook),

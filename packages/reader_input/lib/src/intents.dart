@@ -116,6 +116,10 @@ enum ReaderIntent {
     'Continue the comic read last, where it was left, even after a restart; in a comic, the one read before it',
   ),
   openFolder('Open a folder of page images as a book'),
+  openRandomUnread(
+    'Go to a random unread comic (not completed, not being read) that the library filter shows, and open it; '
+    'again for another',
+  ),
   back('Back out one level, ending at the library'),
   up('Up to the folder above in the library'),
   activate('Open the selected book, series or folder in the library'),

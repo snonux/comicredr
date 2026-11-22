@@ -400,6 +400,36 @@ void main() {
       expect(current(tester), LibraryTab.history);
     });
 
+    testWidgets('ga opens a random unread comic, from the library and over the one open', (tester) async {
+      writeShelf(root);
+      final c = await pumpApp(tester);
+      await scan(tester, c);
+      final library = tester.state<LibraryScreenState>(find.byType(LibraryScreen));
+      Future<void> ga() => opening(tester, () async {
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyG, character: 'g');
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyA, character: 'a');
+      });
+      final opened = <String>[];
+      for (var i = 0; i < 3; i++) {
+        await ga();
+        final book = c.read(readerProvider).book;
+        expect(book, isNotNull, reason: 'ga number ${i + 1} opened a comic');
+        expect(opened, isNot(contains(book!.key)), reason: 'the open comic is never picked again at once');
+        opened.add(book.key);
+        // Read for over five minutes: it is being read now, so no longer unread.
+        c.read(readerProvider.notifier).clock = () => DateTime.now().add(const Duration(minutes: 6));
+        await opening(tester, () => c.read(readerProvider.notifier).close());
+        await opening(tester, () => c.read(readerProvider.notifier).open(book.path));
+        c.read(readerProvider.notifier).clock = DateTime.now;
+      }
+      // The fourth readable comic is the last unread one; then nothing is left.
+      expect(library.randomUnread(except: c.read(readerProvider).book?.key), isNotNull);
+      await ga();
+      final last = c.read(readerProvider).book!;
+      expect(opened, isNot(contains(last.key)));
+      expect(library.randomUnread(except: last.key), isNull);
+    });
+
     testWidgets('sidebar arrows, ends and exit keys; prefixes and pointer/search focus stay local', (tester) async {
       writeShelf(root);
       final c = await pumpApp(tester);
