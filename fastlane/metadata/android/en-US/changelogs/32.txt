@@ -1,0 +1,1 @@
+ga opens a random unread comic: one neither completed nor being read, among what the library's filter shows. Press it again, also while reading, for another. By touch: the library's menu, A random unread comic.

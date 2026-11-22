@@ -5,6 +5,12 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## 0.12.0
+
+- `ga` opens a random unread comic: one neither completed nor being
+  read, among what the library's filter shows. Press it again, also
+  while reading, for another. By touch it is in the library's menu.
+
 ## 0.11.0
 
 - Go to a library tab from anywhere: `g` and the tab's capital letter,
