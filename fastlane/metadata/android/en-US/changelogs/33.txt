@@ -1,0 +1,1 @@
+A collection of one comic now says "1 book" instead of "1 books".

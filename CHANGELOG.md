@@ -5,6 +5,10 @@ lives in `pubspec.yaml`; `make version` prints it, `comicredr --version`
 reports it, and the app shows it in the library's status line and in
 the `?` overlay.
 
+## 0.12.1
+
+- A collection of one comic says "1 book", not "1 books".
+
 ## 0.12.0
 
 - `ga` opens a random unread comic: one neither completed nor being
