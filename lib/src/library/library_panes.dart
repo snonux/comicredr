@@ -108,7 +108,7 @@ class GroupDetail extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text(group.name, style: theme.textTheme.headlineSmall),
-        Text('${group.books.length} books · ${group.read} read'),
+        Text('${bookCount(group.books.length)} · ${group.read} read'),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -147,11 +147,19 @@ class GroupDetail extends ConsumerWidget {
   );
 }
 
-/// `12 books · 3 read` for a folder's cover.
+/// `1 book`, `12 books`: a count of comics, singular for one (task xg4; the
+/// Unread collection's tile said `1 books`).
+String bookCount(int n) => '$n ${n == 1 ? 'book' : 'books'}';
+
+/// `12 books · 3 read` for a folder's cover; the read part only when some are.
 String folderCount(LibraryFolder folder) {
   final read = folder.books.where((b) => b.completed).length;
-  return '${folder.books.length} ${folder.books.length == 1 ? 'book' : 'books'}${read > 0 ? ' · $read read' : ''}';
+  return '${bookCount(folder.books.length)}${read > 0 ? ' · $read read' : ''}';
 }
+
+/// `1 book`, `12 books · 3 read` for a collection's cover, as [folderCount].
+String groupCount(LibraryGroup group) =>
+    '${bookCount(group.books.length)}${group.read > 0 ? ' · ${group.read} read' : ''}';
 
 /// A folder's page: what is in it, a way in, and for a library folder a way
 /// to take it out of the library.

@@ -123,12 +123,7 @@ class CoverCard extends StatelessWidget {
     final theme = Theme.of(context);
     final (book, title, subtitle, count) = switch (item) {
       BookItem(:final book) => (book, book.name, book.subtitle, null),
-      GroupItem(:final group) => (
-        group.next,
-        group.name,
-        '${group.books.length} books${group.read > 0 ? ' · ${group.read} read' : ''}',
-        group.books.length,
-      ),
+      GroupItem(:final group) => (group.next, group.name, groupCount(group), group.books.length),
       // A library folder can be empty (~/Comics before any comic is in it).
       FolderItem(:final folder) => (folder.books.firstOrNull, folder.name, folderCount(folder), folder.books.length),
       // Bookmarks are rows on their own tab, never covers.
